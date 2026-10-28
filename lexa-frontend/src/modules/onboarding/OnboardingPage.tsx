@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowRight, Check, ShieldCheck, Sparkles, Store } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -21,6 +21,19 @@ export default function OnboardingPage() {
   const [currency, setCurrency] = useState('UGX');
   const [timezone, setTimezone] = useState('Africa/Kampala');
   const [saving, setSaving] = useState(false);
+  const [existingWorkspace, setExistingWorkspace] = useState(false);
+
+  // If someone opens /onboarding again after completing setup, offer a way
+  // back into their saved workspace rather than forcing a duplicate setup.
+  useEffect(() => {
+    let cancelled = false;
+    void localWorkspaceRepository.list().then((items) => {
+      if (!cancelled) setExistingWorkspace(items.length > 0);
+    }).catch(() => {
+      if (!cancelled) setExistingWorkspace(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,6 +41,7 @@ export default function OnboardingPage() {
     try {
       const workspace = await localWorkspaceRepository.create({ businessName, businessType, branchName, currency, timezone });
       localStorage.setItem('lexa.ui.activeWorkspaceId', workspace.id);
+      setExistingWorkspace(true);
       toast.success('Business workspace created', { description: 'Your setup is saved on this device.' });
       navigate('/', { replace: true });
     } catch (error) {
@@ -66,6 +80,7 @@ export default function OnboardingPage() {
             <div className="form-info"><ShieldCheck size={16} /><p>This creates a local workspace only. It does not create a login, invite team members or enable cross-device sync.</p></div>
             <button className="button button-primary button-wide" type="submit" disabled={saving}>{saving ? 'Creating workspace…' : 'Create workspace'} <ArrowRight size={17} /></button>
           </form>
+          {existingWorkspace && <div className="form-stack" style={{ marginTop: 14 }}><div className="form-info"><Check size={16} /><p>A workspace is already saved in this browser. You can continue without creating another one.</p></div><button className="button button-secondary button-wide" type="button" onClick={() => navigate('/', { replace: true })}>Open saved workspace <ArrowRight size={17} /></button></div>}
           <div className="setup-footnote"><span className="status-dot" /> Saved locally in this browser</div>
         </section>
       </div>
