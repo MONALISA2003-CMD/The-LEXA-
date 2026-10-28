@@ -12,7 +12,18 @@ export const localSalesWorkflow: SalesWorkflow = {
     const saleId = createId('sale');
     let sale: Sale | undefined;
 
-    await db.transaction('rw', db.workspaces, db.branches, db.products, db.stockMovements, db.sales, db.saleLines, db.payments, db.auditEvents, async () => {
+    // Dexie supports a table array; this keeps the transaction atomic without
+    // hitting the TypeScript overload limit for many positional table args.
+    await db.transaction('rw', [
+      db.workspaces,
+      db.branches,
+      db.products,
+      db.stockMovements,
+      db.sales,
+      db.saleLines,
+      db.payments,
+      db.auditEvents,
+    ], async () => {
       const workspace = await db.workspaces.get(input.workspaceId);
       const branch = await db.branches.get(input.branchId);
       if (!workspace) throw new Error('Business workspace not found. Select a workspace and try again.');
@@ -90,7 +101,18 @@ export const localSalesWorkflow: SalesWorkflow = {
     const timestamp = nowIso();
     const returnId = createId('ret');
     let returnRecord: SaleReturn | undefined;
-    await db.transaction('rw', db.workspaces, db.branches, db.products, db.sales, db.saleLines, db.returns, db.returnLines, db.stockMovements, db.payments, db.auditEvents, async () => {
+    await db.transaction('rw', [
+      db.workspaces,
+      db.branches,
+      db.products,
+      db.sales,
+      db.saleLines,
+      db.returns,
+      db.returnLines,
+      db.stockMovements,
+      db.payments,
+      db.auditEvents,
+    ], async () => {
       const sale = await db.sales.get(input.saleId);
       const branch = await db.branches.get(input.branchId);
       if (!sale || sale.workspaceId !== input.workspaceId) throw new Error('Original sale not found in this workspace.');
