@@ -1,0 +1,94 @@
+name: LEXA ZIP Extractor
+
+on:
+  push:
+    paths:
+      - "incoming/lexa-frontend.zip"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lexa-zip-extractor-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  extract:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Extract archive safely and remove ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE="incoming/lexa-frontend.zip"
+          test -f "$ARCHIVE" || {
+            echo "::error::Missing $ARCHIVE. Upload the ZIP at this exact path."
+            exit 1
+          }
+
+          python3 - <<'PY'
+          import shutil
+          import stat
+          import zipfile
+          from pathlib import Path, PurePosixPath
+
+          archive = Path("incoming/lexa-frontend.zip")
+          root = Path.cwd().resolve()
+
+          with zipfile.ZipFile(archive) as zf:
+              entries = zf.infolist()
+              if not entries:
+                  raise SystemExit("Refusing to extract an empty ZIP.")
+
+              # Validate every entry before writing any files.
+              for entry in entries:
+                  name = entry.filename
+                  path = PurePosixPath(name)
+                  mode = entry.external_attr >> 16
+                  if not name or path.is_absolute() or "\\\\" in name:
+                      raise SystemExit(f"Unsafe archive path: {name!r}")
+                  if any(part in ("", ".", "..") for part in path.parts):
+                      raise SystemExit(f"Unsafe archive path: {name!r}")
+                  if path.parts and ":" in path.parts[0]:
+                      raise SystemExit(f"Unsafe archive path: {name!r}")
+                  if stat.S_ISLNK(mode):
+                      raise SystemExit(f"Symlinks are not accepted: {name!r}")
+                  destination = (root / Path(*path.parts)).resolve()
+                  if destination != root and root not in destination.parents:
+                      raise SystemExit(f"Archive path escapes repository: {name!r}")
+
+              # Same-path files are overwritten. Files absent from the ZIP remain.
+              for entry in entries:
+                  destination = root / Path(*PurePosixPath(entry.filename).parts)
+                  if entry.is_dir():
+                      destination.mkdir(parents=True, exist_ok=True)
+                      continue
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  with zf.open(entry, "r") as source, destination.open("wb") as target:
+                      shutil.copyfileobj(source, target)
+
+          # Remove the uploaded archive only after successful extraction.
+          archive.unlink()
+          print("Archive extracted successfully; ZIP deleted.")
+          PY
+
+      - name: Commit extracted files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No extracted changes to commit."
+            exit 0
+          fi
+          git commit -m "Extract LEXA frontend ZIP"
+          git push origin HEAD:main
