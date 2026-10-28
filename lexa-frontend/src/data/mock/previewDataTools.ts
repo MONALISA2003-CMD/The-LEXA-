@@ -61,8 +61,8 @@ export function validatePreviewWorkspaceBundle(value: unknown, definitions: Prev
   const modules: Record<string, PreviewRecord[]> = {};
   for (const definition of definitions) {
     const rows = moduleData[definition.id];
-    if (!isRecordArray(rows)) throw new Error(`The ${definition.title} export contains invalid rows.`);
-    if (new Set(rows.map((row) => row.id)).size !== rows.length) throw new Error(`The ${definition.title} export contains duplicate record IDs.`);
+    if (!isRecordArray(rows)) throw new Error(`The ${definition.id} export contains invalid rows.`);
+    if (new Set(rows.map((row) => row.id)).size !== rows.length) throw new Error(`The ${definition.id} export contains duplicate record IDs.`);
     modules[definition.id] = rows.map((row) => ({ ...row }));
   }
   return {
