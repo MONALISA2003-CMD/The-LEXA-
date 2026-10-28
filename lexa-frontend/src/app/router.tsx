@@ -21,6 +21,8 @@ export const router = createBrowserRouter([
       { path: 'checkout', lazy: async () => ({ Component: (await import('../modules/checkout/CheckoutPage')).default }) },
       { path: 'sales', lazy: async () => ({ Component: (await import('../modules/sales/SalesPage')).default }) },
       { path: 'sales/:saleId', lazy: async () => ({ Component: (await import('../modules/sales/SaleDetailPage')).default }) },
+      { path: 'modules', lazy: async () => ({ Component: (await import('../modules/operations/OperationsWorkspacePage')).default }) },
+      { path: 'modules/:moduleId', lazy: async () => ({ Component: (await import('../modules/operations/OperationsWorkspacePage')).default }) },
       { path: 'settings', lazy: async () => ({ Component: (await import('../modules/settings/SettingsPage')).default }) },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
