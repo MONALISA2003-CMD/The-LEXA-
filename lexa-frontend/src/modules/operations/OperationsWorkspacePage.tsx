@@ -224,7 +224,10 @@ function validateRecord(moduleId: string, values: FormValues, record: PreviewRec
   }
   if (moduleId === 'stock-transfers') {
     if (n('quantity') <= 0) return 'Transfer quantity must be greater than zero.';
-    if (values.fromBranch.trim().toLowerCase() === values.toBranch.trim().toLowerCase()) return 'Source and destination branches must be different.';
+    const fromBranch = (values.fromBranch ?? '').trim().toLowerCase();
+    const toBranch = (values.toBranch ?? '').trim().toLowerCase();
+    if (!fromBranch || !toBranch) return 'Enter both the source and destination branches.';
+    if (fromBranch === toBranch) return 'Source and destination branches must be different.';
   }
   return null;
 }
