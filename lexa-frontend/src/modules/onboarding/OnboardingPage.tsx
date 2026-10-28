@@ -21,19 +21,42 @@ export default function OnboardingPage() {
   const [currency, setCurrency] = useState('UGX');
   const [timezone, setTimezone] = useState('Africa/Kampala');
   const [saving, setSaving] = useState(false);
-  const [existingWorkspace, setExistingWorkspace] = useState(false);
+  const [savedWorkspaceName, setSavedWorkspaceName] = useState('');
+  const [openingSaved, setOpeningSaved] = useState(false);
 
-  // If someone opens /onboarding again after completing setup, offer a way
-  // back into their saved workspace rather than forcing a duplicate setup.
   useEffect(() => {
     let cancelled = false;
     void localWorkspaceRepository.list().then((items) => {
-      if (!cancelled) setExistingWorkspace(items.length > 0);
-    }).catch(() => {
-      if (!cancelled) setExistingWorkspace(false);
-    });
+      if (cancelled) return;
+      const activeId = localStorage.getItem('lexa.ui.activeWorkspaceId');
+      const selected = items.find((item) => item.id === activeId) ?? items[0];
+      setSavedWorkspaceName(selected?.businessName ?? '');
+    }).catch(() => { /* A fresh browser can legitimately have no saved workspace. */ });
     return () => { cancelled = true; };
   }, []);
+
+  async function openSavedWorkspace() {
+    setOpeningSaved(true);
+    try {
+      const items = await localWorkspaceRepository.list();
+      const activeId = localStorage.getItem('lexa.ui.activeWorkspaceId');
+      const workspace = items.find((item) => item.id === activeId) ?? items[0];
+      if (!workspace) throw new Error('No saved workspace was found in this browser. Create a workspace below.');
+      let branches = await localWorkspaceRepository.listBranches(workspace.id);
+      if (!branches.length) {
+        const repairedBranch = await localWorkspaceRepository.createBranch({ workspaceId: workspace.id, name: 'Main branch' });
+        branches = [repairedBranch];
+      }
+      localStorage.setItem('lexa.ui.activeWorkspaceId', workspace.id);
+      localStorage.setItem('lexa.ui.activeBranchId', branches[0]!.id);
+      toast.success('Opening saved workspace', { description: workspace.businessName });
+      navigate('/', { replace: true });
+    } catch (error) {
+      toast.error('Could not open the saved workspace', { description: error instanceof Error ? error.message : 'Try creating a new workspace below.' });
+    } finally {
+      setOpeningSaved(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,7 +64,6 @@ export default function OnboardingPage() {
     try {
       const workspace = await localWorkspaceRepository.create({ businessName, businessType, branchName, currency, timezone });
       localStorage.setItem('lexa.ui.activeWorkspaceId', workspace.id);
-      setExistingWorkspace(true);
       toast.success('Business workspace created', { description: 'Your setup is saved on this device.' });
       navigate('/', { replace: true });
     } catch (error) {
@@ -69,6 +91,7 @@ export default function OnboardingPage() {
         <section className="setup-card">
           <div className="setup-card-icon"><Store size={21} /></div>
           <div className="setup-card-heading"><h2>Business details</h2><p>You can update these settings later.</p></div>
+          {savedWorkspaceName && <div className="saved-workspace-recovery"><div><strong>Workspace already saved</strong><span>{savedWorkspaceName}</span></div><button type="button" className="button button-secondary button-wide" onClick={() => void openSavedWorkspace()} disabled={openingSaved}>{openingSaved ? 'Opening workspace…' : 'Open saved workspace'} <ArrowRight size={16} /></button></div>}
           <form onSubmit={handleSubmit} className="form-stack">
             <label className="field-label">Business name <span className="required-mark">*</span><input autoFocus required maxLength={100} value={businessName} onChange={(event) => setBusinessName(event.target.value)} placeholder="e.g. Amaal Traders" /></label>
             <label className="field-label">Business type <select value={businessType} onChange={(event) => setBusinessType(event.target.value)}>{businessTypes.map((type) => <option value={type.value} key={type.value}>{type.label}</option>)}</select></label>
@@ -80,7 +103,6 @@ export default function OnboardingPage() {
             <div className="form-info"><ShieldCheck size={16} /><p>This creates a local workspace only. It does not create a login, invite team members or enable cross-device sync.</p></div>
             <button className="button button-primary button-wide" type="submit" disabled={saving}>{saving ? 'Creating workspace…' : 'Create workspace'} <ArrowRight size={17} /></button>
           </form>
-          {existingWorkspace && <div className="form-stack" style={{ marginTop: 14 }}><div className="form-info"><Check size={16} /><p>A workspace is already saved in this browser. You can continue without creating another one.</p></div><button className="button button-secondary button-wide" type="button" onClick={() => navigate('/', { replace: true })}>Open saved workspace <ArrowRight size={17} /></button></div>}
           <div className="setup-footnote"><span className="status-dot" /> Saved locally in this browser</div>
         </section>
       </div>

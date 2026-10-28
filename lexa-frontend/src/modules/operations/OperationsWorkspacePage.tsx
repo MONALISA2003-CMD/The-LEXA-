@@ -1,30 +1,31 @@
-import { useEffect, useMemo, useState, type FormEvent, type HTMLInputTypeAttribute } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type HTMLInputTypeAttribute } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import {
   Activity, ArrowRight, BadgeCheck, BarChart3, Boxes, CalendarDays, Check, ChevronDown, CircleAlert,
-  CircleDollarSign, Download, Filter, Plus, RefreshCw, Search, ShieldAlert, X, Eye, Edit3, ArrowUpRight,
+  CircleDollarSign, Download, Filter, Plus, RefreshCw, Search, ShieldAlert, X, Eye, Edit3, ArrowUpRight, FileJson, Upload, DatabaseBackup,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import {
-  EXISTING_MODULE_LINKS, PHASE_TWO_LINKS,
+  EXISTING_MODULE_LINKS, MODULE_CATALOG, PHASE_TWO_LINKS,
   getModuleDefinition, type ModuleDefinition, type ModuleField, type PreviewRecord,
 } from './moduleCatalog';
+import { calculateRecord, nextStatus, safeNumber, validateRecord, type FormValues } from './previewRules';
+import { usePreviewDataService } from '../../data/providers/PreviewDataServiceProvider';
+import type { PreviewScope } from '../../data/contracts/previewData';
+import { filterPreviewRecords, paginatePreviewRecords } from './previewSelectors';
+import { getPreviewDateRange, loadPreviewReportSnapshot, REPORT_NAMES, REPORT_PERIODS, type PreviewReportName, type PreviewReportUnit, type ReportPeriod } from '../../data/mock/previewReports';
+import DocumentLineItemsEditor from './DocumentLineItemsEditor';
+import { getDocumentLineConfig, readDocumentLines, syncDocumentLines, validateDocumentLines } from './documentLines';
+import { journalTotals, readAssemblyComponents, readJournalLines, syncAssemblyComponents, syncJournalLines, validateAssemblyComponents, validateJournalLines } from './structuredEntries';
+import { AssemblyComponentsEditor, JournalLinesEditor } from './StructuredEntryEditors';
+import { exportPreviewWorkspace, importPreviewWorkspace, resetPreviewWorkspace } from '../../data/mock/previewDataTools';
 
-const STORAGE_PREFIX = 'lexa.phase2.preview.v1';
 const CLOSED_STATES = ['Paid', 'Received', 'Reconciled', 'Posted', 'Active', 'Accepted', 'Accepted externally', 'Completed', 'Delivered', 'Approved', 'Disposed', 'Reviewed'];
-const ATTENTION_STATES = ['Draft', 'Pending', 'Overdue', 'Disputed', 'Needs review', 'Rejected externally', 'Needs inspection', 'On hold', 'Invited', 'Reconciliation needed', 'Requested', 'In transit', 'Partially received', 'Ready for integration', 'Review', 'Late', 'Delivery failed', 'Restricted', 'Matching', 'Reopened'];
+const ATTENTION_STATES = ['Draft', 'Pending', 'Overdue', 'Disputed', 'Needs review', 'Rejected externally', 'Needs inspection', 'On hold', 'Invited', 'Reconciliation needed', 'Requested', 'In transit', 'Partially received', 'Ready for integration', 'Review', 'Late', 'Delivery failed', 'Restricted', 'Matching', 'Reopened', 'Error', 'Not connected', 'Configuration needed', 'Needs attention', 'Failed', 'Short pick', 'Exception', 'Expired', 'Quarantined', 'Rejected', 'Blocked', 'Variance review', 'Review needed', 'Missing mapping'];
 
-type FormValues = Record<string, string>;
 
-function safeNumber(value: string | undefined): number {
-  const parsed = Number(String(value ?? '').replace(/,/g, '').trim());
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-function effectiveTaxRate(values: FormValues): number {
-  if (['Zero-rated', 'Exempt', 'Outside scope'].includes(values.taxTreatment ?? '')) return 0;
-  return Math.max(0, safeNumber(values.taxRate));
-}
 function money(value: number, currency: string): string {
   try { return new Intl.NumberFormat('en-UG', { style: 'currency', currency, maximumFractionDigits: currency === 'UGX' ? 0 : 2 }).format(value); }
   catch { return currency + ' ' + Math.round(value).toLocaleString(); }
@@ -41,20 +42,9 @@ function dateInputValue(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
-function keyFor(workspaceId: string, branchId: string, moduleId: string): string {
-  return [STORAGE_PREFIX, workspaceId, branchId, moduleId].join(':');
-}
-function readRows(storageKey: string, initial: PreviewRecord[]): PreviewRecord[] {
-  try {
-    const raw = localStorage.getItem(storageKey);
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.every((row) => row && typeof row.id === 'string' && typeof row.status === 'string')) return parsed as PreviewRecord[];
-    }
-  } catch { /* A blocked or corrupt preview cache falls back to clean sample records. */ }
-  return initial.map((row) => ({ ...row }));
-}
 const REFERENCE_FIELDS: Record<string, string> = {
+  leads: 'leadCode', 'cash-sessions': 'sessionNumber', boms: 'bomCode', 'job-cards': 'jobCardNumber', leave: 'leaveRequestNumber', replenishment: 'replenishmentNumber', packages: 'packageNumber', timesheets: 'timesheetNumber',
+  contacts: 'contactCode', campaigns: 'campaignCode', 'sales-teams': 'salespersonCode', 'item-bundles': 'bundleCode', picklists: 'picklistNumber', 'cost-centers': 'costCenterCode', budgets: 'budgetCode', integrations: 'integrationCode', 'recurring-invoices': 'scheduleCode',
   customers: 'customerCode', suppliers: 'supplierCode', quotations: 'quoteNumber', 'sales-orders': 'orderNumber',
   'sales-invoices': 'invoiceNumber', purchases: 'poNumber', 'purchase-invoices': 'billNumber', receiving: 'receiptNumber',
   expenses: 'expenseNumber', payments: 'paymentNumber', accounting: 'journalNumber', assets: 'assetCode',
@@ -64,6 +54,8 @@ const REFERENCE_FIELDS: Record<string, string> = {
   'purchase-requests': 'requestNumber', rfqs: 'rfqNumber', 'supplier-quotes': 'quoteNumber',
 };
 const REFERENCE_PREFIXES: Record<string, string> = {
+  leads: 'LEAD', 'cash-sessions': 'POS', boms: 'BOM', 'job-cards': 'JOB', leave: 'LR', replenishment: 'REPL', packages: 'PKG', timesheets: 'TIME',
+  contacts: 'CON', campaigns: 'CMP', 'sales-teams': 'REP', 'item-bundles': 'BND', picklists: 'PICK', 'cost-centers': 'CC', budgets: 'BUD', integrations: 'INT', 'recurring-invoices': 'RECINV',
   customers: 'CUS', suppliers: 'SUP', quotations: 'QUO', 'sales-orders': 'SO', 'sales-invoices': 'INV',
   purchases: 'PO', 'purchase-invoices': 'BILL', receiving: 'GRN', expenses: 'EXP', payments: 'PAY',
   accounting: 'JRN', assets: 'AST', 'tax-documents': 'TAX', 'stock-counts': 'CNT', 'stock-transfers': 'TRF',
@@ -83,13 +75,29 @@ function initialValues(module: ModuleDefinition): FormValues {
   const result: FormValues = {};
   for (const field of module.fields) {
     if (field.kind === 'select') result[field.key] = field.options?.[0] ?? '';
-    else if (field.kind === 'date' && (field.key === module.dateKey || field.key.toLowerCase().includes('date'))) result[field.key] = today;
+    else if (field.kind === 'date' && field.required !== false && (field.key === module.dateKey || field.key.toLowerCase().includes('date'))) result[field.key] = today;
     else result[field.key] = '';
   }
+  if (module.id === 'leads') { result.probability = '10'; result.estimatedValue = '0'; }
+  if (module.id === 'cash-sessions') { result.openingFloat = '0'; result.cashSales = '0'; result.cashRefunds = '0'; result.cashDrops = '0'; result.countedCash = '0'; }
+  if (module.id === 'boms') { result.outputQuantity = '1'; result.unitMaterialCost = '0'; }
+  if (module.id === 'job-cards') { result.plannedHours = '1'; result.actualHours = '0'; }
+  if (module.id === 'leave') result.daysRequested = '1';
+  if (module.id === 'replenishment') { result.onHand = '0'; result.reorderPoint = '10'; result.averageDailyDemand = '1'; result.leadTimeDays = '7'; result.safetyStock = '5'; }
+  if (module.id === 'packages') { result.packageCount = '1'; result.weightKg = '0'; result.courier = 'Own fleet'; }
+  if (module.id === 'timesheets') { result.hours = '1'; result.billableHours = '0'; result.hourlyRate = '0'; }
+  if (module.id === 'campaigns') { result.budget = '0'; result.actualSpend = '0'; result.leadsGenerated = '0'; result.opportunitiesCreated = '0'; }
+  if (module.id === 'sales-teams') { result.salesTarget = '0'; result.salesAchieved = '0'; result.commissionRate = '0'; }
+  if (module.id === 'item-bundles') { result.componentCount = '1'; result.unitCost = '0'; result.sellingPrice = '0'; }
+  if (module.id === 'picklists') { result.lineCount = '1'; result.unitsToPick = '1'; result.unitsPicked = '0'; }
+  if (module.id === 'budgets') { result.budgetAmount = '0'; result.actualAmount = '0'; result.committedAmount = '0'; result.forecastAmount = '0'; }
+  if (module.id === 'integrations') { result.recordsProcessed = '0'; result.environment = 'Development'; }
+  if (module.id === 'recurring-invoices') { result.taxRate = '18'; result.quantity = '1'; result.unitPrice = '0'; result.taxTreatment = 'Standard rated'; }
   if (['quotations', 'sales-orders'].includes(module.id)) { result.discountPercent = '0'; result.taxRate = '18'; result.quantity = '1'; }
   if (['sales-invoices', 'purchases', 'purchase-invoices'].includes(module.id)) { result.taxRate = '18'; result.quantity = '1'; result.amountPaid = '0'; }
   if (module.id === 'sales-invoices') result.amountReceived = '0';
   if (module.id === 'expenses') { result.taxRate = '0'; result.amount = '0'; }
+  if (['sales-returns', 'purchase-returns'].includes(module.id)) { result.taxRate = '18'; result.quantity = '1'; }
   if (module.id === 'tax-documents') result.taxRate = '18';
   if (module.id === 'assets') { result.residualValue = '0'; result.accumulatedDepreciation = '0'; result.usefulLifeYears = '5'; }
   if (module.id === 'receiving') { result.orderedQuantity = '1'; result.acceptedQuantity = '1'; result.rejectedQuantity = '0'; }
@@ -104,169 +112,15 @@ function initialValues(module: ModuleDefinition): FormValues {
 function valuesFromRecord(module: ModuleDefinition, record: PreviewRecord): FormValues {
   const result: FormValues = {};
   module.fields.forEach((field) => { result[field.key] = record[field.key] ?? (field.kind === 'select' ? field.options?.[0] ?? '' : ''); });
-  return result;
-}
-function calculateRecord(moduleId: string, values: FormValues, existingId?: string): PreviewRecord {
-  const result: PreviewRecord = {
-    id: existingId ?? ('PRE-' + moduleId.slice(0, 3).toUpperCase() + '-' + Date.now().toString().slice(-7)),
-    updatedAt: new Date().toISOString(),
-    status: values.status || 'Draft',
-    ...values,
-  };
-  const n = (key: string) => safeNumber(values[key]);
-  if (moduleId === 'customers') result.outstandingBalance = String(n('openingBalance'));
-  if (moduleId === 'suppliers') result.outstandingPayable = String(n('openingPayable'));
-  if (['quotations', 'sales-orders', 'sales-invoices', 'purchases', 'purchase-invoices', 'supplier-quotes'].includes(moduleId)) {
-    const isPurchase = moduleId === 'purchases' || moduleId === 'purchase-invoices' || moduleId === 'supplier-quotes';
-    const supportsDiscount = moduleId === 'quotations' || moduleId === 'sales-orders';
-    const quantity = Math.max(0, n('quantity'));
-    const unitPrice = Math.max(0, n(isPurchase ? 'unitCost' : 'unitPrice'));
-    const subtotal = quantity * unitPrice;
-    const discountAmount = supportsDiscount ? subtotal * Math.max(0, n('discountPercent')) / 100 : 0;
-    const taxAmount = Math.max(0, subtotal - discountAmount) * effectiveTaxRate(values) / 100;
-    const total = Math.max(0, subtotal - discountAmount + taxAmount);
-    result.subtotal = String(Math.round(subtotal * 100) / 100);
-    result.discountAmount = String(Math.round(discountAmount * 100) / 100);
-    result.taxAmount = String(Math.round(taxAmount * 100) / 100);
-    result.total = String(Math.round(total * 100) / 100);
-    if (moduleId === 'purchases' || moduleId === 'purchase-invoices') result.amountDue = String(Math.max(0, Math.round((total - n('amountPaid')) * 100) / 100));
-    if (moduleId === 'sales-invoices') result.amountDue = String(Math.max(0, Math.round((total - n('amountReceived')) * 100) / 100));
-  }
-  if (moduleId === 'expenses') {
-    const taxAmount = Math.max(0, n('amount')) * effectiveTaxRate(values) / 100;
-    result.taxAmount = String(Math.round(taxAmount * 100) / 100);
-    result.total = String(Math.round((n('amount') + taxAmount) * 100) / 100);
-  }
-  if (moduleId === 'stock-counts') result.variance = String(Math.round((n('countedQuantity') - n('expectedQuantity')) * 100) / 100);
-  if (moduleId === 'tax-documents') result.taxAmount = String(Math.round((n('taxableAmount') * effectiveTaxRate(values) / 100) * 100) / 100);
-  if (moduleId === 'bank-reconciliation') result.difference = String(Math.round((n('statementBalance') - n('bookBalance')) * 100) / 100);
-  if (moduleId === 'payroll') result.netPay = String(Math.round(Math.max(0, n('grossPay') - n('deductions')) * 100) / 100);
-  if (moduleId === 'attendance') {
-    const toMinutes = (value: string) => { const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim()); return match ? Number(match[1]) * 60 + Number(match[2]) : Number.NaN; };
-    const start = toMinutes(values.clockIn ?? ''); const end = toMinutes(values.clockOut ?? '');
-    const minutes = Number.isFinite(start) && Number.isFinite(end) && end > start ? Math.max(0, end - start - Math.max(0, n('breakMinutes'))) : 0;
-    result.workedHours = String(Math.round((minutes / 60) * 100) / 100);
-  }
-  if (moduleId === 'assets') {
-    const cost = Math.max(0, n('cost'));
-    const residual = Math.max(0, n('residualValue'));
-    const life = Math.max(0, n('usefulLifeYears'));
-    const accumulated = Math.max(0, n('accumulatedDepreciation'));
-    result.annualDepreciation = life > 0 ? String(Math.round((Math.max(0, cost - residual) / life) * 100) / 100) : '0';
-    result.carryingValue = String(Math.max(residual, cost - accumulated));
-  }
-  return result;
-}
-function validateRecord(moduleId: string, values: FormValues, record: PreviewRecord): string | null {
-  const n = (key: string) => safeNumber(values[key]);
-  if (['quotations', 'sales-orders', 'sales-invoices'].includes(moduleId)) {
-    if (n('quantity') <= 0 || n('unitPrice') < 0) return 'Enter a quantity above zero and a valid unit price.';
-    if (n('taxRate') < 0 || n('taxRate') > 100) return 'Tax rate must be between 0 and 100% for this preview.';
-    if (moduleId === 'quotations' && values.validUntil && values.issueDate && values.validUntil < values.issueDate) return 'The validity date cannot be earlier than the issue date.';
-    if (moduleId === 'sales-orders' && values.expectedDate && values.orderDate && values.expectedDate < values.orderDate) return 'Expected delivery cannot be earlier than the order date.';
-    if (moduleId === 'sales-invoices' && values.dueDate && values.issueDate && values.dueDate < values.issueDate) return 'Invoice due date cannot be earlier than the issue date.';
-    if (['quotations', 'sales-orders'].includes(moduleId) && n('discountPercent') > 100) return 'Discount cannot exceed 100%.';
-    if (moduleId === 'sales-invoices' && n('amountReceived') > safeNumber(record.total)) return 'Amount received cannot be greater than the calculated invoice total.';
-  }
-  if (['purchases', 'purchase-invoices', 'supplier-quotes'].includes(moduleId)) {
-    if (n('quantity') <= 0) return 'Quantity ordered / billed must be above zero.';
-    if (n('taxRate') < 0 || n('taxRate') > 100) return 'Tax rate must be between 0 and 100% for this preview.';
-    if (n('amountPaid') > safeNumber(record.total)) return 'The amount paid cannot be greater than the calculated purchase total.';
-    if (moduleId === 'purchase-invoices' && values.dueDate && values.billDate && values.dueDate < values.billDate) return 'Supplier invoice due date cannot be earlier than the bill date.';
-    if (moduleId === 'supplier-quotes' && values.validUntil && values.quoteDate && values.validUntil < values.quoteDate) return 'Quote validity cannot end before the quote date.';
-  }
-  if (moduleId === 'expenses' && n('amount') <= 0) return 'Expense amount must be greater than zero.';
-  if (moduleId === 'payroll' && n('employeeCount') <= 0) return 'Include at least one employee in a payroll run preview.';
-  if (moduleId === 'tax-codes') {
-    if (n('ratePercent') < 0 || n('ratePercent') > 100) return 'Tax rate must be between 0 and 100% in this preview.';
-    if (values.effectiveTo && values.effectiveFrom && values.effectiveTo < values.effectiveFrom) return 'Tax-code end date cannot be earlier than its effective start date.';
-    if (values.treatment === 'Zero-rated' || values.treatment === 'Exempt' || values.treatment === 'Outside scope') { if (n('ratePercent') !== 0) return 'Zero-rated, exempt and outside-scope preview codes must have a zero rate.'; }
-  }
-  if (moduleId === 'bank-reconciliation') {
-    if ([n('statementLineCount'), n('matchedCount'), n('unmatchedCount')].some((count) => count < 0 || !Number.isInteger(count))) return 'Statement and match counts must be whole numbers of zero or more.';
-    if (n('matchedCount') + n('unmatchedCount') > n('statementLineCount')) return 'Matched and unmatched lines cannot exceed the statement line count.';
-  }
-  if (moduleId === 'price-lists') {
-    if (n('sellingPrice') < 0 || n('basePrice') < 0) return 'Prices cannot be negative.';
-    if (n('discountPercent') < 0 || n('discountPercent') > 100) return 'Discount must be between 0 and 100%.';
-    if (values.validUntil && values.validFrom && values.validUntil < values.validFrom) return 'The end date cannot be earlier than the start date.';
-  }
-  if (moduleId === 'deliveries' && values.expectedDate && values.dispatchDate && values.expectedDate < values.dispatchDate) return 'Expected arrival cannot be earlier than the dispatch date.';
-  if (moduleId === 'payroll') {
-    if (n('employeeCount') < 0 || !Number.isInteger(n('employeeCount'))) return 'Employee count must be a whole number of zero or more.';
-    if (n('grossPay') < 0 || n('deductions') < 0) return 'Gross pay and deductions cannot be negative.';
-    if (n('deductions') > n('grossPay')) return 'Deductions cannot exceed gross pay in this simple preview calculation.';
-    if (values.periodStart && values.periodEnd && values.periodEnd < values.periodStart) return 'Payroll period end cannot be before the start date.';
-  }
-  if (moduleId === 'attendance') {
-    const validTime = (value: string) => /^(?:[01]?\d|2[0-3]):[0-5]\d$/.test(value.trim());
-    if (!validTime(values.clockIn ?? '') || !validTime(values.clockOut ?? '')) return 'Enter clock-in and clock-out in 24-hour HH:MM format.';
-    const clockMinutes = (value: string) => { const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim()); return match ? Number(match[1]) * 60 + Number(match[2]) : Number.NaN; };
-    const clockIn = clockMinutes(values.clockIn ?? ''); const clockOut = clockMinutes(values.clockOut ?? '');
-    if (clockOut <= clockIn) return 'Clock-out must be later than clock-in. Overnight shifts need a future overnight-shift rule.';
-    if (n('breakMinutes') < 0 || n('breakMinutes') >= clockOut - clockIn) return 'Break duration must be shorter than the recorded shift.';
-  }
-  if (moduleId === 'tax-documents' && (n('taxableAmount') < 0 || n('taxRate') < 0 || n('taxRate') > 100)) return 'Enter a non-negative taxable amount and a tax rate between 0 and 100%.';
-  if (moduleId === 'stock-counts' && (n('expectedQuantity') < 0 || n('countedQuantity') < 0)) return 'System and counted quantities cannot be negative.';
-  if (moduleId === 'payments' && n('amount') <= 0) return 'Payment amount must be greater than zero.';
-  if (moduleId === 'accounting') {
-    if (n('amount') <= 0) return 'Journal amount must be greater than zero.';
-    if (values.debitAccount === values.creditAccount) return 'Choose different debit and credit accounts.';
-  }
-  if (moduleId === 'assets') {
-    if (n('usefulLifeYears') <= 0) return 'Useful life must be at least one year.';
-    if (n('residualValue') > n('cost')) return 'Residual value cannot exceed acquisition cost.';
-    if (n('accumulatedDepreciation') > n('cost')) return 'Accumulated depreciation cannot exceed acquisition cost.';
-  }
-  if (moduleId === 'receiving') {
-    if (n('acceptedQuantity') < 0 || n('rejectedQuantity') < 0 || n('acceptedQuantity') + n('rejectedQuantity') <= 0) return 'Enter a positive accepted or rejected quantity.';
-    if (n('acceptedQuantity') + n('rejectedQuantity') > n('orderedQuantity')) return 'Accepted and rejected quantities cannot exceed the ordered quantity on this receipt.';
-  }
-  if (moduleId === 'stock-transfers') {
-    if (n('quantity') <= 0) return 'Transfer quantity must be greater than zero.';
-    const fromBranch = (values.fromBranch ?? '').trim().toLowerCase();
-    const toBranch = (values.toBranch ?? '').trim().toLowerCase();
-    if (!fromBranch || !toBranch) return 'Enter both the source and destination branches.';
-    if (fromBranch === toBranch) return 'Source and destination branches must be different.';
-  }
-  return null;
+  let normalized = result;
+  if (module.id === 'accounting') normalized = syncJournalLines(normalized, readJournalLines(normalized));
+  if (module.id === 'boms' || module.id === 'item-bundles') normalized = syncAssemblyComponents(module.id, normalized, readAssemblyComponents(module.id, normalized));
+  const lineConfig = getDocumentLineConfig(module.id);
+  return lineConfig ? syncDocumentLines(module.id, normalized, readDocumentLines(module.id, normalized)) : normalized;
 }
 function fieldType(field: ModuleField): HTMLInputTypeAttribute {
   if (field.kind === 'email' || field.kind === 'tel' || field.kind === 'date' || field.kind === 'number') return field.kind;
   return 'text';
-}
-function nextStatus(moduleId: string, current: string): string | undefined {
-  const transitions: Record<string, Record<string, string>> = {
-    customers: { Active: 'On hold', 'On hold': 'Inactive' },
-    'price-lists': { Draft: 'Review', Review: 'Active', Active: 'Expired' },
-    'purchase-requests': { Draft: 'Submitted', Submitted: 'Under review', 'Under review': 'Approved', Approved: 'Converted' },
-    rfqs: { Draft: 'Sent', Sent: 'Responses received', 'Responses received': 'Evaluated', Evaluated: 'Awarded' },
-    'supplier-quotes': { Draft: 'Received', Received: 'Under review', 'Under review': 'Accepted' },
-    'chart-of-accounts': { Draft: 'Active', Active: 'Blocked' },
-    'tax-codes': { Draft: 'Active', Active: 'Expired' },
-    'bank-reconciliation': { Draft: 'Matching', Matching: 'Needs review', 'Needs review': 'Reconciled', Reopened: 'Matching' },
-    deliveries: { Draft: 'Picking', Picking: 'Packed', Packed: 'Dispatched', Dispatched: 'In transit', 'In transit': 'Delivered' },
-    warehouses: { Active: 'Restricted', Restricted: 'Under maintenance', 'Under maintenance': 'Active' },
-    employees: { Active: 'On leave', 'On leave': 'Suspended', Suspended: 'Exited' },
-    attendance: { Pending: 'Reviewed', Reviewed: 'Approved' },
-    payroll: { Draft: 'Review', Review: 'Approved', Approved: 'Payment prepared', 'Payment prepared': 'Paid' },
-    suppliers: { Active: 'On hold', 'On hold': 'Inactive' },
-    quotations: { Draft: 'Sent', Sent: 'Accepted' },
-    'sales-orders': { Draft: 'Confirmed', Confirmed: 'Partially fulfilled', 'Partially fulfilled': 'Fulfilled', Fulfilled: 'Invoiced' },
-    'sales-invoices': { Draft: 'Issued', Issued: 'Partially paid', 'Partially paid': 'Paid' },
-    purchases: { Draft: 'Ordered', Ordered: 'Partially received', 'Partially received': 'Received' },
-    'purchase-invoices': { Draft: 'Received', Received: 'Approved', Approved: 'Partially paid', 'Partially paid': 'Paid' },
-    receiving: { Draft: 'Needs inspection', 'Needs inspection': 'Received' },
-    'stock-counts': { Draft: 'Counted', Counted: 'Needs review', 'Needs review': 'Approved', Approved: 'Posted' },
-    'tax-documents': { Draft: 'Ready for integration' },
-    expenses: { Draft: 'Approved', Approved: 'Paid' },
-    payments: { Pending: 'Recorded', Recorded: 'Reconciled' },
-    accounting: { Draft: 'Posted' },
-    assets: { Active: 'Under maintenance', 'Under maintenance': 'Disposed' },
-    'stock-transfers': { Draft: 'Requested', Requested: 'In transit', 'In transit': 'Received' },
-    team: { Invited: 'Active', Active: 'Suspended' },
-  };
-  return transitions[moduleId]?.[current];
 }
 function cellValue(record: PreviewRecord, key: string, kind: string | undefined, currency: string): string {
   const raw = record[key] ?? '';
@@ -304,19 +158,75 @@ export default function OperationsWorkspacePage() {
 }
 
 function ModuleDirectoryPage() {
+  const { workspace, branch } = useWorkspace();
+  const previewDataService = usePreviewDataService();
+  const queryClient = useQueryClient();
+  const importInput = useRef<HTMLInputElement | null>(null);
   const [search, setSearch] = useState('');
+  const [dataToolsBusy, setDataToolsBusy] = useState(false);
+  const previewScope: PreviewScope = { workspaceId: workspace.id, branchId: branch.id };
+  const previewDefinitions = MODULE_CATALOG.map((module) => ({ id: module.id, initial: module.initial }));
   const groupedLinks = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const combined = [...EXISTING_MODULE_LINKS, ...PHASE_TWO_LINKS].filter((item) => !needle || (item.title + ' ' + item.description + ' ' + item.group).toLowerCase().includes(needle));
-    const groups = ['WORKSPACE', 'SELLING', 'INVENTORY', 'LOGISTICS', 'PROCUREMENT', 'FINANCE', 'PEOPLE & PAYROLL', 'INSIGHTS', 'ADMINISTRATION'];
+    const groups = ['WORKSPACE', 'CRM', 'SELLING', 'INVENTORY', 'LOGISTICS', 'PROCUREMENT', 'MANUFACTURING', 'FINANCE', 'PEOPLE & PAYROLL', 'INSIGHTS', 'ADMINISTRATION'];
     return groups.map((group) => ({ group, items: combined.filter((item) => item.group === group) })).filter((group) => group.items.length > 0);
   }, [search]);
   const visibleModuleCount = groupedLinks.reduce((count, group) => count + group.items.length, 0);
+
+  async function exportPreviewData() {
+    setDataToolsBusy(true);
+    try {
+      const bundle = await exportPreviewWorkspace(previewDataService, previewScope, previewDefinitions);
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `lexa-preview-${workspace.id}-${branch.id}.json`;
+      document.body.appendChild(anchor); anchor.click(); anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success('Preview workspace exported', { description: `${Object.keys(bundle.modules).length} modules, ${Object.values(bundle.modules).reduce((sum, rows) => sum + rows.length, 0)} records. Core records and backend data are not included.` });
+    } catch (error) { toast.error('Could not export preview workspace', { description: error instanceof Error ? error.message : 'Try again.' }); }
+    finally { setDataToolsBusy(false); }
+  }
+
+  async function importPreviewData(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+    setDataToolsBusy(true);
+    try {
+      const content = await file.text();
+      const bundle: unknown = JSON.parse(content);
+      const result = await importPreviewWorkspace(previewDataService, previewScope, bundle, previewDefinitions);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['phase-preview', workspace.id, branch.id] }),
+        queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] }),
+      ]);
+      toast.success('Preview workspace imported', { description: `${result.importedRecords} preview records restored across ${result.moduleCount} modules. Source scope ${result.sourceScope.workspaceId}/${result.sourceScope.branchId} was mapped into the currently active preview scope.` });
+    } catch (error) { toast.error('Could not import preview workspace', { description: error instanceof Error ? error.message : 'Choose a valid LEXA preview JSON export.' }); }
+    finally { setDataToolsBusy(false); if (importInput.current) importInput.current.value = ''; }
+  }
+
+  async function resetAllPreviewData() {
+    if (!window.confirm(`Reset all ${MODULE_CATALOG.length} Phase 2 preview modules for ${workspace.businessName} / ${branch.name}? This affects only mock preview records, not core products, sales, inventory, or your backend.`)) return;
+    setDataToolsBusy(true);
+    try {
+      const result = await resetPreviewWorkspace(previewDataService, previewScope, previewDefinitions);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['phase-preview', workspace.id, branch.id] }),
+        queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] }),
+      ]);
+      toast.success('Preview samples reset', { description: `${result.recordCount} seeded sample records restored across ${result.moduleCount} modules. Existing core records were untouched.` });
+    } catch (error) { toast.error('Could not reset all preview samples', { description: error instanceof Error ? error.message : 'Try again.' }); }
+    finally { setDataToolsBusy(false); }
+  }
+
   return (
     <div className="page-stack phase-two-page">
       <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">LEXA MODULE MAP</div><h2>All business modules</h2><p>One operational workspace for day-to-day trading, stock, finance, reporting and administration.</p></div><span className="soft-badge"><Boxes size={14} /> {EXISTING_MODULE_LINKS.length + PHASE_TWO_LINKS.length} module screens</span></div>
       <section className="section-card phase-two-directory-toolbar"><div><h3>Find a module</h3><p>{visibleModuleCount} matching screens · search names, functions or module group.</p></div><label className="phase-two-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search modules…" aria-label="Search all modules" />{search && <button type="button" className="phase-clear-filters" aria-label="Clear module search" onClick={() => setSearch('')}>Clear</button>}</label></section>
-      <div className="phase-two-notice"><span className="phase-two-notice-icon"><ShieldAlert size={18} /></span><div><strong>Frontend build mode</strong><p>Existing workflow screens keep their current data behaviour. New Phase 2 screens are interactive preview forms backed by browser-local demonstration records. They are deliberately not presented as connected to the existing backend/database yet.</p></div></div>
+      <div className="phase-two-notice"><span className="phase-two-notice-icon"><ShieldAlert size={18} /></span><div><strong>Frontend build mode</strong><p>Existing workflow screens keep their current data behaviour. New operations screens are interactive preview forms backed by an injectable browser-local mock-data service. They are deliberately not presented as connected to the existing backend/database yet.</p></div></div>
+      <section className="section-card preview-data-tools"><div className="section-card-heading"><span className="heading-icon blue-icon"><DatabaseBackup size={18} /></span><div><h3>Preview data workspace</h3><p>Back up, restore or reset mock records for this active workspace and branch. This never exports or edits core IndexedDB records or backend data.</p></div></div><div className="preview-data-tools-actions"><button className="button button-secondary" onClick={() => void exportPreviewData()} disabled={dataToolsBusy}><FileJson size={15} /> Export preview JSON</button><button className="button button-secondary" onClick={() => importInput.current?.click()} disabled={dataToolsBusy}><Upload size={15} /> Import preview JSON</button><button className="button button-danger-soft" onClick={() => void resetAllPreviewData()} disabled={dataToolsBusy}><RefreshCw size={15} /> Reset all mock samples</button><input ref={importInput} type="file" accept="application/json,.json" aria-label="Import preview workspace JSON file" className="preview-import-input" onChange={(event) => void importPreviewData(event)} /></div><div className="preview-data-tools-footnote"><strong>Active scope:</strong> {workspace.businessName} / {branch.name}. Import is validated before replacement, and the previous preview data is restored if any module replacement fails.</div></section>
       {visibleModuleCount === 0 && <div className="empty-state"><div className="empty-icon"><Search size={22} /></div><h3>No modules match your search</h3><p>Try a different module name, workflow term or group.</p></div>}
       {groupedLinks.map(({ group, items }) => (
         <section className="module-group" key={group}>
@@ -334,20 +244,43 @@ function ModuleDirectoryPage() {
 type RelatedAction = { targetId: string; label: string; description: string };
 
 function relatedActions(moduleId: string, record: PreviewRecord): RelatedAction[] {
+  if (moduleId === 'leads' && record.status === 'Qualified') return [{ targetId: 'opportunities', label: 'Create opportunity draft', description: 'Carry the qualified prospect into the deal pipeline.' }];
+  if (moduleId === 'sales-orders' && ['Confirmed', 'Partially fulfilled'].includes(record.status)) return [
+    { targetId: 'picklists', label: 'Create picklist draft', description: 'Assign warehouse picking before packing and dispatch.' },
+    { targetId: 'packages', label: 'Create package draft', description: 'Prepare a packing slip separately from stock fulfilment.' },
+    { targetId: 'deliveries', label: 'Create delivery draft', description: 'Prepare a separate fulfilment record.' },
+  ];
+  if (moduleId === 'picklists' && record.status === 'Picked') return [{ targetId: 'packages', label: 'Create package draft', description: 'Create a packing slip after picked quantities have been reviewed.' }];
+  if (moduleId === 'packages' && ['Shipped', 'Delivered'].includes(record.status)) return [{ targetId: 'deliveries', label: 'Create delivery tracking draft', description: 'Record courier / delivery progress separately from the packing slip.' }];
+  if (moduleId === 'work-orders' && ['Planned', 'In progress'].includes(record.status)) return [{ targetId: 'job-cards', label: 'Create production job card', description: 'Assign an operation and track actual labour time.' }];
+  if (moduleId === 'item-bundles' && record.status === 'Active') return [{ targetId: 'work-orders', label: 'Prepare assembly work order', description: 'Use this bundle definition as a draft production reference.' }];
+  if (moduleId === 'campaigns' && ['Planned', 'Active'].includes(record.status)) return [{ targetId: 'leads', label: 'Capture lead from campaign', description: 'Carry the campaign reference into a new prospect record.' }];
+  if (moduleId === 'recurring-invoices' && record.status === 'Active') return [{ targetId: 'sales-invoices', label: 'Prepare next invoice draft', description: 'Create a one-time invoice draft for review; no scheduler runs automatically.' }];
+  if (moduleId === 'boms' && record.status === 'Active') return [{ targetId: 'work-orders', label: 'Create production work-order draft', description: 'Use this active BOM version to prepare a production run.' }];
+  if (moduleId === 'replenishment' && ['Reviewed', 'Draft PO created'].includes(record.status)) return [{ targetId: 'purchases', label: 'Create replenishment purchase draft', description: 'Carry the suggested quantity to a separate purchase-order draft.' }];
+  if (moduleId === 'cash-sessions' && ['Reviewed', 'Closed', 'Variance review'].includes(record.status)) return [{ targetId: 'bank-reconciliation', label: 'Prepare cash/bank reconciliation', description: 'Compare the session amount against a separately entered statement; no bank feed is connected.' }];
   if (moduleId === 'purchase-requests' && record.status === 'Approved') return [{ targetId: 'rfqs', label: 'Create RFQ draft', description: 'Prepare a request to invite supplier quotations.' }];
   if (moduleId === 'rfqs' && ['Sent', 'Responses received'].includes(record.status)) return [{ targetId: 'supplier-quotes', label: 'Start supplier quote response', description: 'Capture one supplier response; create separate records for other suppliers.' }];
   if (moduleId === 'supplier-quotes' && record.status === 'Accepted') return [{ targetId: 'purchases', label: 'Create purchase-order draft', description: 'Carry the selected quote into a supplier commitment draft.' }];
   if (moduleId === 'customers' && record.status === 'Active') return [{ targetId: 'quotations', label: 'Create quotation draft', description: 'Start a new offer using this customer.' }];
   if (moduleId === 'suppliers' && record.status === 'Active') return [{ targetId: 'purchases', label: 'Create purchase-order draft', description: 'Start a separate supplier commitment.' }];
   if (moduleId === 'quotations' && record.status === 'Accepted') return [{ targetId: 'sales-orders', label: 'Create sales-order draft', description: 'Carry the accepted quote into a new draft order.' }];
-  if (moduleId === 'sales-orders' && ['Confirmed', 'Partially fulfilled'].includes(record.status)) return [{ targetId: 'deliveries', label: 'Create delivery draft', description: 'Prepare a separate fulfilment record.' }];
-  if (moduleId === 'sales-orders' && record.status === 'Fulfilled') return [{ targetId: 'sales-invoices', label: 'Create invoice draft', description: 'Carry the fulfilled order into invoice preparation.' }];
+  if (moduleId === 'sales-invoices' && !['Draft', 'Void'].includes(record.status)) {
+    const actions: RelatedAction[] = [{ targetId: 'sales-returns', label: 'Create customer credit-note draft', description: 'Prepare a separately reviewed return/credit record; no invoice is changed.' }];
+    if (safeNumber(record.amountDue) > 0) actions.push({ targetId: 'payments', label: 'Create customer-receipt draft', description: 'Create a separate payment preview referencing this invoice.' });
+    return actions;
+  }
+  if (moduleId === 'purchase-invoices' && !['Draft', 'Void'].includes(record.status)) {
+    const actions: RelatedAction[] = [{ targetId: 'purchase-returns', label: 'Create supplier debit-note draft', description: 'Prepare a separately reviewed return/credit record; no stock or payable is changed.' }];
+    if (safeNumber(record.amountDue) > 0) actions.push({ targetId: 'payments', label: 'Create supplier-payment draft', description: 'Create a separate payment preview referencing this supplier bill.' });
+    return actions;
+  }
+  if (moduleId === 'opportunities' && record.status === 'Won') return [{ targetId: 'sales-orders', label: 'Create sales-order draft', description: 'Start an unposted sales order using the won opportunity details.' }];
+  if (moduleId === 'receiving' && ['Received', 'Needs inspection'].includes(record.status)) return [{ targetId: 'quality', label: 'Create goods quality inspection', description: 'Review accepted/rejected units; no stock ledger is updated in preview mode.' }];
   if (moduleId === 'purchases' && ['Ordered', 'Partially received', 'Received'].includes(record.status)) return [
     { targetId: 'receiving', label: 'Create goods-receipt draft', description: 'Enter the actual accepted / rejected quantities before saving the receipt.' },
     { targetId: 'purchase-invoices', label: 'Create supplier-bill draft', description: 'Record the supplier’s bill separately from stock receiving.' },
   ];
-  if (moduleId === 'sales-invoices' && !['Draft', 'Paid', 'Void'].includes(record.status) && safeNumber(record.amountDue) > 0) return [{ targetId: 'payments', label: 'Create customer-receipt draft', description: 'Create a separate payment preview referencing this invoice.' }];
-  if (moduleId === 'purchase-invoices' && !['Draft', 'Paid', 'Void'].includes(record.status) && safeNumber(record.amountDue) > 0) return [{ targetId: 'payments', label: 'Create supplier-payment draft', description: 'Create a separate payment preview referencing this supplier bill.' }];
   if (moduleId === 'expenses' && record.status === 'Approved') return [{ targetId: 'payments', label: 'Prepare expense payment draft', description: 'Create a separate money-out entry for review.' }];
   return [];
 }
@@ -358,6 +291,11 @@ function relatedValues(sourceModuleId: string, source: PreviewRecord, targetId: 
   if (sourceModuleId === 'purchase-requests' && targetId === 'rfqs') return { purchaseRequest: source.requestNumber ?? '', issueDate: today, responseDue: source.neededBy ?? dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '1', supplierInvited: source.preferredSupplier ?? '', deliveryAddress: source.branch ?? '', terms: source.justification ?? '', status: 'Draft' };
   if (sourceModuleId === 'rfqs' && targetId === 'supplier-quotes') return { rfqNumber: source.rfqNumber ?? '', supplier: source.supplierInvited ?? '', quoteDate: today, validUntil: dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '1', unitCost: '0', taxTreatment: 'Standard rated', taxRate: '18', deliveryDays: '0', paymentTerms: '30 days', status: 'Draft' };
   if (sourceModuleId === 'supplier-quotes' && targetId === 'purchases') { const expected = dateInputValue(new Date(Date.now() + Math.max(0, safeNumber(source.deliveryDays)) * 86400000)); return { supplier: source.supplier ?? '', orderDate: today, expectedDate: expected, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '1', unitCost: source.unitCost ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', amountPaid: '0', status: 'Draft' }; }
+  if (sourceModuleId === 'opportunities' && targetId === 'sales-orders') return { customer: source.company ?? source.contactName ?? '', orderDate: today, expectedDate: source.expectedCloseDate ?? dueDate, itemSummary: source.nextAction ?? ('Opportunity: ' + (source.opportunityCode ?? source.company ?? '')), quantity: '1', unitPrice: source.amount ?? '0', discountPercent: '0', taxTreatment: 'Standard rated', taxRate: '18', status: 'Draft' };
+  if (sourceModuleId === 'sales-invoices' && targetId === 'sales-returns') return { sourceInvoice: source.invoiceNumber ?? '', customer: source.customer ?? '', returnDate: today, reason: 'Customer changed mind', itemDescription: source.itemSummary ?? '', quantity: '1', unitPrice: source.unitPrice ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', resolution: 'Customer credit', status: 'Draft' };
+  if (sourceModuleId === 'purchase-invoices' && targetId === 'purchase-returns') return { sourcePurchaseOrder: source.purchaseOrder ?? source.billNumber ?? '', supplier: source.supplier ?? '', returnDate: today, reason: 'Other', itemDescription: source.itemSummary ?? '', quantity: '1', unitCost: source.unitCost ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', status: 'Draft' };
+  if (sourceModuleId === 'receiving' && targetId === 'quality') return { sourceType: 'Goods receipt', sourceReference: source.receiptNumber ?? '', item: source.product ?? '', inspectionDate: today, inspector: '', inspectedQuantity: String(Math.max(1, safeNumber(source.acceptedQuantity) + safeNumber(source.rejectedQuantity))), acceptedQuantity: source.acceptedQuantity ?? '0', rejectedQuantity: source.rejectedQuantity ?? '0', defectType: 'None identified', notes: '', status: 'Draft' };
+  if (sourceModuleId === 'work-orders' && targetId === 'quality') return { sourceType: 'Production order', sourceReference: source.workOrderNumber ?? '', item: source.productName ?? '', inspectionDate: today, inspector: '', inspectedQuantity: source.completedQuantity ?? source.plannedQuantity ?? '1', acceptedQuantity: source.completedQuantity ?? source.plannedQuantity ?? '1', rejectedQuantity: '0', defectType: 'None identified', notes: '', status: 'Draft' };
   if (sourceModuleId === 'customers' && targetId === 'quotations') return { customer: source.name ?? '', issueDate: today, validUntil: dueDate, itemSummary: '', quantity: '1', unitPrice: '0', discountPercent: '0', taxTreatment: 'Standard rated', taxRate: '18', status: 'Draft' };
   if (sourceModuleId === 'suppliers' && targetId === 'purchases') return { supplier: source.name ?? '', orderDate: today, expectedDate: dueDate, itemSummary: '', quantity: '1', unitCost: '0', taxTreatment: 'Standard rated', taxRate: '18', amountPaid: '0', status: 'Draft' };
   if (sourceModuleId === 'quotations' && targetId === 'sales-orders') return { customer: source.customer ?? '', orderDate: today, expectedDate: source.validUntil ?? dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '1', unitPrice: source.unitPrice ?? '0', discountPercent: source.discountPercent ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', status: 'Draft' };
@@ -365,6 +303,17 @@ function relatedValues(sourceModuleId: string, source: PreviewRecord, targetId: 
   if (sourceModuleId === 'sales-orders' && targetId === 'sales-invoices') return { customer: source.customer ?? '', salesOrderReference: source.orderNumber ?? '', issueDate: today, dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '1', unitPrice: source.unitPrice ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', amountReceived: '0', status: 'Draft' };
   if (sourceModuleId === 'purchases' && targetId === 'receiving') return { purchaseOrder: source.poNumber ?? '', supplier: source.supplier ?? '', receiptDate: today, product: source.itemSummary ?? '', orderedQuantity: source.quantity ?? '1', acceptedQuantity: '0', rejectedQuantity: '0', warehouse: '', batchNumber: '', status: 'Draft' };
   if (sourceModuleId === 'purchases' && targetId === 'purchase-invoices') return { supplier: source.supplier ?? '', purchaseOrder: source.poNumber ?? '', billDate: today, dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '1', unitCost: source.unitCost ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', amountPaid: '0', status: 'Draft' };
+  if (sourceModuleId === 'leads' && targetId === 'opportunities') return { company: source.company ?? '', contactName: source.contactName ?? '', email: source.email ?? '', source: source.source ?? 'Other', owner: source.owner ?? '', createdDate: today, expectedCloseDate: source.expectedCloseDate ?? dueDate, amount: source.estimatedValue ?? '0', probability: source.probability ?? '10', nextAction: source.nextAction ?? '', status: 'New' };
+  if (sourceModuleId === 'sales-orders' && targetId === 'packages') return { salesOrder: source.orderNumber ?? '', customer: source.customer ?? '', packageDate: today, itemSummary: source.itemSummary ?? '', packageCount: '1', weightKg: '0', courier: 'Own fleet', trackingReference: '', status: 'Not shipped' };
+  if (sourceModuleId === 'packages' && targetId === 'deliveries') return { salesOrder: source.salesOrder ?? '', customer: source.customer ?? '', dispatchDate: today, expectedDate: dueDate, deliveryAddress: '', courier: source.courier ?? '', trackingReference: source.trackingReference ?? '', deliveryFee: '0', method: 'Own fleet', status: 'Draft' };
+  if (sourceModuleId === 'work-orders' && targetId === 'job-cards') return { workOrderNumber: source.workOrderNumber ?? '', operation: 'Assembly', workstation: '', operator: '', plannedHours: '1', actualHours: '0', startDate: today, endDate: '', outputReference: source.productName ?? '', status: 'Draft' };
+  if (sourceModuleId === 'boms' && targetId === 'work-orders') return { workOrderNumber: '', productSKU: source.finishedProductSKU ?? '', productName: source.finishedProductName ?? '', bomReference: source.bomCode ?? '', plannedQuantity: source.outputQuantity ?? '1', completedQuantity: '0', unitCost: source.unitMaterialCost ?? '0', startDate: today, targetDate: dueDate, status: 'Draft' };
+  if (sourceModuleId === 'replenishment' && targetId === 'purchases') return { supplier: source.preferredSupplier ?? '', orderDate: today, expectedDate: source.needByDate ?? dueDate, itemSummary: (source.productSKU ?? '') + ' · ' + (source.productName ?? ''), quantity: source.recommendedQuantity ?? '1', unitCost: '0', taxTreatment: 'Standard rated', taxRate: '18', amountPaid: '0', status: 'Draft' };
+  if (sourceModuleId === 'cash-sessions' && targetId === 'bank-reconciliation') return { account: source.terminal ?? 'Cash till', statementDate: source.sessionDate ?? today, statementReference: source.sessionNumber ?? '', openingBalance: source.openingFloat ?? '0', statementBalance: source.countedCash ?? '0', bookBalance: source.expectedCash ?? '0', statementLineCount: '0', matchedCount: '0', unmatchedCount: '0', preparedBy: source.closedBy ?? source.openedBy ?? '', status: 'Draft' };
+  if (sourceModuleId === 'campaigns' && targetId === 'leads') return { company: '', contactName: '', phone: '', email: '', source: source.name ?? 'Campaign', owner: source.owner ?? '', createdDate: today, expectedCloseDate: dueDate, estimatedValue: '0', probability: '10', nextAction: 'Follow up from campaign ' + (source.campaignCode ?? ''), status: 'New' };
+  if (sourceModuleId === 'picklists' && targetId === 'packages') return { salesOrder: source.salesOrder ?? '', customer: '', packageDate: today, itemSummary: 'Picked from ' + (source.picklistNumber ?? '') + '; ' + (source.unitsPicked ?? '0') + ' units', packageCount: '1', weightKg: '0', courier: 'Own fleet', trackingReference: '', status: 'Not shipped' };
+  if (sourceModuleId === 'item-bundles' && targetId === 'work-orders') return { productName: source.bundleName ?? '', bomReference: source.bundleCode ?? '', startDate: today, targetDate: dueDate, plannedQuantity: '1', completedQuantity: '0', unitCost: source.unitCost ?? '0', priority: 'Normal', status: 'Draft' };
+  if (sourceModuleId === 'recurring-invoices' && targetId === 'sales-invoices') return { customer: source.customer ?? '', salesOrderReference: '', issueDate: today, dueDate, itemSummary: source.description ?? 'Recurring invoice draft', quantity: source.quantity ?? '1', unitPrice: source.unitPrice ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', amountReceived: '0', status: 'Draft' };
   if (targetId === 'payments') {
     const moneyIn = sourceModuleId === 'sales-invoices';
     const isSupplierBill = sourceModuleId === 'purchase-invoices';
@@ -386,8 +335,17 @@ function relatedValues(sourceModuleId: string, source: PreviewRecord, targetId: 
 function ModuleManager({ module }: { module: ModuleDefinition }) {
   const { workspace, branch } = useWorkspace();
   const navigate = useNavigate();
-  const storageKey = keyFor(workspace.id, branch.id, module.id);
-  const [rows, setRows] = useState<PreviewRecord[]>(() => readRows(storageKey, module.initial));
+  const previewDataService = usePreviewDataService();
+  const previewScope: PreviewScope = { workspaceId: workspace.id, branchId: branch.id };
+  const queryClient = useQueryClient();
+  const previewQueryKey = ['phase-preview', workspace.id, branch.id, module.id] as const;
+  const previewQuery = useQuery({
+    queryKey: previewQueryKey,
+    queryFn: () => previewDataService.list(previewScope, module.id, module.initial),
+  });
+  const rows = previewQuery.data ?? [];
+  const lineConfig = getDocumentLineConfig(module.id);
+  const [storageMode, setStorageMode] = useState<'browser-local' | 'memory-only'>(previewDataService.getPersistenceMode());
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All statuses');
   const [dateFrom, setDateFrom] = useState('');
@@ -398,25 +356,17 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
   const [editing, setEditing] = useState<PreviewRecord | null>(null);
   const [detail, setDetail] = useState<PreviewRecord | null>(null);
   const [form, setForm] = useState<FormValues>(() => initialValues(module));
+  const lineItems = useMemo(() => readDocumentLines(module.id, form), [module.id, form]);
   const [saving, setSaving] = useState(false);
   const statuses = useMemo(() => Array.from(new Set(rows.map((row) => row.status).filter(Boolean))).sort(), [rows]);
-  const filtered = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    return rows.filter((row) => {
-      const searchable = Object.entries(row).filter(([key]) => key !== 'updatedAt').map(([, value]) => value).join(' ').toLowerCase();
-      if (needle && !searchable.includes(needle)) return false;
-      if (statusFilter !== 'All statuses' && row.status !== statusFilter) return false;
-      if (module.dateKey && dateFrom && String(row[module.dateKey] ?? '').slice(0, 10) < dateFrom) return false;
-      if (module.dateKey && dateTo && String(row[module.dateKey] ?? '').slice(0, 10) > dateTo) return false;
-      return true;
-    }).sort((a, b) => String(b[module.dateKey ?? 'updatedAt'] ?? b.updatedAt).localeCompare(String(a[module.dateKey ?? 'updatedAt'] ?? a.updatedAt)));
-  }, [rows, search, statusFilter, dateFrom, dateTo, module.dateKey]);
+  const filtered = useMemo(() => filterPreviewRecords(rows, module, { search, status: statusFilter, dateFrom, dateTo }), [rows, module, search, statusFilter, dateFrom, dateTo]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / Number(pageSize)));
-  const visible = filtered.slice((page - 1) * Number(pageSize), page * Number(pageSize));
+  const visible = paginatePreviewRecords(filtered, page, Number(pageSize));
   const attentionCount = rows.filter((row) => ATTENTION_STATES.includes(row.status)).length;
   const trackedValue = module.amountKey ? rows.reduce((sum, row) => sum + safeNumber(row[module.amountKey!]), 0) : null;
 
-  useEffect(() => { try { localStorage.setItem(storageKey, JSON.stringify(rows)); } catch { /* Continue in-memory if browser storage is unavailable. */ } }, [storageKey, rows]);
+  useEffect(() => { if (previewQuery.isSuccess) setStorageMode(previewDataService.getPersistenceMode()); }, [previewQuery.isSuccess, previewQuery.dataUpdatedAt]);
+
   useEffect(() => { setPage(1); }, [search, statusFilter, dateFrom, dateTo, pageSize]);
   useEffect(() => {
     if (!formOpen && !detail) return;
@@ -427,10 +377,23 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
 
   function openNew() { setEditing(null); setForm(initialValues(module)); setFormOpen(true); }
   function openEdit(record: PreviewRecord) { setDetail(null); setEditing(record); setForm(valuesFromRecord(module, record)); setFormOpen(true); }
-  function saveForm(event: FormEvent<HTMLFormElement>) {
+  async function saveForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true);
     try {
+      const structuredValidation = module.id === 'accounting'
+        ? validateJournalLines(form)
+        : validateAssemblyComponents(module.id, form);
+      if (structuredValidation) { toast.error('Check the entry lines', { description: structuredValidation }); setSaving(false); return; }
+      const lineValidation = validateDocumentLines(module.id, form);
+      if (lineValidation) { toast.error('Check the document lines', { description: lineValidation }); setSaving(false); return; }
+      let normalizedValues = form;
+      if (module.id === 'accounting') normalizedValues = syncJournalLines(normalizedValues, readJournalLines(normalizedValues));
+      if (module.id === 'boms' || module.id === 'item-bundles') normalizedValues = syncAssemblyComponents(module.id, normalizedValues, readAssemblyComponents(module.id, normalizedValues));
+      const valuesToSave = lineConfig ? syncDocumentLines(module.id, normalizedValues, readDocumentLines(module.id, normalizedValues)) : normalizedValues;
       const uniqueField: Record<string, string> = {
+        leads: 'leadCode', 'cash-sessions': 'sessionNumber', boms: 'bomCode', 'job-cards': 'jobCardNumber', leave: 'leaveRequestNumber', replenishment: 'replenishmentNumber', packages: 'packageNumber', timesheets: 'timesheetNumber',
+        contacts: 'contactCode', campaigns: 'campaignCode', 'sales-teams': 'salespersonCode', 'item-bundles': 'bundleCode', picklists: 'picklistNumber', 'cost-centers': 'costCenterCode', budgets: 'budgetCode', integrations: 'integrationCode', 'recurring-invoices': 'scheduleCode',
+        opportunities: 'opportunityCode', 'sales-returns': 'returnNumber', 'purchase-returns': 'returnNumber', projects: 'projectCode', tasks: 'taskCode', support: 'ticketNumber', 'work-orders': 'workOrderNumber', quality: 'inspectionNumber', batches: 'trackingReference',
         customers: 'customerCode', suppliers: 'supplierCode', quotations: 'quoteNumber', 'sales-orders': 'orderNumber',
         'sales-invoices': 'invoiceNumber', purchases: 'poNumber', 'purchase-invoices': 'billNumber', receiving: 'receiptNumber',
         'price-lists': 'priceListCode', deliveries: 'deliveryNumber', warehouses: 'locationCode', employees: 'employeeCode',
@@ -441,47 +404,60 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
         'supplier-quotes': 'quoteNumber',
       };
       const key = uniqueField[module.id];
-      if (key && rows.some((row) => row.id !== editing?.id && String(row[key] ?? '').trim().toLocaleLowerCase() === String(form[key] ?? '').trim().toLocaleLowerCase())) {
+      if (key && rows.some((row) => row.id !== editing?.id && String(row[key] ?? '').trim().toLocaleLowerCase() === String(valuesToSave[key] ?? '').trim().toLocaleLowerCase())) {
         toast.error('That reference already exists in this preview register', { description: 'Use a unique reference before saving.' });
         setSaving(false); return;
       }
-      const record = calculateRecord(module.id, form, editing?.id);
-      const validation = validateRecord(module.id, form, record);
+      const record = calculateRecord(module.id, valuesToSave, editing?.id);
+      const validation = validateRecord(module.id, valuesToSave, record);
       if (validation) { toast.error('Check the form', { description: validation }); setSaving(false); return; }
-      setRows((current) => editing ? current.map((row) => row.id === editing.id ? record : row) : [record, ...current]);
+      const nextRows = await previewDataService.save(previewScope, module.id, record, module.initial);
+      queryClient.setQueryData(previewQueryKey, nextRows);
+      void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] });
+      setStorageMode(previewDataService.getPersistenceMode());
       setFormOpen(false); setEditing(null); setForm(initialValues(module));
-      toast.success(editing ? 'Preview record updated' : 'Preview record created', { description: 'Saved to this browser’s Phase 2 preview workspace only.' });
+      toast.success(editing ? 'Preview record updated' : 'Preview record created', { description: previewDataService.getPersistenceMode() === 'browser-local' ? 'Saved to this browser’s mock-data workspace only.' : 'Saved in memory for this session; browser storage is unavailable.' });
     } catch (error) { toast.error('Could not save preview record', { description: error instanceof Error ? error.message : 'Please check the form.' }); }
     finally { setSaving(false); }
   }
-  function updateStatus(record: PreviewRecord) {
+  async function updateStatus(record: PreviewRecord) {
     const next = nextStatus(module.id, record.status);
     if (!next) { toast.info('No further status in the preview workflow'); return; }
-    setRows((current) => current.map((row) => row.id === record.id ? { ...row, status: next, updatedAt: new Date().toISOString() } : row));
-    setDetail((current) => current?.id === record.id ? { ...current, status: next } : current);
-    toast.success('Preview status changed', { description: record.status + ' → ' + next + '. No backend or ledger posting occurred.' });
+    try {
+      const nextRows = await previewDataService.updateStatus(previewScope, module.id, record.id, next, module.initial);
+      queryClient.setQueryData(previewQueryKey, nextRows);
+      void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] });
+      const updated = nextRows.find((row) => row.id === record.id);
+      if (updated) setDetail(updated);
+      setStorageMode(previewDataService.getPersistenceMode());
+      toast.success('Preview status changed', { description: record.status + ' → ' + next + '. No backend or ledger posting occurred.' });
+    } catch (error) { toast.error('Could not change preview status', { description: error instanceof Error ? error.message : 'Try again.' }); }
   }
-  function resetRows() {
+  async function resetRows() {
     if (!window.confirm('Reset the sample records for ' + module.title + '? This affects only this browser’s Phase 2 preview records.')) return;
-    setRows(module.initial.map((row) => ({ ...row }))); setSearch(''); setStatusFilter('All statuses'); setDateFrom(''); setDateTo(''); setPage(1);
-    toast.success('Sample preview records reset');
+    try {
+      const nextRows = await previewDataService.reset(previewScope, module.id, module.initial);
+      queryClient.setQueryData(previewQueryKey, nextRows);
+      void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] });
+      setStorageMode(previewDataService.getPersistenceMode());
+      setSearch(''); setStatusFilter('All statuses'); setDateFrom(''); setDateTo(''); setPage(1);
+      toast.success('Sample preview records reset');
+    } catch (error) { toast.error('Could not reset samples', { description: error instanceof Error ? error.message : 'Try again.' }); }
   }
-  function createRelatedPreview(targetId: string, source: PreviewRecord) {
+  async function createRelatedPreview(targetId: string, source: PreviewRecord) {
     const target = getModuleDefinition(targetId);
     if (!target) { toast.error('The target preview module is not available.'); return; }
-    const values = { ...initialValues(target), ...relatedValues(module.id, source, targetId) };
+    const values = { ...initialValues(target), ...relatedValues(module.id, source, targetId), sourceModuleId: module.id, sourceRecordId: source.id };
     const linked = calculateRecord(targetId, values);
-    const targetKey = keyFor(workspace.id, branch.id, targetId);
-    const targetRows = readRows(targetKey, target.initial);
     try {
-      localStorage.setItem(targetKey, JSON.stringify([linked, ...targetRows]));
-    } catch {
-      toast.error('Could not store the related preview record', { description: 'Browser storage may be unavailable.' });
-      return;
-    }
-    setDetail(null);
-    toast.success('Related draft created', { description: 'Saved in the Phase 2 preview workspace only. No live module, stock or ledger was changed.' });
-    navigate('/modules/' + targetId);
+      const targetRows = await previewDataService.save(previewScope, targetId, linked, target.initial);
+      queryClient.setQueryData(['phase-preview', workspace.id, branch.id, targetId], targetRows);
+      void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] });
+      setStorageMode(previewDataService.getPersistenceMode());
+      setDetail(null);
+      toast.success('Related draft created', { description: 'Saved in the browser-local preview workspace only. No live module, stock or ledger was changed.' });
+      navigate('/modules/' + targetId);
+    } catch (error) { toast.error('Could not store the related preview record', { description: error instanceof Error ? error.message : 'Browser storage may be unavailable.' }); }
   }
 
   function exportRows() {
@@ -494,7 +470,7 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
   return (
     <div className="page-stack phase-two-page">
       <div className="page-heading-row phase-two-heading"><div><div className="eyebrow eyebrow-blue">{module.group} / PREVIEW MODULE</div><h2>{module.title}</h2><p>{module.description}</p></div><div className="phase-two-heading-actions"><span className="module-preview-badge"><span />Interactive preview</span>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={16} /> New {module.singular}</button>}</div></div>
-      <div className="phase-two-notice"><span className="phase-two-notice-icon"><ShieldAlert size={18} /></span><div><strong>Preview data only · {workspace.businessName} / {branch.name}</strong><p>These records use a separate browser-local preview store. They do not read from or write to the existing backend, database, stock ledger, accounting ledger, payment provider or access-control system.</p></div></div>
+      <div className="phase-two-notice"><span className="phase-two-notice-icon"><ShieldAlert size={18} /></span><div><strong>Preview data only · {workspace.businessName} / {branch.name}</strong><p>These records use a separate {storageMode === 'browser-local' ? 'browser-local' : 'in-memory session'} preview store. They do not read from or write to the existing backend, database, stock ledger, accounting ledger, payment provider or access-control system.</p></div></div>
       <div className="module-workflow-strip"><span className="module-workflow-icon"><Activity size={17} /></span><div><strong>Typical workflow</strong><p>{module.workflow}</p></div></div>
       <div className="metric-strip three-metrics phase-two-metrics">
         <div className="mini-metric"><span>Total {recordCountLabel}</span><strong>{rows.length.toLocaleString()}</strong><small>Across this preview module</small></div>
@@ -510,15 +486,22 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
           {module.dateKey && <><label className="phase-date-filter"><CalendarDays size={14} /><span className="sr-only">From date</span><input type="date" aria-label="From date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label className="phase-date-filter"><span className="sr-only">To date</span><input type="date" aria-label="To date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label></>}
           {(search || statusFilter !== 'All statuses' || dateFrom || dateTo) && <button className="phase-clear-filters" onClick={() => { setSearch(''); setStatusFilter('All statuses'); setDateFrom(''); setDateTo(''); }}>Clear</button>}
         </div>
-        {visible.length === 0 ? <div className="empty-state"><div className="empty-icon"><Search size={22} /></div><h3>No matching records</h3><p>Change the search, status or date filters. New preview records will appear here after you save them.</p>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={15} /> Add {module.singular}</button>}</div> : <div className="responsive-table-wrap phase-two-table-wrap"><table className="data-table phase-two-table"><thead><tr>{module.columns.map((column) => <th key={column.key}>{column.label}</th>)}<th className="phase-actions-heading">ACTIONS</th></tr></thead><tbody>{visible.map((record) => <tr key={record.id}>{module.columns.map((column) => <td key={column.key} className={column.kind === 'money' ? 'amount-cell' : ''}>{column.kind === 'status' ? <span className={'status-pill ' + (['Active', 'Received', 'Paid', 'Posted', 'Reconciled', 'Accepted', 'Accepted externally', 'Completed', 'Delivered', 'Approved', 'Reviewed', 'Present'].includes(record[column.key] ?? '') ? 'status-good' : ['Draft', 'Pending', 'Ready for integration', 'Needs review', 'Overdue', 'Disputed', 'Rejected externally', 'Needs inspection', 'On hold', 'In transit', 'Review', 'Late', 'Restricted', 'Delivery failed', 'Needs review', 'Blocked', 'Expired', 'Disabled', 'Matching', 'Reopened'].includes(record[column.key] ?? '') ? 'status-warning' : '')}>{record[column.key] || '—'}</span> : cellValue(record, column.key, column.kind, workspace.currency)}</td>)}<td><div className="phase-row-actions"><button className="icon-button table-action" aria-label={'View ' + module.singular} title="View details" onClick={() => setDetail(record)}><Eye size={15} /></button>{!module.readOnly && <button className="icon-button table-action" aria-label={'Edit ' + module.singular} title="Edit preview record" onClick={() => openEdit(record)}><Edit3 size={15} /></button>}</div></td></tr>)}</tbody></table></div>}
+        {dateFrom && dateTo && dateFrom > dateTo && <div className="inline-warning" role="alert">The start date must be on or before the end date.</div>}
+        {previewQuery.isError ? <div className="inline-error"><strong>Could not load the preview register.</strong><span>{previewQuery.error instanceof Error ? previewQuery.error.message : 'Retry or reset the local preview store.'}</span><button className="button button-secondary button-small" onClick={() => void previewQuery.refetch()}>Retry load</button></div> : previewQuery.isLoading ? <div className="loading-state">Loading preview records…</div> : visible.length === 0 ? <div className="empty-state"><div className="empty-icon"><Search size={22} /></div><h3>No matching records</h3><p>Change the search, status or date filters. New preview records will appear here after you save them.</p>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={15} /> Add {module.singular}</button>}</div> : <div className="responsive-table-wrap phase-two-table-wrap"><table className="data-table phase-two-table"><thead><tr>{module.columns.map((column) => <th key={column.key}>{column.label}</th>)}<th className="phase-actions-heading">ACTIONS</th></tr></thead><tbody>{visible.map((record) => <tr key={record.id}>{module.columns.map((column) => <td key={column.key} className={column.kind === 'money' ? 'amount-cell' : ''}>{column.kind === 'status' ? <span className={'status-pill ' + (['Active', 'Received', 'Paid', 'Posted', 'Reconciled', 'Accepted', 'Accepted externally', 'Completed', 'Delivered', 'Approved', 'Reviewed', 'Present'].includes(record[column.key] ?? '') ? 'status-good' : ['Draft', 'Pending', 'Ready for integration', 'Needs review', 'Overdue', 'Disputed', 'Rejected externally', 'Needs inspection', 'On hold', 'In transit', 'Review', 'Late', 'Restricted', 'Delivery failed', 'Needs review', 'Blocked', 'Expired', 'Disabled', 'Matching', 'Reopened', 'Error', 'Not connected', 'Configuration needed', 'Needs attention', 'Failed', 'Short pick', 'Exception', 'Quarantined', 'Blocked', 'Variance review', 'Review needed', 'Missing mapping'].includes(record[column.key] ?? '') ? 'status-warning' : '')}>{record[column.key] || '—'}</span> : cellValue(record, column.key, column.kind, workspace.currency)}</td>)}<td><div className="phase-row-actions"><button className="icon-button table-action" aria-label={'View ' + module.singular} title="View details" onClick={() => setDetail(record)}><Eye size={15} /></button>{!module.readOnly && <button className="icon-button table-action" aria-label={'Edit ' + module.singular} title="Edit preview record" onClick={() => openEdit(record)}><Edit3 size={15} /></button>}</div></td></tr>)}</tbody></table></div>}
         <div className="phase-two-table-footer"><span>Showing {filtered.length ? ((page - 1) * Number(pageSize) + 1).toLocaleString() : 0}–{Math.min(page * Number(pageSize), filtered.length).toLocaleString()} of {filtered.length.toLocaleString()}</span><div className="phase-pagination"><label><span>Rows</span><select aria-label="Rows per page" value={pageSize} onChange={(event) => setPageSize(event.target.value)}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label><button className="button button-secondary button-small" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button><span>Page {page} of {pageCount}</span><button className="button button-secondary button-small" disabled={page >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>Next</button></div></div>
       </section>
 
       {!module.readOnly && <div className="phase-two-help-row"><CircleAlert size={15} /><span>Use the details action to review a record, edit fields, or move it through the preview status workflow. Status changes are for interface testing and are not approvals or accounting posts.</span></div>}
 
-      {formOpen && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setFormOpen(false); setEditing(null); } }}><section className="phase-modal" role="dialog" aria-modal="true" aria-labelledby="phase-form-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.group} / DATA ENTRY</div><h3 id="phase-form-title">{editing ? 'Edit ' + module.singular : 'New ' + module.singular}</h3><p>Fields and calculated figures are for the Phase 2 interface preview.</p></div><button className="icon-button" aria-label="Close form" onClick={() => { setFormOpen(false); setEditing(null); }}><X size={18} /></button></div><form className="phase-modal-body" onSubmit={saveForm}><div className="phase-form-grid">{module.fields.map((field) => <FieldInput key={field.key} field={field} value={form[field.key] ?? ''} onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))} currency={workspace.currency} editing={Boolean(editing)} />)}</div><CalculatedFigures moduleId={module.id} values={form} currency={workspace.currency} /><div className="phase-form-disclaimer"><ShieldAlert size={15} /><span>Save creates a browser-local preview record only. It will not update live stock, cash, tax, payment, user-access or accounting records.</span></div><div className="phase-modal-actions"><button type="button" className="button button-secondary" onClick={() => { setFormOpen(false); setEditing(null); }}>Cancel</button><button type="submit" className="button button-primary" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Save preview record'} <Check size={15} /></button></div></form></section></div>}
+      {formOpen && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setFormOpen(false); setEditing(null); } }}><section className="phase-modal" role="dialog" aria-modal="true" aria-labelledby="phase-form-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.group} / DATA ENTRY</div><h3 id="phase-form-title">{editing ? 'Edit ' + module.singular : 'New ' + module.singular}</h3><p>Fields and calculated figures are for the frontend mock-data preview.</p></div><button className="icon-button" aria-label="Close form" onClick={() => { setFormOpen(false); setEditing(null); }}><X size={18} /></button></div><form className="phase-modal-body" onSubmit={saveForm}>{lineConfig && <DocumentLineItemsEditor config={lineConfig} lines={lineItems} currency={workspace.currency} onChange={(lines) => setForm((current) => syncDocumentLines(module.id, current, lines))} />}{module.id === 'accounting' && <JournalLinesEditor values={form} currency={workspace.currency} onChange={setForm} />}{(module.id === 'boms' || module.id === 'item-bundles') && <AssemblyComponentsEditor moduleId={module.id} values={form} currency={workspace.currency} onChange={setForm} />}<div className="phase-form-grid">{module.fields.filter((field) => {
+          if (lineConfig && [lineConfig.descriptionKey, 'quantity', lineConfig.priceKey].includes(field.key)) return false;
+          if (module.id === 'accounting' && ['debitAccount', 'creditAccount', 'amount'].includes(field.key)) return false;
+          if (module.id === 'boms' && ['componentSummary', 'unitMaterialCost'].includes(field.key)) return false;
+          if (module.id === 'item-bundles' && ['componentsSummary', 'componentCount', 'unitCost'].includes(field.key)) return false;
+          return true;
+        }).map((field) => <FieldInput key={field.key} field={field} value={form[field.key] ?? ''} onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))} currency={workspace.currency} editing={Boolean(editing)} />)}</div><CalculatedFigures moduleId={module.id} values={form} currency={workspace.currency} /><div className="phase-form-disclaimer"><ShieldAlert size={15} /><span>Save creates a browser-local preview record only. It will not update live stock, cash, tax, payment, user-access or accounting records.</span></div><div className="phase-modal-actions"><button type="button" className="button button-secondary" onClick={() => { setFormOpen(false); setEditing(null); }}>Cancel</button><button type="submit" className="button button-primary" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Save preview record'} <Check size={15} /></button></div></form></section></div>}
 
-      {detail && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section className="phase-modal phase-detail-modal" role="dialog" aria-modal="true" aria-labelledby="phase-detail-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.title.toUpperCase()} / RECORD DETAILS</div><h3 id="phase-detail-title">{detail[module.columns[0]?.key ?? 'id'] || detail.id}</h3><p>Reference: {detail.id} · Updated {displayDate(detail.updatedAt)}</p></div><button className="icon-button" aria-label="Close details" onClick={() => setDetail(null)}><X size={18} /></button></div><div className="phase-detail-status"><span className={'status-pill ' + (CLOSED_STATES.includes(detail.status) ? 'status-good' : 'status-warning')}>{detail.status}</span><span className="module-preview-badge"><span /> Browser-local preview</span></div><div className="phase-detail-grid">{Object.entries(detail).filter(([key]) => key !== 'id' && key !== 'updatedAt').map(([key, value]) => <div className="phase-detail-field" key={key}><span>{module.fields.find((field) => field.key === key)?.label ?? module.columns.find((column) => column.key === key)?.label ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</span><strong>{detailValue(module, key, value, detail.currency || workspace.currency)}</strong></div>)}</div><div className="phase-modal-actions">{!module.readOnly && <>{relatedActions(module.id, detail).map((action) => <button key={action.targetId} className="button button-secondary" title={action.description} onClick={() => createRelatedPreview(action.targetId, detail)}><ArrowRight size={15} /> {action.label}</button>)}{nextStatus(module.id, detail.status) && <button className="button button-secondary" onClick={() => updateStatus(detail)}><BadgeCheck size={15} /> Advance to {nextStatus(module.id, detail.status)}</button>}<button className="button button-primary" onClick={() => openEdit(detail)}><Edit3 size={15} /> Edit preview record</button></>}<button className="button button-secondary" onClick={() => setDetail(null)}>Close</button></div></section></div>}
+      {detail && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section className="phase-modal phase-detail-modal" role="dialog" aria-modal="true" aria-labelledby="phase-detail-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.title.toUpperCase()} / RECORD DETAILS</div><h3 id="phase-detail-title">{detail[module.columns[0]?.key ?? 'id'] || detail.id}</h3><p>Reference: {detail.id} · Updated {displayDate(detail.updatedAt)}</p></div><button className="icon-button" aria-label="Close details" onClick={() => setDetail(null)}><X size={18} /></button></div><div className="phase-detail-status"><span className={'status-pill ' + (CLOSED_STATES.includes(detail.status) ? 'status-good' : 'status-warning')}>{detail.status}</span><span className="module-preview-badge"><span /> Browser-local preview</span></div><div className="phase-detail-grid">{Object.entries(detail).filter(([key]) => key !== 'id' && key !== 'updatedAt').map(([key, value]) => <div className="phase-detail-field" key={key}><span>{module.fields.find((field) => field.key === key)?.label ?? module.columns.find((column) => column.key === key)?.label ?? ({ sourceModuleId: 'Source module', sourceRecordId: 'Source record' } as Record<string, string>)[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</span><strong>{detailValue(module, key, value, detail.currency || workspace.currency)}</strong></div>)}</div><div className="phase-modal-actions">{!module.readOnly && <>{relatedActions(module.id, detail).map((action) => <button key={action.targetId} className="button button-secondary" title={action.description} onClick={() => createRelatedPreview(action.targetId, detail)}><ArrowRight size={15} /> {action.label}</button>)}{nextStatus(module.id, detail.status) && <button className="button button-secondary" onClick={() => updateStatus(detail)}><BadgeCheck size={15} /> Advance to {nextStatus(module.id, detail.status)}</button>}<button className="button button-primary" onClick={() => openEdit(detail)}><Edit3 size={15} /> Edit preview record</button></>}<button className="button button-secondary" onClick={() => setDetail(null)}>Close</button></div></section></div>}
     </div>
   );
 }
@@ -531,48 +514,92 @@ function FieldInput({ field, value, onChange, currency, editing }: { field: Modu
 
 function CalculatedFigures({ moduleId, values, currency }: { moduleId: string; values: FormValues; currency: string }) {
   const n = (key: string) => safeNumber(values[key]);
+  const computed = calculateRecord(moduleId, values);
   let figures: Array<{ label: string; value: string }> = [];
-  if (['quotations', 'sales-orders', 'sales-invoices', 'purchases', 'purchase-invoices', 'supplier-quotes'].includes(moduleId)) {
-    const isPurchase = moduleId === 'purchases' || moduleId === 'purchase-invoices' || moduleId === 'supplier-quotes';
-    const supportsDiscount = moduleId === 'quotations' || moduleId === 'sales-orders';
-    const quantity = Math.max(0, n('quantity'));
-    const unitPrice = Math.max(0, n(isPurchase ? 'unitCost' : 'unitPrice'));
-    const subtotal = quantity * unitPrice;
-    const discount = supportsDiscount ? subtotal * Math.max(0, n('discountPercent')) / 100 : 0;
-    const tax = Math.max(0, subtotal - discount) * effectiveTaxRate(values) / 100;
-    const total = subtotal - discount + tax;
-    figures = [{ label: 'Subtotal', value: money(subtotal, currency) }, { label: 'Discount', value: money(discount, currency) }, { label: 'Tax estimate', value: money(tax, currency) }, { label: 'Document total', value: money(total, currency) }];
-    if (moduleId === 'purchases' || moduleId === 'purchase-invoices') figures.push({ label: 'Estimated payable remaining', value: money(Math.max(0, total - n('amountPaid')), currency) });
-    if (moduleId === 'sales-invoices') figures.push({ label: 'Estimated amount due', value: money(Math.max(0, total - n('amountReceived')), currency) });
+  if (['quotations', 'sales-orders', 'sales-invoices', 'purchases', 'purchase-invoices', 'supplier-quotes', 'sales-returns', 'purchase-returns'].includes(moduleId)) {
+    figures = [
+      { label: 'Subtotal', value: money(safeNumber(computed.subtotal), currency) },
+      { label: 'Discount', value: money(safeNumber(computed.discountAmount), currency) },
+      { label: 'Tax estimate', value: money(safeNumber(computed.taxAmount), currency) },
+      { label: 'Document total', value: money(safeNumber(computed.total), currency) },
+    ];
+    if (moduleId === 'purchases' || moduleId === 'purchase-invoices') figures.push({ label: 'Estimated payable remaining', value: money(safeNumber(computed.amountDue), currency) });
+    if (moduleId === 'sales-returns') figures.push({ label: 'Estimated customer credit', value: money(safeNumber(computed.creditAmount), currency) });
+    if (moduleId === 'purchase-returns') figures.push({ label: 'Estimated supplier debit', value: money(safeNumber(computed.debitAmount), currency) });
+    if (moduleId === 'sales-invoices') figures.push({ label: 'Estimated amount due', value: money(safeNumber(computed.amountDue), currency) });
+  } else if (moduleId === 'opportunities') {
+    figures = [{ label: 'Estimated deal value', value: money(n('amount'), currency) }, { label: 'Win probability', value: n('probability').toFixed(1) + '%' }, { label: 'Weighted pipeline value', value: money(safeNumber(computed.weightedValue), currency) }];
+  } else if (moduleId === 'projects') {
+    figures = [{ label: 'Approved budget', value: money(n('budget'), currency) }, { label: 'Cost estimate', value: money(n('actualCost'), currency) }, { label: 'Budget remaining / variance', value: money(safeNumber(computed.budgetVariance), currency) }, { label: 'Progress', value: n('progressPercent').toFixed(1) + '%' }];
+  } else if (moduleId === 'tasks') {
+    figures = [{ label: 'Estimated hours', value: n('estimatedHours').toFixed(1) }, { label: 'Actual hours', value: n('actualHours').toFixed(1) }, { label: 'Hours variance', value: safeNumber(computed.hoursVariance).toFixed(1) }];
+  } else if (moduleId === 'work-orders') {
+    figures = [{ label: 'Planned output', value: n('plannedQuantity').toLocaleString() }, { label: 'Completed output', value: n('completedQuantity').toLocaleString() }, { label: 'Completion', value: safeNumber(computed.completionPercent).toFixed(1) + '%' }, { label: 'Planned cost estimate', value: money(safeNumber(computed.plannedCost), currency) }];
+  } else if (moduleId === 'quality') {
+    figures = [{ label: 'Inspected', value: n('inspectedQuantity').toLocaleString() }, { label: 'Accepted', value: n('acceptedQuantity').toLocaleString() }, { label: 'Rejected', value: n('rejectedQuantity').toLocaleString() }, { label: 'Reject rate', value: safeNumber(computed.rejectionRate).toFixed(1) + '%' }];
+  } else if (moduleId === 'leads') {
+    figures = [{ label: 'Estimated value', value: money(n('estimatedValue'), currency) }, { label: 'Win probability', value: n('probability').toFixed(1) + '%' }, { label: 'Weighted pipeline estimate', value: money(safeNumber(computed.weightedValue), currency) }];
+  } else if (moduleId === 'cash-sessions') {
+    figures = [{ label: 'Expected cash', value: money(safeNumber(computed.expectedCash), currency) }, { label: 'Counted cash', value: money(n('countedCash'), currency) }, { label: 'Over / short', value: money(safeNumber(computed.variance), currency) }];
+  } else if (moduleId === 'boms') {
+    figures = [{ label: 'Component lines', value: readAssemblyComponents(moduleId, values).length.toLocaleString() }, { label: 'Output quantity', value: n('outputQuantity').toLocaleString() }, { label: 'Estimated unit material cost', value: money(n('unitMaterialCost'), currency) }, { label: 'Estimated run cost', value: money(safeNumber(computed.estimatedMaterialCost), currency) }];
+  } else if (moduleId === 'job-cards') {
+    figures = [{ label: 'Planned hours', value: n('plannedHours').toFixed(2) }, { label: 'Actual hours', value: n('actualHours').toFixed(2) }, { label: 'Hour variance', value: safeNumber(computed.hoursVariance).toFixed(2) }];
+  } else if (moduleId === 'leave') {
+    figures = [{ label: 'Start date', value: displayDate(values.startDate) }, { label: 'End date', value: displayDate(values.endDate) }, { label: 'Calendar days estimate', value: safeNumber(computed.daysRequested).toLocaleString() }];
+  } else if (moduleId === 'replenishment') {
+    figures = [{ label: 'Days of cover estimate', value: computed.daysCover === '—' ? 'No demand rate' : safeNumber(computed.daysCover).toFixed(2) + ' days' }, { label: 'Reorder point', value: n('reorderPoint').toLocaleString() }, { label: 'Recommended quantity', value: safeNumber(computed.recommendedQuantity).toLocaleString() }];
+  } else if (moduleId === 'packages') {
+    figures = [{ label: 'Packages', value: n('packageCount').toLocaleString() }, { label: 'Weight estimate', value: n('weightKg').toFixed(2) + ' kg' }, { label: 'Tracking reference', value: values.trackingReference || 'Not entered' }];
+  } else if (moduleId === 'timesheets') {
+    figures = [{ label: 'Total hours', value: n('hours').toFixed(2) }, { label: 'Billable hours', value: n('billableHours').toFixed(2) }, { label: 'Billable amount estimate', value: money(safeNumber(computed.billableAmount), currency) }];
+  } else if (moduleId === 'campaigns') {
+    figures = [{ label: 'Budget remaining', value: money(n('budget') - n('actualSpend'), currency) }, { label: 'Estimated cost per lead', value: computed.costPerLead === '—' ? 'No leads yet' : money(safeNumber(computed.costPerLead), currency) }, { label: 'Opportunity / lead ratio', value: safeNumber(computed.opportunityConversionPercent).toFixed(1) + '%' }];
+  } else if (moduleId === 'sales-teams') {
+    figures = [{ label: 'Target achievement', value: computed.achievementPercent === '—' ? 'No target entered' : safeNumber(computed.achievementPercent).toFixed(1) + '%' }, { label: 'Sales achieved', value: money(n('salesAchieved'), currency) }, { label: 'Indicative commission estimate', value: money(safeNumber(computed.indicativeCommission), currency) }];
+  } else if (moduleId === 'item-bundles') {
+    figures = [{ label: 'Estimated bundle cost', value: money(n('unitCost'), currency) }, { label: 'Estimated selling price', value: money(n('sellingPrice'), currency) }, { label: 'Estimated gross margin', value: money(safeNumber(computed.grossMargin), currency) }, { label: 'Margin percentage', value: safeNumber(computed.marginPercent).toFixed(1) + '%' }, { label: 'Component lines', value: readAssemblyComponents(moduleId, values).length.toLocaleString() }];
+  } else if (moduleId === 'picklists') {
+    figures = [{ label: 'Units to pick', value: n('unitsToPick').toLocaleString() }, { label: 'Units picked', value: n('unitsPicked').toLocaleString() }, { label: 'Units outstanding', value: safeNumber(computed.unitsOutstanding).toLocaleString() }, { label: 'Pick completion', value: safeNumber(computed.pickPercent).toFixed(1) + '%' }];
+  } else if (moduleId === 'budgets') {
+    figures = [{ label: 'Approved budget', value: money(n('budgetAmount'), currency) }, { label: 'Budget remaining after actuals', value: money(safeNumber(computed.variance), currency) }, { label: 'After committed spend', value: money(safeNumber(computed.availableBudget), currency) }, { label: 'Forecast variance', value: money(safeNumber(computed.forecastVariance), currency) }];
+  } else if (moduleId === 'integrations') {
+    figures = [{ label: 'Environment', value: values.environment || '—' }, { label: 'Last test', value: values.lastResult || 'Not tested' }, { label: 'Records processed', value: n('recordsProcessed').toLocaleString() }];
   } else if (moduleId === 'bank-reconciliation') {
-    figures = [{ label: 'Statement closing balance', value: money(n('statementBalance'), currency) }, { label: 'Book closing balance', value: money(n('bookBalance'), currency) }, { label: 'Unexplained difference', value: money(n('statementBalance') - n('bookBalance'), currency) }, { label: 'Lines not matched', value: n('unmatchedCount').toLocaleString() }];
+    figures = [
+      { label: 'Statement closing balance', value: money(n('statementBalance'), currency) },
+      { label: 'Book closing balance', value: money(n('bookBalance'), currency) },
+      { label: 'Unexplained difference', value: money(safeNumber(computed.difference), currency) },
+      { label: 'Lines not matched', value: n('unmatchedCount').toLocaleString() },
+    ];
   } else if (moduleId === 'tax-codes') {
     figures = [{ label: 'Configured rate', value: n('ratePercent').toFixed(2) + '%' }, { label: 'Treatment', value: values.treatment || '—' }, { label: 'Applicability', value: values.appliesTo || '—' }];
   } else if (moduleId === 'tax-documents') {
-    const tax = n('taxableAmount') * effectiveTaxRate(values) / 100;
+    const tax = safeNumber(computed.taxAmount);
     figures = [{ label: 'Taxable amount', value: money(n('taxableAmount'), currency) }, { label: 'Tax estimate', value: money(tax, currency) }, { label: 'Gross estimate', value: money(n('taxableAmount') + tax, currency) }];
   } else if (moduleId === 'stock-counts') {
-    figures = [{ label: 'System quantity', value: n('expectedQuantity').toLocaleString() }, { label: 'Counted quantity', value: n('countedQuantity').toLocaleString() }, { label: 'Variance', value: (n('countedQuantity') - n('expectedQuantity')).toLocaleString() }];
+    figures = [{ label: 'System quantity', value: n('expectedQuantity').toLocaleString() }, { label: 'Counted quantity', value: n('countedQuantity').toLocaleString() }, { label: 'Variance', value: safeNumber(computed.variance).toLocaleString() }];
   } else if (moduleId === 'expenses') {
-    const tax = n('amount') * effectiveTaxRate(values) / 100;
-    figures = [{ label: 'Tax estimate', value: money(tax, currency) }, { label: 'Expense total', value: money(n('amount') + tax, currency) }];
+    figures = [{ label: 'Tax estimate', value: money(safeNumber(computed.taxAmount), currency) }, { label: 'Expense total', value: money(safeNumber(computed.total), currency) }];
   } else if (moduleId === 'assets') {
-    const life = n('usefulLifeYears');
-    const annual = life > 0 ? Math.max(0, (n('cost') - n('residualValue')) / life) : 0;
-    figures = [{ label: 'Depreciable base', value: money(Math.max(0, n('cost') - n('residualValue')), currency) }, { label: 'Annual straight-line estimate', value: money(annual, currency) }, { label: 'Carrying value estimate', value: money(Math.max(n('residualValue'), n('cost') - n('accumulatedDepreciation')), currency) }];
+    figures = [
+      { label: 'Depreciable base', value: money(Math.max(0, n('cost') - n('residualValue')), currency) },
+      { label: 'Annual straight-line estimate', value: money(safeNumber(computed.annualDepreciation), currency) },
+      { label: 'Carrying value estimate', value: money(safeNumber(computed.carryingValue), currency) },
+    ];
   } else if (moduleId === 'payroll') {
-    figures = [{ label: 'Gross pay entered', value: money(n('grossPay'), currency) }, { label: 'Deductions entered', value: money(n('deductions'), currency) }, { label: 'Net pay estimate', value: money(Math.max(0, n('grossPay') - n('deductions')), currency) }];
+    figures = [{ label: 'Gross pay entered', value: money(n('grossPay'), currency) }, { label: 'Deductions entered', value: money(n('deductions'), currency) }, { label: 'Net pay estimate', value: money(safeNumber(computed.netPay), currency) }];
   } else if (moduleId === 'attendance') {
     const toMinutes = (value: string) => { const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim()); return match ? Number(match[1]) * 60 + Number(match[2]) : Number.NaN; };
     const start = toMinutes(values.clockIn ?? ''); const end = toMinutes(values.clockOut ?? '');
     const span = Number.isFinite(start) && Number.isFinite(end) && end > start ? end - start : 0;
-    const hours = Math.max(0, span - Math.max(0, n('breakMinutes'))) / 60;
-    figures = [{ label: 'Clock span', value: span ? (span / 60).toFixed(2) + ' hours' : '—' }, { label: 'Unpaid break', value: n('breakMinutes').toLocaleString() + ' minutes' }, { label: 'Worked hours estimate', value: hours.toFixed(2) }];
+    figures = [{ label: 'Clock span', value: span ? (span / 60).toFixed(2) + ' hours' : '—' }, { label: 'Unpaid break', value: n('breakMinutes').toLocaleString() + ' minutes' }, { label: 'Worked hours estimate', value: safeNumber(computed.workedHours).toFixed(2) }];
   } else if (moduleId === 'price-lists') {
     const base = Math.max(0, n('basePrice')); const sell = Math.max(0, n('sellingPrice'));
     figures = [{ label: 'Reference price', value: money(base, values.currency || currency) }, { label: 'Configured selling price', value: money(sell, values.currency || currency) }, { label: 'Difference vs reference', value: money(sell - base, values.currency || currency) }];
   } else if (moduleId === 'accounting') {
-    figures = [{ label: 'Total debit', value: money(n('amount'), currency) }, { label: 'Total credit', value: money(n('amount'), currency) }, { label: 'Difference', value: money(0, currency) }];
+    const totals = journalTotals(readJournalLines(values));
+    figures = [{ label: 'Journal lines', value: readJournalLines(values).length.toLocaleString() }, { label: 'Total debit', value: money(totals.debit, currency) }, { label: 'Total credit', value: money(totals.credit, currency) }, { label: 'Difference', value: money(totals.difference, currency) }];
   } else if (moduleId === 'receiving') {
     figures = [{ label: 'Accepted quantity', value: n('acceptedQuantity').toLocaleString() }, { label: 'Rejected / damaged', value: n('rejectedQuantity').toLocaleString() }, { label: 'Quantity not yet counted on this receipt', value: Math.max(0, n('orderedQuantity') - n('acceptedQuantity') - n('rejectedQuantity')).toLocaleString() }];
   }
@@ -580,59 +607,99 @@ function CalculatedFigures({ moduleId, values, currency }: { moduleId: string; v
   return <div className="phase-calculated-panel"><div className="phase-calculated-title"><CircleDollarSign size={15} /> Calculated figures <span>Preview estimate</span></div><div className="phase-calculated-grid">{figures.map((figure) => <div key={figure.label}><span>{figure.label}</span><strong>{figure.value}</strong></div>)}</div></div>;
 }
 
+function formatReportValue(value: number, unit: PreviewReportUnit, currency: string): string {
+  if (unit === 'count') return Math.round(value).toLocaleString();
+  if (unit === 'hours') return value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' h';
+  try {
+    return new Intl.NumberFormat('en-UG', {
+      style: 'currency', currency,
+      maximumFractionDigits: currency === 'UGX' ? 0 : 2,
+    }).format(value);
+  } catch {
+    return currency + ' ' + value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+}
+
 function ReportsPage() {
   const { workspace, branch } = useWorkspace();
   const navigate = useNavigate();
-  const [period, setPeriod] = useState('Last 30 days');
-  const [report, setReport] = useState('Sales & receipts');
-  const reportOptions: Record<string, Array<{ label: string; value: number }>> = {
-    'Sales & receipts': [{ label: 'Week 1', value: 3.2 }, { label: 'Week 2', value: 4.1 }, { label: 'Week 3', value: 2.8 }, { label: 'Week 4', value: 5.4 }],
-    'Sales returns & discounts': [{ label: 'Returns', value: 0.7 }, { label: 'Discounts', value: 0.45 }, { label: 'Voids pending review', value: 0.12 }, { label: 'Net sales', value: 4.6 }],
-    'Stock overview': [{ label: 'Fast-moving SKUs', value: 44 }, { label: 'Steady SKUs', value: 31 }, { label: 'Low-stock SKUs', value: 13 }, { label: 'No-movement SKUs', value: 18 }],
-    'Purchases & payables': [{ label: 'Open orders', value: 4.8 }, { label: 'Received', value: 3.7 }, { label: 'Supplier bills', value: 2.9 }, { label: 'Settled', value: 2.1 }],
-    'Receivables ageing': [{ label: 'Not yet due', value: 3.7 }, { label: '1–30 days', value: 1.6 }, { label: '31–60 days', value: 0.8 }, { label: '61+ days', value: 0.35 }],
-    'Payables ageing': [{ label: 'Not yet due', value: 2.8 }, { label: '1–30 days', value: 1.4 }, { label: '31–60 days', value: 0.75 }, { label: '61+ days', value: 0.2 }],
-    'Expenses': [{ label: 'Transport', value: 1.4 }, { label: 'Utilities', value: 2.2 }, { label: 'Rent', value: 3.1 }, { label: 'Other', value: 1.7 }],
-    'Profit & loss preview': [{ label: 'Revenue', value: 18.45 }, { label: 'Cost of sales', value: 11.4 }, { label: 'Operating expenses', value: 3.2 }, { label: 'Net result', value: 3.85 }],
-    'Balance sheet preview': [{ label: 'Assets', value: 22.8 }, { label: 'Liabilities', value: 7.4 }, { label: 'Equity', value: 15.4 }, { label: 'Unreconciled', value: 0.28 }],
-    'Tax summary preview': [{ label: 'Standard rated base', value: 6.4 }, { label: 'Zero rated base', value: 1.2 }, { label: 'Exempt base', value: 0.9 }, { label: 'Draft tax estimate', value: 1.15 }],
-    'Attendance & payroll': [{ label: 'Shifts scheduled', value: 420 }, { label: 'Attendance confirmed', value: 389 }, { label: 'Exceptions pending', value: 14 }, { label: 'Absence records', value: 17 }],
-    'Deliveries': [{ label: 'Ready to pick', value: 32 }, { label: 'Out for delivery', value: 18 }, { label: 'Delivered', value: 114 }, { label: 'Exceptions', value: 4 }],
-    'Bank reconciliation': [{ label: 'Statement closing', value: 24.5 }, { label: 'Book closing', value: 24.08 }, { label: 'Matched value', value: 21.8 }, { label: 'Unexplained difference', value: 0.42 }],
-    'Cash & accounts': [{ label: 'Cash', value: 2.4 }, { label: 'Bank', value: 5.1 }, { label: 'Mobile money', value: 1.2 }, { label: 'Unreconciled', value: 1.7 }],
-  };
-  const periodScale: Record<string, number> = { Today: 0.07, 'Last 7 days': 0.24, 'Last 30 days': 1, 'Last 90 days': 2.7, 'Year to date': 9.6 };
-  const scale = periodScale[period] ?? 1;
-  const countReports = new Set(['Stock overview', 'Attendance & payroll', 'Deliveries']);
-  const isCountReport = countReports.has(report);
-  const chartUnit = isCountReport ? 'illustrative count' : 'illustrative millions of ' + workspace.currency;
-  const rawChart = reportOptions[report] ?? reportOptions['Sales & receipts'] ?? [];
-  const chart = rawChart.map((item) => ({ ...item, displayedValue: isCountReport ? Math.max(0, Math.round(item.value * scale)) : item.value * scale }));
-  const max = Math.max(1, ...chart.map((item) => item.displayedValue));
+  const queryClient = useQueryClient();
+  const previewDataService = usePreviewDataService();
+  const [period, setPeriod] = useState<ReportPeriod>('Last 30 days');
+  const [report, setReport] = useState<PreviewReportName>('Sales & receipts');
+  const [reportSearch, setReportSearch] = useState('');
+  const scope = { workspaceId: workspace.id, branchId: branch.id };
+  const snapshotQuery = useQuery({
+    queryKey: ['phase-preview-reports', workspace.id, branch.id, report, period],
+    queryFn: () => loadPreviewReportSnapshot(previewDataService, scope, report, period, workspace.currency),
+  });
+  const snapshot = snapshotQuery.data;
+  const filteredReportNames = REPORT_NAMES.filter((name) => name.toLocaleLowerCase().includes(reportSearch.trim().toLocaleLowerCase()));
+  const max = Math.max(1, ...(snapshot?.entries ?? []).map((item) => Math.abs(item.value)));
   const reportLinks: Array<[string, string, string]> = [
-    ['Sales & returns', 'Net sales, discounts, payment mix, top items and refund trends.', '/sales'],
-    ['Stock valuation', 'On-hand quantity, movement ledger, cost estimates and low stock.', '/inventory'],
-    ['Purchases & payables', 'Open purchase orders, goods receipts, supplier bills and payments.', '/modules/purchases'],
-    ['Receivables ageing', 'Customer balances grouped by due date and outstanding days.', '/modules/customers'],
-    ['Payables ageing', 'Supplier balances, due dates, terms and settlement history.', '/modules/suppliers'],
-    ['Expenses & cash flow', 'Spend by category, money account movements and reconciliation.', '/modules/expenses'],
-    ['P&L and balance sheet', 'Revenue, costs, expenses, assets, liabilities and equity from posted entries.', '/modules/accounting'],
-    ['Tax summary & tax codes', 'Preview taxable, zero-rated and exempt totals from configured treatment.', '/modules/tax-codes'],
-    ['Bank reconciliation', 'Matched statement lines, book balance and unexplained differences.', '/modules/bank-reconciliation'],
-    ['Payroll & attendance', 'Employee shifts, attendance exceptions and payroll-run estimates.', '/modules/payroll'],
-    ['Delivery fulfilment', 'Pick lists, dispatch status, delivered orders and exceptions.', '/modules/deliveries'],
-    ['Procurement pipeline', 'Requests, supplier enquiries, quotations and purchase order drafts.', '/modules/purchase-requests'],
+    ['Sales & returns', 'Net sales, credits, discounts and payment estimates.', '/sales'],
+    ['Stock valuation', 'On-hand quantity and the core stock movement ledger.', '/inventory'],
+    ['Purchases & payables', 'Purchase orders, receiving, supplier bills and payments.', '/modules/purchases'],
+    ['Receivables ageing', 'Customer invoices grouped by due date.', '/modules/sales-invoices'],
+    ['Payables ageing', 'Supplier bills grouped by due date.', '/modules/purchase-invoices'],
+    ['Expenses & cash flow', 'Expenses, money accounts, cash-up and reconciliation.', '/modules/expenses'],
+    ['P&L and balance sheet', 'Operational estimates and finance preview screens.', '/modules/accounting'],
+    ['Tax summary', 'Tax treatment and estimate records. Not an EFRIS submission.', '/modules/tax-codes'],
+    ['Bank reconciliation', 'Entered statement lines, book balance and differences.', '/modules/bank-reconciliation'],
+    ['Payroll & attendance', 'Attendance exceptions, leave and payroll previews.', '/modules/payroll'],
+    ['Delivery fulfilment', 'Packages, dispatches and delivery exceptions.', '/modules/deliveries'],
+    ['Procurement pipeline', 'Requests, RFQs, supplier quotations and purchase drafts.', '/modules/purchase-requests'],
+    ['CRM pipeline', 'Leads, opportunities, next actions and weighted values.', '/modules/leads'],
+    ['Production & quality', 'BOMs, work orders, job cards and inspections.', '/modules/work-orders'],
   ];
-  function exportReport() { downloadCsv('lexa-sample-report-' + report.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.csv', ['Category', chartUnit, 'Selected period', 'Branch'], chart.map((item) => [item.label, String(Number(item.displayedValue.toFixed(2))), period, branch.name])); }
+
+  function exportReport() {
+    if (!snapshot) return;
+    downloadCsv(
+      'lexa-preview-report-' + report.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-') + '.csv',
+      ['Report', 'Category', 'Value', 'Unit', 'Currency', 'Period', 'From', 'To', 'Branch', 'Data source'],
+      snapshot.entries.map((item) => [snapshot.report, item.label, String(Number(item.value.toFixed(2))), snapshot.unit, snapshot.currency, snapshot.period, getPreviewDateRange(snapshot.period).from, getPreviewDateRange(snapshot.period).to, branch.name, snapshot.sourceLabel]),
+    );
+    toast.success('Preview report exported', { description: 'CSV contains the currently displayed mock-data report.' });
+  }
+
   return (
     <div className="page-stack phase-two-page">
-      <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">INSIGHTS / REPORT CENTRE</div><h2>Reports & analytics</h2><p>Browse the planned report pack and test the dashboard controls before connecting them to live API responses.</p></div><button className="button button-secondary" onClick={exportReport}><Download size={15} /> Export sample CSV</button></div>
-      <div className="phase-two-notice"><span className="phase-two-notice-icon"><ShieldAlert size={18} /></span><div><strong>Illustrative report figures</strong><p>All chart values below are sample figures for interface review. They are not calculated from your backend or the current local sales database, and must not be used for business or tax decisions.</p></div></div>
-      <section className="section-card phase-report-controls"><div><span className="eyebrow eyebrow-blue">REPORT CONFIGURATION</span><h3>Choose a report view</h3><p>Period and report selection are interactive; live data binding comes in the later integration phase.</p></div><div className="phase-report-control-fields"><label className="field-label">Report<select value={report} onChange={(event) => setReport(event.target.value)}>{Object.keys(reportOptions).map((option) => <option key={option}>{option}</option>)}</select></label><label className="field-label">Reporting period<select value={period} onChange={(event) => setPeriod(event.target.value)}><option>Today</option><option>Last 7 days</option><option>Last 30 days</option><option>Last 90 days</option><option>Year to date</option></select></label></div></section>
-      <div className="metric-strip four-metrics phase-report-metrics"><div className="mini-metric"><span>Net sales (sample)</span><strong>{money(18450000 * scale, workspace.currency)}</strong><small>After sample returns</small></div><div className="mini-metric"><span>Purchases committed</span><strong>{money(4820000 * scale, workspace.currency)}</strong><small>Illustrative open purchase orders</small></div><div className="mini-metric"><span>Expenses recorded</span><strong>{money(1630000 * scale, workspace.currency)}</strong><small>Illustrative period spend</small></div><div className="mini-metric"><span>Receivables estimate</span><strong>{money(725000 * scale, workspace.currency)}</strong><small>Illustrative customer balances</small></div></div>
-      <div className="phase-report-layout"><section className="section-card phase-report-chart"><div className="section-card-heading"><span className="heading-icon blue-icon"><BarChart3 size={18} /></span><div><h3>{report}</h3><p>{period} · {branch.name} · illustrative preview</p></div></div><div className="phase-bars">{chart.map((item) => <div className="phase-bar-row" key={item.label}><span>{item.label}</span><div className="phase-bar-track"><span style={{ width: (item.displayedValue / max * 100) + '%' }} /></div><strong>{isCountReport ? item.displayedValue.toLocaleString() : item.displayedValue.toFixed(1) + 'm'}</strong></div>)}</div><div className="phase-report-chart-footnote">Figures are illustrative and scaled for the selected period ({period}). Units: {isCountReport ? 'sample counts' : 'millions of ' + workspace.currency}. These are not live transactions.</div></section>
-        <section className="section-card phase-report-questions"><div className="section-card-heading"><span className="heading-icon amber-icon"><BarChart3 size={18} /></span><div><h3>Report pack</h3><p>Operational reports expected as modules connect</p></div></div>{reportLinks.map(([title, description, to]) => <button className="phase-report-link" key={title} onClick={() => navigate(to)}><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={15} /></button>)}</section></div>
-      <div className="phase-two-note"><Activity size={16} /><span>Accounting reports require a reconciled chart of accounts and posted source transactions. Uganda EFRIS / tax submission is a separate integration and compliance workstream, not part of these sample report screens.</span></div>
+      <div className="page-heading-row">
+        <div><div className="eyebrow eyebrow-blue">INSIGHTS / REPORT CENTRE</div><h2>Reports & analytics</h2><p>Report figures are now calculated from the current workspace-and-branch preview records. Select a period or change a record to see the figures update.</p></div>
+        <div className="action-group"><button className="button button-secondary" onClick={() => void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] })}><RefreshCw size={15} /> Refresh</button><button className="button button-primary" onClick={exportReport} disabled={!snapshot}><Download size={15} /> Export CSV</button></div>
+      </div>
+      <div className="phase-two-notice"><span className="phase-two-notice-icon"><ShieldAlert size={18} /></span><div><strong>{snapshot?.persistenceMode === 'memory-only' ? 'Session-only mock data' : 'Browser-local mock data'}</strong><p>These are estimates derived from the Phase 2 preview records. They are not drawn from your existing backend or the core IndexedDB sales ledger, and they are not statutory financial or tax reports. The data-source boundary is ready to be replaced by an API adapter later.</p></div></div>
+
+      <section className="section-card phase-report-controls">
+        <div><span className="eyebrow eyebrow-blue">REPORT CONFIGURATION</span><h3>Choose a report</h3><p>Periods use calendar dates in your current browser timezone.</p></div>
+        <div className="phase-report-control-fields">
+          <label className="field-label">Report<select aria-label="Select report" value={report} onChange={(event) => setReport(event.target.value as PreviewReportName)}>{REPORT_NAMES.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+          <label className="field-label">Reporting period<select aria-label="Reporting period" value={period} onChange={(event) => setPeriod(event.target.value as ReportPeriod)}>{REPORT_PERIODS.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+          <label className="field-label">Find report<input aria-label="Search reports" value={reportSearch} onChange={(event) => setReportSearch(event.target.value)} placeholder="e.g. stock, payroll, bank" /></label>
+        </div>
+        {reportSearch && <div className="phase-report-search-results" aria-live="polite"><span>{filteredReportNames.length} matching reports</span>{filteredReportNames.length > 0 && <div>{filteredReportNames.map((name) => <button key={name} type="button" className={'phase-report-chip ' + (name === report ? 'phase-report-chip-active' : '')} onClick={() => { setReport(name); setReportSearch(''); }}>{name}</button>)}</div>}</div>}
+      </section>
+
+      {snapshotQuery.isError && <div className="inline-error"><strong>Could not load preview report</strong><span>{snapshotQuery.error instanceof Error ? snapshotQuery.error.message : 'Try refreshing the report.'}</span><button className="button button-secondary" onClick={() => void snapshotQuery.refetch()}><RefreshCw size={14} /> Retry report</button></div>}
+      <div className="metric-strip four-metrics phase-report-metrics">
+        {(snapshot?.metrics ?? [
+          { label: 'Net sales estimate', value: 0, unit: 'currency' as const },
+          { label: 'Supplier bill balance', value: 0, unit: 'currency' as const },
+          { label: 'Expenses estimate', value: 0, unit: 'currency' as const },
+          { label: 'Items requiring review', value: 0, unit: 'count' as const },
+        ]).map((metric) => <div className="mini-metric" key={metric.label}><span>{metric.label}</span><strong>{snapshotQuery.isLoading ? '…' : formatReportValue(metric.value, metric.unit, workspace.currency)}</strong><small>{snapshot?.period ?? period} · mock data</small></div>)}
+      </div>
+
+      <div className="phase-report-layout">
+        <section className="section-card phase-report-chart">
+          <div className="section-card-heading"><span className="heading-icon blue-icon"><BarChart3 size={18} /></span><div><h3>{report}</h3><p>{period} · {branch.name} · {snapshot?.unit === 'currency' ? workspace.currency : snapshot?.unit === 'hours' ? 'hours' : 'records / units'}</p></div></div>
+          {snapshotQuery.isLoading ? <div className="loading-state">Calculating from the preview records…</div> : !snapshot?.entries.length ? <div className="empty-state compact"><div className="empty-icon"><BarChart3 size={20} /></div><h3>No values for this report yet</h3><p>Add records in the associated module and refresh this report.</p></div> : <div className="phase-bars">{snapshot.entries.map((item) => <div className="phase-bar-row" key={item.label}><span title={item.label}>{item.label}</span><div className="phase-bar-track"><span style={{ width: Math.max(0, Math.abs(item.value) / max * 100) + '%', opacity: item.value < 0 ? 0.48 : 1 }} /></div><strong>{formatReportValue(item.value, snapshot.unit, snapshot.currency)}</strong></div>)}</div>}
+          {snapshot && <div className="phase-report-chart-footnote">{snapshot.interpretationNote} Date range: {getPreviewDateRange(snapshot.period).from} – {getPreviewDateRange(snapshot.period).to}. Report generated {new Date(snapshot.generatedAt).toLocaleString()}.</div>}
+        </section>
+        <section className="section-card phase-report-questions"><div className="section-card-heading"><span className="heading-icon amber-icon"><Activity size={18} /></span><div><h3>Open related workflow</h3><p>Go from a report to the operational records behind it.</p></div></div>{reportLinks.map(([title, description, to]) => <button className="phase-report-link" key={title} onClick={() => navigate(to)}><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={15} /></button>)}</section>
+      </div>
+      {snapshot && <div className="phase-two-note"><Activity size={16} /><span>{Object.values(snapshot.filteredRecordCounts).reduce((sum, count) => sum + count, 0).toLocaleString()} preview records evaluated across {Object.keys(snapshot.filteredRecordCounts).length} modules. Data source: {snapshot.sourceLabel}. All values remain separate from your connected backend.</span></div>}
     </div>
   );
 }

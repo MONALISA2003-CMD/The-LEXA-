@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import {
-  Activity, ArrowDownUp, Bell, Building2, ChevronDown, CircleHelp, ClipboardList, Command, CreditCard,
-  LayoutDashboard, Menu, Package, Settings, ShoppingCart, Store, X,
+  Activity, ArrowDownUp, Banknote, Bell, BookOpen, Building2, BarChart3, ChevronDown, Target, Boxes, Plug,
+  CircleHelp, ClipboardList, Command, CreditCard, FileText, LayoutDashboard, Menu,
+  Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { localWorkspaceRepository } from '../../data/local/workspaces';
@@ -16,24 +17,80 @@ const navSections = [
   { title: 'WORKSPACE', items: [
     { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
     { to: '/workspace', label: 'Business & branches', icon: Building2 },
+    { to: '/modules', label: 'All modules', icon: Command, end: true },
   ] },
-  { title: 'OPERATIONS', items: [
-    { to: '/checkout', label: 'Checkout', icon: ShoppingCart },
+  { title: 'CRM & GROWTH', items: [
+    { to: '/modules/leads', label: 'Leads & prospects', icon: Users },
+    { to: '/modules/opportunities', label: 'Opportunities', icon: Target },
+    { to: '/modules/contacts', label: 'Contacts & addresses', icon: Users },
+    { to: '/modules/campaigns', label: 'Campaigns', icon: Activity },
+    { to: '/modules/sales-teams', label: 'Sales team & territories', icon: Users },
+  ] },
+  { title: 'SELLING', items: [
+    { to: '/checkout', label: 'Checkout / POS', icon: ShoppingCart },
     { to: '/sales', label: 'Sales & receipts', icon: CreditCard },
-    { to: '/products', label: 'Products', icon: Package },
-    { to: '/inventory', label: 'Inventory', icon: ArrowDownUp },
+    { to: '/modules/sales-orders', label: 'Sales orders', icon: ShoppingCart },
+    { to: '/modules/sales-invoices', label: 'Sales invoices', icon: ReceiptText },
+    { to: '/modules/quotations', label: 'Quotations', icon: FileText },
+    { to: '/modules/price-lists', label: 'Price lists & pricing', icon: Tag },
+    { to: '/modules/customers', label: 'Customers', icon: Users },
   ] },
-];
-
-const planned = [
-  { label: 'Purchasing', icon: ClipboardList },
-  { label: 'Reports', icon: Activity },
+  { title: 'INVENTORY', items: [
+    { to: '/products', label: 'Products', icon: Package },
+    { to: '/inventory', label: 'Stock & movements', icon: ArrowDownUp },
+    { to: '/modules/receiving', label: 'Goods receiving', icon: PackageCheck },
+    { to: '/modules/stock-counts', label: 'Stock counts', icon: ClipboardList },
+    { to: '/modules/stock-transfers', label: 'Stock transfers', icon: Truck },
+    { to: '/modules/warehouses', label: 'Warehouses & locations', icon: Building2 },
+    { to: '/modules/picklists', label: 'Picklists & picking', icon: ClipboardList },
+    { to: '/modules/item-bundles', label: 'Item bundles', icon: Boxes },
+  ] },
+  { title: 'LOGISTICS', items: [
+    { to: '/modules/deliveries', label: 'Deliveries & fulfilment', icon: Truck },
+  ] },
+  { title: 'PROCUREMENT', items: [
+    { to: '/modules/purchase-requests', label: 'Purchase requests', icon: ClipboardList },
+    { to: '/modules/rfqs', label: 'Requests for quotation', icon: FileText },
+    { to: '/modules/supplier-quotes', label: 'Supplier quotations', icon: FileText },
+    { to: '/modules/suppliers', label: 'Suppliers', icon: Truck },
+    { to: '/modules/purchases', label: 'Purchase orders', icon: ClipboardList },
+    { to: '/modules/purchase-invoices', label: 'Supplier invoices', icon: ReceiptText },
+  ] },
+  { title: 'FINANCE', items: [
+    { to: '/modules/expenses', label: 'Expenses', icon: ReceiptText },
+    { to: '/modules/money-accounts', label: 'Cash & money accounts', icon: Wallet },
+    { to: '/modules/payments', label: 'Receipts & payments', icon: CreditCard },
+    { to: '/modules/accounting', label: 'Accounting journals', icon: BookOpen },
+    { to: '/modules/chart-of-accounts', label: 'Chart of accounts', icon: BookOpen },
+    { to: '/modules/tax-codes', label: 'Tax codes & rules', icon: ReceiptText },
+    { to: '/modules/bank-reconciliation', label: 'Bank reconciliation', icon: Banknote },
+    { to: '/modules/assets', label: 'Fixed assets', icon: Building2 },
+    { to: '/modules/cost-centers', label: 'Cost centres', icon: BookOpen },
+    { to: '/modules/budgets', label: 'Budgets & forecasts', icon: Wallet },
+    { to: '/modules/recurring-invoices', label: 'Recurring billing', icon: ReceiptText },
+    { to: '/modules/tax-documents', label: 'Tax documents / EFRIS', icon: BookOpen },
+  ] },
+  { title: 'PEOPLE & PAYROLL', items: [
+    { to: '/modules/employees', label: 'Employees & HR', icon: Users },
+    { to: '/modules/attendance', label: 'Attendance & shifts', icon: Activity },
+    { to: '/modules/payroll', label: 'Payroll run preview', icon: Wallet },
+  ] },
+  { title: 'INTEGRATION & CONTROL', items: [
+    { to: '/modules/integrations', label: 'Integration status', icon: Plug },
+    { to: '/modules/reports', label: 'Reports & analytics', icon: BarChart3 },
+    { to: '/modules/team', label: 'Team & access', icon: Users },
+    { to: '/modules/audit', label: 'Activity & audit log', icon: Activity },
+  ] },
 ];
 
 function routeTitle(pathname: string): string {
   if (pathname === '/') return 'Overview';
   if (pathname.startsWith('/sales/')) return 'Sale details';
-  const found = navSections.flatMap((section) => section.items).find((item) => item.to !== '/' && pathname.startsWith(item.to));
+  if (pathname === '/modules') return 'All modules';
+  const found = navSections.flatMap((section) => section.items)
+    .filter((item) => item.to !== '/')
+    .sort((a, b) => b.to.length - a.to.length)
+    .find((item) => pathname === item.to || pathname.startsWith(item.to + '/'));
   if (found) return found.label;
   if (pathname === '/settings') return 'Settings';
   return 'Workspace';
@@ -47,8 +104,8 @@ export default function AppShell() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [loading, setLoading] = useState(true);
-  // Prevent a premature redirect while the selected workspace's branch is loading.
-  const [branchesLoading, setBranchesLoading] = useState(true);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [resolvedBranchWorkspaceId, setResolvedBranchWorkspaceId] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const refreshWorkspaces = useCallback(async () => {
@@ -84,14 +141,20 @@ export default function AppShell() {
 
   useEffect(() => {
     let cancelled = false;
+    if (!workspace) {
+      setBranches([]);
+      setBranch(null);
+      setBranchesLoading(false);
+      setResolvedBranchWorkspaceId(null);
+      return () => { cancelled = true; };
+    }
+    // Never redirect to onboarding while the workspace's branch list is still loading.
+    // This race used to send a just-created workspace back to setup before its branch arrived.
+    setBranchesLoading(true);
+    setResolvedBranchWorkspaceId(null);
+    setBranches([]);
+    setBranch(null);
     void (async () => {
-      if (!workspace) {
-        setBranches([]);
-        setBranch(null);
-        setBranchesLoading(false);
-        return;
-      }
-      setBranchesLoading(true);
       try {
         const items = await localWorkspaceRepository.listBranches(workspace.id);
         if (cancelled) return;
@@ -102,13 +165,12 @@ export default function AppShell() {
         if (chosen) localStorage.setItem(ACTIVE_BRANCH_KEY, chosen.id);
         else localStorage.removeItem(ACTIVE_BRANCH_KEY);
       } catch {
-        if (!cancelled) {
-          setBranches([]);
-          setBranch(null);
-          toast.error('Could not load branches for this workspace.');
-        }
+        if (!cancelled) toast.error('Could not load branches for this workspace.');
       } finally {
-        if (!cancelled) setBranchesLoading(false);
+        if (!cancelled) {
+          setBranchesLoading(false);
+          setResolvedBranchWorkspaceId(workspace.id);
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -123,22 +185,10 @@ export default function AppShell() {
     if (!found) { toast.error('Business workspace not found.'); return; }
     localStorage.setItem(ACTIVE_WORKSPACE_KEY, found.id);
     localStorage.removeItem(ACTIVE_BRANCH_KEY);
-    setBranchesLoading(true);
     setBranches([]);
     setBranch(null);
     setWorkspace(found);
-    try {
-      const foundBranches = await localWorkspaceRepository.listBranches(found.id);
-      setBranches(foundBranches);
-      setBranch(foundBranches[0] ?? null);
-      if (foundBranches[0]) localStorage.setItem(ACTIVE_BRANCH_KEY, foundBranches[0].id);
-      else localStorage.removeItem(ACTIVE_BRANCH_KEY);
-      toast.success(`Switched to ${found.businessName}`);
-    } catch {
-      toast.error('Could not load branches for this workspace.');
-    } finally {
-      setBranchesLoading(false);
-    }
+    toast.success(`Switched to ${found.businessName}`);
   }, []);
 
   const setActiveBranch = useCallback((branchId: string) => {
@@ -154,13 +204,10 @@ export default function AppShell() {
     return { workspaces, workspace, branches, branch, setActiveWorkspace, setActiveBranch, refreshWorkspaces };
   }, [workspaces, workspace, branches, branch, setActiveWorkspace, setActiveBranch, refreshWorkspaces]);
 
-  if (loading || (workspace !== null && (branchesLoading || !branch))) {
-    return <div className="boot-screen"><div className="brand-mark">L</div><span>Opening your workspace…</span></div>;
-  }
+  if (loading || (workspace && (branchesLoading || resolvedBranchWorkspaceId !== workspace.id))) return <div className="boot-screen"><div className="brand-mark">L</div><span>Opening your workspace…</span></div>;
   if (!workspace) return <Navigate to="/onboarding" replace />;
-  if (!branch || !contextValue) {
-    return <main className="onboarding-shell"><section className="setup-card"><div className="setup-card-icon"><Store size={21} /></div><div className="setup-card-heading"><h2>Workspace needs attention</h2><p>Your business record exists, but no branch could be loaded. Your saved workspace has not been deleted.</p></div><button className="button button-primary button-wide" onClick={() => navigate('/onboarding', { replace: true })}>Return to setup</button></section></main>;
-  }
+  if (!branch) return <Navigate to="/onboarding" replace />;
+  if (!contextValue) return null;
 
   return (
     <WorkspaceContext.Provider value={contextValue}>
@@ -169,7 +216,7 @@ export default function AppShell() {
         <aside className={`sidebar ${mobileNavOpen ? 'sidebar-open' : ''}`} aria-label="Main navigation">
           <div className="brand-lockup">
             <div className="brand-mark">L</div>
-            <div><div className="brand-name">LEXA</div><div className="brand-caption">BUSINESS OS</div></div>
+            <div><div className="brand-name">LEXA</div><div className="brand-caption">BUSINESS OPERATING SYSTEM</div></div>
             <button className="icon-button sidebar-close" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)}><X size={18} /></button>
           </div>
           <div className="sidebar-workspace">
@@ -189,15 +236,11 @@ export default function AppShell() {
                 })}
               </div>
             ))}
-            <div className="nav-section">
-              <div className="nav-section-title nav-title-row"><span>COMING NEXT</span><span className="phase-pill">ROADMAP</span></div>
-              {planned.map(({ label, icon: Icon }) => <div className="nav-link nav-link-disabled" key={label} title={`${label} is planned for a later phase`}><Icon size={18} strokeWidth={1.8} /><span>{label}</span><span className="small-dot" /></div>)}
-            </div>
           </nav>
           <div className="sidebar-bottom">
-            <div className="local-note"><span className="status-dot" /><div><strong>Local workspace</strong><span>Saved on this device</span></div></div>
+            <div className="local-note"><span className="status-dot" /><div><strong>Frontend build mode</strong><span>Existing backend kept separate</span></div></div>
             <NavLink to="/settings" className={({ isActive }) => `nav-link settings-link ${isActive ? 'nav-link-active' : ''}`}><Settings size={18} /><span>Settings</span></NavLink>
-            <button className="help-link" onClick={() => toast.info('LEXA local-first preview', { description: 'Your records are saved in this browser profile. Backend services are not connected.' })}><CircleHelp size={16} /><span>Help & limitations</span></button>
+            <button className="help-link" onClick={() => toast.info('LEXA Phase 2 preview', { description: 'Existing core workflows are retained. New module records are sample preview data until mapped to the existing backend.' })}><CircleHelp size={16} /><span>Help & implementation status</span></button>
           </div>
         </aside>
 
@@ -208,13 +251,13 @@ export default function AppShell() {
               <label className="select-wrap workspace-select"><Building2 size={15} /><span className="sr-only">Active business</span><select aria-label="Active business" value={workspace.id} onChange={(event) => void setActiveWorkspace(event.target.value)}>{workspaces.map((item) => <option key={item.id} value={item.id}>{item.businessName}</option>)}</select><ChevronDown size={14} /></label>
               <label className="select-wrap branch-select"><Store size={15} /><span className="sr-only">Active branch</span><select aria-label="Active branch" value={branch.id} onChange={(event) => setActiveBranch(event.target.value)}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><ChevronDown size={14} /></label>
               <div className="topbar-divider" />
-              <button className="icon-button notification-button" aria-label="Notifications" onClick={() => toast.info('No new notifications', { description: 'Connected alerts will be added in a later phase.' })}><Bell size={18} /><span className="notification-dot" /></button>
-              <div className="user-avatar" aria-label="Local operator">L</div>
+              <button className="icon-button notification-button" aria-label="Notifications" onClick={() => toast.info('No connected alerts yet', { description: 'Live notifications will be enabled when the existing backend integration is connected.' })}><Bell size={18} /></button>
+              <div className="user-avatar" aria-label="Preview operator">L</div>
             </div>
           </header>
-          <div className="local-status-banner"><span className="status-dot" /><span><strong>Local-first mode</strong> — records stay in this browser. Team sharing and secure sign-in are not connected.</span><button onClick={() => navigate('/settings')}>Details <Command size={12} /></button></div>
+          <div className="local-status-banner phase-two-shell-banner"><span className="status-dot" /><span><strong>Phase 2 frontend build</strong> — core records retain their existing behaviour; new modules use clearly labelled preview data until connected to your existing backend.</span><button onClick={() => navigate('/modules')}>Module map <Command size={12} /></button></div>
           <div className="page-content"><Outlet /></div>
-          <footer className="app-footer"><span>LEXA Workspace · Frontend milestone 0.1</span><span>Local data only <span className="footer-dot">•</span> No external services connected</span></footer>
+          <footer className="app-footer"><span>LEXA Workspace · Phase 2 frontend</span><span>New module previews are not backend-connected <span className="footer-dot">•</span> Existing records untouched</span></footer>
         </main>
       </div>
     </WorkspaceContext.Provider>

@@ -11,7 +11,7 @@ test('workspace → product → opening stock → sale → return workflow', asy
   await page.getByRole('link', { name: 'Products' }).click();
   await page.getByRole('button', { name: 'Add product', exact: true }).click();
   await page.getByLabel(/Product name/).fill('Rice 5kg');
-  await page.getByLabel(/SKU \/ barcode/).fill('RICE-5-E2E');
+  await page.getByLabel(/SKU \/ internal code/).fill('RICE-5-E2E');
   await page.getByLabel(/Cost price/).fill('9000');
   await page.getByLabel(/Selling price/).fill('12000');
   await page.getByRole('button', { name: /Save product/ }).click();

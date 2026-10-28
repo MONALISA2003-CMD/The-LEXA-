@@ -36,6 +36,10 @@ export interface Product {
   workspaceId: Id;
   name: string;
   sku: string;
+  barcode?: string;
+  brand?: string;
+  unitOfMeasure?: string;
+  supplierSku?: string;
   categoryId?: Id;
   costPriceMinor: number;
   sellingPriceMinor: number;
@@ -138,6 +142,10 @@ export interface CreateProductInput {
   workspaceId: Id;
   name: string;
   sku: string;
+  barcode?: string;
+  brand?: string;
+  unitOfMeasure?: string;
+  supplierSku?: string;
   categoryName?: string;
   costPriceMinor: number;
   sellingPriceMinor: number;

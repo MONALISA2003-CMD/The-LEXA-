@@ -15,7 +15,7 @@ export interface ProductRepository {
   list(input: { workspaceId: string; search?: string; activeOnly?: boolean }): Promise<Product[]>;
   listCategories(workspaceId: string): Promise<Category[]>;
   create(input: CreateProductInput): Promise<Product>;
-  update(product: Product): Promise<Product>;
+  update(product: Product, categoryName?: string): Promise<Product>;
 }
 
 export interface InventoryRepository {

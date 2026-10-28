@@ -54,6 +54,30 @@ For Playwright, install the browser once with `pnpm exec playwright install chro
 
 React components must not import Dexie directly. The domain services own rules for sale completion, inventory changes, and return accounting. The local database schema is versioned; future schema changes must use Dexie migrations rather than resetting user data.
 
-## Current scope boundary
+## Current phase status
 
-This is Phase 0 plus an initial retail transaction slice, not the full product roadmap. Purchasing, supplier reconciliation, expenses, reports, customer accounts, tax/compliance, forecasting, assistant responses, team chat and secure administration are not falsely presented as complete. They can be implemented after the master-record → stock → sale path is stable and tested.
+### Phase 1 — core operational path
+
+The established local-first slice covers workspace and branch setup, product catalogue, opening stock and adjustments, checkout, sales/receipts, returns/refunds, sales detail, and a dashboard derived from the core local repositories. Core sales and stock records continue to use the existing typed repositories and Dexie transaction rules.
+
+### Phase 2 — expanded module map
+
+The module directory now includes customers, suppliers, CRM and sales pipeline, quotations/orders/invoices, procurement and receiving, warehouse/stock-control previews, POS cash-up, expenses and money accounts, accounting journals/CoA/budgets, bank reconciliation, assets, tax/EFRIS readiness, HR and payroll, projects/timesheets, support, manufacturing/BOM/job cards/quality, delivery/packing, audit and integration-status views. `src/modules/operations/moduleCatalog.ts` is the screen/register catalogue.
+
+These additional operational modules are **frontend preview workflows**, not a claim that the business events are posted to the existing backend or the core stock/accounting ledger. Sample rows are clearly labeled. Their changes are kept in a separate preview-data namespace scoped by workspace, branch and module.
+
+### Phase 3 — development data and service boundary
+
+- `src/data/contracts/previewData.ts` defines the injectable preview-data contract.
+- `src/data/mock/previewDataService.ts` provides browser-local persistence with a memory-only fallback when browser storage is unavailable.
+- `src/data/providers/PreviewDataServiceProvider.tsx` lets the service be swapped for a test double or a future adapter without embedding persistence logic in the page components.
+- Pure preview calculation, validation, selector, report and multi-line-document functions live under `src/modules/operations/` and `src/data/mock/`.
+- Preview workspace export/import/reset operates only on preview data. It does not read or write the core Dexie business tables.
+
+### Phase 4 — validation
+
+See `research/PHASE_THREE_FOUR_PLAN.md` for the external product-pattern benchmark and acceptance matrix, and `research/PHASE_THREE_FOUR_VALIDATION.md` for the checks actually performed and the checks that still require an environment with installed dependencies.
+
+## Important integration boundaries
+
+This is still not secure multi-user SaaS. Actual API/auth integration, server-side permissions and tenant isolation, cross-device sync, live stock reservations and postings, double-entry ledger posting, external bank/mobile-money processing, sending emails, carrier event feeds, statutory payroll, and URA/EFRIS submissions must be connected to and verified against the existing backend before they are represented as live. A recorded payment method is not proof of an external transfer. Draft/preview transitions must not be treated as legal, financial, tax or inventory postings.

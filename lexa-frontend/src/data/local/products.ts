@@ -11,7 +11,7 @@ export const localProductRepository: ProductRepository = {
     const query = search?.trim().toLocaleLowerCase();
     if (query) {
       products = products.filter((product) =>
-        product.name.toLocaleLowerCase().includes(query) || product.sku.toLocaleLowerCase().includes(query),
+        product.name.toLocaleLowerCase().includes(query) || product.sku.toLocaleLowerCase().includes(query) || (product.barcode ?? '').toLocaleLowerCase().includes(query) || (product.brand ?? '').toLocaleLowerCase().includes(query),
       );
     }
     return products.sort((a, b) => a.name.localeCompare(b.name));
@@ -35,8 +35,14 @@ export const localProductRepository: ProductRepository = {
     let categoryId: string | undefined;
 
     await db.transaction('rw', db.products, db.categories, async () => {
-      const duplicate = await db.products.where('[workspaceId+sku]').equals([input.workspaceId, sku]).first();
+      const productsInWorkspace = await db.products.where('workspaceId').equals(input.workspaceId).toArray();
+      const duplicate = productsInWorkspace.find((item) => item.sku.trim().toLocaleLowerCase() === sku.toLocaleLowerCase());
       if (duplicate) throw new Error(`SKU “${sku}” is already used by ${duplicate.name}.`);
+      const barcode = input.barcode?.trim();
+      if (barcode) {
+        const barcodeDuplicate = productsInWorkspace.find((item) => (item.barcode ?? '').trim().toLocaleLowerCase() === barcode.toLocaleLowerCase());
+        if (barcodeDuplicate) throw new Error(`Barcode “${barcode}” is already used by ${barcodeDuplicate.name}.`);
+      }
       const categoryName = input.categoryName?.trim();
       if (categoryName) {
         let category = await db.categories.where('[workspaceId+name]').equals([input.workspaceId, categoryName]).first();
@@ -58,6 +64,10 @@ export const localProductRepository: ProductRepository = {
         workspaceId: input.workspaceId,
         name,
         sku,
+        ...(input.barcode?.trim() ? { barcode: input.barcode.trim() } : {}),
+        ...(input.brand?.trim() ? { brand: input.brand.trim() } : {}),
+        ...(input.unitOfMeasure?.trim() ? { unitOfMeasure: input.unitOfMeasure.trim() } : {}),
+        ...(input.supplierSku?.trim() ? { supplierSku: input.supplierSku.trim() } : {}),
         ...(categoryId ? { categoryId } : {}),
         costPriceMinor: input.costPriceMinor,
         sellingPriceMinor: input.sellingPriceMinor,
@@ -74,16 +84,56 @@ export const localProductRepository: ProductRepository = {
     return created;
   },
 
-  async update(product) {
+  async update(product, categoryNameInput) {
     const name = product.name.trim();
     const sku = product.sku.trim();
     if (!name || !sku) throw new Error('Product name and SKU are required.');
     assertNonNegativeSafeInteger(product.costPriceMinor, 'Cost price');
     assertNonNegativeSafeInteger(product.sellingPriceMinor, 'Selling price');
-    const duplicate = await db.products.where('[workspaceId+sku]').equals([product.workspaceId, sku]).first();
-    if (duplicate && duplicate.id !== product.id) throw new Error(`SKU “${sku}” is already in use.`);
-    const updated = { ...product, name, sku, updatedAt: nowIso() };
-    await db.products.put(updated);
+    assertNonNegativeSafeInteger(product.lowStockThreshold, 'Low-stock threshold');
+    const cleanBarcode = product.barcode?.trim() ?? '';
+    let updated: Product | undefined;
+    await db.transaction('rw', db.products, db.categories, async () => {
+      const productsInWorkspace = await db.products.where('workspaceId').equals(product.workspaceId).toArray();
+      const duplicateSku = productsInWorkspace.find((item) => item.sku.trim().toLocaleLowerCase() === sku.toLocaleLowerCase() && item.id !== product.id);
+      if (duplicateSku) throw new Error(`SKU “${sku}” is already in use.`);
+      const duplicateBarcode = cleanBarcode && productsInWorkspace.find((item) => (item.barcode ?? '').trim().toLocaleLowerCase() === cleanBarcode.toLocaleLowerCase() && item.id !== product.id);
+      if (duplicateBarcode) throw new Error(`Barcode “${cleanBarcode}” is already used by ${duplicateBarcode.name}.`);
+
+      const categoryName = categoryNameInput?.trim();
+      let categoryId = product.categoryId;
+      if (categoryName) {
+        let category = await db.categories.where('[workspaceId+name]').equals([product.workspaceId, categoryName]).first();
+        if (!category) {
+          category = {
+            id: createId('cat'), workspaceId: product.workspaceId, name: categoryName,
+            createdAt: nowIso(), updatedAt: nowIso(),
+          };
+          await db.categories.add(category);
+        }
+        categoryId = category.id;
+      } else {
+        categoryId = undefined;
+      }
+
+      const nextProduct: Product = { ...product, name, sku, updatedAt: nowIso() };
+      if (cleanBarcode) nextProduct.barcode = cleanBarcode;
+      else delete nextProduct.barcode;
+      const cleanBrand = product.brand?.trim();
+      if (cleanBrand) nextProduct.brand = cleanBrand;
+      else delete nextProduct.brand;
+      const cleanUnit = product.unitOfMeasure?.trim();
+      if (cleanUnit) nextProduct.unitOfMeasure = cleanUnit;
+      else delete nextProduct.unitOfMeasure;
+      const cleanSupplierSku = product.supplierSku?.trim();
+      if (cleanSupplierSku) nextProduct.supplierSku = cleanSupplierSku;
+      else delete nextProduct.supplierSku;
+      if (categoryId) nextProduct.categoryId = categoryId;
+      else delete nextProduct.categoryId;
+      updated = nextProduct;
+      await db.products.put(nextProduct);
+    });
+    if (!updated) throw new Error('Product was not updated. Please try again.');
     return updated;
   },
 };

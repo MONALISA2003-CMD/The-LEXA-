@@ -195,3 +195,47 @@
   .phase-two-shell-banner { gap: 7px; font-size: 9px; }
   .phase-two-shell-banner button { font-size: 9px; }
 }
+
+
+/* Phase 3: expanded core master-data and register filters */
+.product-table-toolbar, .sales-table-toolbar { align-items: flex-start; }
+.product-table-filters, .sales-table-filters { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.product-table-filters .search-field, .sales-table-filters .search-field { min-width: 210px; flex: 1 1 220px; }
+.product-filter-label { min-width: 140px; }
+.product-filter-label select, .sales-date-filter input { min-height: 36px; padding: 0 9px; border: 1px solid #dfe7f1; border-radius: 8px; background: #fff; font-size: 10px; }
+.sales-date-filter { min-width: 140px; }
+.sales-date-filter span { color: #74849a; font-size: 9px; }
+.sales-date-filter input { width: 100%; }
+@media (max-width: 900px) {
+  .product-table-toolbar, .sales-table-toolbar { flex-direction: column; align-items: stretch; }
+  .product-table-filters, .sales-table-filters { width: 100%; }
+}
+@media (max-width: 640px) {
+  .product-table-filters, .sales-table-filters { display: grid; grid-template-columns: 1fr; }
+  .product-table-filters .search-field, .sales-table-filters .search-field, .product-filter-label, .sales-date-filter { min-width: 0; width: 100%; }
+}
+
+/* Multi-line document editor: responsive, keyboard-labelled entry rows shared by sell, buy and returns. */
+.document-lines { min-width: 0; margin-bottom: 4px; padding: 15px; border: 1px solid #dce7f5; border-radius: 12px; background: #f9fbff; }
+.document-lines-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.document-lines-heading h4 { margin: 0; color: #243752; font-size: 12px; font-weight: 800; }
+.document-lines-heading p { margin: 4px 0 0; color: #8695aa; font-size: 9px; line-height: 1.5; }
+.document-lines-list { display: flex; flex-direction: column; gap: 9px; }
+.document-line-row { display: grid; grid-template-columns: minmax(180px, 1.7fr) minmax(90px, .55fr) minmax(125px, .75fr) 32px; gap: 9px; align-items: end; padding: 11px; border: 1px solid #e5edf7; border-radius: 9px; background: #fff; }
+.document-line-row .field-label { gap: 5px; font-size: 9px; }
+.document-line-row .field-label input { min-height: 36px; padding: 8px 9px; font-size: 10px; }
+.document-line-remove { width: 32px; height: 36px; color: #a04b58; border-color: #f0dfe2; background: #fff9fa; }
+.document-line-remove:hover:not(:disabled) { color: #be3044; background: #fff0f2; }
+.document-lines-totals { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 11px; padding-top: 11px; border-top: 1px dashed #dbe6f4; color: #71839b; font-size: 9px; }
+.document-lines-totals strong { color: #1d3a60; font-size: 11px; }
+.document-lines-empty { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px; border: 1px dashed #ccd9eb; border-radius: 9px; color: #788aa3; font-size: 10px; }
+.document-lines-empty p { margin: 0; }
+@media (max-width: 700px) {
+  .document-lines { padding: 11px; }
+  .document-line-row { grid-template-columns: minmax(0, 1fr) 31px; gap: 8px; }
+  .document-line-description { grid-column: 1 / 2; }
+  .document-line-number { grid-column: 1 / 2; }
+  .document-line-remove { grid-column: 2 / 3; grid-row: 1 / span 3; align-self: center; }
+  .document-lines-heading { align-items: center; }
+  .document-lines-heading p { max-width: 230px; }
+}
