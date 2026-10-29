@@ -299,7 +299,13 @@ def wire_accent_metadata() -> None:
     write(OPS, ops)
 
     dashboard = read(DASH)
-    dashboard = replace_idempotent(dashboard, "import { PHASE_TWO_LINKS } from '../operations/moduleCatalog';", "import { PHASE_TWO_LINKS } from '../operations/moduleCatalog';\nimport { moduleAccentForPath } from '../../domain/shared/moduleAccents';", 'dashboard metadata import')
+    accent_import = "import { moduleAccentForPath } from '../../domain/shared/moduleAccents';"
+    phase_import = "import { PHASE_TWO_LINKS } from '../operations/moduleCatalog';"
+    # The modern overview no longer needs the unused legacy PHASE_TWO_LINKS list.
+    # Accept its already-accented import as the idempotent state instead of failing
+    # prebuild when the dead declaration has correctly been removed.
+    if accent_import not in dashboard:
+        dashboard = replace_idempotent(dashboard, phase_import, phase_import + "\n" + accent_import, 'dashboard metadata import')
     dashboard = replace_idempotent(dashboard, '<div className="page-stack dashboard-page modern-overview">', '<div className="page-stack dashboard-page modern-overview" data-module-accent={moduleAccentForPath("/")}>', 'dashboard page accent')
     for old, new, label in [
         ('className="metric-icon blue-metric"', 'className="metric-icon blue-metric" data-module-accent={moduleAccentForPath("/sales")}', 'sales metric accent'),

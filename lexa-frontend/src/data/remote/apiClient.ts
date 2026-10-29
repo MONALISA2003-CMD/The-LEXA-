@@ -14,10 +14,10 @@ export class ApiConfigurationError extends Error {
 
 export class ApiRequestError extends Error {
   readonly status: number;
-  readonly code?: string;
-  readonly requestId?: string;
-  readonly details?: unknown;
-  constructor(message: string, options: { status: number; code?: string; requestId?: string; details?: unknown }) {
+  readonly code: string | undefined;
+  readonly requestId: string | undefined;
+  readonly details: unknown;
+  constructor(message: string, options: { status: number; code?: string | undefined; requestId?: string | undefined; details?: unknown }) {
     super(message);
     this.name = 'ApiRequestError';
     this.status = options.status;
@@ -35,13 +35,14 @@ export interface ApiClientOptions {
   csrfProtection?: boolean;
 }
 
-export interface ApiRequestOptions extends Omit<RequestInit, 'method' | 'body'> {
-  method?: ApiMethod;
+export interface ApiRequestOptions extends Omit<RequestInit, 'method' | 'body' | 'signal'> {
+  method?: ApiMethod | undefined;
   body?: unknown;
-  query?: ApiQuery;
-  idempotencyKey?: string;
-  formData?: FormData;
-  responseType?: 'json' | 'blob';
+  query?: ApiQuery | undefined;
+  idempotencyKey?: string | undefined;
+  formData?: FormData | undefined;
+  responseType?: 'json' | 'blob' | undefined;
+  signal?: AbortSignal | null | undefined;
 }
 
 function requestId(): string {
@@ -125,7 +126,7 @@ export function createApiClient(options: ApiClientOptions) {
     try {
       const unsafe = method !== 'GET';
       if (unsafe && csrfProtection) headers.set('X-CSRF-Token', await fetchCsrfToken(controller.signal));
-      const { query: _query, idempotencyKey: _idempotencyKey, formData: _formData, responseType: _responseType, ...fetchOptions } = requestOptions;
+      const { query: _query, idempotencyKey: _idempotencyKey, formData: requestFormData, responseType: _responseType, body: requestBody, ...fetchOptions } = requestOptions;
       const response = await fetchImpl(url, {
         ...fetchOptions,
         method,
@@ -133,7 +134,11 @@ export function createApiClient(options: ApiClientOptions) {
         credentials: requestOptions.credentials ?? 'include',
         redirect: 'follow',
         signal: controller.signal,
-        body: requestOptions.formData ?? (requestOptions.body === undefined ? undefined : JSON.stringify(requestOptions.body)),
+        ...(requestFormData !== undefined
+          ? { body: requestFormData }
+          : requestBody !== undefined
+            ? { body: JSON.stringify(requestBody) }
+            : {}),
       });
       const text = response.status === 204 || (response.ok && requestOptions.responseType === 'blob') ? '' : await response.text();
       let payload: unknown = undefined;

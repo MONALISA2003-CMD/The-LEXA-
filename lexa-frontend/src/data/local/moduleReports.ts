@@ -1,4 +1,4 @@
-import type { ModuleRecordScope, ModuleRecordService } from '../contracts/previewData';
+import type { DataPersistenceMode, ModuleRecordScope, ModuleRecordService } from '../contracts/previewData';
 import { MODULE_CATALOG, getModuleDefinition, type PreviewRecord } from '../../modules/operations/moduleCatalog';
 import { safeNumber } from '../../modules/operations/previewRules';
 
@@ -58,7 +58,7 @@ export interface PreviewReportSnapshot {
   metrics: PreviewReportMetric[];
   filteredRecordCounts: Record<string, number>;
   generatedAt: string;
-  persistenceMode: 'browser-local' | 'memory-only';
+  persistenceMode: DataPersistenceMode;
   sourceLabel: string;
   interpretationNote: string;
 }
@@ -325,7 +325,7 @@ export function buildPreviewReportSnapshot(
     filteredRecordCounts: Object.fromEntries(Object.entries(records).map(([id, items]) => [id, items.length])),
     generatedAt: now.toISOString(),
     persistenceMode,
-    sourceLabel: persistenceMode === 'browser-local' ? 'Device records' : 'Temporary session records',
+    sourceLabel: persistenceMode === 'server' ? 'Backend records' : persistenceMode === 'browser-local' ? 'Device records' : 'Temporary session records',
     interpretationNote: selected.note,
   };
 }

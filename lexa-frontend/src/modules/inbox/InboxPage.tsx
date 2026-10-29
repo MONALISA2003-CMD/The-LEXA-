@@ -138,7 +138,16 @@ export default function InboxPage() {
     event.preventDefault();
     if (!newTaskTitle.trim()) return;
     try {
-      await apiCollaboration.createTask(workspace.id, branch.id, { title: newTaskTitle.trim(), description: newTaskDescription.trim() || undefined, priority: newTaskPriority, dueAt: newTaskDueAt ? new Date(`${newTaskDueAt}T23:59:00`).toISOString() : undefined, assigneeId: newTaskAssignee.trim() || undefined });
+      const description = newTaskDescription.trim();
+      const dueAt = newTaskDueAt ? new Date(`${newTaskDueAt}T23:59:00`).toISOString() : undefined;
+      const assigneeId = newTaskAssignee.trim();
+      await apiCollaboration.createTask(workspace.id, branch.id, {
+        title: newTaskTitle.trim(),
+        priority: newTaskPriority,
+        ...(description ? { description } : {}),
+        ...(dueAt ? { dueAt } : {}),
+        ...(assigneeId ? { assigneeId } : {}),
+      });
       setNewTaskTitle(''); setNewTaskDescription(''); setNewTaskAssignee(''); setNewTaskDueAt(''); setNewTaskPriority('normal'); setShowNewTask(false);
       await queryClient.invalidateQueries({ queryKey: ['inbox-tasks', workspace.id, branch.id] });
       toast.success('Task created');

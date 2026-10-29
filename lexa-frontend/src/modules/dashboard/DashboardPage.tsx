@@ -11,12 +11,9 @@ import { apiDashboard } from '../../data/remote/apiDashboard';
 import type { DashboardPeriod } from '../../data/contracts/dashboardAnalytics';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { formatMinorAmount } from '../../domain/money/money';
-import { PHASE_TWO_LINKS } from '../operations/moduleCatalog';
 import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import { BarBreakdownChart, DonutBreakdownChart, LineTrendChart } from '../../components/charts/Charts';
 
-const dashboardModulePaths = ['/modules/customers', '/modules/quotations', '/modules/sales-orders', '/modules/sales-invoices', '/modules/suppliers', '/modules/purchases', '/modules/purchase-invoices', '/modules/receiving', '/modules/expenses', '/modules/reports'];
-const dashboardModules = PHASE_TWO_LINKS.filter((item) => dashboardModulePaths.includes(item.to));
 const periodLabels: Record<DashboardPeriod, string> = { today: 'Today', '7d': 'Last 7 days', '30d': 'Last 30 days', '90d': 'Last 90 days', '12m': 'Last 12 months' };
 type OverviewMode = 'owner' | 'sales' | 'finance' | 'operations' | 'people';
 const overviewModeLabels: Record<OverviewMode, string> = { owner: 'Business owner', sales: 'Sales & CRM', finance: 'Finance', operations: 'Operations', people: 'People & payroll' };
