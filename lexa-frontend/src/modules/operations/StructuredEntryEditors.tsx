@@ -42,7 +42,7 @@ export function JournalLinesEditor({ values, currency, onChange }: SharedProps) 
       <button type="button" className="icon-button structured-remove" aria-label={`Remove journal line ${index + 1}`} disabled={lines.length <= 2} onClick={() => removeLine(index)}><Trash2 size={15} /></button>
     </div>)}
     <div className="journal-totals"><div><span>Total debits</span><strong>{money(totals.debit, currency)}</strong></div><div><span>Total credits</span><strong>{money(totals.credit, currency)}</strong></div><div className={Math.abs(totals.difference) > 0.009 ? 'journal-unbalanced' : 'journal-balanced'}><span>Difference</span><strong>{money(totals.difference, currency)}</strong></div></div>
-    <p className="structured-editor-note">This preview validates arithmetic only. It does not post the journal to your existing general ledger.</p>
+    <p className="structured-editor-note">Arithmetic is checked here; journal entries must be approved and posted through the accounting ledger.</p>
   </section>;
 }
 

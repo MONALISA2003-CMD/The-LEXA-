@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type HTMLInputTypeAttribute } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type HTMLInputTypeAttribute } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import {
   Activity, ArrowRight, BadgeCheck, BarChart3, Boxes, CalendarDays, Check, ChevronDown, CircleAlert,
-  CircleDollarSign, Download, Filter, Plus, RefreshCw, Search, ShieldAlert, X, Eye, Edit3, ArrowUpRight, FileJson, Upload, DatabaseBackup,
+  CircleDollarSign, Download, Filter, Plus, RefreshCw, Search, ShieldAlert, X, Eye, Edit3, ArrowUpRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
@@ -11,16 +11,17 @@ import {
   EXISTING_MODULE_LINKS, MODULE_CATALOG, PHASE_TWO_LINKS,
   getModuleDefinition, type ModuleDefinition, type ModuleField, type PreviewRecord,
 } from './moduleCatalog';
+import { getCoreScreenShortcuts, getRelatedActions, isDuplicateSensitiveHandoff } from './workflowGraph';
 import { calculateRecord, nextStatus, safeNumber, validateRecord, type FormValues } from './previewRules';
 import { usePreviewDataService } from '../../data/providers/PreviewDataServiceProvider';
 import type { PreviewScope } from '../../data/contracts/previewData';
+import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import { filterPreviewRecords, paginatePreviewRecords } from './previewSelectors';
 import { getPreviewDateRange, loadPreviewReportSnapshot, REPORT_NAMES, REPORT_PERIODS, type PreviewReportName, type PreviewReportUnit, type ReportPeriod } from '../../data/mock/previewReports';
 import DocumentLineItemsEditor from './DocumentLineItemsEditor';
 import { getDocumentLineConfig, readDocumentLines, syncDocumentLines, validateDocumentLines } from './documentLines';
 import { journalTotals, readAssemblyComponents, readJournalLines, syncAssemblyComponents, syncJournalLines, validateAssemblyComponents, validateJournalLines } from './structuredEntries';
 import { AssemblyComponentsEditor, JournalLinesEditor } from './StructuredEntryEditors';
-import { exportPreviewWorkspace, importPreviewWorkspace, resetPreviewWorkspace } from '../../data/mock/previewDataTools';
 
 const CLOSED_STATES = ['Paid', 'Received', 'Reconciled', 'Posted', 'Active', 'Accepted', 'Accepted externally', 'Completed', 'Delivered', 'Approved', 'Disposed', 'Reviewed'];
 const ATTENTION_STATES = ['Draft', 'Pending', 'Overdue', 'Disputed', 'Needs review', 'Rejected externally', 'Needs inspection', 'On hold', 'Invited', 'Reconciliation needed', 'Requested', 'In transit', 'Partially received', 'Ready for integration', 'Review', 'Late', 'Delivery failed', 'Restricted', 'Matching', 'Reopened', 'Error', 'Not connected', 'Configuration needed', 'Needs attention', 'Failed', 'Short pick', 'Exception', 'Expired', 'Quarantined', 'Rejected', 'Blocked', 'Variance review', 'Review needed', 'Missing mapping'];
@@ -159,13 +160,8 @@ export default function OperationsWorkspacePage() {
 
 function ModuleDirectoryPage() {
   const { workspace, branch } = useWorkspace();
-  const previewDataService = usePreviewDataService();
   const queryClient = useQueryClient();
-  const importInput = useRef<HTMLInputElement | null>(null);
   const [search, setSearch] = useState('');
-  const [dataToolsBusy, setDataToolsBusy] = useState(false);
-  const previewScope: PreviewScope = { workspaceId: workspace.id, branchId: branch.id };
-  const previewDefinitions = MODULE_CATALOG.map((module) => ({ id: module.id, initial: module.initial }));
   const groupedLinks = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const combined = [...EXISTING_MODULE_LINKS, ...PHASE_TWO_LINKS].filter((item) => !needle || (item.title + ' ' + item.description + ' ' + item.group).toLowerCase().includes(needle));
@@ -174,69 +170,20 @@ function ModuleDirectoryPage() {
   }, [search]);
   const visibleModuleCount = groupedLinks.reduce((count, group) => count + group.items.length, 0);
 
-  async function exportPreviewData() {
-    setDataToolsBusy(true);
-    try {
-      const bundle = await exportPreviewWorkspace(previewDataService, previewScope, previewDefinitions);
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `lexa-preview-${workspace.id}-${branch.id}.json`;
-      document.body.appendChild(anchor); anchor.click(); anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast.success('Preview workspace exported', { description: `${Object.keys(bundle.modules).length} modules, ${Object.values(bundle.modules).reduce((sum, rows) => sum + rows.length, 0)} records. Core records and backend data are not included.` });
-    } catch (error) { toast.error('Could not export preview workspace', { description: error instanceof Error ? error.message : 'Try again.' }); }
-    finally { setDataToolsBusy(false); }
-  }
-
-  async function importPreviewData(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
-    if (!file) return;
-    setDataToolsBusy(true);
-    try {
-      const content = await file.text();
-      const bundle: unknown = JSON.parse(content);
-      const result = await importPreviewWorkspace(previewDataService, previewScope, bundle, previewDefinitions);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['phase-preview', workspace.id, branch.id] }),
-        queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] }),
-      ]);
-      toast.success('Preview workspace imported', { description: `${result.importedRecords} preview records restored across ${result.moduleCount} modules. Source scope ${result.sourceScope.workspaceId}/${result.sourceScope.branchId} was mapped into the currently active preview scope.` });
-    } catch (error) { toast.error('Could not import preview workspace', { description: error instanceof Error ? error.message : 'Choose a valid LEXA preview JSON export.' }); }
-    finally { setDataToolsBusy(false); if (importInput.current) importInput.current.value = ''; }
-  }
-
-  async function resetAllPreviewData() {
-    if (!window.confirm(`Reset all ${MODULE_CATALOG.length} Phase 2 preview modules for ${workspace.businessName} / ${branch.name}? This affects only mock preview records, not core products, sales, inventory, or your backend.`)) return;
-    setDataToolsBusy(true);
-    try {
-      const result = await resetPreviewWorkspace(previewDataService, previewScope, previewDefinitions);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['phase-preview', workspace.id, branch.id] }),
-        queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] }),
-      ]);
-      toast.success('Preview samples reset', { description: `${result.recordCount} seeded sample records restored across ${result.moduleCount} modules. Existing core records were untouched.` });
-    } catch (error) { toast.error('Could not reset all preview samples', { description: error instanceof Error ? error.message : 'Try again.' }); }
-    finally { setDataToolsBusy(false); }
-  }
 
   return (
     <div className="page-stack phase-two-page">
       <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">LEXA MODULE MAP</div><h2>All business modules</h2><p>One operational workspace for day-to-day trading, stock, finance, reporting and administration.</p></div><span className="soft-badge"><Boxes size={14} /> {EXISTING_MODULE_LINKS.length + PHASE_TWO_LINKS.length} module screens</span></div>
       <section className="section-card phase-two-directory-toolbar"><div><h3>Find a module</h3><p>{visibleModuleCount} matching screens · search names, functions or module group.</p></div><label className="phase-two-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search modules…" aria-label="Search all modules" />{search && <button type="button" className="phase-clear-filters" aria-label="Clear module search" onClick={() => setSearch('')}>Clear</button>}</label></section>
-      <div className="phase-two-notice"><span className="phase-two-notice-icon"><ShieldAlert size={18} /></span><div><strong>Frontend build mode</strong><p>Existing workflow screens keep their current data behaviour. New operations screens are interactive preview forms backed by an injectable browser-local mock-data service. They are deliberately not presented as connected to the existing backend/database yet.</p></div></div>
-      <section className="section-card preview-data-tools"><div className="section-card-heading"><span className="heading-icon blue-icon"><DatabaseBackup size={18} /></span><div><h3>Preview data workspace</h3><p>Back up, restore or reset mock records for this active workspace and branch. This never exports or edits core IndexedDB records or backend data.</p></div></div><div className="preview-data-tools-actions"><button className="button button-secondary" onClick={() => void exportPreviewData()} disabled={dataToolsBusy}><FileJson size={15} /> Export preview JSON</button><button className="button button-secondary" onClick={() => importInput.current?.click()} disabled={dataToolsBusy}><Upload size={15} /> Import preview JSON</button><button className="button button-danger-soft" onClick={() => void resetAllPreviewData()} disabled={dataToolsBusy}><RefreshCw size={15} /> Reset all mock samples</button><input ref={importInput} type="file" accept="application/json,.json" aria-label="Import preview workspace JSON file" className="preview-import-input" onChange={(event) => void importPreviewData(event)} /></div><div className="preview-data-tools-footnote"><strong>Active scope:</strong> {workspace.businessName} / {branch.name}. Import is validated before replacement, and the previous preview data is restored if any module replacement fails.</div></section>
       {visibleModuleCount === 0 && <div className="empty-state"><div className="empty-icon"><Search size={22} /></div><h3>No modules match your search</h3><p>Try a different module name, workflow term or group.</p></div>}
       {groupedLinks.map(({ group, items }) => (
-        <section className="module-group" key={group}>
+        <section className="module-group" key={group} data-module-accent={moduleAccentForGroup(group)}>
           <div className="module-group-heading"><span>{group}</span><span>{items.length} screens</span></div>
           <div className="module-directory-grid">
-            {items.map((item) => { const Icon = item.icon; const preview = item.state.toLowerCase().includes('preview'); return <Link className="module-directory-card" to={item.to} key={item.to}><span className={'module-directory-icon ' + (preview ? 'module-icon-preview' : '')}><Icon size={20} /></span><span className="module-directory-copy"><strong>{item.title}</strong><small>{item.description}</small><span className={'module-state ' + (preview ? 'module-state-preview' : 'module-state-existing')}>{item.state}</span></span><ArrowUpRight size={16} className="module-directory-arrow" /></Link>; })}
+            {items.map((item) => { const Icon = item.icon; return <Link className="module-directory-card" data-module-accent={moduleAccentForPath(item.to)} to={item.to} key={item.to}><span className="module-directory-icon"><Icon size={20} /></span><span className="module-directory-copy"><strong>{item.title}</strong><small>{item.description}</small></span><ArrowUpRight size={16} className="module-directory-arrow" /></Link>; })}
           </div>
         </section>
       ))}
-      <div className="phase-two-note"><Activity size={16} /><span>Recommended sequence: Customers / Suppliers → Quotations / Purchase orders → Goods receiving → Receipts & payments → Accounting → Reports. A later integration phase will map each screen to the existing API.</span></div>
     </div>
   );
 }
@@ -244,45 +191,133 @@ function ModuleDirectoryPage() {
 type RelatedAction = { targetId: string; label: string; description: string };
 
 function relatedActions(moduleId: string, record: PreviewRecord): RelatedAction[] {
-  if (moduleId === 'leads' && record.status === 'Qualified') return [{ targetId: 'opportunities', label: 'Create opportunity draft', description: 'Carry the qualified prospect into the deal pipeline.' }];
-  if (moduleId === 'sales-orders' && ['Confirmed', 'Partially fulfilled'].includes(record.status)) return [
-    { targetId: 'picklists', label: 'Create picklist draft', description: 'Assign warehouse picking before packing and dispatch.' },
-    { targetId: 'packages', label: 'Create package draft', description: 'Prepare a packing slip separately from stock fulfilment.' },
-    { targetId: 'deliveries', label: 'Create delivery draft', description: 'Prepare a separate fulfilment record.' },
-  ];
-  if (moduleId === 'picklists' && record.status === 'Picked') return [{ targetId: 'packages', label: 'Create package draft', description: 'Create a packing slip after picked quantities have been reviewed.' }];
-  if (moduleId === 'packages' && ['Shipped', 'Delivered'].includes(record.status)) return [{ targetId: 'deliveries', label: 'Create delivery tracking draft', description: 'Record courier / delivery progress separately from the packing slip.' }];
-  if (moduleId === 'work-orders' && ['Planned', 'In progress'].includes(record.status)) return [{ targetId: 'job-cards', label: 'Create production job card', description: 'Assign an operation and track actual labour time.' }];
-  if (moduleId === 'item-bundles' && record.status === 'Active') return [{ targetId: 'work-orders', label: 'Prepare assembly work order', description: 'Use this bundle definition as a draft production reference.' }];
-  if (moduleId === 'campaigns' && ['Planned', 'Active'].includes(record.status)) return [{ targetId: 'leads', label: 'Capture lead from campaign', description: 'Carry the campaign reference into a new prospect record.' }];
-  if (moduleId === 'recurring-invoices' && record.status === 'Active') return [{ targetId: 'sales-invoices', label: 'Prepare next invoice draft', description: 'Create a one-time invoice draft for review; no scheduler runs automatically.' }];
-  if (moduleId === 'boms' && record.status === 'Active') return [{ targetId: 'work-orders', label: 'Create production work-order draft', description: 'Use this active BOM version to prepare a production run.' }];
-  if (moduleId === 'replenishment' && ['Reviewed', 'Draft PO created'].includes(record.status)) return [{ targetId: 'purchases', label: 'Create replenishment purchase draft', description: 'Carry the suggested quantity to a separate purchase-order draft.' }];
-  if (moduleId === 'cash-sessions' && ['Reviewed', 'Closed', 'Variance review'].includes(record.status)) return [{ targetId: 'bank-reconciliation', label: 'Prepare cash/bank reconciliation', description: 'Compare the session amount against a separately entered statement; no bank feed is connected.' }];
-  if (moduleId === 'purchase-requests' && record.status === 'Approved') return [{ targetId: 'rfqs', label: 'Create RFQ draft', description: 'Prepare a request to invite supplier quotations.' }];
-  if (moduleId === 'rfqs' && ['Sent', 'Responses received'].includes(record.status)) return [{ targetId: 'supplier-quotes', label: 'Start supplier quote response', description: 'Capture one supplier response; create separate records for other suppliers.' }];
-  if (moduleId === 'supplier-quotes' && record.status === 'Accepted') return [{ targetId: 'purchases', label: 'Create purchase-order draft', description: 'Carry the selected quote into a supplier commitment draft.' }];
-  if (moduleId === 'customers' && record.status === 'Active') return [{ targetId: 'quotations', label: 'Create quotation draft', description: 'Start a new offer using this customer.' }];
-  if (moduleId === 'suppliers' && record.status === 'Active') return [{ targetId: 'purchases', label: 'Create purchase-order draft', description: 'Start a separate supplier commitment.' }];
-  if (moduleId === 'quotations' && record.status === 'Accepted') return [{ targetId: 'sales-orders', label: 'Create sales-order draft', description: 'Carry the accepted quote into a new draft order.' }];
-  if (moduleId === 'sales-invoices' && !['Draft', 'Void'].includes(record.status)) {
-    const actions: RelatedAction[] = [{ targetId: 'sales-returns', label: 'Create customer credit-note draft', description: 'Prepare a separately reviewed return/credit record; no invoice is changed.' }];
-    if (safeNumber(record.amountDue) > 0) actions.push({ targetId: 'payments', label: 'Create customer-receipt draft', description: 'Create a separate payment preview referencing this invoice.' });
-    return actions;
+  return getRelatedActions(moduleId, record);
+}
+
+function genericRelatedValues(sourceModuleId: string, source: PreviewRecord, targetId: string): FormValues {
+  const target = getModuleDefinition(targetId);
+  const today = dateInputValue(new Date());
+  const dueDate = dateInputValue(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+  const sourceReferenceField = REFERENCE_FIELDS[sourceModuleId];
+  const sourceReference = sourceReferenceField ? (source[sourceReferenceField] ?? source.id) : source.id;
+
+  if (!target) return {};
+  if (targetId === 'audit') {
+    const sourceTitle = getModuleDefinition(sourceModuleId)?.title ?? sourceModuleId;
+    return {
+      eventDate: today,
+      actor: 'Workspace user',
+      action: 'Review note created',
+      entity: sourceTitle,
+      reference: sourceReference,
+      detail: `Review note for ${sourceTitle} ${sourceReference}. This is an activity note, not a security audit event or a posted business transaction.`,
+      status: 'Recorded',
+    };
   }
-  if (moduleId === 'purchase-invoices' && !['Draft', 'Void'].includes(record.status)) {
-    const actions: RelatedAction[] = [{ targetId: 'purchase-returns', label: 'Create supplier debit-note draft', description: 'Prepare a separately reviewed return/credit record; no stock or payable is changed.' }];
-    if (safeNumber(record.amountDue) > 0) actions.push({ targetId: 'payments', label: 'Create supplier-payment draft', description: 'Create a separate payment preview referencing this supplier bill.' });
-    return actions;
+
+  const aliases: Record<string, string[]> = {
+    customer: ['customer', 'customerName', 'company', 'contactName', 'clientName', 'accountName', 'partyName'],
+    customerName: ['customerName', 'customer', 'company', 'contactName', 'clientName'],
+    company: ['company', 'customer', 'customerName', 'contactName', 'name'],
+    contactName: ['contactName', 'contact', 'customer', 'customerName', 'name'],
+    contact: ['contact', 'phone', 'phoneNumber', 'contactName'],
+    phone: ['phone', 'contact', 'phoneNumber'],
+    email: ['email', 'contactEmail'],
+    supplier: ['supplier', 'supplierName', 'preferredSupplier', 'supplierInvited', 'vendor'],
+    supplierName: ['supplierName', 'supplier', 'preferredSupplier', 'vendor'],
+    partyName: ['partyName', 'customer', 'supplier', 'payee', 'company'],
+    itemSummary: ['itemSummary', 'itemDescription', 'productName', 'product', 'bundleName', 'description', 'task'],
+    itemDescription: ['itemDescription', 'itemSummary', 'productName', 'product', 'description'],
+    item: ['item', 'product', 'productName', 'itemSummary', 'itemDescription'],
+    product: ['product', 'productName', 'itemSummary', 'itemDescription'],
+    productName: ['productName', 'finishedProductName', 'bundleName', 'itemSummary', 'product', 'item'],
+    productSKU: ['productSKU', 'finishedProductSKU', 'sku', 'productCode'],
+    sku: ['sku', 'productSKU', 'finishedProductSKU', 'bundleCode'],
+    quantity: ['quantity', 'recommendedQuantity', 'orderedQuantity', 'plannedQuantity', 'unitsToPick'],
+    orderedQuantity: ['orderedQuantity', 'quantity', 'plannedQuantity'],
+    unitPrice: ['unitPrice', 'sellingPrice', 'estimatedValue', 'amount'],
+    unitCost: ['unitCost', 'costPrice', 'unitPrice', 'amount'],
+    amount: ['amount', 'amountDue', 'netPay', 'total', 'estimatedValue'],
+    amountDue: ['amountDue', 'total', 'amount', 'estimatedValue'],
+    amountPaid: ['amountPaid', 'amountReceived', 'paidAmount'],
+    amountReceived: ['amountReceived', 'amountPaid', 'paidAmount'],
+    taxRate: ['taxRate'],
+    taxTreatment: ['taxTreatment'],
+    project: ['project', 'projectName', 'projectCode'],
+    projectName: ['projectName', 'project', 'projectCode', 'name'],
+    task: ['task', 'taskName', 'subject', 'description'],
+    taskName: ['taskName', 'task', 'subject'],
+    employee: ['employee', 'employeeName', 'memberName', 'operator'],
+    employeeName: ['employeeName', 'employee', 'memberName'],
+    operator: ['operator', 'employee', 'employeeName'],
+    owner: ['owner', 'assignedTo', 'manager', 'preparedBy'],
+    assignedTo: ['assignedTo', 'owner', 'manager'],
+    department: ['department', 'group', 'team'],
+    warehouse: ['warehouse', 'location', 'warehouseName'],
+    location: ['location', 'warehouse', 'locationCode'],
+    account: ['account', 'accountName', 'terminal', 'moneyAccount'],
+    accountName: ['accountName', 'account', 'name'],
+    campaign: ['campaign', 'campaignCode', 'source'],
+    source: ['source', 'campaign', 'campaignCode'],
+    description: ['description', 'itemSummary', 'subject', 'name', 'title', 'nextAction'],
+    subject: ['subject', 'description', 'itemSummary', 'name'],
+    purpose: ['purpose', 'description', 'nextAction'],
+    salesOrder: ['salesOrder', 'orderNumber', 'salesOrderReference', 'sourceOrder'],
+    salesOrderReference: ['salesOrderReference', 'orderNumber', 'salesOrder', 'sourceOrder'],
+    orderNumber: ['orderNumber', 'quoteNumber', 'salesOrder', 'invoiceNumber'],
+    purchaseOrder: ['purchaseOrder', 'poNumber', 'orderNumber', 'billNumber'],
+    purchaseOrderReference: ['purchaseOrderReference', 'poNumber', 'orderNumber'],
+    sourceInvoice: ['sourceInvoice', 'invoiceNumber'],
+    sourcePurchaseOrder: ['sourcePurchaseOrder', 'purchaseOrder', 'poNumber', 'billNumber'],
+    rfqNumber: ['rfqNumber', 'requestNumber'],
+    requestNumber: ['requestNumber', 'purchaseRequest'],
+    sourceReference: ['sourceReference', sourceReferenceField ?? 'id'],
+    reference: [sourceReferenceField ?? 'id', 'sourceReference', 'reference', 'invoiceNumber', 'orderNumber'],
+    ticketNumber: ['ticketNumber', 'supportReference'],
+    priority: ['priority'],
+    channel: ['channel'],
+    category: ['category'],
+    branch: ['branch', 'branches'],
+    role: ['role'],
+    frequency: ['frequency'],
+    currency: ['currency'],
+    taxCode: ['taxCode', 'taxCodeReference'],
+    costCenter: ['costCenter', 'costCenterCode', 'name'],
+    costCenterCode: ['costCenterCode', 'costCenter'],
+    bundleName: ['bundleName', 'productName', 'itemSummary'],
+    bomReference: ['bomReference', 'bomCode'],
+    workOrderNumber: ['workOrderNumber', 'jobCardNumber'],
+    sourceType: ['sourceType'],
+  };
+  const result: FormValues = {};
+  for (const field of target.fields) {
+    if (field.key === 'status') continue;
+    const candidates = aliases[field.key] ?? [field.key];
+    const found = candidates.map((key) => source[key]).find((value) => typeof value === 'string' && value.trim().length > 0);
+    if (found !== undefined) result[field.key] = found;
+    else if (field.kind === 'date') {
+      if (/(due|valid|expected|target|response|needed|needby|nextRun)/i.test(field.key)) result[field.key] = dueDate;
+      else result[field.key] = today;
+    }
   }
-  if (moduleId === 'opportunities' && record.status === 'Won') return [{ targetId: 'sales-orders', label: 'Create sales-order draft', description: 'Start an unposted sales order using the won opportunity details.' }];
-  if (moduleId === 'receiving' && ['Received', 'Needs inspection'].includes(record.status)) return [{ targetId: 'quality', label: 'Create goods quality inspection', description: 'Review accepted/rejected units; no stock ledger is updated in preview mode.' }];
-  if (moduleId === 'purchases' && ['Ordered', 'Partially received', 'Received'].includes(record.status)) return [
-    { targetId: 'receiving', label: 'Create goods-receipt draft', description: 'Enter the actual accepted / rejected quantities before saving the receipt.' },
-    { targetId: 'purchase-invoices', label: 'Create supplier-bill draft', description: 'Record the supplier’s bill separately from stock receiving.' },
-  ];
-  if (moduleId === 'expenses' && record.status === 'Approved') return [{ targetId: 'payments', label: 'Prepare expense payment draft', description: 'Create a separate money-out entry for review.' }];
-  return [];
+  // Use deliberate semantics for common business documents where a generic same-key copy is unsafe.
+  if (targetId === 'sales-orders' && sourceModuleId === 'opportunities') {
+    result.customer = source.company ?? source.contactName ?? '';
+    result.itemSummary = source.nextAction ?? ('Opportunity ' + (source.opportunityCode ?? source.id));
+    result.quantity = '1';
+    result.unitPrice = source.amount ?? source.estimatedValue ?? '0';
+    result.discountPercent = '0';
+    result.taxTreatment = 'Standard rated';
+    result.taxRate = '18';
+  }
+  if (targetId === 'payments' && sourceModuleId === 'payroll') {
+    result.direction = 'Money out';
+    result.partyType = 'Other';
+    result.partyName = 'Payroll run ' + (source.payrollReference ?? source.id);
+    result.amount = source.netPay ?? '0';
+    result.notes = 'Payment record for payroll run ' + (source.payrollReference ?? source.id) + '; no external transfer is initiated.';
+  }
+  return result;
 }
 
 function relatedValues(sourceModuleId: string, source: PreviewRecord, targetId: string): FormValues {
@@ -318,18 +353,19 @@ function relatedValues(sourceModuleId: string, source: PreviewRecord, targetId: 
     const moneyIn = sourceModuleId === 'sales-invoices';
     const isSupplierBill = sourceModuleId === 'purchase-invoices';
     const isExpense = sourceModuleId === 'expenses';
+    const isPayroll = sourceModuleId === 'payroll';
     return {
       paymentNumber: (moneyIn ? 'RCPT-PRE-' : 'PAY-PRE-') + Date.now().toString().slice(-7),
       direction: moneyIn ? 'Money in' : 'Money out',
       partyType: moneyIn ? 'Customer' : isSupplierBill ? 'Supplier' : 'Other',
-      partyName: moneyIn ? source.customer ?? '' : isSupplierBill ? source.supplier ?? '' : source.payee ?? '',
+      partyName: moneyIn ? source.customer ?? '' : isSupplierBill ? source.supplier ?? '' : isPayroll ? ('Payroll run ' + (source.payrollReference ?? source.id)) : source.payee ?? '',
       paymentDate: today, method: 'Bank transfer (recorded)', account: 'Main bank account', reference: '',
-      amount: isExpense ? source.total ?? source.amount ?? '0' : source.amountDue ?? '0',
-      notes: 'Draft created from ' + (source.invoiceNumber ?? source.billNumber ?? source.expenseNumber ?? source.id) + '. Review and allocate manually; no external payment is initiated.',
+      amount: isPayroll ? source.netPay ?? '0' : isExpense ? source.total ?? source.amount ?? '0' : source.amountDue ?? '0',
+      notes: 'Draft created from ' + (source.invoiceNumber ?? source.billNumber ?? source.expenseNumber ?? source.payrollReference ?? source.id) + '. Review and allocate manually; no external payment is initiated.',
       status: 'Pending',
     };
   }
-  return {};
+  return genericRelatedValues(sourceModuleId, source, targetId);
 }
 
 function ModuleManager({ module }: { module: ModuleDefinition }) {
@@ -338,14 +374,14 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
   const previewDataService = usePreviewDataService();
   const previewScope: PreviewScope = { workspaceId: workspace.id, branchId: branch.id };
   const queryClient = useQueryClient();
-  const previewQueryKey = ['phase-preview', workspace.id, branch.id, module.id] as const;
+  const previewQueryKey = ['module-register', workspace.id, branch.id, module.id] as const;
   const previewQuery = useQuery({
     queryKey: previewQueryKey,
     queryFn: () => previewDataService.list(previewScope, module.id, module.initial),
   });
   const rows = previewQuery.data ?? [];
   const lineConfig = getDocumentLineConfig(module.id);
-  const [storageMode, setStorageMode] = useState<'browser-local' | 'memory-only'>(previewDataService.getPersistenceMode());
+  const [, setStorageMode] = useState<'browser-local' | 'memory-only'>(previewDataService.getPersistenceMode());
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All statuses');
   const [dateFrom, setDateFrom] = useState('');
@@ -363,7 +399,7 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
   const pageCount = Math.max(1, Math.ceil(filtered.length / Number(pageSize)));
   const visible = paginatePreviewRecords(filtered, page, Number(pageSize));
   const attentionCount = rows.filter((row) => ATTENTION_STATES.includes(row.status)).length;
-  const trackedValue = module.amountKey ? rows.reduce((sum, row) => sum + safeNumber(row[module.amountKey!]), 0) : null;
+  const trackedValue = module.amountKey && rows.length ? rows.reduce((sum, row) => sum + safeNumber(row[module.amountKey!]), 0) : null;
 
   useEffect(() => { if (previewQuery.isSuccess) setStorageMode(previewDataService.getPersistenceMode()); }, [previewQuery.isSuccess, previewQuery.dataUpdatedAt]);
 
@@ -405,7 +441,7 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
       };
       const key = uniqueField[module.id];
       if (key && rows.some((row) => row.id !== editing?.id && String(row[key] ?? '').trim().toLocaleLowerCase() === String(valuesToSave[key] ?? '').trim().toLocaleLowerCase())) {
-        toast.error('That reference already exists in this preview register', { description: 'Use a unique reference before saving.' });
+        toast.error('That reference already exists in this register', { description: 'Use a unique reference before saving.' });
         setSaving(false); return;
       }
       const record = calculateRecord(module.id, valuesToSave, editing?.id);
@@ -413,73 +449,103 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
       if (validation) { toast.error('Check the form', { description: validation }); setSaving(false); return; }
       const nextRows = await previewDataService.save(previewScope, module.id, record, module.initial);
       queryClient.setQueryData(previewQueryKey, nextRows);
-      void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] });
+      void queryClient.invalidateQueries({ queryKey: ['module-reports', workspace.id, branch.id] });
       setStorageMode(previewDataService.getPersistenceMode());
       setFormOpen(false); setEditing(null); setForm(initialValues(module));
-      toast.success(editing ? 'Preview record updated' : 'Preview record created', { description: previewDataService.getPersistenceMode() === 'browser-local' ? 'Saved to this browser’s mock-data workspace only.' : 'Saved in memory for this session; browser storage is unavailable.' });
-    } catch (error) { toast.error('Could not save preview record', { description: error instanceof Error ? error.message : 'Please check the form.' }); }
+      toast.success(editing ? 'Record updated' : 'Record created', { description: previewDataService.getPersistenceMode() === 'browser-local' ? 'Saved on this device for the active business and branch.' : 'Browser storage is unavailable; this record will be lost when the session ends.' });
+    } catch (error) { toast.error('Could not save record', { description: error instanceof Error ? error.message : 'Please check the form.' }); }
     finally { setSaving(false); }
   }
   async function updateStatus(record: PreviewRecord) {
     const next = nextStatus(module.id, record.status);
-    if (!next) { toast.info('No further status in the preview workflow'); return; }
+    if (!next) { toast.info('There are no further status steps for this record'); return; }
     try {
       const nextRows = await previewDataService.updateStatus(previewScope, module.id, record.id, next, module.initial);
       queryClient.setQueryData(previewQueryKey, nextRows);
-      void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] });
+      void queryClient.invalidateQueries({ queryKey: ['module-reports', workspace.id, branch.id] });
       const updated = nextRows.find((row) => row.id === record.id);
       if (updated) setDetail(updated);
       setStorageMode(previewDataService.getPersistenceMode());
-      toast.success('Preview status changed', { description: record.status + ' → ' + next + '. No backend or ledger posting occurred.' });
-    } catch (error) { toast.error('Could not change preview status', { description: error instanceof Error ? error.message : 'Try again.' }); }
+      toast.success('Status updated', { description: record.status + ' → ' + next + '. No connected server or ledger posting occurred.' });
+    } catch (error) { toast.error('Could not change status', { description: error instanceof Error ? error.message : 'Try again.' }); }
   }
-  async function resetRows() {
-    if (!window.confirm('Reset the sample records for ' + module.title + '? This affects only this browser’s Phase 2 preview records.')) return;
-    try {
-      const nextRows = await previewDataService.reset(previewScope, module.id, module.initial);
-      queryClient.setQueryData(previewQueryKey, nextRows);
-      void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] });
-      setStorageMode(previewDataService.getPersistenceMode());
-      setSearch(''); setStatusFilter('All statuses'); setDateFrom(''); setDateTo(''); setPage(1);
-      toast.success('Sample preview records reset');
-    } catch (error) { toast.error('Could not reset samples', { description: error instanceof Error ? error.message : 'Try again.' }); }
-  }
+
   async function createRelatedPreview(targetId: string, source: PreviewRecord) {
     const target = getModuleDefinition(targetId);
-    if (!target) { toast.error('The target preview module is not available.'); return; }
-    const values = { ...initialValues(target), ...relatedValues(module.id, source, targetId), sourceModuleId: module.id, sourceRecordId: source.id };
+    if (!target) { toast.error('The destination module is unavailable.'); return; }
+    if (isDuplicateSensitiveHandoff(module.id, targetId)) {
+      const existingRows = await previewDataService.list(previewScope, targetId, target.initial);
+      const existing = existingRows.find((row) => row.sourceModuleId === module.id && row.sourceRecordId === source.id && !['Cancelled', 'Void', 'Voided', 'Rejected', 'Lost'].includes(row.status));
+      if (existing) {
+        const targetReferenceField = REFERENCE_FIELDS[targetId];
+        const existingReference = targetReferenceField ? (existing[targetReferenceField] ?? existing.id) : existing.id;
+        toast.error('Related draft already exists', { description: `${target.title} ${existingReference} is already linked to this source. Open the target register to review or edit it instead of creating a duplicate.` });
+        navigate('/modules/' + targetId);
+        return;
+      }
+    }
+    const sourceReferenceField = REFERENCE_FIELDS[module.id];
+    const sourceReference = sourceReferenceField ? (source[sourceReferenceField] ?? source.id) : source.id;
+    const values = { ...initialValues(target), ...relatedValues(module.id, source, targetId), sourceModuleId: module.id, sourceRecordId: source.id, sourceReference };
     const linked = calculateRecord(targetId, values);
     try {
       const targetRows = await previewDataService.save(previewScope, targetId, linked, target.initial);
-      queryClient.setQueryData(['phase-preview', workspace.id, branch.id, targetId], targetRows);
-      void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] });
+      queryClient.setQueryData(['module-register', workspace.id, branch.id, targetId], targetRows);
+      if (targetId !== 'audit') {
+        const auditModule = getModuleDefinition('audit');
+        if (auditModule) {
+          try {
+            const now = new Date().toISOString();
+            const targetReferenceField = REFERENCE_FIELDS[targetId];
+            const targetReference = targetReferenceField ? (linked[targetReferenceField] ?? linked.id) : linked.id;
+            const auditRecord: PreviewRecord = {
+              id: 'AUD-LINK-' + Date.now().toString(36).toUpperCase(),
+              updatedAt: now,
+              status: 'Recorded',
+              eventDate: now.slice(0, 10),
+              actor: 'Workspace user',
+              action: 'Related draft created',
+              entity: target.title,
+              reference: targetReference,
+              detail: `${target.title} ${targetReference} was prepared from ${module.title} ${sourceReference}. This activity note does not create a posting in the core ledgers.`,
+              sourceModuleId: module.id,
+              sourceRecordId: source.id,
+              sourceReference,
+            };
+            const auditRows = await previewDataService.save(previewScope, 'audit', auditRecord, auditModule.initial);
+            queryClient.setQueryData(['module-register', workspace.id, branch.id, 'audit'], auditRows);
+          } catch (auditError) {
+            toast.warning('Related draft saved, but the activity note could not be saved', { description: auditError instanceof Error ? auditError.message : 'The local activity register could not be updated.' });
+          }
+        }
+      }
+      void queryClient.invalidateQueries({ queryKey: ['module-reports', workspace.id, branch.id] });
       setStorageMode(previewDataService.getPersistenceMode());
       setDetail(null);
-      toast.success('Related draft created', { description: 'Saved in the browser-local preview workspace only. No live module, stock or ledger was changed.' });
+      toast.success('Related draft created', { description: 'Saved on this device. The related core stock and accounting ledgers were not changed.' });
       navigate('/modules/' + targetId);
-    } catch (error) { toast.error('Could not store the related preview record', { description: error instanceof Error ? error.message : 'Browser storage may be unavailable.' }); }
+    } catch (error) { toast.error('Could not save the related record', { description: error instanceof Error ? error.message : 'Browser storage may be unavailable.' }); }
   }
 
   function exportRows() {
     const cols = module.columns;
-    downloadCsv('lexa-preview-' + module.id + '.csv', cols.map((column) => column.label), filtered.map((row) => cols.map((column) => row[column.key] ?? '')));
+    downloadCsv('lexa-records-' + module.id + '.csv', cols.map((column) => column.label), filtered.map((row) => cols.map((column) => row[column.key] ?? '')));
   }
   const amountText = trackedValue === null ? String(rows.length) : money(trackedValue, workspace.currency);
   const recordCountLabel = rows.length === 1 ? 'record' : 'records';
 
   return (
-    <div className="page-stack phase-two-page">
-      <div className="page-heading-row phase-two-heading"><div><div className="eyebrow eyebrow-blue">{module.group} / PREVIEW MODULE</div><h2>{module.title}</h2><p>{module.description}</p></div><div className="phase-two-heading-actions"><span className="module-preview-badge"><span />Interactive preview</span>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={16} /> New {module.singular}</button>}</div></div>
-      <div className="phase-two-notice"><span className="phase-two-notice-icon"><ShieldAlert size={18} /></span><div><strong>Preview data only · {workspace.businessName} / {branch.name}</strong><p>These records use a separate {storageMode === 'browser-local' ? 'browser-local' : 'in-memory session'} preview store. They do not read from or write to the existing backend, database, stock ledger, accounting ledger, payment provider or access-control system.</p></div></div>
+    <div className="page-stack phase-two-page" data-module-accent={moduleAccentForPath("/modules/" + module.id)}>
+      <div className="page-heading-row module-heading"><div><div className="eyebrow eyebrow-blue">{module.group} / MODULE REGISTER</div><h2>{module.title}</h2><p>{module.description}</p></div><div className="phase-two-heading-actions"><span className="module-preview-badge"><span />Saved on this device</span>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={16} /> New {module.singular}</button>}</div></div>
       <div className="module-workflow-strip"><span className="module-workflow-icon"><Activity size={17} /></span><div><strong>Typical workflow</strong><p>{module.workflow}</p></div></div>
       <div className="metric-strip three-metrics phase-two-metrics">
-        <div className="mini-metric"><span>Total {recordCountLabel}</span><strong>{rows.length.toLocaleString()}</strong><small>Across this preview module</small></div>
+        <div className="mini-metric"><span>Total {recordCountLabel}</span><strong>{rows.length.toLocaleString()}</strong><small>In this register</small></div>
         <div className="mini-metric"><span>Needs attention</span><strong className={attentionCount ? 'warning-value' : ''}>{attentionCount.toLocaleString()}</strong><small>Draft, pending or review states</small></div>
-        <div className="mini-metric"><span>{trackedValue === null ? 'Visible data types' : 'Tracked value (preview)'}</span><strong className="phase-two-value">{amountText}</strong><small>{trackedValue === null ? 'Records available to review' : 'Sum of the displayed amount field; not a ledger balance'}</small></div>
+        <div className="mini-metric"><span>{trackedValue === null ? 'Visible data types' : 'Tracked value'}</span><strong className="phase-two-value">{amountText}</strong><small>{trackedValue === null ? 'Available after records are added' : 'Calculated from this register; not a ledger balance'}</small></div>
       </div>
 
       <section className="section-card table-card phase-two-table-card">
-        <div className="table-toolbar phase-two-table-toolbar"><div><h3>{module.title} register</h3><p>{filtered.length.toLocaleString()} matching {filtered.length === 1 ? 'record' : 'records'} · sample records are labelled by this page’s preview mode</p></div><div className="phase-two-table-actions"><button className="button button-secondary button-small" onClick={exportRows} disabled={!filtered.length}><Download size={14} /> Export CSV</button><button className="button button-secondary button-small" onClick={resetRows}><RefreshCw size={14} /> Reset samples</button></div></div>
+        <div className="table-toolbar phase-two-table-toolbar"><div><h3>{module.title} register</h3><p>{filtered.length.toLocaleString()} matching {filtered.length === 1 ? 'record' : 'records'} · records in the active business and branch</p></div><div className="phase-two-table-actions"><button className="button button-secondary button-small" onClick={exportRows} disabled={!filtered.length}><Download size={14} /> Export CSV</button></div></div>
         <div className="phase-two-filters">
           <label className="phase-two-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={'Search ' + module.title.toLowerCase() + '…'} aria-label={'Search ' + module.title} /><kbd>/</kbd></label>
           <label className="phase-filter-select"><Filter size={14} /><span className="sr-only">Filter by status</span><select aria-label="Filter by status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All statuses</option>{statuses.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown size={13} /></label>
@@ -487,21 +553,21 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
           {(search || statusFilter !== 'All statuses' || dateFrom || dateTo) && <button className="phase-clear-filters" onClick={() => { setSearch(''); setStatusFilter('All statuses'); setDateFrom(''); setDateTo(''); }}>Clear</button>}
         </div>
         {dateFrom && dateTo && dateFrom > dateTo && <div className="inline-warning" role="alert">The start date must be on or before the end date.</div>}
-        {previewQuery.isError ? <div className="inline-error"><strong>Could not load the preview register.</strong><span>{previewQuery.error instanceof Error ? previewQuery.error.message : 'Retry or reset the local preview store.'}</span><button className="button button-secondary button-small" onClick={() => void previewQuery.refetch()}>Retry load</button></div> : previewQuery.isLoading ? <div className="loading-state">Loading preview records…</div> : visible.length === 0 ? <div className="empty-state"><div className="empty-icon"><Search size={22} /></div><h3>No matching records</h3><p>Change the search, status or date filters. New preview records will appear here after you save them.</p>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={15} /> Add {module.singular}</button>}</div> : <div className="responsive-table-wrap phase-two-table-wrap"><table className="data-table phase-two-table"><thead><tr>{module.columns.map((column) => <th key={column.key}>{column.label}</th>)}<th className="phase-actions-heading">ACTIONS</th></tr></thead><tbody>{visible.map((record) => <tr key={record.id}>{module.columns.map((column) => <td key={column.key} className={column.kind === 'money' ? 'amount-cell' : ''}>{column.kind === 'status' ? <span className={'status-pill ' + (['Active', 'Received', 'Paid', 'Posted', 'Reconciled', 'Accepted', 'Accepted externally', 'Completed', 'Delivered', 'Approved', 'Reviewed', 'Present'].includes(record[column.key] ?? '') ? 'status-good' : ['Draft', 'Pending', 'Ready for integration', 'Needs review', 'Overdue', 'Disputed', 'Rejected externally', 'Needs inspection', 'On hold', 'In transit', 'Review', 'Late', 'Restricted', 'Delivery failed', 'Needs review', 'Blocked', 'Expired', 'Disabled', 'Matching', 'Reopened', 'Error', 'Not connected', 'Configuration needed', 'Needs attention', 'Failed', 'Short pick', 'Exception', 'Quarantined', 'Blocked', 'Variance review', 'Review needed', 'Missing mapping'].includes(record[column.key] ?? '') ? 'status-warning' : '')}>{record[column.key] || '—'}</span> : cellValue(record, column.key, column.kind, workspace.currency)}</td>)}<td><div className="phase-row-actions"><button className="icon-button table-action" aria-label={'View ' + module.singular} title="View details" onClick={() => setDetail(record)}><Eye size={15} /></button>{!module.readOnly && <button className="icon-button table-action" aria-label={'Edit ' + module.singular} title="Edit preview record" onClick={() => openEdit(record)}><Edit3 size={15} /></button>}</div></td></tr>)}</tbody></table></div>}
+        {previewQuery.isError ? <div className="inline-error"><strong>Could not load this register.</strong><span>{previewQuery.error instanceof Error ? previewQuery.error.message : 'Check browser storage and retry.'}</span><button className="button button-secondary button-small" onClick={() => void previewQuery.refetch()}>Retry load</button></div> : previewQuery.isLoading ? <div className="loading-state">Loading records…</div> : visible.length === 0 ? <div className="empty-state"><div className="empty-icon"><Search size={22} /></div><h3>No matching records</h3><p>Change the search, status or date filters. New records will appear here after you save them.</p>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={15} /> Add {module.singular}</button>}</div> : <div className="responsive-table-wrap phase-two-table-wrap"><table className="data-table phase-two-table"><thead><tr>{module.columns.map((column) => <th key={column.key}>{column.label}</th>)}<th className="phase-actions-heading">ACTIONS</th></tr></thead><tbody>{visible.map((record) => <tr key={record.id}>{module.columns.map((column) => <td key={column.key} className={column.kind === 'money' ? 'amount-cell' : ''}>{column.kind === 'status' ? <span className={'status-pill ' + (['Active', 'Received', 'Paid', 'Posted', 'Reconciled', 'Accepted', 'Accepted externally', 'Completed', 'Delivered', 'Approved', 'Reviewed', 'Present'].includes(record[column.key] ?? '') ? 'status-good' : ['Draft', 'Pending', 'Ready for integration', 'Needs review', 'Overdue', 'Disputed', 'Rejected externally', 'Needs inspection', 'On hold', 'In transit', 'Review', 'Late', 'Restricted', 'Delivery failed', 'Needs review', 'Blocked', 'Expired', 'Disabled', 'Matching', 'Reopened', 'Error', 'Not connected', 'Configuration needed', 'Needs attention', 'Failed', 'Short pick', 'Exception', 'Quarantined', 'Blocked', 'Variance review', 'Review needed', 'Missing mapping'].includes(record[column.key] ?? '') ? 'status-warning' : '')}>{record[column.key] || '—'}</span> : cellValue(record, column.key, column.kind, workspace.currency)}</td>)}<td><div className="phase-row-actions"><button className="icon-button table-action" aria-label={'View ' + module.singular} title="View details" onClick={() => setDetail(record)}><Eye size={15} /></button>{!module.readOnly && <button className="icon-button table-action" aria-label={'Edit ' + module.singular} title="Edit record" onClick={() => openEdit(record)}><Edit3 size={15} /></button>}</div></td></tr>)}</tbody></table></div>}
         <div className="phase-two-table-footer"><span>Showing {filtered.length ? ((page - 1) * Number(pageSize) + 1).toLocaleString() : 0}–{Math.min(page * Number(pageSize), filtered.length).toLocaleString()} of {filtered.length.toLocaleString()}</span><div className="phase-pagination"><label><span>Rows</span><select aria-label="Rows per page" value={pageSize} onChange={(event) => setPageSize(event.target.value)}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label><button className="button button-secondary button-small" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button><span>Page {page} of {pageCount}</span><button className="button button-secondary button-small" disabled={page >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>Next</button></div></div>
       </section>
 
-      {!module.readOnly && <div className="phase-two-help-row"><CircleAlert size={15} /><span>Use the details action to review a record, edit fields, or move it through the preview status workflow. Status changes are for interface testing and are not approvals or accounting posts.</span></div>}
+      {!module.readOnly && <div className="phase-two-help-row"><CircleAlert size={15} /><span>Use the details action to review a record, edit fields, or move it through the available status workflow. Status updates do not substitute for a required approval or accounting entry.</span></div>}
 
-      {formOpen && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setFormOpen(false); setEditing(null); } }}><section className="phase-modal" role="dialog" aria-modal="true" aria-labelledby="phase-form-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.group} / DATA ENTRY</div><h3 id="phase-form-title">{editing ? 'Edit ' + module.singular : 'New ' + module.singular}</h3><p>Fields and calculated figures are for the frontend mock-data preview.</p></div><button className="icon-button" aria-label="Close form" onClick={() => { setFormOpen(false); setEditing(null); }}><X size={18} /></button></div><form className="phase-modal-body" onSubmit={saveForm}>{lineConfig && <DocumentLineItemsEditor config={lineConfig} lines={lineItems} currency={workspace.currency} onChange={(lines) => setForm((current) => syncDocumentLines(module.id, current, lines))} />}{module.id === 'accounting' && <JournalLinesEditor values={form} currency={workspace.currency} onChange={setForm} />}{(module.id === 'boms' || module.id === 'item-bundles') && <AssemblyComponentsEditor moduleId={module.id} values={form} currency={workspace.currency} onChange={setForm} />}<div className="phase-form-grid">{module.fields.filter((field) => {
+      {formOpen && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setFormOpen(false); setEditing(null); } }}><section className="phase-modal" role="dialog" aria-modal="true" aria-labelledby="phase-form-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.group} / DATA ENTRY</div><h3 id="phase-form-title">{editing ? 'Edit ' + module.singular : 'New ' + module.singular}</h3><p>Enter the record details and review calculated figures before saving.</p></div><button className="icon-button" aria-label="Close form" onClick={() => { setFormOpen(false); setEditing(null); }}><X size={18} /></button></div><form className="phase-modal-body" onSubmit={saveForm}>{lineConfig && <DocumentLineItemsEditor config={lineConfig} lines={lineItems} currency={workspace.currency} onChange={(lines) => setForm((current) => syncDocumentLines(module.id, current, lines))} />}{module.id === 'accounting' && <JournalLinesEditor values={form} currency={workspace.currency} onChange={setForm} />}{(module.id === 'boms' || module.id === 'item-bundles') && <AssemblyComponentsEditor moduleId={module.id} values={form} currency={workspace.currency} onChange={setForm} />}<div className="phase-form-grid">{module.fields.filter((field) => {
           if (lineConfig && [lineConfig.descriptionKey, 'quantity', lineConfig.priceKey].includes(field.key)) return false;
           if (module.id === 'accounting' && ['debitAccount', 'creditAccount', 'amount'].includes(field.key)) return false;
           if (module.id === 'boms' && ['componentSummary', 'unitMaterialCost'].includes(field.key)) return false;
           if (module.id === 'item-bundles' && ['componentsSummary', 'componentCount', 'unitCost'].includes(field.key)) return false;
           return true;
-        }).map((field) => <FieldInput key={field.key} field={field} value={form[field.key] ?? ''} onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))} currency={workspace.currency} editing={Boolean(editing)} />)}</div><CalculatedFigures moduleId={module.id} values={form} currency={workspace.currency} /><div className="phase-form-disclaimer"><ShieldAlert size={15} /><span>Save creates a browser-local preview record only. It will not update live stock, cash, tax, payment, user-access or accounting records.</span></div><div className="phase-modal-actions"><button type="button" className="button button-secondary" onClick={() => { setFormOpen(false); setEditing(null); }}>Cancel</button><button type="submit" className="button button-primary" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Save preview record'} <Check size={15} /></button></div></form></section></div>}
+        }).map((field) => <FieldInput key={field.key} field={field} value={form[field.key] ?? ''} onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))} currency={workspace.currency} editing={Boolean(editing)} />)}</div><CalculatedFigures moduleId={module.id} values={form} currency={workspace.currency} /><div className="phase-form-disclaimer"><ShieldAlert size={15} /><span>Save stores this record in the active workspace on this device. It does not transfer money, submit tax documents or create accounting entries.</span></div><div className="phase-modal-actions"><button type="button" className="button button-secondary" onClick={() => { setFormOpen(false); setEditing(null); }}>Cancel</button><button type="submit" className="button button-primary" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Save record'} <Check size={15} /></button></div></form></section></div>}
 
-      {detail && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section className="phase-modal phase-detail-modal" role="dialog" aria-modal="true" aria-labelledby="phase-detail-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.title.toUpperCase()} / RECORD DETAILS</div><h3 id="phase-detail-title">{detail[module.columns[0]?.key ?? 'id'] || detail.id}</h3><p>Reference: {detail.id} · Updated {displayDate(detail.updatedAt)}</p></div><button className="icon-button" aria-label="Close details" onClick={() => setDetail(null)}><X size={18} /></button></div><div className="phase-detail-status"><span className={'status-pill ' + (CLOSED_STATES.includes(detail.status) ? 'status-good' : 'status-warning')}>{detail.status}</span><span className="module-preview-badge"><span /> Browser-local preview</span></div><div className="phase-detail-grid">{Object.entries(detail).filter(([key]) => key !== 'id' && key !== 'updatedAt').map(([key, value]) => <div className="phase-detail-field" key={key}><span>{module.fields.find((field) => field.key === key)?.label ?? module.columns.find((column) => column.key === key)?.label ?? ({ sourceModuleId: 'Source module', sourceRecordId: 'Source record' } as Record<string, string>)[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</span><strong>{detailValue(module, key, value, detail.currency || workspace.currency)}</strong></div>)}</div><div className="phase-modal-actions">{!module.readOnly && <>{relatedActions(module.id, detail).map((action) => <button key={action.targetId} className="button button-secondary" title={action.description} onClick={() => createRelatedPreview(action.targetId, detail)}><ArrowRight size={15} /> {action.label}</button>)}{nextStatus(module.id, detail.status) && <button className="button button-secondary" onClick={() => updateStatus(detail)}><BadgeCheck size={15} /> Advance to {nextStatus(module.id, detail.status)}</button>}<button className="button button-primary" onClick={() => openEdit(detail)}><Edit3 size={15} /> Edit preview record</button></>}<button className="button button-secondary" onClick={() => setDetail(null)}>Close</button></div></section></div>}
+      {detail && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section className="phase-modal phase-detail-modal" role="dialog" aria-modal="true" aria-labelledby="phase-detail-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.title.toUpperCase()} / RECORD DETAILS</div><h3 id="phase-detail-title">{detail[module.columns[0]?.key ?? 'id'] || detail.id}</h3><p>Reference: {detail.id} · Updated {displayDate(detail.updatedAt)}</p></div><button className="icon-button" aria-label="Close details" onClick={() => setDetail(null)}><X size={18} /></button></div><div className="phase-detail-status"><span className={'status-pill ' + (CLOSED_STATES.includes(detail.status) ? 'status-good' : 'status-warning')}>{detail.status}</span><span className="module-preview-badge"><span /> Saved on this device</span></div><div className="phase-detail-grid">{Object.entries(detail).filter(([key]) => key !== 'id' && key !== 'updatedAt').map(([key, value]) => <div className="phase-detail-field" key={key}><span>{module.fields.find((field) => field.key === key)?.label ?? module.columns.find((column) => column.key === key)?.label ?? ({ sourceModuleId: 'Source module', sourceRecordId: 'Source record' } as Record<string, string>)[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</span><strong>{detailValue(module, key, value, detail.currency || workspace.currency)}</strong></div>)}</div><div className="phase-modal-actions">{getCoreScreenShortcuts(module.id).map((action) => <button key={action.path} className="button button-secondary" title={action.description} onClick={() => navigate(action.path)}><ArrowUpRight size={15} /> {action.label}</button>)}{!module.readOnly && <>{relatedActions(module.id, detail).map((action) => <button key={action.targetId} className="button button-secondary" title={action.description} onClick={() => createRelatedPreview(action.targetId, detail)}><ArrowRight size={15} /> {action.label}</button>)}{nextStatus(module.id, detail.status) && <button className="button button-secondary" onClick={() => updateStatus(detail)}><BadgeCheck size={15} /> Advance to {nextStatus(module.id, detail.status)}</button>}<button className="button button-primary" onClick={() => openEdit(detail)}><Edit3 size={15} /> Edit record</button></>}<button className="button button-secondary" onClick={() => setDetail(null)}>Close</button></div></section></div>}
     </div>
   );
 }
@@ -604,7 +670,7 @@ function CalculatedFigures({ moduleId, values, currency }: { moduleId: string; v
     figures = [{ label: 'Accepted quantity', value: n('acceptedQuantity').toLocaleString() }, { label: 'Rejected / damaged', value: n('rejectedQuantity').toLocaleString() }, { label: 'Quantity not yet counted on this receipt', value: Math.max(0, n('orderedQuantity') - n('acceptedQuantity') - n('rejectedQuantity')).toLocaleString() }];
   }
   if (!figures.length) return null;
-  return <div className="phase-calculated-panel"><div className="phase-calculated-title"><CircleDollarSign size={15} /> Calculated figures <span>Preview estimate</span></div><div className="phase-calculated-grid">{figures.map((figure) => <div key={figure.label}><span>{figure.label}</span><strong>{figure.value}</strong></div>)}</div></div>;
+  return <div className="phase-calculated-panel"><div className="phase-calculated-title"><CircleDollarSign size={15} /> Calculated figures <span>Calculated estimate</span></div><div className="phase-calculated-grid">{figures.map((figure) => <div key={figure.label}><span>{figure.label}</span><strong>{figure.value}</strong></div>)}</div></div>;
 }
 
 function formatReportValue(value: number, unit: PreviewReportUnit, currency: string): string {
@@ -630,7 +696,7 @@ function ReportsPage() {
   const [reportSearch, setReportSearch] = useState('');
   const scope = { workspaceId: workspace.id, branchId: branch.id };
   const snapshotQuery = useQuery({
-    queryKey: ['phase-preview-reports', workspace.id, branch.id, report, period],
+    queryKey: ['module-reports', workspace.id, branch.id, report, period],
     queryFn: () => loadPreviewReportSnapshot(previewDataService, scope, report, period, workspace.currency),
   });
   const snapshot = snapshotQuery.data;
@@ -643,10 +709,10 @@ function ReportsPage() {
     ['Receivables ageing', 'Customer invoices grouped by due date.', '/modules/sales-invoices'],
     ['Payables ageing', 'Supplier bills grouped by due date.', '/modules/purchase-invoices'],
     ['Expenses & cash flow', 'Expenses, money accounts, cash-up and reconciliation.', '/modules/expenses'],
-    ['P&L and balance sheet', 'Operational estimates and finance preview screens.', '/modules/accounting'],
+    ['P&L and balance sheet', 'Management estimates and account structure.', '/modules/accounting'],
     ['Tax summary', 'Tax treatment and estimate records. Not an EFRIS submission.', '/modules/tax-codes'],
     ['Bank reconciliation', 'Entered statement lines, book balance and differences.', '/modules/bank-reconciliation'],
-    ['Payroll & attendance', 'Attendance exceptions, leave and payroll previews.', '/modules/payroll'],
+    ['Payroll & attendance', 'Attendance exceptions, leave and payroll records.', '/modules/payroll'],
     ['Delivery fulfilment', 'Packages, dispatches and delivery exceptions.', '/modules/deliveries'],
     ['Procurement pipeline', 'Requests, RFQs, supplier quotations and purchase drafts.', '/modules/purchase-requests'],
     ['CRM pipeline', 'Leads, opportunities, next actions and weighted values.', '/modules/leads'],
@@ -656,20 +722,19 @@ function ReportsPage() {
   function exportReport() {
     if (!snapshot) return;
     downloadCsv(
-      'lexa-preview-report-' + report.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-') + '.csv',
+      'lexa-records-report-' + report.toLocaleLowerCase().replace(/[^a-z0-9]+/g, '-') + '.csv',
       ['Report', 'Category', 'Value', 'Unit', 'Currency', 'Period', 'From', 'To', 'Branch', 'Data source'],
       snapshot.entries.map((item) => [snapshot.report, item.label, String(Number(item.value.toFixed(2))), snapshot.unit, snapshot.currency, snapshot.period, getPreviewDateRange(snapshot.period).from, getPreviewDateRange(snapshot.period).to, branch.name, snapshot.sourceLabel]),
     );
-    toast.success('Preview report exported', { description: 'CSV contains the currently displayed mock-data report.' });
+    toast.success('Report exported', { description: 'CSV contains the currently displayed saved-record report.' });
   }
 
   return (
-    <div className="page-stack phase-two-page">
+    <div className="page-stack phase-two-page" data-module-accent={moduleAccentForPath("/modules/reports")}>
       <div className="page-heading-row">
-        <div><div className="eyebrow eyebrow-blue">INSIGHTS / REPORT CENTRE</div><h2>Reports & analytics</h2><p>Report figures are now calculated from the current workspace-and-branch preview records. Select a period or change a record to see the figures update.</p></div>
-        <div className="action-group"><button className="button button-secondary" onClick={() => void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] })}><RefreshCw size={15} /> Refresh</button><button className="button button-primary" onClick={exportReport} disabled={!snapshot}><Download size={15} /> Export CSV</button></div>
+        <div><div className="eyebrow eyebrow-blue">INSIGHTS / REPORT CENTRE</div><h2>Reports & analytics</h2><p>Report figures are calculated from saved records for the active business and branch. Select a period to refine the results.</p></div>
+        <div className="action-group"><button className="button button-secondary" onClick={() => void queryClient.invalidateQueries({ queryKey: ['module-reports', workspace.id, branch.id] })}><RefreshCw size={15} /> Refresh</button><button className="button button-primary" onClick={exportReport} disabled={!snapshot}><Download size={15} /> Export CSV</button></div>
       </div>
-      <div className="phase-two-notice"><span className="phase-two-notice-icon"><ShieldAlert size={18} /></span><div><strong>{snapshot?.persistenceMode === 'memory-only' ? 'Session-only mock data' : 'Browser-local mock data'}</strong><p>These are estimates derived from the Phase 2 preview records. They are not drawn from your existing backend or the core IndexedDB sales ledger, and they are not statutory financial or tax reports. The data-source boundary is ready to be replaced by an API adapter later.</p></div></div>
 
       <section className="section-card phase-report-controls">
         <div><span className="eyebrow eyebrow-blue">REPORT CONFIGURATION</span><h3>Choose a report</h3><p>Periods use calendar dates in your current browser timezone.</p></div>
@@ -681,25 +746,19 @@ function ReportsPage() {
         {reportSearch && <div className="phase-report-search-results" aria-live="polite"><span>{filteredReportNames.length} matching reports</span>{filteredReportNames.length > 0 && <div>{filteredReportNames.map((name) => <button key={name} type="button" className={'phase-report-chip ' + (name === report ? 'phase-report-chip-active' : '')} onClick={() => { setReport(name); setReportSearch(''); }}>{name}</button>)}</div>}</div>}
       </section>
 
-      {snapshotQuery.isError && <div className="inline-error"><strong>Could not load preview report</strong><span>{snapshotQuery.error instanceof Error ? snapshotQuery.error.message : 'Try refreshing the report.'}</span><button className="button button-secondary" onClick={() => void snapshotQuery.refetch()}><RefreshCw size={14} /> Retry report</button></div>}
-      <div className="metric-strip four-metrics phase-report-metrics">
-        {(snapshot?.metrics ?? [
-          { label: 'Net sales estimate', value: 0, unit: 'currency' as const },
-          { label: 'Supplier bill balance', value: 0, unit: 'currency' as const },
-          { label: 'Expenses estimate', value: 0, unit: 'currency' as const },
-          { label: 'Items requiring review', value: 0, unit: 'count' as const },
-        ]).map((metric) => <div className="mini-metric" key={metric.label}><span>{metric.label}</span><strong>{snapshotQuery.isLoading ? '…' : formatReportValue(metric.value, metric.unit, workspace.currency)}</strong><small>{snapshot?.period ?? period} · mock data</small></div>)}
-      </div>
+      {snapshotQuery.isError && <div className="inline-error"><strong>Could not load the report</strong><span>{snapshotQuery.error instanceof Error ? snapshotQuery.error.message : 'Try refreshing the report.'}</span><button className="button button-secondary" onClick={() => void snapshotQuery.refetch()}><RefreshCw size={14} /> Retry report</button></div>}
+      {snapshot?.metrics?.length ? <div className="metric-strip four-metrics phase-report-metrics">
+        {snapshot.metrics.map((metric) => <div className="mini-metric" key={metric.label}><span>{metric.label}</span><strong>{snapshotQuery.isLoading ? '…' : formatReportValue(metric.value, metric.unit, workspace.currency)}</strong><small>{snapshot.period} · saved records</small></div>)}
+      </div> : null}
 
       <div className="phase-report-layout">
         <section className="section-card phase-report-chart">
           <div className="section-card-heading"><span className="heading-icon blue-icon"><BarChart3 size={18} /></span><div><h3>{report}</h3><p>{period} · {branch.name} · {snapshot?.unit === 'currency' ? workspace.currency : snapshot?.unit === 'hours' ? 'hours' : 'records / units'}</p></div></div>
-          {snapshotQuery.isLoading ? <div className="loading-state">Calculating from the preview records…</div> : !snapshot?.entries.length ? <div className="empty-state compact"><div className="empty-icon"><BarChart3 size={20} /></div><h3>No values for this report yet</h3><p>Add records in the associated module and refresh this report.</p></div> : <div className="phase-bars">{snapshot.entries.map((item) => <div className="phase-bar-row" key={item.label}><span title={item.label}>{item.label}</span><div className="phase-bar-track"><span style={{ width: Math.max(0, Math.abs(item.value) / max * 100) + '%', opacity: item.value < 0 ? 0.48 : 1 }} /></div><strong>{formatReportValue(item.value, snapshot.unit, snapshot.currency)}</strong></div>)}</div>}
+          {snapshotQuery.isLoading ? <div className="loading-state">Calculating from saved records…</div> : !snapshot || !Object.values(snapshot.filteredRecordCounts).some((count) => count > 0) ? <div className="empty-state compact"><div className="empty-icon"><BarChart3 size={20} /></div><h3>No values for this report yet</h3><p>Add records in the associated module and refresh this report.</p></div> : <div className="phase-bars">{snapshot.entries.map((item) => <div className="phase-bar-row" key={item.label}><span title={item.label}>{item.label}</span><div className="phase-bar-track"><span style={{ width: Math.max(0, Math.abs(item.value) / max * 100) + '%', opacity: item.value < 0 ? 0.48 : 1 }} /></div><strong>{formatReportValue(item.value, snapshot.unit, snapshot.currency)}</strong></div>)}</div>}
           {snapshot && <div className="phase-report-chart-footnote">{snapshot.interpretationNote} Date range: {getPreviewDateRange(snapshot.period).from} – {getPreviewDateRange(snapshot.period).to}. Report generated {new Date(snapshot.generatedAt).toLocaleString()}.</div>}
         </section>
         <section className="section-card phase-report-questions"><div className="section-card-heading"><span className="heading-icon amber-icon"><Activity size={18} /></span><div><h3>Open related workflow</h3><p>Go from a report to the operational records behind it.</p></div></div>{reportLinks.map(([title, description, to]) => <button className="phase-report-link" key={title} onClick={() => navigate(to)}><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={15} /></button>)}</section>
       </div>
-      {snapshot && <div className="phase-two-note"><Activity size={16} /><span>{Object.values(snapshot.filteredRecordCounts).reduce((sum, count) => sum + count, 0).toLocaleString()} preview records evaluated across {Object.keys(snapshot.filteredRecordCounts).length} modules. Data source: {snapshot.sourceLabel}. All values remain separate from your connected backend.</span></div>}
     </div>
   );
 }

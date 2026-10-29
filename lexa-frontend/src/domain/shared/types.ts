@@ -68,6 +68,8 @@ export interface Sale {
   workspaceId: Id;
   branchId: Id;
   customerName?: string;
+  customerPhone?: string;
+  promisedPaymentDate?: string;
   totalMinor: number;
   status: 'completed';
   createdAt: string;
@@ -170,6 +172,8 @@ export interface CompleteSaleInput {
   items: SaleItemInput[];
   payments: PaymentInput[];
   customerName?: string;
+  customerPhone?: string;
+  promisedPaymentDate?: string;
 }
 
 export interface ReturnItemInput {

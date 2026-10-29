@@ -13,9 +13,9 @@ export const REPORT_NAMES = [
   'Receivables ageing',
   'Payables ageing',
   'Expenses',
-  'Profit & loss preview',
-  'Balance sheet preview',
-  'Tax summary preview',
+  'Profit & loss',
+  'Balance sheet',
+  'Tax summary',
   'Attendance & payroll',
   'Deliveries',
   'Bank reconciliation',
@@ -35,7 +35,7 @@ export const REPORT_NAMES = [
   'Picklist fulfilment',
   'Integration health',
   'Recurring billing forecast',
-  'Preview master-data coverage',
+  'Master-data coverage',
 ] as const;
 export type PreviewReportName = (typeof REPORT_NAMES)[number];
 export type PreviewReportUnit = 'currency' | 'count' | 'hours';
@@ -149,7 +149,7 @@ function ageing(rows: PreviewRecord[], range: PreviewDateRange): PreviewReportEn
 }
 
 /**
- * Pure report builder. All values are derived from the current selected preview records;
+ * Pure report builder. All values are derived from the records entered for the selected business and branch;
  * there are no period multipliers or baked-in monetary totals.
  */
 export function buildPreviewReportSnapshot(
@@ -219,43 +219,43 @@ export function buildPreviewReportSnapshot(
   const reportBuilders: Record<PreviewReportName, { unit: PreviewReportUnit; entries: PreviewReportEntry[]; note: string }> = {
     'Sales & receipts': { unit: 'currency', entries: [
       { label: 'Invoice totals', value: grossSales }, { label: 'Customer credit estimates', value: customerCredits }, { label: 'Net sales estimate', value: netSales }, { label: 'Recorded money in', value: received },
-    ], note: 'Derived from sales-invoice and payment preview records. These are not statutory invoices or payment-provider confirmations.' },
+    ], note: 'Derived from sales invoices and payment records. These figures are not statutory invoices or payment-provider confirmations.' },
     'Sales returns & discounts': { unit: 'currency', entries: [
       { label: 'Sales credit estimates', value: customerCredits }, { label: 'Invoice discount totals', value: total(invoices, 'discountAmount') }, { label: 'Order discount totals', value: total(rows('sales-orders'), 'discountAmount') }, { label: 'Credit estimate awaiting review', value: total(salesReturns.filter((row) => ['Draft', 'Needs inspection', 'Reviewed'].includes(row.status)), 'creditAmount') },
-    ], note: 'Return credit and discount estimates use separate preview documents. Review the record workflow before posting a real credit note.' },
+    ], note: 'Return credit and discount estimates use separate return and discount documents. Review the record workflow before posting a real credit note.' },
     'Stock overview': { unit: 'count', entries: [
       { label: 'Lots / serial records', value: batches.length }, { label: 'Units available in lots', value: total(batches, 'availableQuantity') }, { label: 'Quarantined / recalled lots', value: count(batches, (row) => ['Quarantined', 'Recalled'].includes(row.status)) }, { label: 'Expired lots', value: count(batches, (row) => row.status === 'Expired') },
     ], note: 'Batch data is separate from the core inventory ledger. Use the existing Inventory screen for saved core stock movements.' },
     'Purchases & payables': { unit: 'currency', entries: [
       { label: 'Purchase-order estimates', value: purchaseValue }, { label: 'Supplier-bill totals', value: billValue }, { label: 'Outstanding supplier bills', value: payableDue }, { label: 'Recorded money out', value: paidOut },
-    ], note: 'Purchase orders, physical receipts, supplier bills and payments are distinct documents. Values here are preview estimates, not a posted payable ledger.' },
-    'Receivables ageing': { unit: 'currency', entries: ageing(invoicesAsOf, range), note: 'Ageing uses invoice due dates and preview amount-due fields. It is not an account statement from the connected backend.' },
-    'Payables ageing': { unit: 'currency', entries: ageing(supplierBillsAsOf, range), note: 'Ageing uses supplier-bill due dates and preview amount-due fields. Reconcile with posted supplier balances before using financially.' },
-    'Expenses': { unit: 'currency', entries: sumBy(expenses.filter((row) => ['Approved', 'Paid'].includes(row.status)), 'category', 'total').slice(0, 6), note: 'Grouped from preview expense records by category. No general-ledger posting is performed.' },
-    'Profit & loss preview': { unit: 'currency', entries: [
+    ], note: 'Purchase orders, physical receipts, supplier bills and payments are distinct documents. Values here are calculated estimates, not a posted payable ledger.' },
+    'Receivables ageing': { unit: 'currency', entries: ageing(invoicesAsOf, range), note: 'Ageing uses invoice due dates and entered amount-due fields. It is not an account statement from the connected backend.' },
+    'Payables ageing': { unit: 'currency', entries: ageing(supplierBillsAsOf, range), note: 'Ageing uses supplier-bill due dates and entered amount-due fields. Reconcile with posted supplier balances before relying on this figure.' },
+    'Expenses': { unit: 'currency', entries: sumBy(expenses.filter((row) => ['Approved', 'Paid'].includes(row.status)), 'category', 'total').slice(0, 6), note: 'Grouped from saved expense records by category. No general-ledger posting is performed.' },
+    'Profit & loss': { unit: 'currency', entries: [
       { label: 'Net sales estimate', value: netSales }, { label: 'Supplier bill estimate', value: -billValue }, { label: 'Operating expense estimate', value: -expenseValue }, { label: 'Simple operating remainder', value: round(netSales - billValue - expenseValue) },
     ], note: 'A simplified operational estimate, not a valid profit-and-loss statement: purchases are not cost of goods sold, and the figures are not built from posted ledger entries.' },
-    'Balance sheet preview': { unit: 'currency', entries: [
+    'Balance sheet': { unit: 'currency', entries: [
       { label: 'Cash / wallet current balances', value: total(moneyAccounts, 'currentBalance') }, { label: 'Fixed-asset carrying estimates', value: total(rows('assets'), 'carryingValue') }, { label: 'Receivables estimate', value: receivableDue }, { label: 'Payables estimate', value: payableDue },
-    ], note: 'This is an unreconciled preview of selected operational balances, not a balanced statutory balance sheet. The real report must come from the actual ledger integration.' },
-    'Tax summary preview': { unit: 'currency', entries: [
+    ], note: 'This is an unreconciled summary of selected operational balances, not a balanced statutory balance sheet. The real report must come from the actual ledger integration.' },
+    'Tax summary': { unit: 'currency', entries: [
       { label: 'Output tax estimate', value: outputTax }, { label: 'Sales-credit tax estimate', value: -outputCreditTax }, { label: 'Input tax estimate', value: -inputTax }, { label: 'Supplier-return tax estimate', value: inputDebitTax }, { label: 'Net tax estimate', value: netTaxEstimate },
-    ], note: 'Tax amounts are user-entered / preview calculations. Rates, eligibility, exemptions and EFRIS submission must be confirmed through the proper Uganda tax workflow.' },
+    ], note: 'Tax amounts are user-entered / calculated estimates. Rates, eligibility, exemptions and EFRIS submission must be confirmed through the proper Uganda tax workflow.' },
     'Attendance & payroll': { unit: 'count', entries: [
       { label: 'Attendance entries', value: attendance.length }, { label: 'Late / absent records', value: count(attendance, (row) => ['Late', 'Absent'].includes(row.status)) }, { label: 'Payroll runs for review', value: count(payroll, (row) => ['Draft', 'Review', 'Approved', 'Payment prepared'].includes(row.status)) }, { label: 'Leave requests awaiting decision', value: count(leave, (row) => row.status === 'Requested') },
-    ], note: 'Attendance and leave are preview records. Payroll is only gross pay minus entered deductions; it does not calculate statutory taxes or submit payroll.' },
+    ], note: 'Attendance and leave are based on records entered in this workspace. Payroll is only gross pay minus entered deductions; it does not calculate statutory taxes or submit payroll.' },
     'Deliveries': { unit: 'count', entries: [
       { label: 'Delivery records', value: deliveries.length }, { label: 'Packages awaiting shipment', value: count(packageRows, (row) => row.status === 'Not shipped') }, { label: 'In transit / shipped', value: count([...packageRows, ...deliveries], (row) => ['Shipped', 'In transit', 'Dispatched'].includes(row.status)) }, { label: 'Delivery exceptions', value: count([...packageRows, ...deliveries], (row) => ['Exception', 'Delivery failed'].includes(row.status)) },
-    ], note: 'Packages, delivery records and carrier tracking are separate preview records. No carrier API is connected.' },
+    ], note: 'Packages, delivery records and carrier tracking are separate records. No carrier API is connected.' },
     'Bank reconciliation': { unit: 'currency', entries: [
       { label: 'Statement closing balance', value: total(bankReconciliations, 'statementBalance') }, { label: 'Book closing balance', value: total(bankReconciliations, 'bookBalance') }, { label: 'Unexplained difference', value: total(bankReconciliations, 'difference') }, { label: 'Opening statement balance', value: total(bankReconciliations, 'openingBalance') },
-    ], note: 'Statement figures are manually entered in mock records. This view is not linked to a bank feed or live account balances.' },
+    ], note: 'Statement figures are manually entered in records. This view is not connected to a bank feed or live account balances.' },
     'Cash & accounts': { unit: 'currency', entries: [
       { label: 'Opening money-account balances', value: total(moneyAccounts, 'openingBalance') }, { label: 'Current money-account balances', value: total(moneyAccounts, 'currentBalance') }, { label: 'POS expected cash', value: total(cashSessions, 'expectedCash') }, { label: 'POS counted cash', value: total(cashSessions, 'countedCash') },
-    ], note: 'Money-account balances and POS session figures are independent preview records; they are not reconciled automatically.' },
+    ], note: 'Money-account balances and POS session figures are independent records; they are not reconciled automatically.' },
     'Procurement pipeline': { unit: 'count', entries: [
       { label: 'Purchase requests', value: rows('purchase-requests').length }, { label: 'Supplier RFQs', value: rows('rfqs').length }, { label: 'Supplier quotes awaiting review', value: count(rows('supplier-quotes'), (row) => ['Received', 'Under review'].includes(row.status)) }, { label: 'Open purchase orders', value: count(purchaseOrders, (row) => !['Cancelled', 'Received'].includes(row.status)) },
-    ], note: 'Counts show preview documents, not live commitments. An approved request can be used to prepare a separate RFQ or purchase-order draft.' },
+    ], note: 'Counts show entered documents, not live commitments. An approved request can be used to prepare a separate RFQ or purchase-order draft.' },
     'CRM & pipeline': { unit: 'currency', entries: [
       { label: 'Lead estimated value', value: total(leads, 'estimatedValue') }, { label: 'Lead weighted estimate', value: total(leads, 'weightedValue') }, { label: 'Opportunity weighted estimate', value: total(opportunities, 'weightedValue') }, { label: 'Open sales-order estimate', value: total(rows('sales-orders').filter((row) => !['Cancelled', 'Invoiced'].includes(row.status)), 'total') },
     ], note: 'Prospect and opportunity values are pipeline estimates, not booked revenue. Weighted values depend on entered probability.' },
@@ -267,19 +267,19 @@ export function buildPreviewReportSnapshot(
     ], note: 'Work orders and job cards do not issue components or post finished output. Inventory movements must be added to the integrated production workflow later.' },
     'POS cash-up': { unit: 'currency', entries: [
       { label: 'Expected cash', value: total(cashSessions, 'expectedCash') }, { label: 'Counted cash', value: total(cashSessions, 'countedCash') }, { label: 'Net over / short', value: total(cashSessions, 'variance') }, { label: 'Cash dropped to safe', value: total(cashSessions, 'cashDrops') },
-    ], note: 'Cash-up totals come from POS session preview entries, not the real checkout sales ledger. Integrate the session closing workflow before live use.' },
+    ], note: 'Cash-up totals come from POS session entries, not the real checkout sales ledger. Integrate the session closing workflow before live use.' },
     'Projects & timesheets': { unit: 'hours', entries: [
       { label: 'Timesheet hours', value: total(timesheets, 'hours') }, { label: 'Billable hours', value: total(timesheets, 'billableHours') }, { label: 'Non-billable hours', value: total(timesheets, 'nonBillableHours') }, { label: 'Task estimated hours', value: total(tasks, 'estimatedHours') },
-    ], note: 'Hours support project review; billing, project cost posting and payroll are not linked in this preview.' },
+    ], note: 'Hours support project review; billing, project cost posting and payroll are not linked in this workspace.' },
     'Project cost & budget': { unit: 'currency', entries: [
       { label: 'Project budget estimates', value: total(projects, 'budget') },
       { label: 'Actual project cost estimates', value: total(projects, 'actualCost') },
       { label: 'Budget variance estimates', value: total(projects, 'budgetVariance') },
       { label: 'Billable time estimate', value: total(timesheets, 'billableAmount') },
-    ], note: 'Project budgets and actual costs are user-entered preview values. The report is not connected to posted general-ledger entries or customer invoicing.' },
+    ], note: 'Project budgets and actual costs are user-entered entered values. The report is not connected to posted general-ledger entries or customer invoicing.' },
     'Support queue': { unit: 'count', entries: [
       { label: 'Open support cases', value: count(support, (row) => !['Resolved', 'Closed'].includes(row.status)) }, { label: 'Awaiting customer', value: count(support, (row) => row.status === 'Waiting on customer') }, { label: 'Resolved cases', value: count(support, (row) => row.status === 'Resolved') }, { label: 'Closed cases', value: count(support, (row) => row.status === 'Closed') },
-    ], note: 'This is a local support queue mock-up, not an email or customer portal integration.' },
+    ], note: 'This is a local support queue -up, not an email or customer portal integration.' },
     'Packages & fulfilment': { unit: 'count', entries: [
       { label: 'Packages created', value: packageRows.length }, { label: 'Not shipped', value: count(packageRows, (row) => row.status === 'Not shipped') }, { label: 'Shipped', value: count(packageRows, (row) => row.status === 'Shipped') }, { label: 'Delivered', value: count(packageRows, (row) => row.status === 'Delivered') },
     ], note: 'Packing slips and delivery tracking are separate workflow steps. Carrier events are not received automatically.' },
@@ -288,22 +288,22 @@ export function buildPreviewReportSnapshot(
     ], note: 'Calendar-day leave estimates and directory statuses do not change employee records or calculate statutory pay.' },
     'Sales campaigns & representatives': { unit: 'currency', entries: [
       { label: 'Campaign budget', value: total(campaigns, 'budget') }, { label: 'Campaign spend', value: total(campaigns, 'actualSpend') }, { label: 'Sales targets', value: total(salesTeams, 'salesTarget') }, { label: 'Sales achieved', value: total(salesTeams, 'salesAchieved') }, { label: 'Indicative commissions', value: total(salesTeams, 'indicativeCommission') },
-    ], note: 'Spend, leads and sales achievement are preview entries. They are not reconciled to an advertising platform or the posted sales ledger.' },
+    ], note: 'Spend, leads and sales achievement are entered records. They are not reconciled to an advertising platform or the posted sales ledger.' },
     'Budgets vs actual': { unit: 'currency', entries: [
       { label: 'Approved budget amount', value: total(budgets.filter((row) => ['Approved', 'Closed'].includes(row.status)), 'budgetAmount') }, { label: 'Actual spend entered', value: total(budgets, 'actualAmount') }, { label: 'Committed spend entered', value: total(budgets, 'committedAmount') }, { label: 'Forecast entered', value: total(budgets, 'forecastAmount') }, { label: 'Remaining after actual and committed', value: total(budgets, 'availableBudget') },
-    ], note: 'Budget remaining is calculated per preview budget line. It is a management estimate, not an accounting commitment or ledger balance.' },
+    ], note: 'Budget remaining is calculated per budget line. It is a management estimate, not an accounting commitment or ledger balance.' },
     'Picklist fulfilment': { unit: 'count', entries: [
       { label: 'Picklists', value: picklists.length }, { label: 'Units requested', value: total(picklists, 'unitsToPick') }, { label: 'Units picked', value: total(picklists, 'unitsPicked') }, { label: 'Units outstanding', value: total(picklists, 'unitsOutstanding') }, { label: 'Short / incomplete picklists', value: count(picklists, (row) => ['Short pick', 'Partially picked', 'Picking'].includes(row.status)) },
-    ], note: 'Picking totals are preview records. They do not reserve quantities or decrement physical inventory until the real warehouse workflow is integrated.' },
+    ], note: 'Picking totals are saved records. They do not reserve quantities or decrement physical inventory until the real warehouse workflow is integrated.' },
     'Integration health': { unit: 'count', entries: [
-      { label: 'Integration records configured', value: integrations.length }, { label: 'Passing test records', value: count(integrations, (row) => row.status === 'Test passed') }, { label: 'Not connected', value: count(integrations, (row) => ['Not connected', 'Configuration needed'].includes(row.status)) }, { label: 'Integration errors', value: count(integrations, (row) => ['Error', 'Failed', 'Needs attention'].includes(row.status)) }, { label: 'Records processed (preview counter)', value: total(integrations, 'recordsProcessed') },
+      { label: 'Integration records configured', value: integrations.length }, { label: 'Passing test records', value: count(integrations, (row) => row.status === 'Test passed') }, { label: 'Not connected', value: count(integrations, (row) => ['Not connected', 'Configuration needed'].includes(row.status)) }, { label: 'Integration errors', value: count(integrations, (row) => ['Error', 'Failed', 'Needs attention'].includes(row.status)) }, { label: 'Records processed', value: total(integrations, 'recordsProcessed') },
     ], note: 'The integration register documents future connector readiness only. No credentials, test requests or external API calls are made by this frontend.' },
     'Recurring billing forecast': { unit: 'currency', entries: [
       { label: 'Active schedule run-rate estimate', value: total(recurringInvoices.filter((row) => row.status === 'Active'), 'total') }, { label: 'Run-rate awaiting review', value: total(recurringInvoices.filter((row) => ['Draft', 'Review'].includes(row.status)), 'total') }, { label: 'Paused schedule run-rate', value: total(recurringInvoices.filter((row) => row.status === 'Paused'), 'total') }, { label: 'Ended schedule reference value', value: total(recurringInvoices.filter((row) => row.status === 'Ended'), 'total') },
     ], note: 'Recurring amounts are run-rate estimates only. Choose a Next period to review upcoming schedules. No background scheduler executes and no invoice is generated automatically.' },
-    'Preview master-data coverage': { unit: 'count', entries: [
+    'Master-data coverage': { unit: 'count', entries: [
       { label: 'Customer master records', value: rows('customers').length }, { label: 'Suppliers with contact number', value: count(rows('suppliers'), (row) => Boolean(String(row.phone ?? '').trim())) }, { label: 'CRM contacts on file', value: contacts.length }, { label: 'Leads with assigned owner', value: count(rows('leads'), (row) => Boolean(String(row.owner ?? '').trim())) }, { label: 'Bundle / recipe definitions', value: itemBundles.length + count(rows('boms')) }, { label: 'Integration records with missing setup', value: count(integrations, (row) => ['Not connected', 'Configuration needed', 'Missing mapping'].includes(row.status)) },
-    ], note: 'Coverage checks apply only to Phase 2 preview records. The core product catalogue is managed by a separate repository and is not counted by this preview service.' },
+    ], note: 'Coverage checks apply only to saved records. The core product catalogue is managed by a separate repository and is not counted by this register service.' },
   };
 
   const selected = reportBuilders[report];
@@ -324,7 +324,7 @@ export function buildPreviewReportSnapshot(
     filteredRecordCounts: Object.fromEntries(Object.entries(records).map(([id, items]) => [id, items.length])),
     generatedAt: now.toISOString(),
     persistenceMode,
-    sourceLabel: 'Browser-local mock data',
+    sourceLabel: 'Device storage',
     interpretationNote: selected.note,
   };
 }

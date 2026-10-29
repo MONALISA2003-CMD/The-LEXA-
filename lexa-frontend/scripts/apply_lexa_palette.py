@@ -65,7 +65,7 @@ export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> =
   ...forPaths('gold', ['/modules/expenses', '/modules/money-accounts', '/modules/payments', '/modules/accounting', '/modules/chart-of-accounts', '/modules/tax-codes', '/modules/bank-reconciliation', '/modules/assets', '/modules/cost-centers', '/modules/budgets', '/modules/tax-documents', '/modules/reports', '/modules/recurring-invoices']),
 });
 export const MODULE_ACCENTS_BY_GROUP: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
-  WORKSPACE:'navy','CRM & GROWTH':'emerald',SELLING:'blue',INVENTORY:'cyan',LOGISTICS:'cyan',PROCUREMENT:'orange',FINANCE:'gold','PEOPLE & PAYROLL':'emerald','INTEGRATION & CONTROL':'cyan',INSIGHTS:'gold',ADMINISTRATION:'navy',
+  WORKSPACE:'navy',CRM:'emerald','CRM & GROWTH':'emerald',SELLING:'blue',INVENTORY:'cyan',LOGISTICS:'cyan',PROCUREMENT:'orange',FINANCE:'gold','PEOPLE & PAYROLL':'emerald','INTEGRATION & CONTROL':'cyan',INSIGHTS:'gold',ADMINISTRATION:'navy',MANUFACTURING:'cyan',
 });
 export function moduleAccentForPath(path: string): ModuleAccentKey { return MODULE_ACCENTS_BY_PATH[path] ?? 'navy'; }
 export function moduleAccentForGroup(group: string): ModuleAccentKey { return MODULE_ACCENTS_BY_GROUP[group.trim().toUpperCase()] ?? 'navy'; }
@@ -80,7 +80,7 @@ describe('LEXA module accents', () => {
   it('covers every operational catalogue module', () => { for (const module of MODULE_CATALOG) expect(MODULE_ACCENTS_BY_PATH['/modules/' + module.id], module.id).toBeDefined(); });
   it('uses only approved accents', () => { for (const [path, accent] of Object.entries(MODULE_ACCENTS_BY_PATH)) expect(allowed, path).toContain(accent); });
   it('assigns semantic colours to representative families', () => { expect(moduleAccentForPath('/checkout')).toBe('blue'); expect(moduleAccentForPath('/modules/receiving')).toBe('cyan'); expect(moduleAccentForPath('/modules/purchases')).toBe('orange'); expect(moduleAccentForPath('/modules/accounting')).toBe('gold'); expect(moduleAccentForPath('/modules/leads')).toBe('emerald'); expect(moduleAccentForPath('/modules/recurring-invoices')).toBe('gold'); expect(moduleAccentForPath('/business-tools')).toBe('cyan'); });
-  it('uses explicit group metadata and a safe default', () => { expect(moduleAccentForGroup('CRM & GROWTH')).toBe('emerald'); expect(moduleAccentForGroup('PROCUREMENT')).toBe('orange'); expect(moduleAccentForGroup('FINANCE')).toBe('gold'); expect(moduleAccentForGroup('INTEGRATION & CONTROL')).toBe('cyan'); expect(moduleAccentForGroup('unknown group')).toBe('navy'); expect(moduleAccentForPath('/modules/not-real')).toBe('navy'); });
+  it('uses explicit group metadata and a safe default', () => { expect(moduleAccentForGroup('CRM & GROWTH')).toBe('emerald'); expect(moduleAccentForGroup('CRM')).toBe('emerald'); expect(moduleAccentForGroup('MANUFACTURING')).toBe('cyan'); expect(moduleAccentForGroup('PROCUREMENT')).toBe('orange'); expect(moduleAccentForGroup('FINANCE')).toBe('gold'); expect(moduleAccentForGroup('INTEGRATION & CONTROL')).toBe('cyan'); expect(moduleAccentForGroup('unknown group')).toBe('navy'); expect(moduleAccentForPath('/modules/not-real')).toBe('navy'); });
 });
 '''
 
@@ -142,6 +142,32 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 :root[data-theme=dark] .page-heading-row p,:root[data-theme=dark] .section-card-heading p,:root[data-theme=dark] .table-toolbar p,:root[data-theme=dark] .checkout-section-heading p,:root[data-theme=dark] .module-directory-copy small{color:var(--color-text-secondary)!important}:root[data-theme=dark] input,:root[data-theme=dark] select,:root[data-theme=dark] textarea{background:var(--color-surface-muted);color:var(--color-text-primary);border-color:var(--color-border-control)}:root[data-theme=dark] option{background:var(--color-surface-muted);color:var(--color-text-primary)}
 @media(max-width:760px){.topbar{padding:12px 15px;gap:9px}.topbar-actions{gap:5px}.topbar-title h1{font-size:17px}.theme-toggle{width:34px;height:34px}.page-content{padding:18px 13px 20px}.local-status-banner{padding:9px 13px;align-items:flex-start}.local-status-banner button{white-space:normal}}
 @media(max-width:640px){.module-directory-grid{grid-template-columns:1fr}.module-directory-card{min-height:108px}.phase-two-launch-grid{grid-template-columns:1fr}}
+/* Full lockup: preserve every logo letter and the gold tagline. */
+.brand-lockup{position:relative;display:flex;align-items:center;justify-content:center;min-height:112px;padding:0 8px 16px!important;gap:0}
+.brand-lockup::before{content:none!important;display:none!important}
+.brand-lockup>.brand-mark,.brand-lockup>div:not(.brand-mark):not(.lexa-brand-logo-frame){display:none!important}
+.lexa-brand-logo-frame{display:flex;align-items:center;justify-content:center;width:100%;min-width:0;height:112px;overflow:visible;background:transparent;border-radius:0;flex:1 1 auto}
+.lexa-brand-logo{display:block;width:100%;height:100%;max-height:112px;object-fit:contain;object-position:center;background:transparent;border-radius:0}
+.brand-lockup .sidebar-close{position:absolute;right:0;top:0}
+/* Shared structure uses the semantic surface/text roles in both themes. */
+.topbar{background:color-mix(in srgb,var(--color-surface) 94%,transparent);border-color:var(--color-border)}
+.topbar-title h1,.page-heading-row h2,.section-card-heading h3,.table-toolbar h3,.checkout-section-heading h3,.dashboard-section-title h3{color:var(--color-text-primary)}
+.page-heading-row p,.section-card-heading p,.table-toolbar p,.checkout-section-heading p,.muted-text,.muted-count{color:var(--color-text-secondary)}
+.section-card,.mini-metric,.metric-card,.operational-panel,.table-card,.phase-two-launch-card,.quick-actions-card,.data-integrity-card,.receipt-summary,.phase-modal,.module-directory-card{background:var(--color-surface);border-color:var(--color-border);color:var(--color-text-primary)}
+.field-label input,.field-label select,.field-label textarea,.phase-field input,.phase-field select,.phase-field textarea,.search-field,.phase-two-search,.phase-filter-select,.phase-date-filter{background:var(--color-surface);color:var(--color-text-primary);border-color:var(--color-border-control)}
+.button-primary{color:var(--color-on-primary);background:var(--color-primary);border-color:var(--color-primary)}
+.button-primary:hover:not(:disabled){color:var(--color-on-primary);background:var(--color-primary-hover);border-color:var(--color-primary-hover)}
+.button-secondary{background:var(--color-surface);color:var(--color-text-primary);border-color:var(--color-border-control)}
+.button-quiet{background:var(--color-surface-muted);color:var(--color-text-secondary);border-color:var(--color-border)}
+.theme-toggle{width:36px;height:36px;border:1px solid var(--color-border);color:var(--color-text-primary);background:var(--color-surface-muted)}
+.theme-toggle:hover{color:var(--color-primary);background:var(--color-primary-soft);border-color:var(--color-secondary-border)}
+:root[data-theme=dark] .sidebar{background:linear-gradient(180deg,#06132f 0%,#081a35 62%,#0c2242 100%)}
+:root[data-theme=dark] .app-footer{border-color:var(--color-border);color:var(--color-text-secondary)}
+:root[data-theme=dark] .data-table thead th,:root[data-theme=dark] .data-table tfoot td{background:var(--color-surface-muted);color:var(--color-text-primary);border-color:var(--color-border)}
+:root[data-theme=dark] .data-table tbody td{color:var(--color-text-secondary);border-color:var(--color-border)}
+:root[data-theme=dark] .data-table tbody tr:hover{background:var(--color-primary-soft)}
+@media(max-width:760px){.brand-lockup{min-height:88px;padding:0 8px 12px!important}.lexa-brand-logo-frame{height:88px}.lexa-brand-logo{max-height:88px}.topbar-actions{gap:5px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 '''
 
 
@@ -257,7 +283,7 @@ def wire_accent_metadata() -> None:
         ('className="quick-action-icon quick-purple"><Package', 'className="quick-action-icon quick-purple" data-module-accent={moduleAccentForPath("/products")}><Package', 'product shortcut accent'),
         ('className="quick-action-icon quick-green"><ArrowDownRight', 'className="quick-action-icon quick-green" data-module-accent={moduleAccentForPath("/inventory")}><ArrowDownRight', 'stock shortcut accent'),
     ]:
-        if old in dashboard:
+        if new not in dashboard and old in dashboard:
             dashboard = dashboard.replace(old, new)
         elif new not in dashboard and label in ('sales metric accent','payment metric accent','invoice metric accent','inventory metric accent'):
             # A source structure change is safer than silently leaving a requested metric uncoloured.

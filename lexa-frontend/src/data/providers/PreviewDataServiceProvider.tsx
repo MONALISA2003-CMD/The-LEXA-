@@ -5,8 +5,8 @@ import { previewDataService } from '../mock/previewDataService';
 const PreviewDataServiceContext = createContext<PreviewDataService>(previewDataService);
 
 /**
- * Injectable preview-data boundary. The current implementation is browser-local mock data;
- * later API work can supply an adapter without changing module screens.
+ * Injectable module-record data boundary. The current adapter stores records in this browser;
+ * a backend adapter can be supplied without changing module screens.
  */
 export function PreviewDataServiceProvider({
   children,

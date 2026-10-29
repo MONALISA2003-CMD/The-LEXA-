@@ -75,7 +75,7 @@ export default function OnboardingPage() {
 
   return (
     <main className="onboarding-shell">
-      <div className="onboarding-brand"><div className="brand-mark">L</div><div><strong>LEXA</strong><span>BUSINESS OPERATING WORKSPACE</span></div></div>
+      <div className="onboarding-brand"><img className="onboarding-brand-logo" src="/lexa-logo.png" alt="LEXA — Sales, Inventory, Business Management" /></div>
       <div className="onboarding-layout">
         <section className="onboarding-intro">
           <div className="mini-label"><Sparkles size={14} /> YOUR BUSINESS, CONNECTED</div>
@@ -86,16 +86,16 @@ export default function OnboardingPage() {
             <div><span className="benefit-icon"><Check size={17} /></span><div><strong>Saved on this device</strong><p>Your local records remain after a page refresh.</p></div></div>
             <div><span className="benefit-icon"><ShieldCheck size={17} /></span><div><strong>Clear about limitations</strong><p>Shared access and server services are not connected yet.</p></div></div>
           </div>
-          <div className="onboarding-local-note"><span className="status-dot" /> LOCAL-FIRST PREVIEW <span className="note-divider">·</span> NO BACKEND CONNECTED</div>
+          <div className="onboarding-local-note"><span className="status-dot" /> WORKSPACE SETUP <span className="note-divider">·</span> BUSINESS DETAILS</div>
         </section>
         <section className="setup-card">
           <div className="setup-card-icon"><Store size={21} /></div>
           <div className="setup-card-heading"><h2>Business details</h2><p>You can update these settings later.</p></div>
           {savedWorkspaceName && <div className="saved-workspace-recovery"><div><strong>Workspace already saved</strong><span>{savedWorkspaceName}</span></div><button type="button" className="button button-secondary button-wide" onClick={() => void openSavedWorkspace()} disabled={openingSaved}>{openingSaved ? 'Opening workspace…' : 'Open saved workspace'} <ArrowRight size={16} /></button></div>}
           <form onSubmit={handleSubmit} className="form-stack">
-            <label className="field-label">Business name <span className="required-mark">*</span><input autoFocus required maxLength={100} value={businessName} onChange={(event) => setBusinessName(event.target.value)} placeholder="e.g. Amaal Traders" /></label>
+            <label className="field-label">Business name <span className="required-mark">*</span><input autoFocus required maxLength={100} value={businessName} onChange={(event) => setBusinessName(event.target.value)} placeholder="Enter your business name" /></label>
             <label className="field-label">Business type <select value={businessType} onChange={(event) => setBusinessType(event.target.value)}>{businessTypes.map((type) => <option value={type.value} key={type.value}>{type.label}</option>)}</select></label>
-            <label className="field-label">First branch name <span className="required-mark">*</span><input required maxLength={80} value={branchName} onChange={(event) => setBranchName(event.target.value)} placeholder="e.g. Main branch" /></label>
+            <label className="field-label">First branch name <span className="required-mark">*</span><input required maxLength={80} value={branchName} onChange={(event) => setBranchName(event.target.value)} placeholder="Enter your first branch name" /></label>
             <div className="form-two-col">
               <label className="field-label">Currency<select value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="UGX">UGX — Uganda shilling</option><option value="KES">KES — Kenya shilling</option><option value="TZS">TZS — Tanzania shilling</option><option value="USD">USD — US dollar</option><option value="GBP">GBP — Pound sterling</option><option value="EUR">EUR — Euro</option></select></label>
               <label className="field-label">Timezone<select value={timezone} onChange={(event) => setTimezone(event.target.value)}><option value="Africa/Kampala">Kampala (EAT)</option><option value="Africa/Nairobi">Nairobi (EAT)</option><option value="Africa/Dar_es_Salaam">Dar es Salaam (EAT)</option><option value="UTC">UTC</option><option value="Europe/London">London</option></select></label>
@@ -106,7 +106,7 @@ export default function OnboardingPage() {
           <div className="setup-footnote"><span className="status-dot" /> Saved locally in this browser</div>
         </section>
       </div>
-      <footer className="onboarding-footer"><span>LEXA · Early frontend milestone</span><span>Designed for connected, accountable business work.</span></footer>
+      <footer className="onboarding-footer"><span>LEXA · Business workspace</span><span>Designed for connected, accountable business work.</span></footer>
     </main>
   );
 }

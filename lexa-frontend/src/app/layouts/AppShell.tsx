@@ -3,12 +3,13 @@ import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-route
 import {
   Activity, ArrowDownUp, Banknote, Bell, BookOpen, Building2, BarChart3, ChevronDown, Target, Boxes, Plug,
   CircleHelp, ClipboardList, Command, CreditCard, FileText, LayoutDashboard, Menu,
-  Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X,
+  Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X, Moon, Sun,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { localWorkspaceRepository } from '../../data/local/workspaces';
 import { WorkspaceContext } from '../WorkspaceContext';
 import type { Branch, Workspace } from '../../domain/shared/types';
+import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
 
 const ACTIVE_WORKSPACE_KEY = 'lexa.ui.activeWorkspaceId';
 const ACTIVE_BRANCH_KEY = 'lexa.ui.activeBranchId';
@@ -73,12 +74,13 @@ const navSections = [
   { title: 'PEOPLE & PAYROLL', items: [
     { to: '/modules/employees', label: 'Employees & HR', icon: Users },
     { to: '/modules/attendance', label: 'Attendance & shifts', icon: Activity },
-    { to: '/modules/payroll', label: 'Payroll run preview', icon: Wallet },
+    { to: '/modules/payroll', label: 'Payroll', icon: Wallet },
   ] },
   { title: 'INTEGRATION & CONTROL', items: [
     { to: '/modules/integrations', label: 'Integration status', icon: Plug },
     { to: '/modules/reports', label: 'Reports & analytics', icon: BarChart3 },
     { to: '/modules/team', label: 'Team & access', icon: Users },
+    { to: '/business-tools', label: 'Business tools', icon: Settings },
     { to: '/modules/audit', label: 'Activity & audit log', icon: Activity },
   ] },
 ];
@@ -107,6 +109,38 @@ export default function AppShell() {
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [resolvedBranchWorkspaceId, setResolvedBranchWorkspaceId] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [uiMode, setUiMode] = useState<'simple' | 'advanced'>(() => {
+    try { return window.localStorage.getItem('lexa.ui.mode') === 'advanced' ? 'advanced' : 'simple'; }
+    catch { return 'simple'; }
+  });
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try { return window.localStorage.getItem('lexa.ui.theme') === 'dark' ? 'dark' : 'light'; }
+    catch { return 'light'; }
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try { window.localStorage.setItem('lexa.ui.theme', theme); } catch { /* Theme still works for this session. */ }
+  }, [theme]);
+  useEffect(() => {
+    const handleModeChange = (event: Event) => {
+      const mode = (event as CustomEvent<'simple' | 'advanced'>).detail;
+      if (mode === 'simple' || mode === 'advanced') setUiMode(mode);
+    };
+    window.addEventListener('lexa:ui-mode-change', handleModeChange);
+    return () => window.removeEventListener('lexa:ui-mode-change', handleModeChange);
+  }, []);
+  const visibleNavSections = uiMode === 'advanced' ? navSections : [
+    { title: 'WORKSPACE', items: (navSections[0]?.items ?? []).filter((item) => item.to === '/' || item.to === '/workspace') },
+    { title: 'QUICK ACTIONS', items: [
+      { to: '/checkout', label: 'Sell', icon: ShoppingCart },
+      { to: '/modules/purchases', label: 'Buy', icon: ShoppingCart },
+      { to: '/modules/expenses', label: 'Expense', icon: ReceiptText },
+      { to: '/inventory', label: 'Stock', icon: Package },
+      { to: '/modules/customers', label: 'Money owed', icon: Users },
+      { to: '/business-tools', label: 'Business tools', icon: Settings },
+      { to: '/settings', label: 'Settings', icon: Settings },
+    ] },
+  ];
 
   const refreshWorkspaces = useCallback(async () => {
     const items = await localWorkspaceRepository.list();
@@ -215,8 +249,7 @@ export default function AppShell() {
         <div className={`mobile-scrim ${mobileNavOpen ? 'is-visible' : ''}`} onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
         <aside className={`sidebar ${mobileNavOpen ? 'sidebar-open' : ''}`} aria-label="Main navigation">
           <div className="brand-lockup">
-            <div className="brand-mark">L</div>
-            <div><div className="brand-name">LEXA</div><div className="brand-caption">BUSINESS OPERATING SYSTEM</div></div>
+            <div className="lexa-brand-logo-frame"><img className="lexa-brand-logo" src="/lexa-logo.png" alt="LEXA — Sales, Inventory, Business Management" /></div>
             <button className="icon-button sidebar-close" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)}><X size={18} /></button>
           </div>
           <div className="sidebar-workspace">
@@ -225,12 +258,12 @@ export default function AppShell() {
             <ChevronDown size={15} className="muted-icon" />
           </div>
           <nav className="nav-groups">
-            {navSections.map((section) => (
-              <div className="nav-section" key={section.title}>
+            {visibleNavSections.map((section) => (
+              <div className="nav-section" key={section.title} data-module-accent={moduleAccentForGroup(section.title)}>
                 <div className="nav-section-title">{section.title}</div>
                 {section.items.map((item) => {
                   const Icon = item.icon;
-                  return <NavLink key={item.to} to={item.to} end={'end' in item ? item.end : false} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
+                  return <NavLink key={item.to} to={item.to} end={'end' in item ? item.end : false} data-module-accent={moduleAccentForPath(item.to)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
                     <Icon size={18} strokeWidth={1.8} /><span>{item.label}</span>
                   </NavLink>;
                 })}
@@ -238,9 +271,9 @@ export default function AppShell() {
             ))}
           </nav>
           <div className="sidebar-bottom">
-            <div className="local-note"><span className="status-dot" /><div><strong>Frontend build mode</strong><span>Existing backend kept separate</span></div></div>
-            <NavLink to="/settings" className={({ isActive }) => `nav-link settings-link ${isActive ? 'nav-link-active' : ''}`}><Settings size={18} /><span>Settings</span></NavLink>
-            <button className="help-link" onClick={() => toast.info('LEXA Phase 2 preview', { description: 'Existing core workflows are retained. New module records are sample preview data until mapped to the existing backend.' })}><CircleHelp size={16} /><span>Help & implementation status</span></button>
+            <div className="local-note"><span className="status-dot" /><div><strong>Workspace status</strong><span>Business workspace active</span></div></div>
+            <NavLink to="/settings" data-module-accent={moduleAccentForPath('/settings')} className={({ isActive }) => `nav-link settings-link ${isActive ? 'nav-link-active' : ''}`}><Settings size={18} /><span>Settings</span></NavLink>
+            <button className="help-link" onClick={() => toast.info('LEXA workspace help', { description: 'Use the module directory to access sales, inventory, finance, operations and team tools. See Settings for storage and connection details.' })}><CircleHelp size={16} /><span>Help & guidance</span></button>
           </div>
         </aside>
 
@@ -251,13 +284,13 @@ export default function AppShell() {
               <label className="select-wrap workspace-select"><Building2 size={15} /><span className="sr-only">Active business</span><select aria-label="Active business" value={workspace.id} onChange={(event) => void setActiveWorkspace(event.target.value)}>{workspaces.map((item) => <option key={item.id} value={item.id}>{item.businessName}</option>)}</select><ChevronDown size={14} /></label>
               <label className="select-wrap branch-select"><Store size={15} /><span className="sr-only">Active branch</span><select aria-label="Active branch" value={branch.id} onChange={(event) => setActiveBranch(event.target.value)}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><ChevronDown size={14} /></label>
               <div className="topbar-divider" />
+              <button className="icon-button theme-toggle" type="button" aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
               <button className="icon-button notification-button" aria-label="Notifications" onClick={() => toast.info('No connected alerts yet', { description: 'Live notifications will be enabled when the existing backend integration is connected.' })}><Bell size={18} /></button>
-              <div className="user-avatar" aria-label="Preview operator">L</div>
+              <div className="user-avatar" aria-label="Workspace operator">L</div>
             </div>
           </header>
-          <div className="local-status-banner phase-two-shell-banner"><span className="status-dot" /><span><strong>Phase 2 frontend build</strong> — core records retain their existing behaviour; new modules use clearly labelled preview data until connected to your existing backend.</span><button onClick={() => navigate('/modules')}>Module map <Command size={12} /></button></div>
           <div className="page-content"><Outlet /></div>
-          <footer className="app-footer"><span>LEXA Workspace · Phase 2 frontend</span><span>New module previews are not backend-connected <span className="footer-dot">•</span> Existing records untouched</span></footer>
+          <footer className="app-footer"><span>LEXA Workspace</span><span>Sales · Inventory · Business Management</span></footer>
         </main>
       </div>
     </WorkspaceContext.Provider>

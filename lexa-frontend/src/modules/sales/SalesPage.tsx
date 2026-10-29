@@ -1,3 +1,4 @@
+import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -27,7 +28,7 @@ export default function SalesPage() {
   const invalidDateRange = Boolean(dateFrom && dateTo && dateFrom > dateTo);
 
   return (
-    <div className="page-stack">
+    <div className="page-stack" data-module-accent={moduleAccentForPath("/sales")}>
       <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">TRANSACTION HISTORY</div><h2>Sales & receipts</h2><p>Every sale links to the items, recorded payments, stock movements and any returns.</p></div><button className="button button-primary" onClick={() => navigate('/checkout')}><ReceiptText size={17} /> New sale</button></div>
       <div className="metric-strip three-metrics"><div className="mini-metric"><span>Matching sales</span><strong>{filtered.length.toLocaleString()}</strong><small>Within the current filters</small></div><div className="mini-metric"><span>Filtered gross value</span><strong>{formatMinorAmount(totalSales, workspace.currency)}</strong><small>Before recorded returns</small></div><div className="mini-metric"><span>Latest matching receipt</span><strong className="metric-receipt">{filtered[0]?.receiptNumber ?? '—'}</strong><small>Most recent in this view</small></div></div>
       {invalidDateRange && <div className="inline-warning" role="alert">The start date must be on or before the end date.</div>}

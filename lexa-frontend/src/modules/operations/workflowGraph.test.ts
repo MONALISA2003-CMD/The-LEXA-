@@ -7,7 +7,7 @@ function record(id: string, status: string, extra: Record<string, string> = {}):
   return { id, updatedAt: '2026-10-28T00:00:00.000Z', status, ...extra };
 }
 
-describe('cross-module preview workflow graph', () => {
+describe('cross-module workflow graph', () => {
   const ids = new Set(MODULE_CATALOG.map((module) => module.id));
 
   it('uses only existing module IDs and gives every module a relationship', () => {
@@ -72,7 +72,7 @@ describe('cross-module preview workflow graph', () => {
 
 
 describe('core workflow navigation shortcuts', () => {
-  it('provides existing core routes without pretending preview drafts are converted', () => {
+  it('provides existing core routes without pretending related drafts are converted', () => {
     for (const id of ['sales-orders', 'sales-invoices', 'purchases', 'receiving', 'stock-counts', 'boms', 'team', 'accounting']) {
       const shortcuts = getCoreScreenShortcuts(id);
       expect(shortcuts.length, id).toBeGreaterThan(0);

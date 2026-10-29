@@ -3,7 +3,7 @@ import { calculateRecord, effectiveTaxRate, nextStatus, safeNumber, validateReco
 
 const base = { status: 'Draft' };
 
-describe('preview business calculations', () => {
+describe('business calculations', () => {
   it('calculates quotation subtotal, discount, tax and total from the same rule source used by save', () => {
     const values: FormValues = { ...base, customer: 'Example Customer', quantity: '10', unitPrice: '20000', discountPercent: '10', taxTreatment: 'Standard rated', taxRate: '18' };
     const record = calculateRecord('quotations', values, 'QUO-TEST');
@@ -14,7 +14,7 @@ describe('preview business calculations', () => {
     expect(validateRecord('quotations', values, record)).toBeNull();
   });
 
-  it('applies zero tax to exempt and zero-rated preview treatments', () => {
+  it('applies zero tax to exempt and zero-rated tax treatments', () => {
     expect(effectiveTaxRate({ taxTreatment: 'Exempt', taxRate: '18' })).toBe(0);
     expect(effectiveTaxRate({ taxTreatment: 'Zero-rated', taxRate: '18' })).toBe(0);
     expect(effectiveTaxRate({ taxTreatment: 'Standard rated', taxRate: '18' })).toBe(18);

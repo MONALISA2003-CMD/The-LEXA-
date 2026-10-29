@@ -1,3 +1,4 @@
+import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Edit3, Package, Plus, Power, Search, X } from 'lucide-react';
@@ -97,7 +98,7 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="page-stack">
+    <div className="page-stack" data-module-accent={moduleAccentForPath("/products")}>
       <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">PRODUCT CATALOGUE</div><h2>Products</h2><p>Manage the items your team sells and the rules used at checkout.</p></div><button className="button button-primary" onClick={openNew}><Plus size={17} /> Add product</button></div>
       <div className="metric-strip three-metrics"><div className="mini-metric"><span>Total products</span><strong>{productQuery.data?.length ?? '—'}</strong><small>In this workspace</small></div><div className="mini-metric"><span>Stock tracked</span><strong>{(productQuery.data ?? []).filter((item) => item.trackStock && item.active).length}</strong><small>Inventory-managed items</small></div><div className="mini-metric"><span>Low-stock alerts</span><strong className={(productQuery.data ?? []).filter((item) => item.trackStock && (balanceQuery.data?.get(item.id) ?? 0) <= item.lowStockThreshold).length ? 'warning-value' : ''}>{(productQuery.data ?? []).filter((item) => item.trackStock && (balanceQuery.data?.get(item.id) ?? 0) <= item.lowStockThreshold).length}</strong><small>At {branch.name}</small></div></div>
 

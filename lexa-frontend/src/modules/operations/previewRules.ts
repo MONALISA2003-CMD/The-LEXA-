@@ -170,7 +170,7 @@ export function validateRecord(moduleId: string, values: FormValues, record: Pre
   const n = (key: string) => safeNumber(values[key]);
   if (['quotations', 'sales-orders', 'sales-invoices', 'recurring-invoices'].includes(moduleId)) {
     if (n('quantity') <= 0 || n('unitPrice') < 0) return 'Enter a quantity above zero and a valid unit price.';
-    if (n('taxRate') < 0 || n('taxRate') > 100) return 'Tax rate must be between 0 and 100% for this preview.';
+    if (n('taxRate') < 0 || n('taxRate') > 100) return 'Tax rate must be between 0 and 100%.';
     if (moduleId === 'quotations' && values.validUntil && values.issueDate && values.validUntil < values.issueDate) return 'The validity date cannot be earlier than the issue date.';
     if (moduleId === 'recurring-invoices' && values.nextRunDate && values.startDate && values.nextRunDate < values.startDate) return 'The next invoice date cannot be earlier than the schedule start date.';
     if (moduleId === 'recurring-invoices' && values.endDate && values.startDate && values.endDate < values.startDate) return 'The schedule end date cannot be earlier than its start date.';
@@ -184,7 +184,7 @@ export function validateRecord(moduleId: string, values: FormValues, record: Pre
     if (n('quantity') <= 0) return 'Return quantity must be above zero.';
     const unitKey = moduleId === 'sales-returns' ? 'unitPrice' : 'unitCost';
     if (n(unitKey) < 0) return 'The original unit amount cannot be negative.';
-    if (n('taxRate') < 0 || n('taxRate') > 100) return 'Tax rate must be between 0 and 100% for this preview.';
+    if (n('taxRate') < 0 || n('taxRate') > 100) return 'Tax rate must be between 0 and 100%.';
   }
   if (moduleId === 'leads') {
     if (n('estimatedValue') < 0) return 'Estimated lead value cannot be negative.';
@@ -257,17 +257,17 @@ export function validateRecord(moduleId: string, values: FormValues, record: Pre
   }
   if (['purchases', 'purchase-invoices', 'supplier-quotes'].includes(moduleId)) {
     if (n('quantity') <= 0) return 'Quantity ordered / billed must be above zero.';
-    if (n('taxRate') < 0 || n('taxRate') > 100) return 'Tax rate must be between 0 and 100% for this preview.';
+    if (n('taxRate') < 0 || n('taxRate') > 100) return 'Tax rate must be between 0 and 100%.';
     if (n('amountPaid') > safeNumber(record.total)) return 'The amount paid cannot be greater than the calculated purchase total.';
     if (moduleId === 'purchase-invoices' && values.dueDate && values.billDate && values.dueDate < values.billDate) return 'Supplier invoice due date cannot be earlier than the bill date.';
     if (moduleId === 'supplier-quotes' && values.validUntil && values.quoteDate && values.validUntil < values.quoteDate) return 'Quote validity cannot end before the quote date.';
   }
   if (moduleId === 'expenses' && n('amount') <= 0) return 'Expense amount must be greater than zero.';
-  if (moduleId === 'payroll' && n('employeeCount') <= 0) return 'Include at least one employee in a payroll run preview.';
+  if (moduleId === 'payroll' && n('employeeCount') <= 0) return 'Include at least one employee in a payroll run.';
   if (moduleId === 'tax-codes') {
-    if (n('ratePercent') < 0 || n('ratePercent') > 100) return 'Tax rate must be between 0 and 100% in this preview.';
+    if (n('ratePercent') < 0 || n('ratePercent') > 100) return 'Tax rate must be between 0 and 100%.';
     if (values.effectiveTo && values.effectiveFrom && values.effectiveTo < values.effectiveFrom) return 'Tax-code end date cannot be earlier than its effective start date.';
-    if (values.treatment === 'Zero-rated' || values.treatment === 'Exempt' || values.treatment === 'Outside scope') { if (n('ratePercent') !== 0) return 'Zero-rated, exempt and outside-scope preview codes must have a zero rate.'; }
+    if (values.treatment === 'Zero-rated' || values.treatment === 'Exempt' || values.treatment === 'Outside scope') { if (n('ratePercent') !== 0) return 'Zero-rated, exempt and outside-scope tax codes must have a zero rate.'; }
   }
   if (moduleId === 'bank-reconciliation') {
     if ([n('statementLineCount'), n('matchedCount'), n('unmatchedCount')].some((count) => count < 0 || !Number.isInteger(count))) return 'Statement and match counts must be whole numbers of zero or more.';
@@ -282,7 +282,7 @@ export function validateRecord(moduleId: string, values: FormValues, record: Pre
   if (moduleId === 'payroll') {
     if (n('employeeCount') < 0 || !Number.isInteger(n('employeeCount'))) return 'Employee count must be a whole number of zero or more.';
     if (n('grossPay') < 0 || n('deductions') < 0) return 'Gross pay and deductions cannot be negative.';
-    if (n('deductions') > n('grossPay')) return 'Deductions cannot exceed gross pay in this simple preview calculation.';
+    if (n('deductions') > n('grossPay')) return 'Deductions cannot exceed gross pay.';
     if (values.periodStart && values.periodEnd && values.periodEnd < values.periodStart) return 'Payroll period end cannot be before the start date.';
   }
   if (moduleId === 'attendance') {
@@ -319,7 +319,7 @@ export function validateRecord(moduleId: string, values: FormValues, record: Pre
   if (moduleId === 'campaigns') {
     if ([n('budget'), n('actualSpend'), n('leadsGenerated'), n('opportunitiesCreated')].some((value) => value < 0)) return 'Campaign spend, budget and lead counts cannot be negative.';
     if (![n('leadsGenerated'), n('opportunitiesCreated')].every(Number.isInteger)) return 'Lead and opportunity counts must be whole numbers.';
-    if (n('opportunitiesCreated') > n('leadsGenerated')) return 'Opportunities created cannot exceed leads generated in this campaign preview.';
+    if (n('opportunitiesCreated') > n('leadsGenerated')) return 'Opportunities created cannot exceed leads generated in this campaign.';
     if (values.startDate && values.endDate && values.endDate < values.startDate) return 'Campaign end date cannot be earlier than its start date.';
   }
   if (moduleId === 'sales-teams') {

@@ -3,7 +3,7 @@ import { createDocumentNumber, createId, nowIso } from '../../domain/shared/ids'
 import { calculateSaleTotal, normalizeSaleItems, remainingReturnableQuantity, validatePaymentAllocations } from '../../domain/sales/rules';
 import { stockOnHand } from '../../domain/inventory/stock';
 import type { CompleteSaleInput, PaymentRecord, Product, RecordReturnInput, ReturnLine, Sale, SaleLine, SaleReturn, StockMovement } from '../../domain/shared/types';
-import type { SalesWorkflow } from '../contracts/workflows';
+import type { ReceivePaymentInput, SalesWorkflow } from '../contracts/workflows';
 
 export const localSalesWorkflow: SalesWorkflow = {
   async completeSale(input: CompleteSaleInput) {
@@ -46,12 +46,22 @@ export const localSalesWorkflow: SalesWorkflow = {
 
       const totalMinor = calculateSaleTotal(products.map(({ product, quantity }) => ({ quantity, unitPriceMinor: product.sellingPriceMinor })));
       const payments = validatePaymentAllocations(input.payments, totalMinor);
+      const paidMinor = payments.reduce((sum, payment) => sum + payment.amountMinor, 0);
+      const creditDueMinor = totalMinor - paidMinor;
+      if (creditDueMinor > 0 && (!input.customerName?.trim() || !input.customerPhone?.trim())) {
+        throw new Error('Credit sales require a named customer and phone number.');
+      }
+      const promisedDate = creditDueMinor > 0
+        ? input.promisedPaymentDate?.trim() || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+        : undefined;
       sale = {
         id: saleId,
         receiptNumber: createDocumentNumber('LEXA'),
         workspaceId: input.workspaceId,
         branchId: input.branchId,
         ...(input.customerName?.trim() ? { customerName: input.customerName.trim() } : {}),
+        ...(input.customerPhone?.trim() ? { customerPhone: input.customerPhone.trim() } : {}),
+        ...(promisedDate ? { promisedPaymentDate: promisedDate } : {}),
         totalMinor,
         status: 'completed',
         createdAt: timestamp,
@@ -86,6 +96,44 @@ export const localSalesWorkflow: SalesWorkflow = {
 
     if (!sale) throw new Error('Sale could not be saved. No records were committed.');
     return { sale };
+  },
+
+  async receivePayment(input: ReceivePaymentInput) {
+    if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) throw new Error('Payment amount must be a positive whole minor-unit amount.');
+    const timestamp = nowIso();
+    let paymentRecord: PaymentRecord | undefined;
+    let outstandingAfter = 0;
+    await db.transaction('rw', [db.workspaces, db.branches, db.sales, db.returns, db.payments, db.auditEvents], async () => {
+      const workspace = await db.workspaces.get(input.workspaceId);
+      const branch = await db.branches.get(input.branchId);
+      const sale = await db.sales.get(input.saleId);
+      if (!workspace) throw new Error('Business workspace not found.');
+      if (!branch || branch.workspaceId !== input.workspaceId) throw new Error('Selected branch does not belong to this workspace.');
+      if (!sale || sale.workspaceId !== input.workspaceId) throw new Error('Sale not found in this business.');
+      if (sale.branchId !== input.branchId) throw new Error('Switch to the original sale branch before recording a payment.');
+      const [previousPayments, previousReturns] = await Promise.all([
+        db.payments.where('[workspaceId+saleId]').equals([input.workspaceId, input.saleId]).toArray(),
+        db.returns.where('[workspaceId+saleId]').equals([input.workspaceId, input.saleId]).toArray(),
+      ]);
+      const receivedMinor = previousPayments.filter((payment) => payment.kind === 'receipt').reduce((sum, payment) => sum + payment.amountMinor, 0);
+      const returnedMinor = previousReturns.reduce((sum, record) => sum + record.totalMinor, 0);
+      const outstanding = Math.max(0, sale.totalMinor - returnedMinor - receivedMinor);
+      if (input.amountMinor > outstanding) throw new Error(`Payment exceeds the outstanding balance of ${outstanding} minor units.`);
+      paymentRecord = {
+        id: createId('pay'), workspaceId: input.workspaceId, saleId: input.saleId,
+        kind: 'receipt', method: input.method, amountMinor: input.amountMinor,
+        ...(input.reference?.trim() ? { reference: input.reference.trim() } : {}), createdAt: timestamp,
+      };
+      await db.payments.add(paymentRecord);
+      await db.auditEvents.add({
+        id: createId('audit'), workspaceId: input.workspaceId, branchId: input.branchId,
+        entityType: 'sale_payment', entityId: paymentRecord.id, action: 'payment_received',
+        ...(input.reference?.trim() ? { reason: input.reference.trim() } : {}), createdAt: timestamp,
+      });
+      outstandingAfter = outstanding - input.amountMinor;
+    });
+    if (!paymentRecord) throw new Error('Payment could not be recorded. No payment record was committed.');
+    return { payment: paymentRecord, outstandingMinor: outstandingAfter };
   },
 
   async recordReturn(input: RecordReturnInput) {

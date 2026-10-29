@@ -7,7 +7,7 @@ interface PreviewServiceOptions {
   prefix?: string;
 }
 
-const DEFAULT_PREFIX = 'lexa.phase2.preview.v1';
+const DEFAULT_PREFIX = 'lexa.module-records.v2';
 
 function cloneRows(rows: PreviewRecord[]): PreviewRecord[] {
   return rows.map((row) => ({ ...row }));
@@ -23,7 +23,7 @@ function browserStorage(): StorageLike | null {
   }
 }
 
-/** Creates an injectable preview store. Tests can pass isolated storage or null. */
+/** Creates an injectable browser-local module store. Tests can pass isolated storage or null. */
 export function createPreviewDataService(options: PreviewServiceOptions = {}): PreviewDataService {
   const prefix = options.prefix ?? DEFAULT_PREFIX;
   const storageWasProvided = Object.prototype.hasOwnProperty.call(options, 'storage');
@@ -86,7 +86,7 @@ export function createPreviewDataService(options: PreviewServiceOptions = {}): P
     async updateStatus(scope, moduleId, recordId, status, seed) {
       const key = keyFor(scope, moduleId);
       const current = load(key, seed);
-      if (!current.some((item) => item.id === recordId)) throw new Error('The preview record no longer exists. Reload the register and try again.');
+      if (!current.some((item) => item.id === recordId)) throw new Error('This record no longer exists. Reload the register and try again.');
       return persist(key, current.map((item) => item.id === recordId ? { ...item, status, updatedAt: new Date().toISOString() } : item));
     },
     async reset(scope, moduleId, seed) {
@@ -98,5 +98,5 @@ export function createPreviewDataService(options: PreviewServiceOptions = {}): P
   };
 }
 
-/** Browser-backed implementation, with memory-only fallback if storage is blocked. */
+/** Browser-local implementation, with memory-only fallback if storage is blocked. */
 export const previewDataService = createPreviewDataService();

@@ -46,7 +46,7 @@ describe('preview report calculations and scope', () => {
 
   it('loads every preview module through the injectable service without merging core product records', async () => {
     const service = createPreviewDataService({ storage: null });
-    const snapshot = await loadPreviewReportSnapshot(service, { workspaceId: 'ws-test', branchId: 'br-test' }, 'Preview master-data coverage', 'Last 30 days', 'UGX', fixedNow);
+    const snapshot = await loadPreviewReportSnapshot(service, { workspaceId: 'ws-test', branchId: 'br-test' }, 'Master-data coverage', 'Last 30 days', 'UGX', fixedNow);
     expect(snapshot.persistenceMode).toBe('memory-only');
     expect(snapshot.filteredRecordCounts['products']).toBeUndefined();
     expect(snapshot.entries.find((entry) => entry.label === 'CRM contacts on file')?.value).toBe(getModuleDefinition('contacts')?.initial.length);

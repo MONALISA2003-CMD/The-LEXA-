@@ -1,3 +1,4 @@
+import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDownLeft, ArrowUpRight, ClipboardCheck, Package, Plus, X } from 'lucide-react';
@@ -57,7 +58,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="page-stack">
+    <div className="page-stack" data-module-accent={moduleAccentForPath("/inventory")}>
       <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">STOCK CONTROL</div><h2>Inventory</h2><p>Stock on hand is calculated from recorded movements for {branch.name}.</p></div><div className="action-group"><button className="button button-secondary" onClick={() => openForm('adjustment')} disabled={!trackedProducts.length}><ClipboardCheck size={16} /> Adjust stock</button><button className="button button-primary" onClick={() => openForm('opening')} disabled={!trackedProducts.length}><Plus size={17} /> Opening stock</button></div></div>
       <div className="metric-strip three-metrics"><div className="mini-metric"><span>Units on hand</span><strong>{totalUnits.toLocaleString()}</strong><small>Calculated from movement history</small></div><div className="mini-metric"><span>Tracked products</span><strong>{trackedProducts.length}</strong><small>Active products with stock tracking</small></div><div className="mini-metric"><span>Low-stock items</span><strong className={lowStockProducts.length ? 'warning-value' : ''}>{lowStockProducts.length}</strong><small>At or below minimum threshold</small></div></div>
 

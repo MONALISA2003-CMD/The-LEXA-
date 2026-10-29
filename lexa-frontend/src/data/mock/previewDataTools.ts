@@ -2,8 +2,8 @@ import type { PreviewDataService, PreviewScope } from '../contracts/previewData'
 import type { ModuleDefinition, PreviewRecord } from '../../modules/operations/moduleCatalog';
 
 export interface PreviewWorkspaceBundle {
-  format: 'lexa-preview-workspace';
-  version: 1;
+  format: 'lexa-workspace-export';
+  version: 2;
   exportedAt: string;
   sourceScope: PreviewScope;
   modules: Record<string, PreviewRecord[]>;
@@ -24,7 +24,7 @@ function isRecordArray(value: unknown): value is PreviewRecord[] {
   });
 }
 
-/** Export only the Phase 2 mock-data service. Core products, sales and IndexedDB rows are never read. */
+/** Export only module-register records. Core products, sales and IndexedDB rows are never read. */
 export async function exportPreviewWorkspace(
   service: PreviewDataService,
   scope: PreviewScope,
@@ -36,8 +36,8 @@ export async function exportPreviewWorkspace(
     await service.list(scope, definition.id, definition.initial),
   ] as const));
   return {
-    format: 'lexa-preview-workspace',
-    version: 1,
+    format: 'lexa-workspace-export',
+    version: 2,
     exportedAt,
     sourceScope: { ...scope },
     modules: Object.fromEntries(entries),
@@ -46,18 +46,18 @@ export async function exportPreviewWorkspace(
 
 /** Validate the entire import before changing any row, and require a complete same-version module bundle. */
 export function validatePreviewWorkspaceBundle(value: unknown, definitions: PreviewModuleSeed[]): PreviewWorkspaceBundle {
-  if (!value || typeof value !== 'object') throw new Error('The selected file is not a LEXA preview workspace export.');
+  if (!value || typeof value !== 'object') throw new Error('The selected file is not a valid LEXA workspace export.');
   const bundle = value as Record<string, unknown>;
-  if (bundle.format !== 'lexa-preview-workspace' || bundle.version !== 1) throw new Error('Unsupported preview export format or version.');
-  if (typeof bundle.exportedAt !== 'string' || !bundle.sourceScope || typeof bundle.sourceScope !== 'object' || !bundle.modules || typeof bundle.modules !== 'object' || Array.isArray(bundle.modules)) throw new Error('The preview export is missing required metadata.');
+  if (bundle.format !== 'lexa-workspace-export' || bundle.version !== 2) throw new Error('This workspace export format is not supported by this version of LEXA.');
+  if (typeof bundle.exportedAt !== 'string' || !bundle.sourceScope || typeof bundle.sourceScope !== 'object' || !bundle.modules || typeof bundle.modules !== 'object' || Array.isArray(bundle.modules)) throw new Error('The workspace export is missing required information.');
   const sourceScope = bundle.sourceScope as Record<string, unknown>;
-  if (typeof sourceScope.workspaceId !== 'string' || typeof sourceScope.branchId !== 'string') throw new Error('The preview export does not contain a valid source workspace and branch.');
+  if (typeof sourceScope.workspaceId !== 'string' || typeof sourceScope.branchId !== 'string') throw new Error('The workspace export does not identify its source business and branch.');
   const moduleData = bundle.modules as Record<string, unknown>;
   const allowed = new Set(definitions.map((definition) => definition.id));
   const unknownModules = Object.keys(moduleData).filter((id) => !allowed.has(id));
-  if (unknownModules.length) throw new Error('The preview export includes unknown modules: ' + unknownModules.join(', '));
+  if (unknownModules.length) throw new Error('The workspace export includes unrecognised modules: ' + unknownModules.join(', '));
   const missingModules = definitions.filter((definition) => !(definition.id in moduleData));
-  if (missingModules.length) throw new Error('The preview export is incomplete. Missing modules: ' + missingModules.map((definition) => definition.id).join(', '));
+  if (missingModules.length) throw new Error('The workspace export is incomplete. Missing modules: ' + missingModules.map((definition) => definition.id).join(', '));
   const modules: Record<string, PreviewRecord[]> = {};
   for (const definition of definitions) {
     const rows = moduleData[definition.id];
@@ -66,15 +66,15 @@ export function validatePreviewWorkspaceBundle(value: unknown, definitions: Prev
     modules[definition.id] = rows.map((row) => ({ ...row }));
   }
   return {
-    format: 'lexa-preview-workspace', version: 1, exportedAt: bundle.exportedAt,
+    format: 'lexa-workspace-export', version: 2, exportedAt: bundle.exportedAt,
     sourceScope: { workspaceId: sourceScope.workspaceId, branchId: sourceScope.branchId }, modules,
   };
 }
 
 /**
- * Restore a validated bundle into the current preview scope. The source scope is metadata only;
+ * Restore a validated bundle into the current workspace. The source scope is metadata only;
  * the bundle is never imported into the core IndexedDB store or a real backend.
- * Previous preview rows are snapshotted and restored if any module replacement fails.
+ * Previous module records are snapshotted and restored if any module replacement fails.
  */
 export async function importPreviewWorkspace(
   service: PreviewDataService,
@@ -97,8 +97,8 @@ export async function importPreviewWorkspace(
       try { await service.replace(targetScope, previous.definition.id, previous.rows, previous.definition.initial); }
       catch { rollbackErrors.push(previous.definition.id); }
     }
-    if (rollbackErrors.length) throw new Error(`Import failed and rollback was incomplete for: ${rollbackErrors.join(', ')}. Re-import a known-good export to restore the preview dataset.`);
-    throw error instanceof Error ? new Error(`Import failed. The existing preview dataset was restored. ${error.message}`) : new Error('Import failed. The existing preview dataset was restored.');
+    if (rollbackErrors.length) throw new Error(`Import failed and rollback was incomplete for: ${rollbackErrors.join(', ')}. Import a verified backup to restore the prior records.`);
+    throw error instanceof Error ? new Error(`Import failed. The previous records were restored. ${error.message}`) : new Error('Import failed. The previous records were restored.');
   }
   return {
     importedRecords: definitions.reduce((sum, definition) => sum + (bundle.modules[definition.id]?.length ?? 0), 0),

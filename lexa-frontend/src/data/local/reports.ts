@@ -32,7 +32,7 @@ export const localReportsRepository: ReportsRepository = {
     const recordedReceiptsMinor = branchPayments.filter((payment) => payment.kind === 'receipt').reduce((sum, payment) => sum + payment.amountMinor, 0);
     const recordedRefundsMinor = branchPayments.filter((payment) => payment.kind === 'refund').reduce((sum, payment) => sum + payment.amountMinor, 0);
     const netSalesMinor = Math.max(0, grossSalesMinor - returnsMinor);
-    const outstandingMinor = Math.max(0, netSalesMinor - recordedReceiptsMinor + recordedRefundsMinor);
+    const outstandingMinor = Math.max(0, netSalesMinor - recordedReceiptsMinor);
 
     return {
       activeProductCount: products.length,

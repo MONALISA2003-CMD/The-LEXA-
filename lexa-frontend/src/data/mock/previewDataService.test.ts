@@ -51,7 +51,7 @@ describe('preview data service boundary', () => {
     await expect(service.updateStatus(scope, 'customers', 'MISSING', 'Active', seed)).rejects.toThrow(/no longer exists/i);
   });
 
-  it('resets a register to its sample records', async () => {
+  it('resets a register to the supplied initial records', async () => {
     const service = createPreviewDataService({ storage: new MemoryStorage() });
     await service.save(scope, 'customers', created, seed);
     await expect(service.reset(scope, 'customers', seed)).resolves.toEqual(seed);
@@ -59,10 +59,10 @@ describe('preview data service boundary', () => {
 
   it('recovers from malformed stored JSON by restoring safe seed data', async () => {
     const storage = new MemoryStorage();
-    storage.seed('lexa.phase2.preview.v1:ws-alpha:branch-main:customers', '{not-json');
+    storage.seed('lexa.module-records.v2:ws-alpha:branch-main:customers', '{not-json');
     const service = createPreviewDataService({ storage });
     await expect(service.list(scope, 'customers', seed)).resolves.toEqual(seed);
-    expect(storage.getItem('lexa.phase2.preview.v1:ws-alpha:branch-main:customers')).toContain('CUS-001');
+    expect(storage.getItem('lexa.module-records.v2:ws-alpha:branch-main:customers')).toContain('CUS-001');
   });
 
   it('falls back to in-memory session data when browser storage is unavailable', async () => {
