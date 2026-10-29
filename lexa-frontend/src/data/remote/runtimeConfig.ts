@@ -1,20 +1,25 @@
 export type DataProviderMode = 'api' | 'local';
 
-const configuredMode = import.meta.env.VITE_DATA_PROVIDER?.trim().toLowerCase();
+/**
+ * Resolve the provider without allowing a production build to fall back to device-only data.
+ * Local storage is a development-only convenience, never a production data source.
+ */
+export function resolveDataProviderMode(production: boolean, configuredValue: string | undefined): DataProviderMode {
+  if (production) return 'api';
+  return configuredValue?.trim().toLowerCase() === 'api' ? 'api' : 'local';
+}
 
-/** Production defaults to the API provider; browser-local persistence must be an explicit choice. */
-export const dataProviderMode: DataProviderMode = configuredMode === 'local'
-  ? 'local'
-  : configuredMode === 'api' || import.meta.env.PROD
-    ? 'api'
-    : 'local';
+export const dataProviderMode: DataProviderMode = resolveDataProviderMode(
+  import.meta.env.PROD,
+  import.meta.env.VITE_DATA_PROVIDER,
+);
 
 export const isApiProvider = dataProviderMode === 'api';
 
 export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '');
 
 export function describeDataProvider(): string {
-  if (dataProviderMode === 'local') return 'Device storage mode — records stay in this browser and do not sync across devices.';
+  if (dataProviderMode === 'local') return 'Development-only device storage — records stay in this browser and do not sync across devices.';
   if (!apiBaseUrl) return 'Backend API is not configured. Set VITE_API_BASE_URL in the deployment environment.';
   return 'API mode selected. Backend availability is verified by actual API requests.';
 }
