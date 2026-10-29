@@ -1,0 +1,166 @@
+/*
+ * LEXA brand authority layer
+ * Loaded after the base and phase-two stylesheets so the logo palette is
+ * the shared source of truth across every route and module.
+ */
+:root {
+  --lexa-navy: #06132f;
+  --lexa-navy-2: #0d2042;
+  --lexa-blue: #075cf5;
+  --lexa-cyan: #08bdeb;
+  --lexa-emerald: #00bd83;
+  --lexa-gold: #f5c84b;
+  --lexa-orange: #ff9b18;
+  --lexa-red: #f52235;
+  --lexa-cloud: #f4f7fc;
+  --brand-primary: var(--lexa-blue);
+  --brand-primary-hover: #064bd0;
+  --brand-highlight: var(--lexa-cyan);
+  --brand-positive: var(--lexa-emerald);
+  --brand-warning: var(--lexa-gold);
+  --brand-orange: var(--lexa-orange);
+  --brand-danger: var(--lexa-red);
+}
+
+/* Use the supplied full LEXA lockup in the navigation instead of a generic L. */
+.brand-lockup {
+  position: relative;
+  gap: 8px;
+  padding: 0 8px 23px !important;
+  min-height: 78px;
+}
+.brand-lockup > .brand-mark,
+.brand-lockup > div:not(.brand-mark) {
+  display: none !important;
+}
+.brand-lockup::before {
+  content: "";
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 76px;
+  border-radius: 8px;
+  background-color: var(--lexa-navy);
+  background-image: url('/lexa-logo.png');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center 35%;
+}
+
+/* The small loading mark keeps the multi-colour character of the logo. */
+.brand-mark {
+  background: linear-gradient(135deg,
+    var(--lexa-gold) 0%,
+    var(--lexa-orange) 19%,
+    var(--lexa-blue) 39%,
+    var(--lexa-cyan) 53%,
+    var(--lexa-emerald) 71%,
+    var(--lexa-red) 100%);
+  box-shadow: 0 6px 15px rgba(7, 92, 245, .2);
+}
+
+/* Phase-two screens: bring their hard-coded accents into the same system. */
+.module-preview-badge {
+  color: #244a83;
+  border-color: #d4e2fb;
+  background: #edf4ff;
+}
+.module-preview-badge > span { background: var(--lexa-cyan); }
+.module-workflow-icon,
+.module-directory-icon {
+  color: var(--lexa-blue);
+  background: #e7efff;
+}
+.module-workflow-strip {
+  border-color: #d9e7ff;
+  background: #f4f8ff;
+}
+.module-workflow-strip strong { color: #244a83; }
+.module-workflow-strip p { color: #647b9b; }
+.phase-two-search:focus-within,
+.phase-filter-select:focus-within,
+.phase-date-filter:focus-within {
+  border-color: #78a9ff;
+  box-shadow: 0 0 0 3px rgba(7, 92, 245, .1);
+}
+.phase-clear-filters,
+.phase-row-actions .icon-button:hover,
+.phase-two-help-row a,
+.phase-two-help-row svg {
+  color: var(--lexa-blue);
+}
+.phase-two-directory-toolbar .phase-two-search:focus-within {
+  border-color: #78a9ff;
+}
+.module-directory-card:hover {
+  border-color: rgba(7, 92, 245, .32);
+  box-shadow: 0 9px 25px rgba(6, 19, 47, .09);
+}
+.module-icon-preview,
+.module-state-preview {
+  color: #0752ce;
+  background: #e7efff;
+}
+.module-directory-arrow { color: #7188aa; }
+.module-directory-card:hover .module-directory-arrow { color: var(--lexa-cyan); }
+.phase-calculated-panel {
+  border-color: #d9e7ff;
+  background: #f4f8ff;
+}
+.phase-calculated-title { color: #244a83; }
+.phase-pagination select:focus-visible,
+.phase-field input:focus-visible,
+.phase-field select:focus-visible,
+.phase-field textarea:focus-visible {
+  outline-color: rgba(8, 189, 235, .78);
+}
+
+/* Brand colours for links, focus, and surfaces stay consistent on every route. */
+a:not(.nav-link):hover { color: var(--lexa-blue); }
+:focus-visible {
+  outline-color: rgba(8, 189, 235, .78);
+}
+::selection {
+  background: rgba(8, 189, 235, .22);
+  color: var(--lexa-navy);
+}
+
+/* Preserve semantic feedback: green success, gold warning, red danger. */
+.status-good,
+.module-state-existing {
+  background: #e2f8ef;
+  color: #087953;
+}
+.status-warning { background: #fff3ce; color: #825a00; }
+.status-danger,
+.status-error { background: #ffe7e9; color: #b51b2b; }
+
+:root[data-theme='dark'] .brand-lockup::before { background-color: var(--lexa-navy); }
+:root[data-theme='dark'] .module-preview-badge,
+:root[data-theme='dark'] .module-workflow-strip,
+:root[data-theme='dark'] .phase-calculated-panel {
+  background: #0d2342;
+  border-color: #263b5d;
+  color: #b9cce7;
+}
+:root[data-theme='dark'] .module-workflow-strip strong,
+:root[data-theme='dark'] .phase-calculated-title { color: #d9e8ff; }
+:root[data-theme='dark'] .module-workflow-icon,
+:root[data-theme='dark'] .module-directory-icon,
+:root[data-theme='dark'] .module-icon-preview,
+:root[data-theme='dark'] .module-state-preview {
+  color: #8bc3ff;
+  background: #142e53;
+}
+:root[data-theme='dark'] .module-directory-card:hover {
+  border-color: rgba(8, 189, 235, .45);
+  box-shadow: 0 9px 25px rgba(0, 0, 0, .2);
+}
+
+@media (max-width: 760px) {
+  .brand-lockup { padding-right: 28px !important; }
+  .brand-lockup::before {
+    height: 64px;
+    background-position: center 35%;
+  }
+}
