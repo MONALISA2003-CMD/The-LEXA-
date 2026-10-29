@@ -26,6 +26,7 @@ describe('StandardDataTable', () => {
     expect(screen.getByText('Record 12')).toBeInTheDocument();
     rerender(<StandardDataTable rows={[]} columns={columns} rowLabel="records" emptyTitle="Nothing saved yet" />);
     expect(screen.getByText('Nothing saved yet')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Search records…' })).toHaveValue('');
     expect(screen.queryByText('Record 12')).not.toBeInTheDocument();
   });
 });
