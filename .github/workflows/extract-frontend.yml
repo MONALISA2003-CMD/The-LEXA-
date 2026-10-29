@@ -1,3 +1,4 @@
+
 name: LEXA ZIP Extractor
 
 on:
@@ -23,8 +24,10 @@ on:
       - "**/*.ZIP"
   workflow_dispatch:
 
+# The default GITHUB_TOKEN is read-only.
+# Publishing is done using the installation token below.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: lexa-zip-extractor-main
@@ -36,15 +39,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out main
+      - name: Create GitHub App installation token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.LEXA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.LEXA_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: The-LEXA-
+          permission-contents: write
+          permission-workflows: write
+
+      - name: Check out repository using App token
         uses: actions/checkout@v4
         with:
           ref: main
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: true
 
-      - name: Find, validate, extract, and remove ZIP archives
+      - name: Find, validate, extract and remove ZIP archives
         shell: bash
         run: |
           set -euo pipefail
+
           python3 - <<'PY'
           import shutil
           import stat
@@ -54,7 +71,6 @@ jobs:
           root = Path.cwd().resolve()
           git_dir = root / ".git"
 
-          # Find ZIP files of any name anywhere in the repository.
           archives = sorted(
               p for p in root.rglob("*")
               if p.is_file()
@@ -64,7 +80,7 @@ jobs:
           )
 
           if not archives:
-              print("No ZIP archives found. Nothing to do; exiting successfully.")
+              print("No ZIP archives found. Nothing to do.")
               raise SystemExit(0)
 
           archive_paths = {p.resolve() for p in archives}
@@ -85,7 +101,6 @@ jobs:
                       f"Symlinks are not accepted: {name!r}"
                   )
 
-              # Accept harmless ./ prefixes from common ZIP tools.
               while name.startswith("./"):
                   name = name[2:]
 
@@ -107,19 +122,14 @@ jobs:
                       f"Unsafe archive path: {entry.filename!r}"
                   )
 
-              if ":" in parts[0]:
+              if ":" in parts[0] or ".git" in parts:
                   raise SystemExit(
                       f"Unsafe archive path: {entry.filename!r}"
                   )
 
-              if ".git" in parts:
-                  raise SystemExit(
-                      f"Archive may not write into .git: {entry.filename!r}"
-                  )
-
               return parts, is_dir
 
-          # Validate all archives before writing any files.
+          # Validate every archive before modifying repository files.
           validated = []
 
           for archive in archives:
@@ -128,19 +138,17 @@ jobs:
 
                   if not entries:
                       raise SystemExit(
-                          f"Refusing empty ZIP: {archive.relative_to(root)}"
+                          f"Refusing empty ZIP: {archive.name}"
                       )
 
                   bad_entry = zf.testzip()
-
                   if bad_entry is not None:
                       raise SystemExit(
-                          f"Corrupt ZIP entry {bad_entry!r} in "
-                          f"{archive.relative_to(root)}"
+                          f"Corrupt ZIP entry: {bad_entry!r}"
                       )
 
                   seen = set()
-                  planned_entries = []
+                  planned = []
 
                   for entry in entries:
                       parts, is_dir = safe_parts(entry)
@@ -152,7 +160,10 @@ jobs:
                           root / Path(*parts)
                       ).resolve()
 
-                      if destination == root or root not in destination.parents:
+                      if (
+                          destination == root
+                          or root not in destination.parents
+                      ):
                           raise SystemExit(
                               f"Archive path escapes repository: "
                               f"{entry.filename!r}"
@@ -160,29 +171,27 @@ jobs:
 
                       if destination in archive_paths:
                           raise SystemExit(
-                              f"Archive entry would overwrite an input ZIP: "
+                              f"Archive would overwrite input ZIP: "
                               f"{entry.filename!r}"
                           )
 
                       if destination in seen:
                           raise SystemExit(
-                              f"Duplicate destination {entry.filename!r} "
-                              f"in {archive.relative_to(root)}"
+                              f"Duplicate archive destination: "
+                              f"{entry.filename!r}"
                           )
 
                       seen.add(destination)
-                      planned_entries.append(
-                          (entry, parts, is_dir)
-                      )
+                      planned.append((entry, parts, is_dir))
 
-                  validated.append((archive, planned_entries))
+                  validated.append((archive, planned))
 
-          # Replace matching files; preserve files absent from each ZIP.
-          for archive, planned_entries in validated:
+          # Extract only after all archives have passed validation.
+          for archive, planned in validated:
               print(f"Extracting {archive.relative_to(root)}")
 
               with zipfile.ZipFile(archive) as zf:
-                  for entry, parts, is_dir in planned_entries:
+                  for entry, parts, is_dir in planned:
                       destination = root / Path(*parts)
 
                       if is_dir:
@@ -201,13 +210,8 @@ jobs:
                           with destination.open("wb") as target:
                               shutil.copyfileobj(source, target)
 
-              # Delete the ZIP only after successful extraction.
               archive.unlink()
-
-              print(
-                  f"Extracted and deleted "
-                  f"{archive.relative_to(root)}"
-              )
+              print(f"Extracted and deleted {archive.name}")
 
           print(
               f"Successfully extracted and removed "
@@ -232,4 +236,7 @@ jobs:
           fi
 
           git commit -m "Extract repository ZIP archives"
+
+          # Checkout persisted the GitHub App token.
           git push origin HEAD:main
+          
