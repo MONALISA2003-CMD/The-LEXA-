@@ -20,6 +20,11 @@ SALES_WORKFLOW_PATH = FRONTEND / "src/data/local/sales-workflow.ts"
 CHECKOUT_PATH = FRONTEND / "src/modules/checkout/CheckoutPage.tsx"
 SALE_DETAIL_PATH = FRONTEND / "src/modules/sales/SaleDetailPage.tsx"
 REPORTS_DATA_PATH = FRONTEND / "src/data/local/reports.ts"
+MAIN_PATH = FRONTEND / "src/main.tsx"
+BRAND_CSS_PATH = FRONTEND / "src/styles/lexa-brand.css"
+BRAND_LOGO_PATH = FRONTEND / "public/lexa-logo.png"
+BRAND_FAVICON_PATH = FRONTEND / "public/lexa-favicon.png"
+INDEX_PATH = FRONTEND / "index.html"
 
 
 def fail(message: str) -> None:
@@ -459,7 +464,7 @@ export interface ReceivePaymentResult {
 
 
 def main() -> None:
-    for path in (PAGE_PATH, TOOLS_PATH, CATALOG_PATH, APP_SHELL_PATH, ROUTER_PATH, BUSINESS_TOOLS_PATH, BUSINESS_TOOLS_DATA_PATH, TYPES_PATH, WORKFLOW_CONTRACTS_PATH, SALES_WORKFLOW_PATH, CHECKOUT_PATH, SALE_DETAIL_PATH, REPORTS_DATA_PATH):
+    for path in (PAGE_PATH, TOOLS_PATH, CATALOG_PATH, APP_SHELL_PATH, ROUTER_PATH, BUSINESS_TOOLS_PATH, BUSINESS_TOOLS_DATA_PATH, TYPES_PATH, WORKFLOW_CONTRACTS_PATH, SALES_WORKFLOW_PATH, CHECKOUT_PATH, SALE_DETAIL_PATH, REPORTS_DATA_PATH, MAIN_PATH, BRAND_CSS_PATH, BRAND_LOGO_PATH, BRAND_FAVICON_PATH, INDEX_PATH):
         if not path.exists():
             fail(f"required source file is missing: {path.relative_to(ROOT)}")
 
@@ -474,6 +479,31 @@ def main() -> None:
     checkout = CHECKOUT_PATH.read_text(encoding="utf-8")
     sale_detail = SALE_DETAIL_PATH.read_text(encoding="utf-8")
     reports_data = REPORTS_DATA_PATH.read_text(encoding="utf-8")
+    main_tsx = MAIN_PATH.read_text(encoding="utf-8")
+    index_html = INDEX_PATH.read_text(encoding="utf-8")
+
+    # Apply LEXA's official identity to the existing shell and load the shared brand system.
+    logo_markup = '            <div className="brand-mark">L</div>\n            <div><div className="brand-name">LEXA</div><div className="brand-caption">BUSINESS OPERATING SYSTEM</div></div>'
+    logo_replacement = '            <div className="lexa-brand-logo-frame"><img className="lexa-brand-logo" src="/lexa-logo.png" alt="LEXA — Sales, Inventory, Business Management" /></div>'
+    if 'className="lexa-brand-logo-frame"' not in app_shell:
+        app_shell = replace_once(app_shell, logo_markup, logo_replacement, "official LEXA sidebar logo")
+
+    icon_marker = '  Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X,\n'
+    if 'Moon, Sun' not in app_shell[:app_shell.find('export default function AppShell')]:
+        app_shell = replace_once(app_shell, icon_marker, '  Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X, Moon, Sun,\n', "theme-toggle icons")
+
+    # Theme state is injected into the Simple/Advanced state block below.
+
+    notification_marker = '              <button className="icon-button notification-button" aria-label="Notifications"'
+    theme_button = '              <button className="icon-button theme-toggle" type="button" aria-label={theme === \'dark\' ? \'Switch to light mode\' : \'Switch to dark mode\'} title={theme === \'dark\' ? \'Switch to light mode\' : \'Switch to dark mode\'} onClick={() => setTheme((current) => current === \'dark\' ? \'light\' : \'dark\')}>{theme === \'dark\' ? <Sun size={17} /> : <Moon size={17} />}</button>\n' + notification_marker
+    if 'className="icon-button theme-toggle"' not in app_shell:
+        app_shell = replace_once(app_shell, notification_marker, theme_button, "theme switch control")
+
+    css_import = "import './styles/phase-two.css';\n"
+    if "import './styles/lexa-brand.css';" not in main_tsx:
+        main_tsx = replace_once(main_tsx, css_import, css_import + "import './styles/lexa-brand.css';\n", "brand stylesheet import")
+    if '<link rel="icon" type="image/png" href="/lexa-favicon.png" />' not in index_html:
+        index_html = replace_once(index_html, '    <meta name="theme-color" content="#010d27" />', '    <meta name="theme-color" content="#06132f" />\n    <link rel="icon" type="image/png" href="/lexa-favicon.png" />', "LEXA browser icon and theme color")
 
     # Fix the reported strict TypeScript errors.
     if "definition.title" in tools:
@@ -659,6 +689,11 @@ def main() -> None:
     mobile_state = "  const [mobileNavOpen, setMobileNavOpen] = useState(false);"
     mode_state = '''  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [uiMode, setUiMode] = useState<'simple' | 'advanced'>(() => localStorage.getItem('lexa.ui.mode') === 'advanced' ? 'advanced' : 'simple');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => localStorage.getItem('lexa.ui.theme') === 'dark' ? 'dark' : 'light');
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('lexa.ui.theme', theme);
+  }, [theme]);
   useEffect(() => {
     const handleModeChange = (event: Event) => {
       const mode = (event as CustomEvent<'simple' | 'advanced'>).detail;
@@ -716,6 +751,12 @@ def main() -> None:
         fail("core later-payment collection is missing")
     if "customerPhone?: string;" not in types or "promisedPaymentDate?: string;" not in types:
         fail("core credit sale contact or promised-date types are missing")
+    if 'className="lexa-brand-logo-frame"' not in app_shell or 'className="icon-button theme-toggle"' not in app_shell:
+        fail("LEXA wordmark or theme toggle missing from application shell")
+    if "import './styles/lexa-brand.css';" not in main_tsx:
+        fail("LEXA brand stylesheet import is missing")
+    if not BRAND_CSS_PATH.is_file() or not BRAND_LOGO_PATH.is_file() or not BRAND_FAVICON_PATH.is_file():
+        fail("LEXA brand stylesheet, official logo or favicon asset is missing")
 
     PAGE_PATH.write_text(page, encoding="utf-8")
     TOOLS_PATH.write_text(tools, encoding="utf-8")
@@ -728,6 +769,8 @@ def main() -> None:
     CHECKOUT_PATH.write_text(checkout, encoding="utf-8")
     SALE_DETAIL_PATH.write_text(sale_detail, encoding="utf-8")
     REPORTS_DATA_PATH.write_text(reports_data, encoding="utf-8")
+    MAIN_PATH.write_text(main_tsx, encoding="utf-8")
+    INDEX_PATH.write_text(index_html, encoding="utf-8")
     print("Applied LEXA module workflow completion changes:")
     print(" - corrected the PreviewModuleSeed strict TypeScript error")
     print(" - enabled the shared status-aware workflow graph")
@@ -740,6 +783,10 @@ def main() -> None:
     print(" - added split-tender payments, customer-required credit, promised dates and later instalments")
     print(" - derived paid / part-paid / overdue status from sales, returns and payment records")
     print(" - corrected receivable calculation so refunds are not treated as amounts still owed")
+    print(" - applied LEXA midnight/royal-blue/cyan/emerald/gold brand tokens across existing UI")
+    print(" - replaced the placeholder sidebar mark with the supplied official LEXA logo")
+    print(" - added the LEXA favicon and matching browser theme colour")
+    print(" - added persisted light/dark mode and responsive theme overrides")
 
 if __name__ == '__main__':
     main()

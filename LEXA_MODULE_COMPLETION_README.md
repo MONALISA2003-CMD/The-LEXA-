@@ -13,6 +13,21 @@ It adds or extends:
 - tests for module interconnections, CSV/data recovery helpers, and the core credit/installment workflow;
 - a guarded, idempotent `prebuild` transformation plus unit-test execution before the regular TypeScript/Vite build.
 
+
+## LEXA brand system included
+
+The same patch applies the supplied LEXA logo and brand colours across the existing frontend. It adds `lexa-frontend/public/lexa-logo.png` and `src/styles/lexa-brand.css`, loaded last from `src/main.tsx` so the legacy module styles inherit the same visual authority without a structural rewrite.
+
+- Midnight navy `#06132F`: app shell, navigation and primary brand surfaces.
+- Royal blue `#075CF5`: primary actions, active navigation and focus accents.
+- Cyan `#08BDEB`: interactive highlights and secondary brand accents.
+- Emerald `#00BD83`: positive, completed and healthy states.
+- Gold `#F5C84B`: premium highlight and attention colour.
+- Orange and red: supporting brand energy; red remains reserved for destructive/error states.
+- Cloud `#F4F7FC`: light-mode workspace canvas.
+
+The patch replaces the placeholder lettermark with the supplied logo, standardises key shared UI colours, retains existing module layout and adds a persisted light/dark toggle in the global top bar. Theme choice is a local browser preference and does not imply user permissions. Reduced-motion and small-screen overrides are included.
+
 ## Apply the patch
 
 1. Replace the repository's existing root file `LEXA_MODULE_COMPLETION_PHASE5.zip` with this archive, preserving the **exact same filename**.
