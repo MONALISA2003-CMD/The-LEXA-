@@ -10,6 +10,16 @@ FRONTEND = ROOT
 PAGE_PATH = FRONTEND / "src/modules/operations/OperationsWorkspacePage.tsx"
 TOOLS_PATH = FRONTEND / "src/data/mock/previewDataTools.ts"
 CATALOG_PATH = FRONTEND / "src/modules/operations/moduleCatalog.ts"
+APP_SHELL_PATH = FRONTEND / "src/app/layouts/AppShell.tsx"
+ROUTER_PATH = FRONTEND / "src/app/router.tsx"
+BUSINESS_TOOLS_PATH = FRONTEND / "src/modules/tools/BusinessToolsPage.tsx"
+BUSINESS_TOOLS_DATA_PATH = FRONTEND / "src/data/local/businessTools.ts"
+TYPES_PATH = FRONTEND / "src/domain/shared/types.ts"
+WORKFLOW_CONTRACTS_PATH = FRONTEND / "src/data/contracts/workflows.ts"
+SALES_WORKFLOW_PATH = FRONTEND / "src/data/local/sales-workflow.ts"
+CHECKOUT_PATH = FRONTEND / "src/modules/checkout/CheckoutPage.tsx"
+SALE_DETAIL_PATH = FRONTEND / "src/modules/sales/SaleDetailPage.tsx"
+REPORTS_DATA_PATH = FRONTEND / "src/data/local/reports.ts"
 
 
 def fail(message: str) -> None:
@@ -164,14 +174,306 @@ def generic_values_source() -> str:
 '''
 
 
+def apply_core_credit_workflow(types: str, contracts: str, service: str, checkout: str, detail: str, reports: str) -> tuple[str, str, str, str, str, str]:
+    """Add split-tender credit sales and later payment collection without changing the core storage model."""
+    sale_marker = "  customerName?: string;\n  totalMinor: number;"
+    sale_fields = "  customerName?: string;\n  customerPhone?: string;\n  promisedPaymentDate?: string;\n  totalMinor: number;"
+    if "customerPhone?: string;" not in types:
+        types = replace_once(types, sale_marker, sale_fields, "Sale customer phone and promise fields")
+    input_marker = "  customerName?: string;\n}\n\nexport interface ReturnItemInput"
+    input_fields = "  customerName?: string;\n  customerPhone?: string;\n  promisedPaymentDate?: string;\n}\n\nexport interface ReturnItemInput"
+    if "export interface CompleteSaleInput" in types and "promisedPaymentDate?: string;" not in types[types.index("export interface CompleteSaleInput"):types.index("export interface ReturnItemInput")]:
+        types = replace_once(types, input_marker, input_fields, "CompleteSaleInput credit contact fields")
+
+    contract_import = "import type { CompleteSaleInput, RecordReturnInput, Sale, SaleReturn } from '../../domain/shared/types';"
+    if "ReceivePaymentInput" not in contracts:
+        contracts = replace_once(contracts, contract_import,
+            "import type { CompleteSaleInput, PaymentMethod, PaymentRecord, RecordReturnInput, Sale, SaleReturn } from '../../domain/shared/types';",
+            "sales workflow payment type imports")
+        contract_anchor = "export interface SalesWorkflow {"
+        receive_types = """export interface ReceivePaymentInput {
+  workspaceId: string;
+  branchId: string;
+  saleId: string;
+  method: PaymentMethod;
+  amountMinor: number;
+  reference?: string;
+}
+
+export interface ReceivePaymentResult {
+  payment: PaymentRecord;
+  outstandingMinor: number;
+}
+
+"""
+        contracts = replace_once(contracts, contract_anchor, receive_types + contract_anchor, "receive-payment workflow contracts")
+    if "receivePayment(input: ReceivePaymentInput)" not in contracts:
+        contracts = replace_once(contracts, "  completeSale(input: CompleteSaleInput): Promise<SaleCompletionResult>;",
+            "  completeSale(input: CompleteSaleInput): Promise<SaleCompletionResult>;\n  receivePayment(input: ReceivePaymentInput): Promise<ReceivePaymentResult>;",
+            "receive-payment workflow interface")
+
+    service_import = "import type { SalesWorkflow } from '../contracts/workflows';"
+    if "ReceivePaymentInput" not in service:
+        service = replace_once(service, service_import,
+            "import type { ReceivePaymentInput, SalesWorkflow } from '../contracts/workflows';", "receive payment service import")
+    sale_customer_marker = "        ...(input.customerName?.trim() ? { customerName: input.customerName.trim() } : {}),"
+    sale_customer_fields = sale_customer_marker + "\n        ...(input.customerPhone?.trim() ? { customerPhone: input.customerPhone.trim() } : {}),\n        ...(promisedDate ? { promisedPaymentDate: promisedDate } : {}),"
+    if "input.customerPhone" not in service:
+        service = replace_once(service, sale_customer_marker, sale_customer_fields, "persist credit-sale contact and promise")
+
+    credit_validation = """      const paidMinor = payments.reduce((sum, payment) => sum + payment.amountMinor, 0);
+      const creditDueMinor = totalMinor - paidMinor;
+      if (creditDueMinor > 0 && (!input.customerName?.trim() || !input.customerPhone?.trim())) {
+        throw new Error('Credit sales require a named customer and phone number.');
+      }
+      const promisedDate = creditDueMinor > 0
+        ? input.promisedPaymentDate?.trim() || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+        : undefined;
+"""
+    if "const creditDueMinor = totalMinor - paidMinor;" not in service:
+        service = replace_once(service, "      const payments = validatePaymentAllocations(input.payments, totalMinor);\n", "      const payments = validatePaymentAllocations(input.payments, totalMinor);\n" + credit_validation, "enforce credit-sale contact and payment rules")
+
+    if "async receivePayment(input: ReceivePaymentInput)" not in service:
+        receive_method = r'''  async receivePayment(input: ReceivePaymentInput) {
+    if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) throw new Error('Payment amount must be a positive whole minor-unit amount.');
+    const timestamp = nowIso();
+    let paymentRecord: PaymentRecord | undefined;
+    let outstandingAfter = 0;
+    await db.transaction('rw', [db.workspaces, db.branches, db.sales, db.returns, db.payments, db.auditEvents], async () => {
+      const workspace = await db.workspaces.get(input.workspaceId);
+      const branch = await db.branches.get(input.branchId);
+      const sale = await db.sales.get(input.saleId);
+      if (!workspace) throw new Error('Business workspace not found.');
+      if (!branch || branch.workspaceId !== input.workspaceId) throw new Error('Selected branch does not belong to this workspace.');
+      if (!sale || sale.workspaceId !== input.workspaceId) throw new Error('Sale not found in this business.');
+      if (sale.branchId !== input.branchId) throw new Error('Switch to the original sale branch before recording a payment.');
+      const [previousPayments, previousReturns] = await Promise.all([
+        db.payments.where('[workspaceId+saleId]').equals([input.workspaceId, input.saleId]).toArray(),
+        db.returns.where('[workspaceId+saleId]').equals([input.workspaceId, input.saleId]).toArray(),
+      ]);
+      const receivedMinor = previousPayments.filter((payment) => payment.kind === 'receipt').reduce((sum, payment) => sum + payment.amountMinor, 0);
+      const returnedMinor = previousReturns.reduce((sum, record) => sum + record.totalMinor, 0);
+      const outstanding = Math.max(0, sale.totalMinor - returnedMinor - receivedMinor);
+      if (input.amountMinor > outstanding) throw new Error(`Payment exceeds the outstanding balance of ${outstanding} minor units.`);
+      paymentRecord = {
+        id: createId('pay'), workspaceId: input.workspaceId, saleId: input.saleId,
+        kind: 'receipt', method: input.method, amountMinor: input.amountMinor,
+        ...(input.reference?.trim() ? { reference: input.reference.trim() } : {}), createdAt: timestamp,
+      };
+      await db.payments.add(paymentRecord);
+      await db.auditEvents.add({
+        id: createId('audit'), workspaceId: input.workspaceId, branchId: input.branchId,
+        entityType: 'sale_payment', entityId: paymentRecord.id, action: 'payment_received',
+        ...(input.reference?.trim() ? { reason: input.reference.trim() } : {}), createdAt: timestamp,
+      });
+      outstandingAfter = outstanding - input.amountMinor;
+    });
+    if (!paymentRecord) throw new Error('Payment could not be recorded. No payment record was committed.');
+    return { payment: paymentRecord, outstandingMinor: outstandingAfter };
+  },
+
+'''
+        service = replace_once(service, "  async recordReturn(input: RecordReturnInput) {", receive_method + "  async recordReturn(input: RecordReturnInput) {", "receive later sale payment service")
+
+    # Split-tender fields on checkout; unpaid value remains calculated as customer credit.
+    if "type PaymentLineDraft =" not in checkout:
+        checkout = replace_once(checkout, "export default function CheckoutPage() {",
+            "type PaymentLineDraft = { id: string; method: PaymentMethod; amount: string; reference: string };\n\nexport default function CheckoutPage() {",
+            "checkout split payment line type")
+    old_state = "  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');\n  const [paymentAmount, setPaymentAmount] = useState('0');\n  const [paymentReference, setPaymentReference] = useState('');"
+    new_state = "  const [paymentLines, setPaymentLines] = useState<PaymentLineDraft[]>([{ id: 'payment-line-initial', method: 'cash', amount: '0', reference: '' }]);\n  const [customerPhone, setCustomerPhone] = useState('');\n  const [promisedPaymentDate, setPromisedPaymentDate] = useState('');"
+    if "const [paymentLines, setPaymentLines]" not in checkout:
+        checkout = replace_once(checkout, old_state, new_state, "checkout split-payment state")
+    payment_effect = "  useEffect(() => { setPaymentAmount(String(totalMinor / factor)); }, [totalMinor, factor]);"
+    if payment_effect in checkout:
+        checkout = replace_once(checkout, payment_effect,
+            "  useEffect(() => { setPaymentLines((current) => current.length === 1 ? [{ ...current[0], amount: String(totalMinor / factor) }] : current); }, [totalMinor, factor]);",
+            "single-payment auto-fill")
+    reset_effect = "  useEffect(() => { setCart({}); setCustomerName(''); setPaymentReference(''); }, [workspace.id, branch.id]);"
+    if reset_effect in checkout:
+        checkout = replace_once(checkout, reset_effect,
+            "  useEffect(() => { setCart({}); setCustomerName(''); setCustomerPhone(''); setPromisedPaymentDate(''); setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '' }]); }, [workspace.id, branch.id]);",
+            "checkout reset on workspace change")
+    if "const paymentAllocatedMinor = paymentLines.reduce" not in checkout:
+        checkout = replace_once(checkout, "  const factor = minorUnitFactor(workspace.currency);",
+            "  const factor = minorUnitFactor(workspace.currency);\n  const paymentAllocatedMinor = paymentLines.reduce((sum, line) => { try { return sum + parseMajorAmount(line.amount || '0', workspace.currency); } catch { return sum; } }, 0);\n  const creditDueMinor = totalMinor - paymentAllocatedMinor;",
+            "derived paid and credit totals")
+
+    if "function addPaymentLine()" not in checkout:
+        methods = r'''  function addPaymentLine() {
+    const currentTotal = paymentLines.reduce((sum, line) => { try { return sum + parseMajorAmount(line.amount || '0', workspace.currency); } catch { return sum; } }, 0);
+    const remaining = Math.max(0, totalMinor - currentTotal);
+    setPaymentLines((current) => [...current, { id: 'payment-line-' + Date.now() + '-' + current.length, method: 'mtn_momo', amount: String(remaining / factor), reference: '' }]);
+  }
+
+  function updatePaymentLine(lineId: string, changes: Partial<PaymentLineDraft>) {
+    setPaymentLines((current) => current.map((line) => line.id === lineId ? { ...line, ...changes } : line));
+  }
+
+  function removePaymentLine(lineId: string) {
+    setPaymentLines((current) => current.length > 1 ? current.filter((line) => line.id !== lineId) : current);
+  }
+
+'''
+        checkout = replace_once(checkout, "  async function completeSale(event: FormEvent<HTMLFormElement>) {", methods + "  async function completeSale(event: FormEvent<HTMLFormElement>) {", "checkout payment-line controls")
+
+    function_start = "  async function completeSale(event: FormEvent<HTMLFormElement>) {"
+    function_end = "\n\n  return ("
+    function_body = r'''  async function completeSale(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!cartLines.length) { toast.error('Your cart is empty. Add an item first.'); return; }
+    let payments: Array<{ method: PaymentMethod; amountMinor: number; reference?: string }>;
+    try {
+      payments = paymentLines.map((line) => ({
+        method: line.method,
+        amountMinor: parseMajorAmount(line.amount || '0', workspace.currency),
+        ...(line.reference.trim() ? { reference: line.reference.trim() } : {}),
+      })).filter((payment) => payment.amountMinor > 0);
+    } catch (error) {
+      toast.error('Check payment amounts', { description: error instanceof Error ? error.message : 'One of the payment amounts is invalid.' });
+      return;
+    }
+    const allocatedMinor = payments.reduce((sum, payment) => sum + payment.amountMinor, 0);
+    if (allocatedMinor > totalMinor) { toast.error('Recorded payments cannot exceed the sale total.'); return; }
+    const creditMinor = totalMinor - allocatedMinor;
+    if (creditMinor > 0 && (!customerName.trim() || !customerPhone.trim())) {
+      toast.error('Credit sales need a named customer and phone number', { description: 'Record the customer details before saving any unpaid balance.' });
+      return;
+    }
+    if (creditMinor > 0 && promisedPaymentDate && promisedPaymentDate < new Date().toISOString().slice(0, 10)) {
+      toast.error('Promised payment date cannot be in the past.'); return;
+    }
+    setSubmitting(true);
+    try {
+      const result = await salesWorkflow.completeSale({
+        workspaceId: workspace.id,
+        branchId: branch.id,
+        items: cartLines.map((line) => ({ productId: line.product.id, quantity: line.quantity })),
+        payments,
+        ...(customerName.trim() ? { customerName: customerName.trim() } : {}),
+        ...(creditMinor > 0 && customerPhone.trim() ? { customerPhone: customerPhone.trim() } : {}),
+        ...(creditMinor > 0 ? { promisedPaymentDate: promisedPaymentDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) } : {}),
+      });
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ['products', workspace.id] }),
+        client.invalidateQueries({ queryKey: ['inventory-balances', workspace.id, branch.id] }),
+        client.invalidateQueries({ queryKey: ['inventory-movements', workspace.id, branch.id] }),
+        client.invalidateQueries({ queryKey: ['sales', workspace.id] }),
+        client.invalidateQueries({ queryKey: ['dashboard', workspace.id, branch.id] }),
+      ]);
+      setCart({}); setCustomerName(''); setCustomerPhone(''); setPromisedPaymentDate('');
+      setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '' }]);
+      toast.success('Sale recorded', { description: `Receipt ${result.sale.receiptNumber} saved locally${creditMinor > 0 ? '; customer credit remains outstanding.' : '.'}` });
+      navigate(`/sales/${result.sale.id}`);
+    } catch (error) {
+      toast.error('Sale was not completed', { description: error instanceof Error ? error.message : 'No sale records were committed. Check the cart and try again.' });
+    } finally { setSubmitting(false); }
+  }'''
+    if "payments: [{ method: paymentMethod, amountMinor" in checkout:
+        checkout = between(checkout, function_start, function_end, function_body, "split-payment sale submission")
+    elif "const creditMinor = totalMinor - allocatedMinor;" not in checkout:
+        fail("checkout payment function does not match expected source")
+
+    customer_old = '<label className="field-label">Customer name <span className="optional-label">OPTIONAL</span><input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Walk-in customer" /></label>'
+    customer_new = '<label className="field-label">Customer name {creditDueMinor > 0 ? <span className="required-mark">REQUIRED FOR CREDIT</span> : <span className="optional-label">OPTIONAL</span>}<input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Walk-in customer" required={creditDueMinor > 0} /></label><label className="field-label">Customer phone {creditDueMinor > 0 && <span className="required-mark">REQUIRED FOR CREDIT</span>}<input type="tel" inputMode="tel" value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} placeholder="e.g. 07XX XXX XXX" required={creditDueMinor > 0} /></label>'
+    if customer_old in checkout:
+        checkout = replace_once(checkout, customer_old, customer_new, "checkout customer phone field")
+
+    payment_ui_old = '<div className="form-two-col"><label className="field-label">Recorded payment method<select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)}>{paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}</select></label><label className="field-label">Amount received ({workspace.currency})<input inputMode="decimal" type="number" min="0" step={factor === 1 ? \'1\' : \'0.01\'} value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></label></div><label className="field-label">Payment reference <span className="optional-label">OPTIONAL</span><input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder="Transaction ID or note" /></label>'
+    payment_ui_new = '''<div style={{ display: 'grid', gap: 10 }}><div><strong>Payment lines</strong><p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 11 }}>Split a sale between cash, MTN MoMo, Airtel Money, bank or other recorded methods.</p></div>{paymentLines.map((line, index) => <div key={line.id} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, display: 'grid', gap: 10 }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}><strong>Payment {index + 1}</strong>{paymentLines.length > 1 && <button type="button" className="button button-secondary button-small" onClick={() => removePaymentLine(line.id)}>Remove line</button>}</div><div className="form-two-col"><label className="field-label">Method<select value={line.method} onChange={(event) => updatePaymentLine(line.id, { method: event.target.value as PaymentMethod })}>{paymentMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}</select></label><label className="field-label">Amount received ({workspace.currency})<input inputMode="decimal" type="number" min="0" step={factor === 1 ? '1' : '0.01'} value={line.amount} onChange={(event) => updatePaymentLine(line.id, { amount: event.target.value })} required /></label></div><label className="field-label">Payment reference <span className="optional-label">OPTIONAL</span><input value={line.reference} onChange={(event) => updatePaymentLine(line.id, { reference: event.target.value })} placeholder="Transaction ID / receipt ref" /></label></div>)}<button type="button" className="button button-secondary" onClick={addPaymentLine}><Plus size={14} /> Add split-payment line</button><div className="payment-footnote"><Wallet size={16} /><span>Recorded payments: {formatMinorAmount(paymentAllocatedMinor, workspace.currency)} · {creditDueMinor > 0 ? `Credit due: ${formatMinorAmount(creditDueMinor, workspace.currency)}` : creditDueMinor < 0 ? `Overpaid by ${formatMinorAmount(Math.abs(creditDueMinor), workspace.currency)} — reduce the payment lines.` : 'Fully paid'}. LEXA only records methods; no external transfer is initiated.</span></div>{creditDueMinor > 0 && <label className="field-label">Promised payment date <span className="optional-label">OPTIONAL</span><input type="date" min={new Date().toISOString().slice(0, 10)} value={promisedPaymentDate} onChange={(event) => setPromisedPaymentDate(event.target.value)} /></label>}</div>'''
+    if "value={paymentMethod}" in checkout:
+        checkout = replace_once(checkout, payment_ui_old, payment_ui_new, "split payment line editor")
+    elif "Add split-payment line" not in checkout:
+        fail("checkout payment-line editor marker not found")
+
+    # Enable later instalments from the sale detail screen and show derived credit status.
+    detail_import_old = "import { useMemo, useState, type FormEvent } from 'react';"
+    detail_import_new = "import { useEffect, useMemo, useState, type FormEvent } from 'react';"
+    if detail_import_old in detail:
+        detail = replace_once(detail, detail_import_old, detail_import_new, "sale detail effect import")
+    detail_money_old = "import { formatMinorAmount } from '../../domain/money/money';"
+    detail_money_new = "import { formatMinorAmount, minorUnitFactor, parseMajorAmount } from '../../domain/money/money';"
+    if detail_money_old in detail:
+        detail = replace_once(detail, detail_money_old, detail_money_new, "sale detail money helpers")
+
+    if "const [receiveAmount, setReceiveAmount]" not in detail:
+        detail_state_old = "  const [saving, setSaving] = useState(false);"
+        detail_state_new = "  const [saving, setSaving] = useState(false);\n  const [receivingPayment, setReceivingPayment] = useState(false);\n  const [receiveMethod, setReceiveMethod] = useState<PaymentMethod>('cash');\n  const [receiveAmount, setReceiveAmount] = useState('');\n  const [receiveReference, setReceiveReference] = useState('');"
+        detail = replace_once(detail, detail_state_old, detail_state_new, "sale detail receive-payment state")
+
+    outstanding_old = "  const outstanding = Math.max(0, (detail?.sale.totalMinor ?? 0) - returnTotal - receiptTotal + refundTotal);"
+    outstanding_new = "  const outstanding = Math.max(0, (detail?.sale.totalMinor ?? 0) - returnTotal - receiptTotal);\n  const todayInWorkspace = new Intl.DateTimeFormat('en-CA', { timeZone: workspace.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());\n  const isOverdue = Boolean(outstanding > 0 && detail?.sale.promisedPaymentDate && detail.sale.promisedPaymentDate < todayInWorkspace);\n  useEffect(() => { if (outstanding > 0) setReceiveAmount(String(outstanding / minorUnitFactor(workspace.currency))); }, [outstanding, workspace.currency, saleId]);"
+    if outstanding_old in detail:
+        detail = replace_once(detail, outstanding_old, outstanding_new, "sale balance / overdue derivation")
+    elif "const isOverdue = Boolean(outstanding > 0" not in detail:
+        fail("Sale detail outstanding calculation does not match the expected source")
+
+    if "async function submitReceivedPayment(" not in detail:
+        receive_submit = r'''  async function submitReceivedPayment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!saleId || !detail || !isCorrectBranch) return;
+    let amountMinor: number;
+    try { amountMinor = parseMajorAmount(receiveAmount, workspace.currency); }
+    catch (error) { toast.error('Check the payment amount', { description: error instanceof Error ? error.message : 'Enter a valid amount.' }); return; }
+    if (amountMinor <= 0) { toast.error('Enter a payment greater than zero.'); return; }
+    setReceivingPayment(true);
+    try {
+      const result = await salesWorkflow.receivePayment({
+        workspaceId: workspace.id, branchId: branch.id, saleId, method: receiveMethod, amountMinor,
+        ...(receiveReference.trim() ? { reference: receiveReference.trim() } : {}),
+      });
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ['sale-detail', workspace.id, saleId] }),
+        client.invalidateQueries({ queryKey: ['sales', workspace.id] }),
+        client.invalidateQueries({ queryKey: ['dashboard', workspace.id, branch.id] }),
+      ]);
+      setReceiveReference('');
+      toast.success('Customer payment recorded', { description: `Remaining balance: ${formatMinorAmount(result.outstandingMinor, workspace.currency)}. No external transfer was initiated.` });
+    } catch (error) {
+      toast.error('Payment was not recorded', { description: error instanceof Error ? error.message : 'No payment record was committed.' });
+    } finally { setReceivingPayment(false); }
+  }
+
+'''
+        detail = replace_once(detail, "  async function submitReturn(event: FormEvent<HTMLFormElement>) {", receive_submit + "  async function submitReturn(event: FormEvent<HTMLFormElement>) {", "sale detail payment collection handler")
+
+    status_old = '<span className="status-pill status-good">Completed</span>'
+    status_new = '<span className={"status-pill " + (outstanding === 0 ? "status-good" : isOverdue ? "status-danger" : "status-muted")}>{outstanding === 0 ? "Paid" : isOverdue ? "Overdue" : receiptTotal > 0 ? "Part-paid" : "Unpaid"}</span>'
+    if status_old in detail:
+        detail = replace_once(detail, status_old, status_new, "derived payment status badge")
+    meta_old = '<div><span>Customer</span><strong>{detail.sale.customerName || \'Walk-in customer\'}</strong></div></div></section>'
+    meta_new = '<div><span>Customer</span><strong>{detail.sale.customerName || \'Walk-in customer\'}</strong></div><div><span>Phone</span><strong>{detail.sale.customerPhone || \'—\'}</strong></div><div><span>Promised date</span><strong>{detail.sale.promisedPaymentDate || \'Not set\'}</strong></div></div></section>'
+    if meta_old in detail:
+        detail = replace_once(detail, meta_old, meta_new, "customer phone / promised date receipt details")
+
+    receive_form_marker = '<div className="panel-footnote">An amount recorded here is not proof of an external transfer. LEXA has not initiated any payment.</div>'
+    receive_form = '''{outstanding > 0 && isCorrectBranch && <form onSubmit={submitReceivedPayment} className="form-stack" style={{ padding: '14px 16px', margin: '12px 16px', border: '1px solid #dbeafe', borderRadius: 10, background: '#f8fbff' }}><div><strong>Receive customer payment</strong><p style={{ margin: '4px 0 10px', color: '#64748b', fontSize: 11 }}>Balance due: {formatMinorAmount(outstanding, workspace.currency)}. Record instalments against this receipt; no money is transferred by LEXA.</p></div><label className="field-label">Payment method<select value={receiveMethod} onChange={(event) => setReceiveMethod(event.target.value as PaymentMethod)}>{refundMethods.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}</select></label><label className="field-label">Amount received ({workspace.currency})<input type="number" inputMode="decimal" min="0" step={minorUnitFactor(workspace.currency) === 1 ? '1' : '0.01'} value={receiveAmount} onChange={(event) => setReceiveAmount(event.target.value)} required /></label><label className="field-label">Reference <span className="optional-label">OPTIONAL</span><input value={receiveReference} onChange={(event) => setReceiveReference(event.target.value)} placeholder="MoMo / bank reference" /></label><button type="submit" className="button button-primary" disabled={receivingPayment}>{receivingPayment ? 'Recording…' : 'Record instalment'} <Check size={15} /></button></form>}'''
+    if "submitReceivedPayment" not in detail:
+        fail("receive payment handler is missing before rendering form")
+    if receive_form_marker in detail and "Receive customer payment</strong>" not in detail:
+        detail = replace_once(detail, receive_form_marker, receive_form + receive_form_marker, "sale detail receive-payment form")
+
+    # The dashboard's receivable figure must not add refunds to an amount owed; refunds are a separate cash-out.
+    reports = reports.replace("const outstandingMinor = Math.max(0, netSalesMinor - recordedReceiptsMinor + recordedRefundsMinor);", "const outstandingMinor = Math.max(0, netSalesMinor - recordedReceiptsMinor);")
+    return types, contracts, service, checkout, detail, reports
+
+
 def main() -> None:
-    for path in (PAGE_PATH, TOOLS_PATH, CATALOG_PATH):
+    for path in (PAGE_PATH, TOOLS_PATH, CATALOG_PATH, APP_SHELL_PATH, ROUTER_PATH, BUSINESS_TOOLS_PATH, BUSINESS_TOOLS_DATA_PATH, TYPES_PATH, WORKFLOW_CONTRACTS_PATH, SALES_WORKFLOW_PATH, CHECKOUT_PATH, SALE_DETAIL_PATH, REPORTS_DATA_PATH):
         if not path.exists():
             fail(f"required source file is missing: {path.relative_to(ROOT)}")
 
     page = PAGE_PATH.read_text(encoding="utf-8")
     tools = TOOLS_PATH.read_text(encoding="utf-8")
     catalog = CATALOG_PATH.read_text(encoding="utf-8")
+    app_shell = APP_SHELL_PATH.read_text(encoding="utf-8")
+    router = ROUTER_PATH.read_text(encoding="utf-8")
+    types = TYPES_PATH.read_text(encoding="utf-8")
+    workflow_contracts = WORKFLOW_CONTRACTS_PATH.read_text(encoding="utf-8")
+    sales_workflow = SALES_WORKFLOW_PATH.read_text(encoding="utf-8")
+    checkout = CHECKOUT_PATH.read_text(encoding="utf-8")
+    sale_detail = SALE_DETAIL_PATH.read_text(encoding="utf-8")
+    reports_data = REPORTS_DATA_PATH.read_text(encoding="utf-8")
 
     # Fix the reported strict TypeScript errors.
     if "definition.title" in tools:
@@ -341,6 +643,62 @@ def main() -> None:
     if old_workflow in catalog:
         catalog = replace_once(catalog, old_workflow, new_workflow, "audit module workflow text")
 
+
+    # Add a Business Tools screen for cash-up, tax guidance, local import/export, recovery and mobile capture.
+    route_marker = "      { path: 'settings', lazy: async () => ({ Component: (await import('../modules/settings/SettingsPage')).default }) },"
+    route_entry = "      { path: 'business-tools', lazy: async () => ({ Component: (await import('../modules/tools/BusinessToolsPage')).default }) },\n"
+    if "path: 'business-tools'" not in router:
+        router = replace_once(router, route_marker, route_entry + route_marker, "business tools route")
+
+    nav_marker = "    { to: '/modules/audit', label: 'Activity & audit log', icon: Activity },"
+    nav_entry = "    { to: '/business-tools', label: 'Business tools', icon: Settings },\n"
+    if "to: '/business-tools'" not in app_shell:
+        app_shell = replace_once(app_shell, nav_marker, nav_entry + nav_marker, "business tools navigation link")
+
+    # Keep the default menu simple and mobile-focused, with an event-driven switch to Advanced navigation.
+    mobile_state = "  const [mobileNavOpen, setMobileNavOpen] = useState(false);"
+    mode_state = '''  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [uiMode, setUiMode] = useState<'simple' | 'advanced'>(() => localStorage.getItem('lexa.ui.mode') === 'advanced' ? 'advanced' : 'simple');
+  useEffect(() => {
+    const handleModeChange = (event: Event) => {
+      const mode = (event as CustomEvent<'simple' | 'advanced'>).detail;
+      if (mode === 'simple' || mode === 'advanced') setUiMode(mode);
+    };
+    window.addEventListener('lexa:ui-mode-change', handleModeChange);
+    return () => window.removeEventListener('lexa:ui-mode-change', handleModeChange);
+  }, []);
+  const visibleNavSections = uiMode === 'advanced' ? navSections : [
+    { title: 'WORKSPACE', items: navSections[0].items.filter((item) => item.to === '/' || item.to === '/workspace') },
+    { title: 'QUICK ACTIONS', items: [
+      { to: '/checkout', label: 'Sell', icon: ShoppingCart },
+      { to: '/modules/purchases', label: 'Buy', icon: ShoppingCart },
+      { to: '/modules/expenses', label: 'Expense', icon: ReceiptText },
+      { to: '/inventory', label: 'Stock', icon: Package },
+      { to: '/modules/customers', label: 'Money owed', icon: Users },
+      { to: '/business-tools', label: 'Business tools', icon: Settings },
+      { to: '/settings', label: 'Settings', icon: Settings },
+    ] },
+  ];'''
+    if "const visibleNavSections = uiMode === 'advanced'" not in app_shell:
+        app_shell = replace_once(app_shell, mobile_state, mode_state, "simple/advanced menu state")
+    if "{visibleNavSections.map((section) => (" not in app_shell:
+        app_shell = replace_once(app_shell, "{navSections.map((section) => (", "{visibleNavSections.map((section) => (", "visible navigation sections")
+
+    old_banner = """<div className="local-status-banner phase-two-shell-banner"><span className="status-dot" /><span><strong>Phase 2 frontend build</strong> — core records retain their existing behaviour; new modules use clearly labelled preview data until connected to your existing backend.</span><button onClick={() => navigate('/modules')}>Module map <Command size={12} /></button></div>"""
+    new_banner = """<div className="local-status-banner phase-two-shell-banner"><span className="status-dot" /><span><strong>Local-first frontend</strong> — core workspace, product, stock, sale and return records are stored on this device. Expanded module registers are separate previews and do not post to the core ledgers; cloud sync is not connected.</span><button onClick={() => navigate('/business-tools')}>Business tools <Settings size={12} /></button></div>"""
+    if old_banner in app_shell:
+        app_shell = replace_once(app_shell, old_banner, new_banner, "accurate local-first capability banner")
+
+    old_footer = """<footer className="app-footer"><span>LEXA Workspace · Phase 2 frontend</span><span>New module previews are not backend-connected <span className="footer-dot">•</span> Existing records untouched</span></footer>"""
+    new_footer = """<footer className="app-footer"><span>LEXA Workspace · Local-first frontend</span><span>Core records stay in this browser <span className="footer-dot">•</span> Cloud sync and server roles are not connected</span></footer>"""
+    if old_footer in app_shell:
+        app_shell = replace_once(app_shell, old_footer, new_footer, "accurate local-first capability footer")
+
+    # Complete split-tender sales, customer credit identity, and later instalment collection in core screens.
+    types, workflow_contracts, sales_workflow, checkout, sale_detail, reports_data = apply_core_credit_workflow(
+        types, workflow_contracts, sales_workflow, checkout, sale_detail, reports_data
+    )
+
     # Validate all required transformations before writing any file.
     if "definition.title" in tools:
         fail("TypeScript seed error fix did not complete")
@@ -350,10 +708,26 @@ def main() -> None:
         fail("generic mapping or source reference metadata is missing")
     if "AUD-LINK-" not in page:
         fail("preview activity note code is missing")
+    if "path: 'business-tools'" not in router or "to: '/business-tools'" not in app_shell or "visibleNavSections.map((section) => (" not in app_shell:
+        fail("Business Tools route or Simple/Advanced navigation changes are missing")
+    if "const [paymentLines, setPaymentLines]" not in checkout or "Add split-payment line" not in checkout or "REQUIRED FOR CREDIT" not in checkout:
+        fail("core checkout split-tender / credit requirements are missing")
+    if "async receivePayment(input: ReceivePaymentInput)" not in sales_workflow or "Record instalment" not in sale_detail:
+        fail("core later-payment collection is missing")
+    if "customerPhone?: string;" not in types or "promisedPaymentDate?: string;" not in types:
+        fail("core credit sale contact or promised-date types are missing")
 
     PAGE_PATH.write_text(page, encoding="utf-8")
     TOOLS_PATH.write_text(tools, encoding="utf-8")
     CATALOG_PATH.write_text(catalog, encoding="utf-8")
+    APP_SHELL_PATH.write_text(app_shell, encoding="utf-8")
+    ROUTER_PATH.write_text(router, encoding="utf-8")
+    TYPES_PATH.write_text(types, encoding="utf-8")
+    WORKFLOW_CONTRACTS_PATH.write_text(workflow_contracts, encoding="utf-8")
+    SALES_WORKFLOW_PATH.write_text(sales_workflow, encoding="utf-8")
+    CHECKOUT_PATH.write_text(checkout, encoding="utf-8")
+    SALE_DETAIL_PATH.write_text(sale_detail, encoding="utf-8")
+    REPORTS_DATA_PATH.write_text(reports_data, encoding="utf-8")
     print("Applied LEXA module workflow completion changes:")
     print(" - corrected the PreviewModuleSeed strict TypeScript error")
     print(" - enabled the shared status-aware workflow graph")
@@ -361,6 +735,11 @@ def main() -> None:
     print(" - protected one-to-one hand-offs from duplicate target drafts")
     print(" - recorded local preview activity notes for related hand-offs")
     print(" - clarified that activity notes are not a trusted security audit log")
+    print(" - added Business Tools: local cash-up, compliance guidance, backups, CSV imports/exports and device capture")
+    print(" - enabled Simple / Advanced navigation modes")
+    print(" - added split-tender payments, customer-required credit, promised dates and later instalments")
+    print(" - derived paid / part-paid / overdue status from sales, returns and payment records")
+    print(" - corrected receivable calculation so refunds are not treated as amounts still owed")
 
 if __name__ == '__main__':
     main()

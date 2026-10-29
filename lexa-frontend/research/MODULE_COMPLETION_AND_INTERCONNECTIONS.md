@@ -1,12 +1,20 @@
 # LEXA module completion and interconnection audit
 
-Research review date: 28 October 2026. This is an implementation/acceptance record for the current LEXA frontend; it is not a claim that live ERP posting or external provider integrations are complete.
+Research review date: 29 October 2026. This is an implementation/acceptance record for the current LEXA frontend; it is not a claim that live ERP posting or external provider integrations are complete.
 
 ## Current architecture and honest boundary
 
 The current frontend has seven existing core-workflow links (dashboard, workspace/branches, checkout/POS, sales/returns, products, inventory, and settings), plus 56 operational preview modules and a separate report centre. The preview modules use a separate `PreviewDataService` scoped by workspace and branch. Core product, stock, completed sale and return operations remain in the existing typed repositories and Dexie transactions.
 
 This patch extends the preview workflow graph and source-reference metadata. Related actions create separate local preview drafts, not live postings. It does not wire preview modules into the production API, does not synchronize users/devices, does not initiate payments, and does not submit tax data or payroll to authorities/providers. A browser-local preview activity note is not a security audit trail.
+
+## Additional frontend work in the 29 October patch
+
+The upload-ready patch also wires the previously separate core POS credit lifecycle and adds a Business Tools screen. Cash-up records compare a counted till with local cash payment lines and explicitly require the user to enter other cash movements; they are not bank/wallet reconciliation. POS now supports multiple recorded payment lines, computes the unpaid remainder as credit, requires customer name and phone for a credit sale, sets a promised date when omitted (30-day local fallback because a core customer-terms table is not yet present), receives later instalments, and derives payment status from the original sale, returns and receipt records. The screen does not move money.
+
+Business Tools adds: full versioned JSON backup/restore for the core Dexie tables; validated atomic CSV imports for products and opening stock; CSV exports of products, sales, returns, recorded payments and stock movements; universal search for core products and receipts/customer details; camera barcode detection where the browser supports it; local photo attachments; a manual tax-document/FDN register; configurable provisional turnover signals; and local cash-up. A Simple navigation mode foregrounds Sell, Buy, Expense, Stock and Money owed; Advanced restores the full navigation.
+
+These are frontend/local-first capabilities, not proof of all requirements in the Engineering Concept being production-complete. Where core data models do not exist (customer/supplier master ledgers, purchases/expenses/payables, business account balances, cost centres, statutory payroll), the existing operational module catalogue remains preview data and is labelled as such. The supplied tax rules are not encoded as verified law. Full central sync, server-enforced authorization, secure audit, and external tax/payment integrations remain separate work.
 
 ## What the implementation adds
 
@@ -145,10 +153,12 @@ The production-grade status and implementation boundary is recorded in the “Li
 
 ## Build and dependency-install policy
 
-The supplied Vercel log also reports an npm `install-scripts` warning for `esbuild@0.28.2`. The patch records a version-specific approval for that package script in `package.json` instead of enabling install scripts globally. npm's documentation describes `allowScripts` as the package-level control for reviewed install-time scripts and supports version-specific decisions; esbuild is the platform-aware bundler used by Vite. The workflow verifies the approval before installing packages. This is separate from the original TypeScript compilation error and does not replace a reproducible lockfile or a complete successful build/test run.
+The supplied Vercel log also reports an npm `install-scripts` warning for `esbuild@0.28.2`. The patch records a version-specific approval for that package script in `package.json` instead of enabling install scripts globally. npm's documentation describes `allowScripts` as the package-level control for reviewed install-time scripts and supports version-specific decisions; esbuild is the platform-aware bundler used by Vite. The actual install/build outcome must be checked in the next Vercel deployment; this setting alone is not proof that dependencies built correctly. This is separate from the original TypeScript compilation error and does not replace a reproducible lockfile or a complete successful build/test run.
 
 References: [npm install-script approvals](https://docs.npmjs.com/cli/v11/commands/npm-install-scripts/), [npm allow-scripts configuration](https://docs.npmjs.com/cli/using-npm/config/#allow-scripts), [esbuild package](https://www.npmjs.com/package/esbuild).
 
-## Verification plan
+## Verification and rollout
 
-The new GitHub Actions workflow is deliberately manual. After the ZIP is extracted to the repository, run **Actions → Complete LEXA preview workflows → Run workflow** on `main`. It applies guarded transformations, installs dependencies, runs `npm run build`, runs `npm test`, checks whitespace, and pushes the changes only if build and tests pass. Vercel should then deploy the new `main` commit. If any test fails, read the workflow logs before treating the build as fixed.
+The ZIP includes `lexa-frontend/scripts/complete_modules.py`, which runs from npm's `prebuild` hook. It uses exact source markers and checks expected transformations before writing the affected source files. The hook then runs the Vitest suite; Vite's configured build subsequently runs the TypeScript project build and bundles the app. The repository's existing ZIP extractor is the intended delivery mechanism; no new GitHub workflow is added by this patch.
+
+A full build or production deployment has not been verified in this session. The connected GitHub integration rejected direct branch/file mutations, and Vercel denied permission to create preview/production deployments. The existing `lexareview.vercel.app` deployment remained tied to its prior `main` commit at inspection time. The patch needs to be uploaded as the same root ZIP filename, then accepted only after the extractor, unit tests and Vercel build all report success.
