@@ -292,7 +292,7 @@ export interface ReceivePaymentResult {
     payment_effect = "  useEffect(() => { setPaymentAmount(String(totalMinor / factor)); }, [totalMinor, factor]);"
     if payment_effect in checkout:
         checkout = replace_once(checkout, payment_effect,
-            "  useEffect(() => { setPaymentLines((current) => current.length === 1 ? [{ ...current[0], amount: String(totalMinor / factor) }] : current); }, [totalMinor, factor]);",
+            "  useEffect(() => { setPaymentLines((current) => current.length === 1 && current[0] ? [{ ...current[0], amount: String(totalMinor / factor) }] : current); }, [totalMinor, factor]);",
             "single-payment auto-fill")
     reset_effect = "  useEffect(() => { setCart({}); setCustomerName(''); setPaymentReference(''); }, [workspace.id, branch.id]);"
     if reset_effect in checkout:
@@ -703,7 +703,7 @@ def main() -> None:
     return () => window.removeEventListener('lexa:ui-mode-change', handleModeChange);
   }, []);
   const visibleNavSections = uiMode === 'advanced' ? navSections : [
-    { title: 'WORKSPACE', items: navSections[0].items.filter((item) => item.to === '/' || item.to === '/workspace') },
+    { title: 'WORKSPACE', items: (navSections[0]?.items ?? []).filter((item) => item.to === '/' || item.to === '/workspace') },
     { title: 'QUICK ACTIONS', items: [
       { to: '/checkout', label: 'Sell', icon: ShoppingCart },
       { to: '/modules/purchases', label: 'Buy', icon: ShoppingCart },

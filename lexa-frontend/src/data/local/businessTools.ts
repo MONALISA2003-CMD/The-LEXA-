@@ -81,6 +81,7 @@ export async function restoreLocalDatabaseBackup(value: unknown): Promise<{ tabl
   await db.transaction('rw', tables, async () => {
     for (const table of tables) {
       const rows = backup.tables[table.name];
+      if (!rows) throw new Error(`The ${table.name} table is missing from this backup.`);
       await table.clear();
       if (rows.length) await table.bulkPut(rows as never[]);
       recordCount += rows.length;
@@ -113,7 +114,9 @@ function parseCsv(text: string): string[][] {
   row.push(cell.trim());
   if (row.some((item) => item.length)) rows.push(row);
   if (rows.length < 2) throw new Error('The CSV must include a header row and at least one data row.');
-  const width = rows[0].length;
+  const header = rows[0];
+  if (!header) throw new Error('The CSV header row is missing.');
+  const width = header.length;
   if (rows.some((item) => item.length !== width)) throw new Error('The CSV has inconsistent column counts. Export it again and keep each row aligned.');
   return rows;
 }
@@ -122,15 +125,23 @@ function headerMap(headers: string[]): Map<string, number> {
   return new Map(headers.map((header, index) => [header.trim().toLowerCase().replace(/[ _-]+/g, ''), index]));
 }
 
+function optionalCell(row: string[], map: Map<string, number>, field: string, fallback = ''): string {
+  const column = map.get(field);
+  return column === undefined ? fallback : (row[column] ?? fallback);
+}
+
 function requiredCell(row: string[], map: Map<string, number>, field: string, rowNumber: number): string {
   const column = map.get(field.toLowerCase().replace(/[ _-]+/g, ''));
-  if (column === undefined || !row[column]?.trim()) throw new Error(`CSV row ${rowNumber}: required column/value "${field}" is missing.`);
-  return row[column].trim();
+  const value = column === undefined ? '' : (row[column] ?? '').trim();
+  if (!value) throw new Error(`CSV row ${rowNumber}: required column/value "${field}" is missing.`);
+  return value;
 }
 
 export async function importProductsCsv(workspaceId: string, currency: string, text: string): Promise<number> {
   const rows = parseCsv(text);
-  const map = headerMap(rows[0]);
+  const headers = rows[0];
+  if (!headers) throw new Error('The CSV header row is missing.');
+  const map = headerMap(headers);
   const existing = await db.products.where('workspaceId').equals(workspaceId).toArray();
   const skuSet = new Set(existing.map((item) => item.sku.trim().toLowerCase()));
   const barcodeSet = new Set(existing.map((item) => (item.barcode ?? '').trim().toLowerCase()).filter(Boolean));
@@ -138,18 +149,18 @@ export async function importProductsCsv(workspaceId: string, currency: string, t
     const rowNumber = index + 2;
     const name = requiredCell(row, map, 'name', rowNumber);
     const sku = requiredCell(row, map, 'sku', rowNumber);
-    const barcode = map.has('barcode') ? row[map.get('barcode')!] : '';
-    const brand = map.has('brand') ? row[map.get('brand')!] : '';
-    const unitOfMeasure = map.has('unitofmeasure') ? row[map.get('unitofmeasure')!] : '';
-    const categoryName = map.has('categoryname') ? row[map.get('categoryname')!] : '';
-    const costText = (map.has('costprice') ? row[map.get('costprice')!] : map.has('costpriceminor') ? row[map.get('costpriceminor')!] : '0') || '0';
-    const sellText = map.has('sellingprice') ? row[map.get('sellingprice')!] : map.has('sellingpriceminor') ? row[map.get('sellingpriceminor')!] : '';
+    const barcode = optionalCell(row, map, 'barcode');
+    const brand = optionalCell(row, map, 'brand');
+    const unitOfMeasure = optionalCell(row, map, 'unitofmeasure');
+    const categoryName = optionalCell(row, map, 'categoryname');
+    const costText = optionalCell(row, map, 'costprice') || optionalCell(row, map, 'costpriceminor') || '0';
+    const sellText = optionalCell(row, map, 'sellingprice') || optionalCell(row, map, 'sellingpriceminor');
     if (!sellText) throw new Error(`CSV row ${rowNumber}: sellingPrice is required.`);
     const costPriceMinor = map.has('costpriceminor') ? Number(costText) : parseMajorAmount(costText, currency);
     const sellingPriceMinor = map.has('sellingpriceminor') ? Number(sellText) : parseMajorAmount(sellText, currency);
-    const thresholdText = map.has('lowstockthreshold') ? row[map.get('lowstockthreshold')!] : '0';
+    const thresholdText = optionalCell(row, map, 'lowstockthreshold', '0') || '0';
     const lowStockThreshold = Number(thresholdText);
-    const trackText = map.has('trackstock') ? row[map.get('trackstock')!].trim().toLowerCase() : 'true';
+    const trackText = optionalCell(row, map, 'trackstock', 'true').trim().toLowerCase();
     if (map.has('trackstock') && !['true', 'yes', '1', 'y', 'false', 'no', '0', 'n'].includes(trackText)) throw new Error(`CSV row ${rowNumber}: trackStock must be true/false or yes/no.`);
     const trackStock = ['true', 'yes', '1', 'y'].includes(trackText);
     if (!Number.isSafeInteger(costPriceMinor) || costPriceMinor < 0 || !Number.isSafeInteger(sellingPriceMinor) || sellingPriceMinor < 0) throw new Error(`CSV row ${rowNumber}: prices must be valid non-negative amounts in ${currency}.`);
@@ -189,8 +200,10 @@ export async function importProductsCsv(workspaceId: string, currency: string, t
         createdAt: timestamp, updatedAt: timestamp,
       });
     }
+    const firstProduct = products[0];
+    if (!firstProduct) throw new Error('No valid product rows were found in the CSV. Nothing was imported.');
     await db.products.bulkAdd(products);
-    await db.auditEvents.add({ id: createId('audit'), workspaceId, entityType: 'product_import', entityId: products[0].id, action: 'products_imported', reason: `${products.length} product records imported from validated CSV`, createdAt: timestamp });
+    await db.auditEvents.add({ id: createId('audit'), workspaceId, entityType: 'product_import', entityId: firstProduct.id, action: 'products_imported', reason: `${products.length} product records imported from validated CSV`, createdAt: timestamp });
     imported = products.length;
   });
   return imported;
@@ -198,13 +211,15 @@ export async function importProductsCsv(workspaceId: string, currency: string, t
 
 export async function importOpeningStockCsv(workspaceId: string, branchId: string, text: string): Promise<number> {
   const rows = parseCsv(text);
-  const map = headerMap(rows[0]);
+  const headers = rows[0];
+  if (!headers) throw new Error('The CSV header row is missing.');
+  const map = headerMap(headers);
   const parsed = rows.slice(1).map((row, index) => {
     const rowNumber = index + 2;
     const sku = requiredCell(row, map, 'sku', rowNumber);
     const quantityText = requiredCell(row, map, 'quantity', rowNumber);
     const quantity = Number(quantityText);
-    const reason = map.has('reason') ? row[map.get('reason')!] : 'Opening stock imported from validated CSV';
+    const reason = optionalCell(row, map, 'reason', 'Opening stock imported from validated CSV');
     if (!Number.isSafeInteger(quantity) || quantity <= 0) throw new Error(`CSV row ${rowNumber}: opening quantity must be a positive whole number.`);
     if (!reason.trim()) throw new Error(`CSV row ${rowNumber}: reason cannot be blank.`);
     return { sku, quantity, reason: reason.trim(), rowNumber };
@@ -231,9 +246,11 @@ export async function importOpeningStockCsv(workspaceId: string, branchId: strin
       if (prior.length) throw new Error(`Opening stock already exists for ${product.name}; use the stock adjustment screen instead.`);
       movements.push({ id: createId('mov'), workspaceId, branchId, productId: product.id, type: 'opening', quantityDelta: row.quantity, reason: row.reason, createdAt: nowIso() });
     }
+    const firstMovement = movements[0];
+    if (!firstMovement) throw new Error('No valid opening-stock rows were found in the CSV. Nothing was imported.');
     await db.stockMovements.bulkAdd(movements);
     const timestamp = nowIso();
-    await db.auditEvents.add({ id: createId('audit'), workspaceId, branchId, entityType: 'stock_movement', entityId: movements[0].id, action: 'opening_stock_imported', reason: `${movements.length} opening balances imported from validated CSV`, createdAt: timestamp });
+    await db.auditEvents.add({ id: createId('audit'), workspaceId, branchId, entityType: 'stock_movement', entityId: firstMovement.id, action: 'opening_stock_imported', reason: `${movements.length} opening balances imported from validated CSV`, createdAt: timestamp });
     imported = movements.length;
   });
   return imported;
