@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "prebuild": "python3 scripts/complete_modules.py && npm test",
+    "prebuild": "python3 scripts/complete_modules.py && python3 scripts/apply_lexa_palette.py && npm test",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -b --pretty",
