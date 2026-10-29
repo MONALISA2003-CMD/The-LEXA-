@@ -60,14 +60,28 @@ export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> =
   ...forPaths('cyan', ['/business-tools']),
   ...forPaths('blue', ['/checkout', '/sales', '/modules/sales-orders', '/modules/sales-invoices', '/modules/quotations', '/modules/price-lists', '/modules/sales-returns', '/modules/cash-sessions']),
   ...forPaths('emerald', ['/modules/leads', '/modules/opportunities', '/modules/contacts', '/modules/campaigns', '/modules/sales-teams', '/modules/customers', '/modules/employees', '/modules/attendance', '/modules/payroll', '/modules/leave', '/modules/timesheets', '/modules/support']),
-  ...forPaths('cyan', ['/products', '/inventory', '/modules/receiving', '/modules/stock-counts', '/modules/stock-transfers', '/modules/warehouses', '/modules/picklists', '/modules/item-bundles', '/modules/work-orders', '/modules/quality', '/modules/batches', '/modules/replenishment', '/modules/deliveries', '/modules/packages', '/modules/tasks', '/modules/integrations']),
-  ...forPaths('orange', ['/modules/purchase-requests', '/modules/rfqs', '/modules/supplier-quotes', '/modules/suppliers', '/modules/purchases', '/modules/purchase-invoices', '/modules/purchase-returns', '/modules/boms', '/modules/job-cards']),
+  ...forPaths('cyan', ['/products', '/inventory', '/modules/receiving', '/modules/stock-counts', '/modules/stock-transfers', '/modules/warehouses', '/modules/picklists', '/modules/item-bundles', '/modules/work-orders', '/modules/boms', '/modules/job-cards', '/modules/quality', '/modules/batches', '/modules/replenishment', '/modules/deliveries', '/modules/packages', '/modules/tasks', '/modules/integrations']),
+  ...forPaths('orange', ['/modules/purchase-requests', '/modules/rfqs', '/modules/supplier-quotes', '/modules/suppliers', '/modules/purchases', '/modules/purchase-invoices', '/modules/purchase-returns']),
   ...forPaths('gold', ['/modules/expenses', '/modules/money-accounts', '/modules/payments', '/modules/accounting', '/modules/chart-of-accounts', '/modules/tax-codes', '/modules/bank-reconciliation', '/modules/assets', '/modules/cost-centers', '/modules/budgets', '/modules/tax-documents', '/modules/reports', '/modules/recurring-invoices']),
 });
 export const MODULE_ACCENTS_BY_GROUP: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
   WORKSPACE:'navy',CRM:'emerald','CRM & GROWTH':'emerald',SELLING:'blue',INVENTORY:'cyan',LOGISTICS:'cyan',PROCUREMENT:'orange',FINANCE:'gold','PEOPLE & PAYROLL':'emerald','INTEGRATION & CONTROL':'cyan',INSIGHTS:'gold',ADMINISTRATION:'navy',MANUFACTURING:'cyan',
 });
-export function moduleAccentForPath(path: string): ModuleAccentKey { return MODULE_ACCENTS_BY_PATH[path] ?? 'navy'; }
+export function moduleAccentForPath(path: string): ModuleAccentKey {
+  const pathname = path.split(/[?#]/, 1)[0]?.replace(new RegExp('/+$'), '') || '/';
+  const exact = MODULE_ACCENTS_BY_PATH[pathname];
+  if (exact) return exact;
+  let matchedPath = '';
+  let matchedAccent: ModuleAccentKey | undefined;
+  for (const [configuredPath, accent] of Object.entries(MODULE_ACCENTS_BY_PATH)) {
+    if (configuredPath === '/' || !pathname.startsWith(configuredPath + '/')) continue;
+    if (configuredPath.length > matchedPath.length) {
+      matchedPath = configuredPath;
+      matchedAccent = accent;
+    }
+  }
+  return matchedAccent ?? 'navy';
+}
 export function moduleAccentForGroup(group: string): ModuleAccentKey { return MODULE_ACCENTS_BY_GROUP[group.trim().toUpperCase()] ?? 'navy'; }
 '''
 
@@ -80,6 +94,8 @@ describe('LEXA module accents', () => {
   it('covers every operational catalogue module', () => { for (const module of MODULE_CATALOG) expect(MODULE_ACCENTS_BY_PATH['/modules/' + module.id], module.id).toBeDefined(); });
   it('uses only approved accents', () => { for (const [path, accent] of Object.entries(MODULE_ACCENTS_BY_PATH)) expect(allowed, path).toContain(accent); });
   it('assigns semantic colours to representative families', () => { expect(moduleAccentForPath('/checkout')).toBe('blue'); expect(moduleAccentForPath('/modules/receiving')).toBe('cyan'); expect(moduleAccentForPath('/modules/purchases')).toBe('orange'); expect(moduleAccentForPath('/modules/accounting')).toBe('gold'); expect(moduleAccentForPath('/modules/leads')).toBe('emerald'); expect(moduleAccentForPath('/modules/recurring-invoices')).toBe('gold'); expect(moduleAccentForPath('/business-tools')).toBe('cyan'); });
+  it('keeps manufacturing registers in the cyan module family', () => { expect(moduleAccentForPath('/modules/boms')).toBe('cyan'); expect(moduleAccentForPath('/modules/job-cards')).toBe('cyan'); expect(moduleAccentForGroup('MANUFACTURING')).toBe('cyan'); });
+  it('normalises and carries module accents into nested routes', () => { expect(moduleAccentForPath('/modules/purchases/PO-2026-001')).toBe('orange'); expect(moduleAccentForPath('/modules/reports/monthly?period=month')).toBe('gold'); expect(moduleAccentForPath('/products/sku-1/')).toBe('cyan'); expect(moduleAccentForPath('/checkout?mode=quick')).toBe('blue'); expect(moduleAccentForPath('/modules/not-real/detail')).toBe('navy'); });
   it('uses explicit group metadata and a safe default', () => { expect(moduleAccentForGroup('CRM & GROWTH')).toBe('emerald'); expect(moduleAccentForGroup('CRM')).toBe('emerald'); expect(moduleAccentForGroup('MANUFACTURING')).toBe('cyan'); expect(moduleAccentForGroup('PROCUREMENT')).toBe('orange'); expect(moduleAccentForGroup('FINANCE')).toBe('gold'); expect(moduleAccentForGroup('INTEGRATION & CONTROL')).toBe('cyan'); expect(moduleAccentForGroup('unknown group')).toBe('navy'); expect(moduleAccentForPath('/modules/not-real')).toBe('navy'); });
 });
 '''
@@ -100,6 +116,7 @@ describe('LEXA semantic colour tokens',()=>{
   it.each(['light','dark'] as const)('%s text, action, status and disabled pairs meet WCAG AA',theme=>{const pairs=[['--color-text-primary','--color-bg-canvas'],['--color-text-secondary','--color-surface'],['--color-text-muted','--color-bg-canvas'],['--color-primary','--color-on-primary'],['--color-success','--color-success-soft'],['--color-warning','--color-warning-soft'],['--color-danger','--color-danger-soft'],['--color-info','--color-info-soft'],['--color-disabled-text','--color-disabled-bg']] as const; for(const [fg,bg] of pairs) expect(ratio(theme,fg,bg),fg+' / '+bg).toBeGreaterThanOrEqual(4.5);});
   it.each(['light','dark'] as const)('%s focus and control borders meet 3:1',theme=>{expect(ratio(theme,'--color-focus','--color-surface')).toBeGreaterThanOrEqual(3);expect(ratio(theme,'--color-border-control','--color-surface')).toBeGreaterThanOrEqual(3);});
   it('defines the semantic roles in both theme token blocks',()=>{for(const role of ['--color-primary','--color-primary-hover','--color-secondary','--color-text-primary','--color-text-secondary','--color-bg-canvas','--color-surface','--color-border','--color-focus','--color-success','--color-warning','--color-danger','--color-disabled-text','--color-disabled-bg']){expect(themeBlock('light')).toContain(role+':');expect(themeBlock('dark')).toContain(role+':');}});
+  it('applies V3 module identity across route headers, cards, metrics, tables and filters',()=>{const integration=css.split('/* LEXA-MODULE-VISUAL-INTEGRATION-V3 */')[1]??'';expect(integration.length).toBeGreaterThan(3000);for(const selector of ['.main-panel[data-module-accent]','.page-stack > .page-heading-row','.section-card-heading','.metric-strip > .mini-metric::before','.data-table thead th','.module-directory-card[data-module-accent]',':root[data-theme=dark]'])expect(integration).toContain(selector);expect(integration).toContain('primary blue action');expect(integration).toContain('status-good/warning/danger');});
 });
 '''
 
@@ -309,6 +326,12 @@ def wire_accent_metadata() -> None:
 
 def validate_manifest() -> None:
     # Fail the build if metadata gets out of sync with the generated catalogue or sidebar.
+    shell = read(SHELL)
+    if '<main className="main-panel" data-module-accent={moduleAccentForPath(location.pathname)}>' not in shell:
+        fail('active-route module accent is missing from the main application shell')
+    css = read(BRAND)
+    if '/* LEXA-MODULE-VISUAL-INTEGRATION-V3 */' not in css:
+        fail('module visual integration V3 was not preserved in the brand stylesheet')
     catalog = read(SRC / 'modules/operations/moduleCatalog.ts')
     shell = read(SHELL)
     accent_source = read(SRC / 'domain/shared/moduleAccents.ts')

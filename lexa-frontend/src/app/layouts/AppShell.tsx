@@ -276,7 +276,7 @@ export default function AppShell() {
           </div>
         </aside>
 
-        <main className="main-panel">
+        <main className="main-panel" data-module-accent={moduleAccentForPath(location.pathname)}>
           <header className="topbar">
             <div className="topbar-title"><button className="icon-button mobile-menu-button" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}><Menu size={20} /></button><div><div className="eyebrow">BUSINESS WORKSPACE</div><h1>{routeTitle(location.pathname)}</h1></div></div>
             <div className="topbar-actions">

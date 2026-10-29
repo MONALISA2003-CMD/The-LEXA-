@@ -387,3 +387,212 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
   color: var(--module-accent-strong);
 }
 
+/* LEXA-MODULE-VISUAL-INTEGRATION-V3 */
+/*
+ * Visible module identity across the whole workspace. Module identity colours
+ * describe the area of work; semantic status colours and the primary blue action
+ * system stay unchanged. This intentionally scopes to the active route at the
+ * shell so older core pages without their own data attribute are themed too.
+ */
+.main-panel[data-module-accent] {
+  --module-card-wash: var(--module-accent-wash, rgba(var(--module-accent-rgb, 6,19,47), .055));
+  border-bottom: 0;
+  box-shadow: inset 0 3px 0 var(--module-accent-border, var(--color-border));
+}
+.main-panel[data-module-accent] .page-content .page-stack {
+  accent-color: var(--module-accent, var(--lexa-navy));
+}
+
+/* Route header: an unmistakable but restrained module signature. */
+.main-panel[data-module-accent] .page-content .page-stack > .page-heading-row {
+  position: relative;
+  isolation: isolate;
+  padding: 17px 19px;
+  border: 1px solid var(--module-accent-border, var(--color-border));
+  border-left: 4px solid var(--module-accent, var(--lexa-navy));
+  border-radius: 14px;
+  background: linear-gradient(105deg, var(--module-accent-soft, #e8edf4) 0%, var(--color-surface, #fff) 78%);
+  box-shadow: 0 5px 18px rgba(6, 19, 47, .035);
+}
+.main-panel[data-module-accent] .page-content .page-stack > .page-heading-row .eyebrow-blue,
+.main-panel[data-module-accent] .page-content .page-stack .module-heading .eyebrow-blue,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-heading .eyebrow-blue {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+  padding: 5px 9px;
+  border: 1px solid var(--module-accent-border, var(--color-border));
+  border-radius: 999px;
+  background: var(--module-accent-soft, #e8edf4);
+  color: var(--module-accent-strong, var(--lexa-navy-2));
+  letter-spacing: .12em;
+}
+.main-panel[data-module-accent] .page-content .page-stack > .page-heading-row .eyebrow-blue::before,
+.main-panel[data-module-accent] .page-content .page-stack .module-heading .eyebrow-blue::before,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-heading .eyebrow-blue::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--module-accent, var(--lexa-navy));
+  box-shadow: 0 0 0 3px var(--module-card-wash);
+}
+.main-panel[data-module-accent] .page-content .page-stack > .page-heading-row h2,
+.main-panel[data-module-accent] .page-content .page-stack .module-heading h2,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-heading h2 {
+  text-decoration: none;
+  color: var(--module-accent-strong, var(--lexa-navy-2));
+  letter-spacing: -.045em;
+}
+.main-panel[data-module-accent] .topbar {
+  box-shadow: inset 0 -2px 0 var(--module-accent-border, var(--color-border));
+}
+
+/* Every large panel participates in the active module identity. Keep the base
+   surface neutral; use borders, header wells and small accent washes for colour. */
+.main-panel[data-module-accent] .page-content .page-stack > .section-card,
+.main-panel[data-module-accent] .page-content .page-stack > .operational-panel,
+.main-panel[data-module-accent] .page-content .page-stack > .table-card,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-table-card,
+.main-panel[data-module-accent] .page-content .page-stack .phase-report-chart,
+.main-panel[data-module-accent] .page-content .page-stack .phase-report-questions,
+.main-panel[data-module-accent] .page-content .page-stack .settings-form-card,
+.main-panel[data-module-accent] .page-content .page-stack .integration-card,
+.main-panel[data-module-accent] .page-content .page-stack .privacy-card {
+  border-top: 2px solid var(--module-accent-border, var(--color-border));
+}
+.main-panel[data-module-accent] .page-content .page-stack .section-card-heading,
+.main-panel[data-module-accent] .page-content .page-stack .table-toolbar,
+.main-panel[data-module-accent] .page-content .page-stack .checkout-section-heading {
+  background: linear-gradient(90deg, var(--module-card-wash), transparent 76%);
+}
+.main-panel[data-module-accent] .page-content .page-stack .section-card-heading .heading-icon,
+.main-panel[data-module-accent] .page-content .page-stack .table-toolbar .heading-icon,
+.main-panel[data-module-accent] .page-content .page-stack .checkout-section-heading .round-icon,
+.main-panel[data-module-accent] .page-content .page-stack .empty-state .empty-icon,
+.main-panel[data-module-accent] .page-content .page-stack .integration-icon,
+.main-panel[data-module-accent] .page-content .page-stack .privacy-item > svg {
+  color: var(--module-accent-strong, var(--lexa-navy-2));
+  background: var(--module-accent-soft, #e8edf4);
+  border-color: var(--module-accent-border, var(--color-border));
+}
+
+/* Metric cards now carry an accent rail and a module-coloured numeric emphasis.
+   Status values/classes are excluded so their operational meaning never shifts. */
+.main-panel[data-module-accent] .page-content .page-stack .metric-strip > .mini-metric,
+.main-panel[data-module-accent] .page-content .page-stack .metric-card {
+  position: relative;
+  overflow: hidden;
+  border-top: 2px solid var(--module-accent-border, var(--color-border));
+}
+.main-panel[data-module-accent] .page-content .page-stack .metric-strip > .mini-metric::before,
+.main-panel[data-module-accent] .page-content .page-stack .metric-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--module-accent, var(--lexa-navy));
+  opacity: .9;
+}
+.main-panel[data-module-accent] .page-content .page-stack .metric-strip > .mini-metric > span:first-child {
+  color: var(--module-accent-strong, var(--color-text-secondary));
+}
+.main-panel[data-module-accent] .page-content .page-stack .metric-icon[data-module-accent],
+.main-panel[data-module-accent] .page-content .page-stack .metric-icon:not([data-module-accent]),
+.main-panel[data-module-accent] .page-content .page-stack .quick-action-icon:not([data-module-accent]) {
+  border-color: var(--module-accent-border, var(--color-border));
+}
+
+/* Table identity is visible at rest (not only while hovering). Semantic status
+   pills remain governed by their own status-good/warning/danger classes. */
+.main-panel[data-module-accent] .page-content .page-stack .data-table thead th,
+.main-panel[data-module-accent] .page-content .page-stack .data-table tfoot td,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-table th {
+  color: var(--module-accent-strong, var(--color-text-secondary));
+  background: var(--module-accent-soft, var(--color-surface-muted));
+  border-color: var(--module-accent-border, var(--color-border));
+}
+.main-panel[data-module-accent] .page-content .page-stack .data-table tbody tr:hover,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-table tbody tr:hover {
+  background: var(--module-card-wash);
+}
+.main-panel[data-module-accent] .page-content .page-stack .table-toolbar .muted-count,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-table-footer,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-table-wrap {
+  border-color: var(--module-accent-border, var(--color-border));
+}
+
+/* Search, date and select controls show module identity at rest. Focus is always
+   cyan, regardless of module, to preserve consistent keyboard feedback. */
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-search,
+.main-panel[data-module-accent] .page-content .page-stack .search-field,
+.main-panel[data-module-accent] .page-content .page-stack .phase-filter-select,
+.main-panel[data-module-accent] .page-content .page-stack .phase-date-filter {
+  border-color: var(--module-accent-border, var(--color-border-control));
+}
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-search > svg,
+.main-panel[data-module-accent] .page-content .page-stack .phase-filter-select > svg,
+.main-panel[data-module-accent] .page-content .page-stack .phase-date-filter > svg,
+.main-panel[data-module-accent] .page-content .page-stack .phase-clear-filters,
+.main-panel[data-module-accent] .page-content .page-stack .phase-report-link > svg,
+.main-panel[data-module-accent] .page-content .page-stack .metric-card-link {
+  color: var(--module-accent-strong, var(--color-text-secondary));
+}
+.main-panel[data-module-accent] .page-content .page-stack input:focus,
+.main-panel[data-module-accent] .page-content .page-stack select:focus,
+.main-panel[data-module-accent] .page-content .page-stack textarea:focus,
+.main-panel[data-module-accent] .page-content .page-stack .search-field:focus-within,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-search:focus-within {
+  border-color: var(--color-focus, #047fba);
+  box-shadow: 0 0 0 3px var(--color-focus-ring, rgba(8,189,235,.38));
+}
+
+/* Module directories and launch cards use their own explicit per-module accents. */
+.module-group[data-module-accent] .module-group-heading {
+  border-bottom: 1px solid var(--module-accent-border);
+  background: linear-gradient(90deg, var(--module-accent-soft), transparent 75%);
+}
+.module-directory-card[data-module-accent] {
+  border-left: 4px solid var(--module-accent-border);
+  background: linear-gradient(112deg, var(--module-accent-soft), var(--color-surface) 76%);
+}
+.module-directory-card[data-module-accent] .module-directory-icon {
+  border: 1px solid var(--module-accent-border);
+}
+.module-directory-card[data-module-accent]:hover {
+  transform: translateY(-2px);
+  border-left-color: var(--module-accent);
+  box-shadow: 0 12px 28px rgba(6, 19, 47, .09);
+}
+
+/* Dashboard stays anchored in LEXA navy/blue; module accents differentiate its
+   individual action tiles without turning the whole page into a colour block. */
+.dashboard-page[data-module-accent] .quick-actions-grid > button:hover,
+.dashboard-page[data-module-accent] .phase-two-launch-grid > button:hover {
+  border-color: var(--module-accent-border);
+  box-shadow: 0 9px 25px rgba(6, 19, 47, .085);
+}
+
+/* Dark mode preserves bright accent edges without introducing white surfaces. */
+:root[data-theme=dark] .main-panel[data-module-accent] .page-content .page-stack > .page-heading-row {
+  background: linear-gradient(105deg, var(--module-accent-soft) 0%, var(--color-surface) 78%);
+  box-shadow: none;
+}
+:root[data-theme=dark] .main-panel[data-module-accent] .page-content .page-stack .section-card-heading,
+:root[data-theme=dark] .main-panel[data-module-accent] .page-content .page-stack .table-toolbar,
+:root[data-theme=dark] .main-panel[data-module-accent] .page-content .page-stack .checkout-section-heading {
+  background: linear-gradient(90deg, var(--module-card-wash), transparent 76%);
+}
+
+@media (max-width: 760px) {
+  .main-panel[data-module-accent] .page-content .page-stack > .page-heading-row {
+    align-items: flex-start;
+    padding: 13px 14px;
+    gap: 12px;
+    border-radius: 12px;
+  }
+  .main-panel[data-module-accent] .page-content .page-stack > .page-heading-row h2 { font-size: clamp(22px, 5.5vw, 27px); }
+}
+

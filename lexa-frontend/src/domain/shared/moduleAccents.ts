@@ -13,5 +13,19 @@ export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> =
 export const MODULE_ACCENTS_BY_GROUP: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
   WORKSPACE:'navy',CRM:'emerald','CRM & GROWTH':'emerald',SELLING:'blue',INVENTORY:'cyan',LOGISTICS:'cyan',PROCUREMENT:'orange',FINANCE:'gold','PEOPLE & PAYROLL':'emerald','INTEGRATION & CONTROL':'cyan',INSIGHTS:'gold',ADMINISTRATION:'navy',MANUFACTURING:'cyan',
 });
-export function moduleAccentForPath(path: string): ModuleAccentKey { return MODULE_ACCENTS_BY_PATH[path] ?? 'navy'; }
+export function moduleAccentForPath(path: string): ModuleAccentKey {
+  const pathname = path.split(/[?#]/, 1)[0]?.replace(new RegExp('/+$'), '') || '/';
+  const exact = MODULE_ACCENTS_BY_PATH[pathname];
+  if (exact) return exact;
+  let matchedPath = '';
+  let matchedAccent: ModuleAccentKey | undefined;
+  for (const [configuredPath, accent] of Object.entries(MODULE_ACCENTS_BY_PATH)) {
+    if (configuredPath === '/' || !pathname.startsWith(configuredPath + '/')) continue;
+    if (configuredPath.length > matchedPath.length) {
+      matchedPath = configuredPath;
+      matchedAccent = accent;
+    }
+  }
+  return matchedAccent ?? 'navy';
+}
 export function moduleAccentForGroup(group: string): ModuleAccentKey { return MODULE_ACCENTS_BY_GROUP[group.trim().toUpperCase()] ?? 'navy'; }
