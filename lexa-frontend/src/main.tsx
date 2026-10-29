@@ -6,6 +6,7 @@ import { router } from './app/router';
 import './styles/index.css';
 import './styles/phase-two.css';
 import './styles/lexa-brand.css';
+import './styles/backend-status.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Building2, Check, Plus, Store } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
-import { localWorkspaceRepository } from '../../data/local/workspaces';
+import { workspaces } from '../../data/repositories';
 import { toast } from 'sonner';
 
 export default function WorkspacePage() {
@@ -16,7 +16,7 @@ export default function WorkspacePage() {
     event.preventDefault();
     setBusy(true);
     try {
-      const created = await localWorkspaceRepository.create({
+      const created = await workspaces.create({
         businessName: newBusinessName, businessType: newBusinessType, branchName: newBranchName,
         currency: workspace.currency, timezone: workspace.timezone,
       });
@@ -34,7 +34,7 @@ export default function WorkspacePage() {
     event.preventDefault();
     setBusy(true);
     try {
-      await localWorkspaceRepository.createBranch({ workspaceId: workspace.id, name: branchName });
+      await workspaces.createBranch({ workspaceId: workspace.id, name: branchName });
       setBranchName('');
       await setActiveWorkspace(workspace.id);
       toast.success('Branch added');

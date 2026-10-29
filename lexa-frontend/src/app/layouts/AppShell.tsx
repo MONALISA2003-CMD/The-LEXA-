@@ -1,18 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import {
   Activity, ArrowDownUp, Banknote, Bell, BookOpen, Building2, BarChart3, ChevronDown, Target, Boxes, Plug,
   CircleHelp, ClipboardList, Command, CreditCard, FileText, LayoutDashboard, Menu,
   Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X, Moon, Sun,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { localWorkspaceRepository } from '../../data/local/workspaces';
+import { workspaces as workspaceRepository } from '../../data/repositories';
+import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { WorkspaceContext } from '../WorkspaceContext';
 import type { Branch, Workspace } from '../../domain/shared/types';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
 
 const ACTIVE_WORKSPACE_KEY = 'lexa.ui.activeWorkspaceId';
 const ACTIVE_BRANCH_KEY = 'lexa.ui.activeBranchId';
+
+function readPreference(key: string): string | null { try { return window.localStorage.getItem(key); } catch { return null; } }
+function writePreference(key: string, value: string): void { try { window.localStorage.setItem(key, value); } catch { /* Server-backed data must not depend on preferences being writable. */ } }
+function removePreference(key: string): void { try { window.localStorage.removeItem(key); } catch { /* Preferences are non-critical. */ } }
+function errorMessage(error: unknown): string { return error instanceof Error ? error.message : 'The request could not be completed.'; }
+function errorStatus(error: unknown): number | null { return error && typeof error === 'object' && 'status' in error && typeof (error as { status?: unknown }).status === 'number' ? (error as { status: number }).status : null; }
 
 const navSections = [
   { title: 'WORKSPACE', items: [
@@ -100,20 +107,23 @@ function routeTitle(pathname: string): string {
 
 export default function AppShell() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadErrorStatus, setLoadErrorStatus] = useState<number | null>(null);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [resolvedBranchWorkspaceId, setResolvedBranchWorkspaceId] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [uiMode, setUiMode] = useState<'simple' | 'advanced'>(() => {
-    try { return window.localStorage.getItem('lexa.ui.mode') === 'advanced' ? 'advanced' : 'simple'; }
+    try { return readPreference('lexa.ui.mode') === 'advanced' ? 'advanced' : 'simple'; }
     catch { return 'simple'; }
   });
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    try { return window.localStorage.getItem('lexa.ui.theme') === 'dark' ? 'dark' : 'light'; }
+    try { return readPreference('lexa.ui.theme') === 'dark' ? 'dark' : 'light'; }
     catch { return 'light'; }
   });
   useEffect(() => {
@@ -142,29 +152,36 @@ export default function AppShell() {
   ];
 
   const refreshWorkspaces = useCallback(async () => {
-    const items = await localWorkspaceRepository.list();
+    try {
+    const items = await workspaceRepository.list();
+    setLoadError(null);
+    setLoadErrorStatus(null);
     setWorkspaces(items);
-    const savedId = localStorage.getItem(ACTIVE_WORKSPACE_KEY);
+    const savedId = readPreference(ACTIVE_WORKSPACE_KEY);
     const chosen = items.find((item) => item.id === savedId) ?? items[0] ?? null;
     if (chosen) {
-      localStorage.setItem(ACTIVE_WORKSPACE_KEY, chosen.id);
+      writePreference(ACTIVE_WORKSPACE_KEY, chosen.id);
       setWorkspace(chosen);
     } else setWorkspace(null);
+    } catch (error) { setLoadError(errorMessage(error)); setLoadErrorStatus(errorStatus(error)); throw error; }
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const items = await localWorkspaceRepository.list();
+        const items = await workspaceRepository.list();
         if (cancelled) return;
         setWorkspaces(items);
-        const savedId = localStorage.getItem(ACTIVE_WORKSPACE_KEY);
+        setLoadError(null);
+        setLoadErrorStatus(null);
+        const savedId = readPreference(ACTIVE_WORKSPACE_KEY);
         const chosen = items.find((item) => item.id === savedId) ?? items[0] ?? null;
         setWorkspace(chosen);
-        if (chosen) localStorage.setItem(ACTIVE_WORKSPACE_KEY, chosen.id);
-      } catch {
-        toast.error('Could not open local workspace', { description: 'Check browser storage permissions and reload the page.' });
+        if (chosen) writePreference(ACTIVE_WORKSPACE_KEY, chosen.id);
+      } catch (error) {
+        if (!cancelled) { setLoadError(errorMessage(error)); setLoadErrorStatus(errorStatus(error)); }
+        if (!isApiProvider) toast.error('Could not open the workspace', { description: errorMessage(error) });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -189,16 +206,19 @@ export default function AppShell() {
     setBranch(null);
     void (async () => {
       try {
-        const items = await localWorkspaceRepository.listBranches(workspace.id);
+        const items = await workspaceRepository.listBranches(workspace.id);
         if (cancelled) return;
+        setLoadError(null);
+        setLoadErrorStatus(null);
         setBranches(items);
-        const savedId = localStorage.getItem(ACTIVE_BRANCH_KEY);
+        const savedId = readPreference(ACTIVE_BRANCH_KEY);
         const chosen = items.find((item) => item.id === savedId) ?? items[0] ?? null;
         setBranch(chosen);
-        if (chosen) localStorage.setItem(ACTIVE_BRANCH_KEY, chosen.id);
-        else localStorage.removeItem(ACTIVE_BRANCH_KEY);
-      } catch {
-        if (!cancelled) toast.error('Could not load branches for this workspace.');
+        if (chosen) writePreference(ACTIVE_BRANCH_KEY, chosen.id);
+        else removePreference(ACTIVE_BRANCH_KEY);
+      } catch (error) {
+        if (!cancelled) { setLoadError(errorMessage(error)); setLoadErrorStatus(errorStatus(error)); }
+        if (!cancelled && !isApiProvider) toast.error('Could not load branches for this workspace.', { description: errorMessage(error) });
       } finally {
         if (!cancelled) {
           setBranchesLoading(false);
@@ -210,24 +230,32 @@ export default function AppShell() {
   }, [workspace]);
 
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    const handleAuthRequired = () => navigate('/sign-in', { replace: true, state: { returnTo: location.pathname } });
+    window.addEventListener('lexa:auth-required', handleAuthRequired);
+    return () => window.removeEventListener('lexa:auth-required', handleAuthRequired);
+  }, [navigate, location.pathname]);
 
   const setActiveWorkspace = useCallback(async (workspaceId: string) => {
-    const latestWorkspaces = await localWorkspaceRepository.list();
-    setWorkspaces(latestWorkspaces);
-    const found = latestWorkspaces.find((item) => item.id === workspaceId);
-    if (!found) { toast.error('Business workspace not found.'); return; }
-    localStorage.setItem(ACTIVE_WORKSPACE_KEY, found.id);
-    localStorage.removeItem(ACTIVE_BRANCH_KEY);
-    setBranches([]);
-    setBranch(null);
-    setWorkspace(found);
-    toast.success(`Switched to ${found.businessName}`);
+    try {
+      const latestWorkspaces = await workspaceRepository.list();
+      setWorkspaces(latestWorkspaces);
+      const found = latestWorkspaces.find((item) => item.id === workspaceId);
+      if (!found) { toast.error('Business workspace not found.'); return; }
+      writePreference(ACTIVE_WORKSPACE_KEY, found.id);
+      removePreference(ACTIVE_BRANCH_KEY);
+      setBranches([]);
+      setBranch(null);
+      setLoadError(null);
+      setWorkspace(found);
+      toast.success(`Switched to ${found.businessName}`);
+    } catch (error) { toast.error('Could not switch business workspace', { description: errorMessage(error) }); }
   }, []);
 
   const setActiveBranch = useCallback((branchId: string) => {
     const found = branches.find((item) => item.id === branchId);
     if (!found) { toast.error('Branch not found.'); return; }
-    localStorage.setItem(ACTIVE_BRANCH_KEY, found.id);
+    writePreference(ACTIVE_BRANCH_KEY, found.id);
     setBranch(found);
     toast.success(`Branch changed to ${found.name}`);
   }, [branches]);
@@ -237,6 +265,7 @@ export default function AppShell() {
     return { workspaces, workspace, branches, branch, setActiveWorkspace, setActiveBranch, refreshWorkspaces };
   }, [workspaces, workspace, branches, branch, setActiveWorkspace, setActiveBranch, refreshWorkspaces]);
 
+  if (loadError) return <div className="backend-block-screen"><section className="backend-block-card"><div className="backend-block-mark">LEXA</div><div className="eyebrow eyebrow-blue">WORKSPACE CONNECTION</div><h1>{loadErrorStatus === 401 ? 'Sign in to your business workspace' : isApiProvider ? 'Backend connection required' : 'Workspace could not be opened'}</h1><p className="backend-block-message">{loadErrorStatus === 401 ? 'Your session is missing or has expired.' : loadError}</p><p>{loadErrorStatus === 401 ? 'Sign in using the account that has access to this business. Access to each workspace and branch is checked by the backend.' : isApiProvider ? 'LEXA is in server-backed mode and will not silently switch to browser-only storage. Check VITE_API_BASE_URL, the API server, CORS and the backend contract.' : 'Check that browser storage is available, then retry.'}</p><div className="backend-block-actions"><button className="button button-primary" onClick={() => window.location.reload()}>Retry connection</button>{loadErrorStatus === 401 ? <a className="button button-secondary" href="/sign-in">Sign in</a> : <button className="button button-secondary" onClick={() => { window.location.href = '/onboarding'; }}>Open business setup</button>}</div><small>Request failed before the workspace could be verified. No local fallback was used.</small></section></div>;
   if (loading || (workspace && (branchesLoading || resolvedBranchWorkspaceId !== workspace.id))) return <div className="boot-screen"><div className="brand-mark">L</div><span>Opening your workspace…</span></div>;
   if (!workspace) return <Navigate to="/onboarding" replace />;
   if (!branch) return <Navigate to="/onboarding" replace />;

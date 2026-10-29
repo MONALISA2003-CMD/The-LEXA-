@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
+import { isApiProvider } from '../../data/remote/runtimeConfig';
+import { apiBusinessTools } from '../../data/remote/apiBusinessTools';
 import { formatMinorAmount, minorUnitFactor } from '../../domain/money/money';
 import {
   createLocalDatabaseBackup, importOpeningStockCsv, importProductsCsv, loadBusinessToolsSnapshot,
@@ -29,7 +31,7 @@ type CashUp = {
 };
 type LocalAttachment = {
   id: string; workspaceId: string; branchId: string; reference: string; kind: 'product' | 'receipt' | 'other';
-  name: string; mimeType: string; size: number; capturedAt: string; blob: Blob;
+  name: string; mimeType: string; size: number; capturedAt: string; blob?: Blob;
 };
 type BarcodeResult = { rawValue?: string };
 type BarcodeDetectorInstance = { detect: (source: HTMLVideoElement) => Promise<BarcodeResult[]> };
@@ -43,7 +45,6 @@ const TAX_SECTORS = [
   ['arts-recreation', 'Arts, entertainment and recreation'], ['fuel', 'Fuel wholesale and retail'], ['pharmacy', 'Pharmacy / health retail'],
   ['salon', 'Salon / personal services'], ['agro-inputs', 'Agricultural inputs'], ['other', 'Other / not sure'],
 ] as const;
-const SECTOR_CODES_REPORTED_AS_EFRIS = new Set(['manufacturing', 'mining', 'water-waste', 'utilities', 'construction', 'transport', 'accommodation-food', 'it-communications', 'real-estate', 'professional', 'arts-recreation', 'fuel']);
 const PROFILE_KEY = 'lexa.tools.tax-profile.v1';
 const CASHUP_KEY = 'lexa.tools.cash-ups.v1';
 const COMPLIANCE_KEY = 'lexa.tools.compliance-notes.v1';
@@ -52,10 +53,10 @@ const ATTACHMENT_DB_NAME = 'lexa-local-attachments';
 const ATTACHMENT_STORE = 'attachments';
 
 const defaultTaxProfile: TaxProfile = {
-  tin: '', vatRegistered: false, sector: 'retail', efrisOverride: 'auto',
-  vatThreshold: '300000000', efrisTurnoverThreshold: '10000000',
-  ruleSource: 'LEXA Engineering Concept §10.1, dated 28 October 2026; source facts require URA / qualified tax adviser verification.',
-  ruleEffectiveFrom: '2026-07-01',
+  tin: '', vatRegistered: false, sector: 'other', efrisOverride: 'auto',
+  vatThreshold: '', efrisTurnoverThreshold: '',
+  ruleSource: '',
+  ruleEffectiveFrom: '',
 };
 
 function readJson<T>(key: string, fallback: T): T {
@@ -152,8 +153,8 @@ export default function BusinessToolsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<ToolTab>('overview');
-  const [uiMode, setUiMode] = useState<UiMode>(() => localStorage.getItem(UI_MODE_KEY) === 'advanced' ? 'advanced' : 'simple');
-  const [profile, setProfile] = useState<TaxProfile>(() => parseProfile(workspace.id));
+  const [uiMode, setUiMode] = useState<UiMode>(() => { try { return localStorage.getItem(UI_MODE_KEY) === 'advanced' ? 'advanced' : 'simple'; } catch { return 'simple'; } });
+  const [profile, setProfile] = useState<TaxProfile>(() => isApiProvider ? defaultTaxProfile : parseProfile(workspace.id));
   const [searchValue, setSearchValue] = useState('');
   const [cashDate, setCashDate] = useState(() => localDateForZone(workspace.timezone));
   const [openingFloat, setOpeningFloat] = useState('0');
@@ -161,8 +162,8 @@ export default function BusinessToolsPage() {
   const [otherCashOut, setOtherCashOut] = useState('0');
   const [countedCash, setCountedCash] = useState('');
   const [cashReason, setCashReason] = useState('');
-  const [cashUps, setCashUps] = useState<CashUp[]>(() => readCashUps());
-  const [complianceNotes, setComplianceNotes] = useState<ComplianceNote[]>(() => readComplianceNotes(workspace.id));
+  const [cashUps, setCashUps] = useState<CashUp[]>(() => isApiProvider ? [] : readCashUps());
+  const [complianceNotes, setComplianceNotes] = useState<ComplianceNote[]>(() => isApiProvider ? [] : readComplianceNotes(workspace.id));
   const [documentType, setDocumentType] = useState('Sales invoice');
   const [internalReference, setInternalReference] = useState('');
   const [fdn, setFdn] = useState('');
@@ -187,8 +188,12 @@ export default function BusinessToolsPage() {
 
   const snapshotQuery = useQuery({
     queryKey: ['business-tools', workspace.id, branch.id],
-    queryFn: () => loadBusinessToolsSnapshot(workspace.id, branch.id),
+    queryFn: () => isApiProvider ? apiBusinessTools.snapshot(workspace.id, branch.id) : loadBusinessToolsSnapshot(workspace.id, branch.id),
   });
+  const taxProfileQuery = useQuery({ queryKey: ['business-tools-tax-profile', workspace.id], enabled: isApiProvider, queryFn: () => apiBusinessTools.getTaxProfile(workspace.id) });
+  const cashUpsQuery = useQuery({ queryKey: ['business-tools-cash-ups', workspace.id, branch.id], enabled: isApiProvider, queryFn: () => apiBusinessTools.listCashUps(workspace.id, branch.id) });
+  const complianceNotesQuery = useQuery({ queryKey: ['business-tools-compliance-notes', workspace.id], enabled: isApiProvider, queryFn: () => apiBusinessTools.listComplianceNotes(workspace.id) });
+  const attachmentsQuery = useQuery({ queryKey: ['business-tools-attachments', workspace.id], enabled: isApiProvider, queryFn: () => apiBusinessTools.listAttachments(workspace.id) });
   const snapshot = snapshotQuery.data;
   const refreshSnapshot = async () => {
     await queryClient.invalidateQueries({ queryKey: ['business-tools', workspace.id, branch.id] });
@@ -200,17 +205,26 @@ export default function BusinessToolsPage() {
   };
 
   useEffect(() => {
+    if (isApiProvider) {
+      setProfile(defaultTaxProfile); setComplianceNotes([]); setCashUps([]); setAttachments([]);
+      return;
+    }
     setProfile(parseProfile(workspace.id));
     setComplianceNotes(readComplianceNotes(workspace.id));
     setCashUps(readCashUps());
   }, [workspace.id]);
   useEffect(() => {
+    if (isApiProvider) return;
     let alive = true;
     void listAttachments(workspace.id).then((items) => { if (alive) setAttachments(items); }).catch(() => { if (alive) setAttachments([]); });
     return () => { alive = false; };
   }, [workspace.id]);
+  useEffect(() => { if (taxProfileQuery.data) setProfile(taxProfileQuery.data); }, [taxProfileQuery.data]);
+  useEffect(() => { if (cashUpsQuery.data) setCashUps(cashUpsQuery.data); }, [cashUpsQuery.data]);
+  useEffect(() => { if (complianceNotesQuery.data) setComplianceNotes(complianceNotesQuery.data); }, [complianceNotesQuery.data]);
+  useEffect(() => { if (attachmentsQuery.data) setAttachments(attachmentsQuery.data as LocalAttachment[]); }, [attachmentsQuery.data]);
   useEffect(() => {
-    localStorage.setItem(UI_MODE_KEY, uiMode);
+    try { localStorage.setItem(UI_MODE_KEY, uiMode); } catch { /* appearance preference is optional */ }
     window.dispatchEvent(new CustomEvent('lexa:ui-mode-change', { detail: uiMode }));
   }, [uiMode]);
   useEffect(() => () => {
@@ -238,12 +252,12 @@ export default function BusinessToolsPage() {
   const rollingGrossMinor = rollingSales.reduce((sum, sale) => sum + sale.totalMinor, 0);
   const rollingReturnsMinor = (snapshot?.returns ?? []).filter((record) => rollingIds.has(record.saleId)).reduce((sum, record) => sum + record.totalMinor, 0);
   const rollingTurnoverMinor = Math.max(0, rollingGrossMinor - rollingReturnsMinor);
-  const vatThresholdMinor = Math.max(1, Number(profile.vatThreshold) || 300000000);
-  const efrisThresholdMinor = Math.max(1, Number(profile.efrisTurnoverThreshold) || 10000000);
+  const vatThresholdValue = Number(profile.vatThreshold);
+  const vatThresholdConfigured = profile.vatThreshold.trim() !== '' && Number.isFinite(vatThresholdValue) && vatThresholdValue > 0;
+  const vatThresholdMinor = vatThresholdConfigured ? Math.round(vatThresholdValue * currencyFactor) : 0;
   const taxCurrencySupported = workspace.currency === 'UGX';
-  const vatThresholdSignal = taxCurrencySupported && rollingTurnoverMinor >= vatThresholdMinor;
-  const efrisPossibleBySector = taxCurrencySupported && SECTOR_CODES_REPORTED_AS_EFRIS.has(profile.sector) && rollingTurnoverMinor >= efrisThresholdMinor;
-  const efrisPossible = profile.efrisOverride === 'yes' ? true : profile.efrisOverride === 'no' ? false : profile.vatRegistered || vatThresholdSignal || efrisPossibleBySector;
+  const vatThresholdSignal = taxCurrencySupported && vatThresholdConfigured && rollingTurnoverMinor >= vatThresholdMinor;
+  const efrisPossible = profile.efrisOverride === 'yes' ? true : profile.efrisOverride === 'no' ? false : profile.vatRegistered || vatThresholdSignal;
 
   const matchedProducts = useMemo(() => {
     const q = searchValue.trim().toLocaleLowerCase();
@@ -311,7 +325,7 @@ export default function BusinessToolsPage() {
     }
   }
 
-  function saveCashUp(event: FormEvent<HTMLFormElement>): void {
+  async function saveCashUp(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (countedCashMinor === null || !Number.isFinite(countedCashMinor)) { toast.error('Enter the counted cash amount.'); return; }
     if ([openingFloat, otherCashIn, otherCashOut, countedCash].some((value) => !Number.isFinite(Number(value)) || Number(value) < 0)) { toast.error('Cash-up amounts must be valid non-negative numbers.'); return; }
@@ -323,35 +337,70 @@ export default function BusinessToolsPage() {
       otherCashOutMinor: Math.round((Number(otherCashOut) || 0) * currencyFactor),
       expectedCashMinor: Math.round(expectedCashMinor), countedCashMinor: Math.round(countedCashMinor), varianceMinor: Math.round(varianceMinor ?? 0), reason: cashReason.trim(), savedAt: new Date().toISOString(),
     };
-    const next = [...readCashUps().filter((item) => !(item.workspaceId === workspace.id && item.branchId === branch.id && item.date === cashDate)), record];
-    writeJson(CASHUP_KEY, next); setCashUps(next); toast.success('Cash-up saved locally', { description: 'This compares recorded cash entries with your count; it is not a bank or mobile-money reconciliation.' });
+    setBusy(true);
+    try {
+      if (isApiProvider) {
+        const saved = await apiBusinessTools.saveCashUp(record);
+        setCashUps((current) => [...current.filter((item) => !(item.workspaceId === saved.workspaceId && item.branchId === saved.branchId && item.date === saved.date)), saved]);
+        await queryClient.invalidateQueries({ queryKey: ['business-tools-cash-ups', workspace.id, branch.id] });
+        toast.success('Cash-up saved to the backend', { description: 'This compares recorded cash entries with your count; it is not a bank or mobile-money reconciliation.' });
+      } else {
+        const next = [...readCashUps().filter((item) => !(item.workspaceId === workspace.id && item.branchId === branch.id && item.date === cashDate)), record];
+        writeJson(CASHUP_KEY, next); setCashUps(next); toast.success('Cash-up saved on this device', { description: 'This compares recorded cash entries with your count; it is not a bank or mobile-money reconciliation.' });
+      }
+    } catch (error) { toast.error('Cash-up was not saved', { description: error instanceof Error ? error.message : 'Check the backend connection and retry.' }); }
+    finally { setBusy(false); }
   }
 
-  function saveTaxProfile(event: FormEvent<HTMLFormElement>): void {
+  async function saveTaxProfile(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (!Number.isFinite(Number(profile.vatThreshold)) || Number(profile.vatThreshold) <= 0 || !Number.isFinite(Number(profile.efrisTurnoverThreshold)) || Number(profile.efrisTurnoverThreshold) <= 0) {
-      toast.error('Enter positive turnover thresholds.'); return;
+    for (const [label, value] of [['VAT', profile.vatThreshold], ['EFRIS', profile.efrisTurnoverThreshold]] as const) {
+      if (value.trim() && (!Number.isFinite(Number(value)) || Number(value) <= 0)) { toast.error(`${label} threshold must be a positive number or left blank until verified.`); return; }
     }
-    saveProfile(workspace.id, profile);
-    toast.success('Tax profile saved on this device', { description: 'Thresholds and applicability remain provisional guidance, not a tax determination.' });
+    setBusy(true);
+    try {
+      if (isApiProvider) {
+        const saved = await apiBusinessTools.saveTaxProfile(workspace.id, profile);
+        setProfile(saved);
+        await queryClient.invalidateQueries({ queryKey: ['business-tools-tax-profile', workspace.id] });
+        toast.success('Tax profile saved to the backend', { description: 'The thresholds remain user-configured guidance, not a legal/tax determination.' });
+      } else {
+        saveProfile(workspace.id, profile);
+        toast.success('Tax profile saved on this device', { description: 'The thresholds remain user-configured guidance, not a legal/tax determination.' });
+      }
+    } catch (error) { toast.error('Tax profile was not saved', { description: error instanceof Error ? error.message : 'Check the backend connection and retry.' }); }
+    finally { setBusy(false); }
   }
 
-  function saveComplianceNote(event: FormEvent<HTMLFormElement>): void {
+  async function saveComplianceNote(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (!internalReference.trim()) { toast.error('Enter the internal invoice or receipt reference.'); return; }
-    const note: ComplianceNote = { id: safeId('tax-note'), date: new Date().toISOString().slice(0, 10), documentType, internalReference: internalReference.trim(), fdn: fdn.trim(), status: fdnStatus, notes: complianceNoteText.trim() };
-    const next = [note, ...readComplianceNotes(workspace.id)];
-    writeJson(`${COMPLIANCE_KEY}:${workspace.id}`, next); setComplianceNotes(next);
-    setInternalReference(''); setFdn(''); setComplianceNoteText(''); toast.success('Manual tax reference saved locally');
+    const note = { date: new Date().toISOString().slice(0, 10), documentType, internalReference: internalReference.trim(), fdn: fdn.trim(), status: fdnStatus, notes: complianceNoteText.trim() };
+    setBusy(true);
+    try {
+      if (isApiProvider) {
+        const saved = await apiBusinessTools.createComplianceNote(workspace.id, note);
+        setComplianceNotes((current) => [saved, ...current]);
+        await queryClient.invalidateQueries({ queryKey: ['business-tools-compliance-notes', workspace.id] });
+        toast.success('Document reference saved to the backend');
+      } else {
+        const localNote: ComplianceNote = { ...note, id: safeId('tax-note') };
+        const next = [localNote, ...readComplianceNotes(workspace.id)];
+        writeJson(`${COMPLIANCE_KEY}:${workspace.id}`, next); setComplianceNotes(next);
+        toast.success('Manual tax reference saved on this device');
+      }
+      setInternalReference(''); setFdn(''); setComplianceNoteText('');
+    } catch (error) { toast.error('Document reference was not saved', { description: error instanceof Error ? error.message : 'Check the backend connection and retry.' }); }
+    finally { setBusy(false); }
   }
 
   async function handleBackup(): Promise<void> {
     setBusy(true);
     try {
-      const backup = await createLocalDatabaseBackup();
-      downloadText(JSON.stringify(backup, null, 2), `lexa-local-backup-${workspace.id}-${new Date().toISOString().slice(0, 10)}.json`, 'application/json;charset=utf-8');
-      toast.success('Local database backup downloaded', { description: `${Object.keys(backup.tables).length} tables were included. Device photos and separate tool notes are not included in this core database backup.` });
-    } catch (error) { toast.error('Backup failed', { description: error instanceof Error ? error.message : 'Could not read local data.' }); }
+      const backup = isApiProvider ? await apiBusinessTools.exportBackup(workspace.id) : await createLocalDatabaseBackup();
+      downloadText(JSON.stringify(backup, null, 2), `lexa-${isApiProvider ? 'workspace' : 'local'}-backup-${workspace.id}-${new Date().toISOString().slice(0, 10)}.json`, 'application/json;charset=utf-8');
+      toast.success(isApiProvider ? 'Workspace backup downloaded' : 'Local database backup downloaded', { description: isApiProvider ? 'The backup was supplied by the backend for the selected workspace.' : 'Core IndexedDB tables were included; separate tool data and attachments are not included.' });
+    } catch (error) { toast.error('Backup failed', { description: error instanceof Error ? error.message : 'Could not read business data.' }); }
     finally { setBusy(false); }
   }
 
@@ -361,12 +410,20 @@ export default function BusinessToolsPage() {
     setBusy(true);
     try {
       const value: unknown = JSON.parse(await file.text());
-      const valid = validateLocalDatabaseBackup(value);
-      const recordCount = Object.values(valid.tables).reduce((sum, rows) => sum + rows.length, 0);
-      if (!window.confirm(`Restore ${recordCount.toLocaleString()} records across ${Object.keys(valid.tables).length} core tables? This replaces ALL core local business data in this browser profile. Download a fresh backup first if you need one.`)) return;
-      const result = await restoreLocalDatabaseBackup(valid);
-      await refreshWorkspaces(); await refreshSnapshot();
-      toast.success('Local database restored', { description: `${result.recordsRestored} records restored across ${result.tablesRestored} tables. Refresh the app if the selected business has changed.` });
+      if (isApiProvider) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Select a valid JSON workspace backup.');
+        if (!window.confirm(`Send this backup to the backend to restore workspace ${workspace.businessName}? This can replace records on the server. A server-side permission check and audit event are required.`)) return;
+        const result = await apiBusinessTools.restoreBackup(workspace.id, value);
+        await refreshWorkspaces(); await refreshSnapshot();
+        toast.success('Restore request accepted by the backend', { description: `${result.recordsRestored ?? 0} records reported restored. Verify the server audit log and resulting records.` });
+      } else {
+        const valid = validateLocalDatabaseBackup(value);
+        const recordCount = Object.values(valid.tables).reduce((sum, rows) => sum + rows.length, 0);
+        if (!window.confirm(`Restore ${recordCount.toLocaleString()} records across ${Object.keys(valid.tables).length} core tables? This replaces ALL core local business data in this browser profile. Download a fresh backup first if you need one.`)) return;
+        const result = await restoreLocalDatabaseBackup(valid);
+        await refreshWorkspaces(); await refreshSnapshot();
+        toast.success('Local database restored', { description: `${result.recordsRestored} records restored across ${result.tablesRestored} tables. Refresh the app if the selected business has changed.` });
+      }
     } catch (error) { toast.error('Restore was not completed', { description: error instanceof Error ? error.message : 'The backup file was invalid.' }); }
     finally { setBusy(false); }
   }
@@ -377,11 +434,19 @@ export default function BusinessToolsPage() {
     setBusy(true);
     try {
       const contents = await file.text();
-      const count = kind === 'products'
-        ? await importProductsCsv(workspace.id, workspace.currency, contents)
-        : await importOpeningStockCsv(workspace.id, branch.id, contents);
+      let count: number;
+      if (isApiProvider) {
+        const result = kind === 'products'
+          ? await apiBusinessTools.importProductsCsv(workspace.id, workspace.currency, contents)
+          : await apiBusinessTools.importOpeningStockCsv(workspace.id, branch.id, contents);
+        count = result.importedCount;
+      } else {
+        count = kind === 'products'
+          ? await importProductsCsv(workspace.id, workspace.currency, contents)
+          : await importOpeningStockCsv(workspace.id, branch.id, contents);
+      }
       await refreshSnapshot();
-      toast.success(kind === 'products' ? 'Products imported' : 'Opening stock imported', { description: `${count} validated rows were imported in one IndexedDB transaction.` });
+      toast.success(kind === 'products' ? 'Products imported' : 'Opening stock imported', { description: isApiProvider ? `${count} validated rows were accepted by the backend.` : `${count} validated rows were imported locally.` });
     } catch (error) { toast.error('CSV import rejected', { description: error instanceof Error ? error.message : 'The file did not pass validation. Existing records were left unchanged.' }); }
     finally { setBusy(false); }
   }
@@ -401,7 +466,7 @@ export default function BusinessToolsPage() {
     event.preventDefault();
     if (!pickedFile) { toast.error('Capture or choose a photo first.'); return; }
     if (!attachmentReference.trim()) { toast.error('Add a product SKU, receipt number or other reference.'); return; }
-    if (pickedFile.size > 12 * 1024 * 1024) { toast.error('Photo is larger than 12 MB', { description: 'Choose a smaller image to keep local storage responsive on mobile.' }); return; }
+    if (pickedFile.size > 12 * 1024 * 1024) { toast.error('Photo is larger than 12 MB', { description: 'Choose a smaller image to reduce upload time and mobile data use.' }); return; }
     setBusy(true);
     try {
       const attachment: LocalAttachment = {
@@ -416,10 +481,13 @@ export default function BusinessToolsPage() {
     finally { setBusy(false); }
   }
 
-  function openAttachment(attachment: LocalAttachment): void {
-    const url = URL.createObjectURL(attachment.blob);
-    const anchor = document.createElement('a'); anchor.href = url; anchor.download = attachment.name; anchor.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+  async function openAttachment(attachment: LocalAttachment): Promise<void> {
+    try {
+      const blob = attachment.blob ?? await apiBusinessTools.downloadAttachment(workspace.id, attachment.id);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = attachment.name; anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+    } catch (error) { toast.error('Attachment could not be downloaded', { description: error instanceof Error ? error.message : 'Check the server connection and permissions.' }); }
   }
 
   const tabs: { id: ToolTab; label: string }[] = [
@@ -431,7 +499,7 @@ export default function BusinessToolsPage() {
   return (
     <div className="page-stack business-tools-page" data-module-accent={moduleAccentForPath("/business-tools")}>
       <div className="page-heading-row">
-        <div><div className="eyebrow">WORKSPACE TOOLS</div><h2>Business tools</h2><p style={{ margin: '6px 0 0', color: '#64748b', maxWidth: 720 }}>Local cash-up, compliance guidance, data recovery and mobile capture for {workspace.businessName} · {branch.name}.</p></div>
+        <div><div className="eyebrow">WORKSPACE TOOLS</div><h2>Business tools</h2><p style={{ margin: '6px 0 0', color: '#64748b', maxWidth: 720 }}>Cash-up, compliance notes, data recovery and mobile capture for {workspace.businessName} · {branch.name}.</p></div>
         <button className="button button-secondary" onClick={() => { setUiMode((old) => old === 'simple' ? 'advanced' : 'simple'); }}><Smartphone size={15} /> {uiMode === 'simple' ? 'Switch to Advanced' : 'Switch to Simple'}</button>
       </div>
 
@@ -443,7 +511,7 @@ export default function BusinessToolsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
           <div className="section-card" style={{ padding: 18 }}><div style={{ color: '#64748b', fontSize: 12 }}>Active catalogue records</div><strong style={{ display: 'block', fontSize: 25, marginTop: 8 }}>{snapshot?.products.filter((product) => product.active).length ?? '—'}</strong><span style={{ color: '#64748b', fontSize: 11 }}>Core product repository</span></div>
           <div className="section-card" style={{ padding: 18 }}><div style={{ color: '#64748b', fontSize: 12 }}>Recorded sales · rolling 12 months</div><strong style={{ display: 'block', fontSize: 22, marginTop: 8 }}>{formatter(rollingTurnoverMinor)}</strong><span style={{ color: '#64748b', fontSize: 11 }}>Less recorded sales returns</span></div>
-          <div className="section-card" style={{ padding: 18 }}><div style={{ color: '#64748b', fontSize: 12 }}>Cash-up status · {cashDate}</div><strong style={{ display: 'block', fontSize: 20, marginTop: 8 }}>{currentCashUp ? (currentCashUp.varianceMinor === 0 ? 'Reconciled' : 'Variance noted') : 'Not yet saved'}</strong><span style={{ color: '#64748b', fontSize: 11 }}>Browser-local till comparison</span></div>
+          <div className="section-card" style={{ padding: 18 }}><div style={{ color: '#64748b', fontSize: 12 }}>Cash-up status · {cashDate}</div><strong style={{ display: 'block', fontSize: 20, marginTop: 8 }}>{currentCashUp ? (currentCashUp.varianceMinor === 0 ? 'Reconciled' : 'Variance noted') : 'Not yet saved'}</strong><span style={{ color: '#64748b', fontSize: 11 }}>{isApiProvider ? 'Backend-persisted till comparison' : 'Device-local till comparison'}</span></div>
           <div className="section-card" style={{ padding: 18 }}><div style={{ color: '#64748b', fontSize: 12 }}>EFRIS review signal</div><strong style={{ display: 'block', fontSize: 20, marginTop: 8 }}>{efrisPossible ? 'Review applicability' : 'Profile review'}</strong><span style={{ color: '#64748b', fontSize: 11 }}>Not a compliance determination</span></div>
         </div>
         <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Activity size={18} /></div><div><h3>Quick actions</h3><p>Pick the task you need now.</p></div></div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(215px,1fr))', gap: 12, padding: '0 20px 20px' }}>
@@ -452,7 +520,7 @@ export default function BusinessToolsPage() {
           <button className="button button-secondary" onClick={() => setTab('data')} style={{ minHeight: 64, justifyContent: 'flex-start' }}><DatabaseBackup size={18} /> Back up or restore data <ArrowRight size={15} /></button>
           <button className="button button-secondary" onClick={() => setTab('capture')} style={{ minHeight: 64, justifyContent: 'flex-start' }}><Barcode size={18} /> Search / scan / add photo <ArrowRight size={15} /></button>
         </div></section>
-        <div className="local-disclaimer"><span className="disclaimer-icon"><AlertTriangle size={16} /></span><div><strong>Local-first capability notice</strong><span>These tools persist on this browser/device. They do not synchronize across users, process payments, submit EFRIS documents, or enforce server-side permissions.</span></div></div>
+        <div className="local-disclaimer"><span className="disclaimer-icon"><AlertTriangle size={16} /></span><div><strong>{isApiProvider ? 'Backend capability boundary' : 'Device-only capability notice'}</strong><span>{isApiProvider ? 'Business tools use the configured API. Tax authority submission, payment processing and official compliance determinations are not available unless the backend explicitly implements and confirms those integrations.' : 'These tools persist only on this browser/device. They do not synchronize across users, process payments, submit EFRIS documents, or enforce server-side permissions.'}</span></div></div>
       </>}
 
       {tab === 'cash-up' && <>
@@ -474,33 +542,33 @@ export default function BusinessToolsPage() {
             </div>
             {varianceMinor !== null && varianceMinor !== 0 && <label className="field-label">Variance explanation (required)<textarea rows={2} value={cashReason} onChange={(event) => setCashReason(event.target.value)} placeholder="For example: float used to buy supplies; recount completed" /></label>}
             <div className="warning-note"><strong>Scope:</strong> this calculation includes opening float, cash receipts/refunds recorded in sale payments, and the two other-cash fields you enter. It does not automatically include expenses, transfers, owner drawings, or MoMo/Airtel/bank wallet statements. Compare those separately.</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="button button-primary" type="submit"><Check size={16} /> Save cash-up</button><button className="button button-secondary" type="button" onClick={() => { const text = `${workspace.businessName} — ${branch.name} cash-up ${cashDate}\nExpected: ${formatter(Math.round(expectedCashMinor))}\nCounted: ${countedCashMinor === null ? 'not entered' : formatter(Math.round(countedCashMinor))}\nVariance: ${varianceMinor === null ? 'not calculated' : formatter(Math.round(varianceMinor))}\nLocal record only; compare other accounts separately.`; if (navigator.share) void navigator.share({ title: 'LEXA cash-up', text }).catch(() => undefined); else downloadText(text, `lexa-cash-up-${cashDate}.txt`); }}><Smartphone size={15} /> Share summary</button><button className="button button-secondary" type="button" onClick={() => window.print()}><Printer size={15} /> Print</button></div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="button button-primary" type="submit"><Check size={16} /> Save cash-up</button><button className="button button-secondary" type="button" onClick={() => { const text = `${workspace.businessName} — ${branch.name} cash-up ${cashDate}\nExpected: ${formatter(Math.round(expectedCashMinor))}\nCounted: ${countedCashMinor === null ? 'not entered' : formatter(Math.round(countedCashMinor))}\nVariance: ${varianceMinor === null ? 'not calculated' : formatter(Math.round(varianceMinor))}\nCash-up summary; compare other accounts separately.`; if (navigator.share) void navigator.share({ title: 'LEXA cash-up', text }).catch(() => undefined); else downloadText(text, `lexa-cash-up-${cashDate}.txt`); }}><Smartphone size={15} /> Share summary</button><button className="button button-secondary" type="button" onClick={() => window.print()}><Printer size={15} /> Print</button></div>
           </form>
         </section>
-        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><History size={18} /></div><div><h3>Saved cash-ups</h3><p>Local cash-up snapshots for this workspace.</p></div></div><div style={{ padding: '0 22px 20px', overflowX: 'auto' }}>{cashUps.filter((item) => item.workspaceId === workspace.id && item.branchId === branch.id).sort((a,b) => b.date.localeCompare(a.date)).length === 0 ? <p style={{ color: '#64748b' }}>No cash-ups saved yet.</p> : <table style={{ width: '100%', minWidth: 500, borderCollapse: 'collapse' }}><thead><tr>{['Date','Expected','Counted','Variance','Result'].map((label)=><th key={label} style={{ textAlign: 'left', padding: '10px 8px', borderBottom: '1px solid #e2e8f0', fontSize: 11 }}>{label}</th>)}</tr></thead><tbody>{cashUps.filter((item) => item.workspaceId === workspace.id && item.branchId === branch.id).sort((a,b) => b.date.localeCompare(a.date)).slice(0,12).map((item)=><tr key={item.date}>{[item.date,formatter(item.expectedCashMinor),formatter(item.countedCashMinor),formatter(item.varianceMinor),item.varianceMinor===0?'Reconciled':'Variance noted'].map((value,index)=><td key={index} style={{ padding: '10px 8px', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>{value}</td>)}</tr>)}</tbody></table>}</div></section>
+        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><History size={18} /></div><div><h3>Saved cash-ups</h3><p>{isApiProvider ? 'Server-managed cash-up snapshots for this workspace.' : 'Device-local cash-up snapshots for this workspace.'}</p></div></div><div style={{ padding: '0 22px 20px', overflowX: 'auto' }}>{cashUps.filter((item) => item.workspaceId === workspace.id && item.branchId === branch.id).sort((a,b) => b.date.localeCompare(a.date)).length === 0 ? <p style={{ color: '#64748b' }}>No cash-ups saved yet.</p> : <table style={{ width: '100%', minWidth: 500, borderCollapse: 'collapse' }}><thead><tr>{['Date','Expected','Counted','Variance','Result'].map((label)=><th key={label} style={{ textAlign: 'left', padding: '10px 8px', borderBottom: '1px solid #e2e8f0', fontSize: 11 }}>{label}</th>)}</tr></thead><tbody>{cashUps.filter((item) => item.workspaceId === workspace.id && item.branchId === branch.id).sort((a,b) => b.date.localeCompare(a.date)).slice(0,12).map((item)=><tr key={item.date}>{[item.date,formatter(item.expectedCashMinor),formatter(item.countedCashMinor),formatter(item.varianceMinor),item.varianceMinor===0?'Reconciled':'Variance noted'].map((value,index)=><td key={index} style={{ padding: '10px 8px', borderBottom: '1px solid #f1f5f9', fontSize: 12 }}>{value}</td>)}</tr>)}</tbody></table>}</div></section>
       </>}
 
       {tab === 'tax' && <>
-        <div className="warning-note" style={{ alignItems: 'flex-start' }}><ShieldCheck size={18} /><div><strong>Compliance guidance — not tax advice</strong><p style={{ margin: '5px 0 0' }}>The thresholds below were transcribed from the supplied engineering concept, which says its tax facts were not retrieved directly from URA and must be confirmed before reliance or final encoding. You can maintain the rule values and source/effective-date here; this page does not call URA or submit an e-invoice.</p></div></div>
-        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Building2 size={18} /></div><div><h3>Business tax profile & maintained rules</h3><p>Stored on this device for the selected business.</p></div></div>
+        <div className="warning-note" style={{ alignItems: 'flex-start' }}><ShieldCheck size={18} /><div><strong>Compliance guidance — not tax advice</strong><p style={{ margin: '5px 0 0' }}>No legal threshold is prefilled. Add values only after verifying applicable rules with URA or a qualified adviser. These settings are guidance only: this screen does not submit tax returns, contact URA, or make an official EFRIS determination.</p></div></div>
+        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Building2 size={18} /></div><div><h3>Business tax profile & maintained rules</h3><p>{isApiProvider ? 'Stored by the configured backend for the selected business.' : 'Stored on this device for the selected business.'}</p></div></div>
           <form onSubmit={saveTaxProfile} style={{ padding: '0 22px 22px', display: 'grid', gap: 15 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 13 }}>
               <label className="field-label">TIN (manual reference)<input value={profile.tin} onChange={(event) => setProfile({ ...profile, tin: event.target.value })} placeholder="Enter business TIN if applicable" /></label>
               <label className="field-label">Business sector<select value={profile.sector} onChange={(event) => setProfile({ ...profile, sector: event.target.value })}>{TAX_SECTORS.map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>
               <label className="field-label">VAT registration status<select value={profile.vatRegistered ? 'yes' : 'no'} onChange={(event) => setProfile({ ...profile, vatRegistered: event.target.value === 'yes' })}><option value="no">Not registered / unsure</option><option value="yes">VAT registered</option></select></label>
               <label className="field-label">EFRIS applicability override<select value={profile.efrisOverride} onChange={(event) => setProfile({ ...profile, efrisOverride: event.target.value as TaxProfile['efrisOverride'] })}><option value="auto">Use provisional signal</option><option value="yes">Manual review says applies</option><option value="no">Manual review says does not apply</option></select></label>
-              <label className="field-label">VAT rolling turnover threshold (UGX, as per concept)<input type="number" min="1" value={profile.vatThreshold} onChange={(event) => setProfile({ ...profile, vatThreshold: event.target.value })} required /></label>
-              <label className="field-label">Reported EFRIS sector turnover carve-out (UGX, as per concept)<input type="number" min="1" value={profile.efrisTurnoverThreshold} onChange={(event) => setProfile({ ...profile, efrisTurnoverThreshold: event.target.value })} required /></label>
-              <label className="field-label">Effective from<input type="date" value={profile.ruleEffectiveFrom} onChange={(event) => setProfile({ ...profile, ruleEffectiveFrom: event.target.value })} required /></label>
-              <label className="field-label">Rule source / verification note<textarea rows={2} value={profile.ruleSource} onChange={(event) => setProfile({ ...profile, ruleSource: event.target.value })} required /></label>
+              <label className="field-label">VAT rolling turnover threshold (UGX, only enter a verified value)<input type="number" min="1" value={profile.vatThreshold} onChange={(event) => setProfile({ ...profile, vatThreshold: event.target.value })} placeholder="Leave blank until verified" /></label>
+              <label className="field-label">Optional EFRIS review threshold (UGX; leave blank until verified)<input type="number" min="1" value={profile.efrisTurnoverThreshold} onChange={(event) => setProfile({ ...profile, efrisTurnoverThreshold: event.target.value })} placeholder="Optional; verify first" /></label>
+              <label className="field-label">Effective from<input type="date" value={profile.ruleEffectiveFrom} onChange={(event) => setProfile({ ...profile, ruleEffectiveFrom: event.target.value })} /></label>
+              <label className="field-label">Rule source / verification note<textarea rows={2} value={profile.ruleSource} onChange={(event) => setProfile({ ...profile, ruleSource: event.target.value })} placeholder="Source and verification date (optional until verified)" /></label>
             </div>
             <button type="submit" className="button button-primary"><Check size={15} /> Save tax profile</button>
           </form>
         </section>
         <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Activity size={18} /></div><div><h3>Rolling 12-month recorded turnover</h3><p>Sales across this business's local branches, less recorded sale returns.</p></div></div><div style={{ padding: '0 22px 22px', display: 'grid', gap: 12 }}>
           <div style={{ padding: 16, background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0' }}><span style={{ fontSize: 12, color: '#64748b' }}>Recorded turnover proxy · rolling 365 days</span><strong style={{ display: 'block', fontSize: 25, margin: '5px 0' }}>{formatter(rollingTurnoverMinor)}</strong><span style={{ color: '#64748b', fontSize: 11 }}>Gross {formatter(rollingGrossMinor)} less recorded returns {formatter(rollingReturnsMinor)}</span></div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}><div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 10 }}><strong>VAT threshold monitor</strong><p style={{ margin: '6px 0', fontSize: 20 }}>{taxCurrencySupported ? `${Math.round(rollingTurnoverMinor / vatThresholdMinor * 100)}% of configured threshold` : 'UGX conversion required'}</p><div style={{ height: 7, background: '#e2e8f0', borderRadius: 20, overflow: 'hidden' }}><div style={{ height: '100%', width: `${taxCurrencySupported ? Math.min(100, rollingTurnoverMinor / vatThresholdMinor * 100) : 0}%`, background: rollingTurnoverMinor >= vatThresholdMinor * 0.8 ? '#d97706' : '#2563eb' }} /></div><p style={{ margin: '7px 0 0', color: '#64748b', fontSize: 11 }}>Provisional threshold: UGX {vatThresholdMinor.toLocaleString('en-UG')}. {taxCurrencySupported ? 'Verify effective rules and taxable-turnover basis with URA / a qualified adviser.' : 'This workspace is not UGX-denominated; the screen does not convert foreign-currency sales into UGX.'}</p></div>
-            <div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 10 }}><strong>EFRIS sector review</strong><p style={{ margin: '6px 0', fontSize: 20 }}>{efrisPossible ? 'Review likely required' : 'Review profile and rule'}</p><p style={{ margin: 0, color: '#64748b', fontSize: 11 }}>{profile.vatRegistered ? 'VAT registration has been flagged by your profile.' : vatThresholdSignal ? 'Recorded turnover crossed the configured VAT threshold; verify VAT registration and related EFRIS obligations.' : efrisPossibleBySector ? 'Sector and turnover crossed the configurable signal from the concept.' : 'The provisional sector/turnover signal did not trigger; this does not prove no obligation exists.'}</p></div></div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}><div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 10 }}><strong>Configured VAT threshold monitor</strong><p style={{ margin: '6px 0', fontSize: 20 }}>{taxCurrencySupported ? (vatThresholdConfigured ? `${Math.round(rollingTurnoverMinor / vatThresholdMinor * 100)}% of configured threshold` : 'Configure a verified threshold') : 'UGX conversion required'}</p><div style={{ height: 7, background: '#e2e8f0', borderRadius: 20, overflow: 'hidden' }}><div style={{ height: '100%', width: `${taxCurrencySupported && vatThresholdConfigured ? Math.min(100, rollingTurnoverMinor / vatThresholdMinor * 100) : 0}%`, background: taxCurrencySupported && vatThresholdConfigured && rollingTurnoverMinor >= vatThresholdMinor * 0.8 ? '#d97706' : '#2563eb' }} /></div><p style={{ margin: '7px 0 0', color: '#64748b', fontSize: 11 }}>Provisional threshold: UGX {vatThresholdConfigured ? vatThresholdMinor.toLocaleString('en-UG') : 'not configured'}. {taxCurrencySupported ? 'Verify effective rules and taxable-turnover basis with URA / a qualified adviser.' : 'This workspace is not UGX-denominated; the screen does not convert foreign-currency sales into UGX.'}</p></div>
+            <div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 10 }}><strong>EFRIS sector review</strong><p style={{ margin: '6px 0', fontSize: 20 }}>{efrisPossible ? 'Review likely required' : 'Review profile and rule'}</p><p style={{ margin: 0, color: '#64748b', fontSize: 11 }}>{profile.vatRegistered ? 'VAT registration is marked in the business profile.' : vatThresholdSignal ? 'Recorded turnover crossed the threshold you configured; verify current obligations with a qualified adviser.' : !vatThresholdConfigured ? 'No verified threshold is configured. LEXA makes no sector-only assumption about EFRIS applicability.' : 'The configured threshold signal did not trigger; this does not prove no obligation exists.'}</p></div></div>
           <p style={{ margin: 0, color: '#64748b', fontSize: 11 }}>This is a turnover proxy derived from local sale and return records. VAT/EFRIS signals are evaluated only for UGX workspaces unless you convert turnover yourself; no foreign-exchange rates are applied. It does not determine taxable turnover, tax liability, legal sector coverage, exceptions or penalties.</p>
         </div></section>
         <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><FileText size={18} /></div><div><h3>Manual EFRIS / supplier document register</h3><p>Keep entered references together; no external request is sent.</p></div></div><form onSubmit={saveComplianceNote} style={{ padding: '0 22px 20px', display: 'grid', gap: 12 }}>
@@ -511,27 +579,27 @@ export default function BusinessToolsPage() {
       </>}
 
       {tab === 'data' && <>
-        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><DatabaseBackup size={18} /></div><div><h3>Core database backup & restore</h3><p>Versioned JSON backup of all current core IndexedDB tables.</p></div></div><div style={{ padding: '0 22px 22px', display: 'grid', gap: 13 }}><div className="warning-note"><AlertTriangle size={17} /><span>Restore replaces all core records in this browser's LEXA database, across every local workspace. Download a backup first. This core backup does not include separate photo attachments, tool preferences or module-register records.</span></div><div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}><button className="button button-primary" disabled={busy} onClick={() => void handleBackup()}><Download size={15} /> Download full core backup</button><button className="button button-secondary" disabled={busy} onClick={() => backupImportRef.current?.click()}><Upload size={15} /> Validate / restore backup</button><input ref={backupImportRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={(event) => void handleBackupFile(event)} /></div><p style={{ color: '#64748b', fontSize: 11, margin: 0 }}>Restore validates all expected table names, array shapes and duplicate IDs before making changes; it then restores all core tables in one IndexedDB transaction. Keep a copy outside this device.</p></div></section>
+        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><DatabaseBackup size={18} /></div><div><h3>Core database backup & restore</h3><p>Versioned JSON backup supplied by the selected storage provider.</p></div></div><div style={{ padding: '0 22px 22px', display: 'grid', gap: 13 }}><div className="warning-note"><AlertTriangle size={17} /><span>Restore may replace business records in the selected storage provider. Download a backup first, confirm the workspace, and ensure the server enforces permissions and records an audit event. Separately stored files may not be included.</span></div><div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}><button className="button button-primary" disabled={busy} onClick={() => void handleBackup()}><Download size={15} /> Download full core backup</button><button className="button button-secondary" disabled={busy} onClick={() => backupImportRef.current?.click()}><Upload size={15} /> Validate / restore backup</button><input ref={backupImportRef} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={(event) => void handleBackupFile(event)} /></div><p style={{ color: '#64748b', fontSize: 11, margin: 0 }}>Restore should be validated by the selected provider before writes; in backend mode the server must validate schema and authorization and must make the change transactional. Keep an independent backup.</p></div></section>
         <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><FileSpreadsheet size={18} /></div><div><h3>CSV export (Excel-compatible)</h3><p>Export current core records for analysis or external backup.</p></div></div><div style={{ padding: '0 22px 22px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10 }}>{[
           ['products','Products'],['sales','Sales'],['returns','Sales returns'],['payments','Payment lines'],['stock','Stock movements'],
         ].map(([kind,label])=><button key={kind} className="button button-secondary" onClick={()=>exportCsv(kind as 'products'|'sales'|'returns'|'payments'|'stock')}><Download size={14} /> Export {label}</button>)}</div></section>
-        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Upload size={18} /></div><div><h3>Import products / opening stock from CSV</h3><p>Each import is validated before writing and committed in one IndexedDB transaction.</p></div></div><div style={{ padding: '0 22px 22px', display: 'grid', gap: 14 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}><div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 10 }}><strong>Product CSV</strong><p style={{ color: '#64748b', fontSize: 12 }}>Required headers: name, sku, sellingPrice. Optional: barcode, brand, unitOfMeasure, categoryName, costPrice, lowStockThreshold, trackStock. Prices use the selected currency's major units unless the column ends in Minor.</p><button className="button button-primary" disabled={busy} onClick={()=>productImportRef.current?.click()}><Upload size={14} /> Select product CSV</button><input ref={productImportRef} type="file" accept=".csv,text/csv" style={{ display:'none' }} onChange={(event)=>void handleCsvImport(event,'products')} /></div><div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 10 }}><strong>Opening stock CSV</strong><p style={{ color: '#64748b', fontSize: 12 }}>Required headers: sku, quantity. Optional: reason. Opening quantities must be positive whole numbers and can only be imported for products/branches with no earlier movements.</p><button className="button button-primary" disabled={busy} onClick={()=>stockImportRef.current?.click()}><Upload size={14} /> Select stock CSV</button><input ref={stockImportRef} type="file" accept=".csv,text/csv" style={{ display:'none' }} onChange={(event)=>void handleCsvImport(event,'stock')} /></div></div><p style={{ margin: 0, color: '#64748b', fontSize: 11 }}>Customer/supplier opening balances and the other module-register records use their own records and import workflow; they are not merged into core customer/payables ledgers here.</p></div></section>
+        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Upload size={18} /></div><div><h3>Import products / opening stock from CSV</h3><p>CSV content is validated by the selected provider before records are written.</p></div></div><div style={{ padding: '0 22px 22px', display: 'grid', gap: 14 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}><div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 10 }}><strong>Product CSV</strong><p style={{ color: '#64748b', fontSize: 12 }}>Required headers: name, sku, sellingPrice. Optional: barcode, brand, unitOfMeasure, categoryName, costPrice, lowStockThreshold, trackStock. Prices use the selected currency's major units unless the column ends in Minor.</p><button className="button button-primary" disabled={busy} onClick={()=>productImportRef.current?.click()}><Upload size={14} /> Select product CSV</button><input ref={productImportRef} type="file" accept=".csv,text/csv" style={{ display:'none' }} onChange={(event)=>void handleCsvImport(event,'products')} /></div><div style={{ padding: 14, border: '1px solid #e2e8f0', borderRadius: 10 }}><strong>Opening stock CSV</strong><p style={{ color: '#64748b', fontSize: 12 }}>Required headers: sku, quantity. Optional: reason. Opening quantities must be positive whole numbers and can only be imported for products/branches with no earlier movements.</p><button className="button button-primary" disabled={busy} onClick={()=>stockImportRef.current?.click()}><Upload size={14} /> Select stock CSV</button><input ref={stockImportRef} type="file" accept=".csv,text/csv" style={{ display:'none' }} onChange={(event)=>void handleCsvImport(event,'stock')} /></div></div><p style={{ margin: 0, color: '#64748b', fontSize: 11 }}>Customer/supplier opening balances and the other module-register records use their own records and import workflow; they are not merged into core customer/payables ledgers here.</p></div></section>
       </>}
 
       {tab === 'capture' && <>
         <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Search size={18} /></div><div><h3>Universal search · core records</h3><p>Search product names, SKUs, barcodes, brands, receipt numbers and customer names currently saved in this browser.</p></div></div><div style={{ padding: '0 22px 22px', display: 'grid', gap: 14 }}><label className="field-label">Search<input value={searchValue} onChange={(event)=>setSearchValue(event.target.value)} placeholder="Product, SKU, barcode, customer or receipt number" /></label>{searchValue.trim() && <><p style={{ margin: 0, color: '#64748b', fontSize: 12 }}>{matchesCount} result(s) from core products and sales.</p><div style={{ display: 'grid', gap: 8 }}>{matchedProducts.map((product)=> <div key={product.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 12, border: '1px solid #e2e8f0', borderRadius: 9 }}><div><strong>{product.name}</strong><div style={{ color: '#64748b', fontSize: 12 }}>SKU {product.sku} · barcode {product.barcode || '—'} · {product.active ? 'Active' : 'Inactive'}</div></div><button className="button button-secondary" onClick={()=>navigate('/products')}><ArrowRight size={14} /> Open products</button></div>)}{matchedSales.map((sale)=> <div key={sale.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 12, border: '1px solid #e2e8f0', borderRadius: 9 }}><div><strong>{sale.receiptNumber}</strong><div style={{ color: '#64748b', fontSize: 12 }}>{sale.customerName || 'Walk-in customer'}{sale.customerPhone ? ` · ${sale.customerPhone}` : ''} · {new Date(sale.createdAt).toLocaleString()} · {formatMinorAmount(sale.totalMinor,workspace.currency)}</div></div><button className="button button-secondary" onClick={()=>navigate('/sales/'+sale.id)}><ArrowRight size={14} /> Open receipt</button></div>)}</div></>}</div></section>
         <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Barcode size={18} /></div><div><h3>Camera barcode scanner</h3><p>Uses the device camera when supported and permission is granted.</p></div></div><div style={{ padding: '0 22px 22px', display: 'grid', gap: 12 }}><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="button button-primary" onClick={()=>void startCamera()} disabled={cameraOpen}><Camera size={15} /> Start live scanner</button><button className="button button-secondary" onClick={stopCamera} disabled={!cameraOpen}><X size={15} /> Stop camera</button></div>{cameraOpen && <video ref={videoRef} muted playsInline style={{ width: '100%', maxHeight: 360, background: '#0f172a', borderRadius: 10, objectFit: 'cover' }} />}{cameraMessage && <div className="warning-note"><span>{cameraMessage}</span></div>}<label className="field-label">Barcode / code captured<input value={scanValue} onChange={(event)=>{setScanValue(event.target.value);setSearchValue(event.target.value);}} placeholder="Scan or type a code" /></label><button className="button button-secondary" onClick={()=>{setSearchValue(scanValue);setTab('capture');}}><Search size={14} /> Search code in products</button><p style={{ margin: 0, color: '#64748b', fontSize: 11 }}>Live detection depends on the browser's BarcodeDetector support. Nothing is sent to an external service.</p></div></section>
-        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Camera size={18} /></div><div><h3>Product / receipt photo capture</h3><p>Attach a photo to an internal reference; saved in separate browser-local attachment storage.</p></div></div><form onSubmit={(event)=>void saveAttachment(event)} style={{ padding: '0 22px 20px', display: 'grid', gap: 12 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}><label className="field-label">Attachment type<select value={attachmentKind} onChange={(event)=>setAttachmentKind(event.target.value as LocalAttachment['kind'])}><option value="receipt">Receipt / supplier document</option><option value="product">Product photo</option><option value="other">Other evidence</option></select></label><label className="field-label">Reference (SKU / invoice / receipt)<input value={attachmentReference} onChange={(event)=>setAttachmentReference(event.target.value)} required placeholder="For example, SKU-001 or RCPT-100" /></label></div><label className="field-label">Capture photo / choose image<input ref={attachmentInputRef} type="file" accept="image/*" capture="environment" onChange={(event)=>setPickedFile(event.target.files?.[0] ?? null)} /></label>{pickedFile && <p style={{ margin: 0, fontSize: 12, color: '#475569' }}>{pickedFile.name} · {(pickedFile.size / 1024).toFixed(0)} KB</p>}<button className="button button-primary" type="submit" disabled={busy || !pickedFile}><Camera size={15} /> Save photo locally</button></form><div style={{ padding: '0 22px 22px' }}><strong>Recent photo attachments</strong>{attachments.length===0 ? <p style={{ color:'#64748b',fontSize:12 }}>No photo attachments saved in this browser yet.</p> : <div style={{ display:'grid', gap:8, marginTop:10 }}>{attachments.map((item)=><div key={item.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, padding:10, border:'1px solid #e2e8f0', borderRadius:9 }}><div><strong>{item.reference}</strong><div style={{ color:'#64748b',fontSize:11 }}>{item.kind} · {item.name} · {new Date(item.capturedAt).toLocaleString()}</div></div><button className="button button-secondary" onClick={()=>openAttachment(item)}><Download size={14} /> Download</button></div>)}</div>}</div></section>
+        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Camera size={18} /></div><div><h3>Product / receipt photo capture</h3><p>Attach a photo to an internal reference using the selected storage provider.</p></div></div><form onSubmit={(event)=>void saveAttachment(event)} style={{ padding: '0 22px 20px', display: 'grid', gap: 12 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}><label className="field-label">Attachment type<select value={attachmentKind} onChange={(event)=>setAttachmentKind(event.target.value as LocalAttachment['kind'])}><option value="receipt">Receipt / supplier document</option><option value="product">Product photo</option><option value="other">Other evidence</option></select></label><label className="field-label">Reference (SKU / invoice / receipt)<input value={attachmentReference} onChange={(event)=>setAttachmentReference(event.target.value)} required placeholder="For example, SKU-001 or RCPT-100" /></label></div><label className="field-label">Capture photo / choose image<input ref={attachmentInputRef} type="file" accept="image/*" capture="environment" onChange={(event)=>setPickedFile(event.target.files?.[0] ?? null)} /></label>{pickedFile && <p style={{ margin: 0, fontSize: 12, color: '#475569' }}>{pickedFile.name} · {(pickedFile.size / 1024).toFixed(0)} KB</p>}<button className="button button-primary" type="submit" disabled={busy || !pickedFile}><Camera size={15} /> {isApiProvider ? 'Upload photo' : 'Save photo locally'}</button></form><div style={{ padding: '0 22px 22px' }}><strong>Recent photo attachments</strong>{attachments.length===0 ? <p style={{ color:'#64748b',fontSize:12 }}>{isApiProvider ? 'No server attachments found for this workspace.' : 'No photo attachments saved in this browser yet.'}</p> : <div style={{ display:'grid', gap:8, marginTop:10 }}>{attachments.map((item)=><div key={item.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, padding:10, border:'1px solid #e2e8f0', borderRadius:9 }}><div><strong>{item.reference}</strong><div style={{ color:'#64748b',fontSize:11 }}>{item.kind} · {item.name} · {new Date(item.capturedAt).toLocaleString()}</div></div><button className="button button-secondary" onClick={()=>openAttachment(item)}><Download size={14} /> Download</button></div>)}</div>}</div></section>
       </>}
 
       {tab === 'profile' && <>
-        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Building2 size={18} /></div><div><h3>Extended local business profile</h3><p>Supplemental local fields not currently stored in the core workspace schema.</p></div></div><form onSubmit={saveTaxProfile} style={{ padding: '0 22px 22px', display: 'grid', gap: 13 }}><label className="field-label">Business name<input value={workspace.businessName} readOnly /></label><label className="field-label">TIN / registration reference<input value={profile.tin} onChange={(event)=>setProfile({...profile,tin:event.target.value})} placeholder="Business TIN (if applicable)" /></label><label className="field-label">VAT registration status<select value={profile.vatRegistered?'yes':'no'} onChange={(event)=>setProfile({...profile,vatRegistered:event.target.value==='yes'})}><option value="no">Not registered / unsure</option><option value="yes">VAT registered</option></select></label><label className="field-label">Sector<select value={profile.sector} onChange={(event)=>setProfile({...profile,sector:event.target.value})}>{TAX_SECTORS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><button className="button button-primary" type="submit"><Check size={15} /> Save profile</button></form></section>
+        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Building2 size={18} /></div><div><h3>Business identity & tax profile</h3><p>Maintain your registered business details for this workspace.</p></div></div><form onSubmit={saveTaxProfile} style={{ padding: '0 22px 22px', display: 'grid', gap: 13 }}><label className="field-label">Business name<input value={workspace.businessName} readOnly /></label><label className="field-label">TIN / registration reference<input value={profile.tin} onChange={(event)=>setProfile({...profile,tin:event.target.value})} placeholder="Business TIN (if applicable)" /></label><label className="field-label">VAT registration status<select value={profile.vatRegistered?'yes':'no'} onChange={(event)=>setProfile({...profile,vatRegistered:event.target.value==='yes'})}><option value="no">Not registered / unsure</option><option value="yes">VAT registered</option></select></label><label className="field-label">Sector<select value={profile.sector} onChange={(event)=>setProfile({...profile,sector:event.target.value})}>{TAX_SECTORS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><button className="button button-primary" type="submit"><Check size={15} /> Save profile</button></form></section>
         <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Smartphone size={18} /></div><div><h3>Interface preferences</h3><p>Simple mode keeps the primary tasks visible; advanced mode restores all navigation sections.</p></div></div><div style={{ padding:'0 22px 22px', display:'flex', gap:10, flexWrap:'wrap' }}><button className={uiMode==='simple'?'button button-primary':'button button-secondary'} onClick={()=>setUiMode('simple')}>Simple mode</button><button className={uiMode==='advanced'?'button button-primary':'button button-secondary'} onClick={()=>setUiMode('advanced')}>Advanced mode</button></div></section>
       </>}
 
-      {snapshotQuery.isLoading && <div className="local-disclaimer"><RefreshCw size={15} /> Loading local business records…</div>}
+      {snapshotQuery.isLoading && <div className="local-disclaimer"><RefreshCw size={15} /> Loading {isApiProvider ? 'backend' : 'device-local'} business records…</div>}
       {snapshotQuery.isError && <div className="warning-note"><AlertTriangle size={16} /> Could not read business records. {snapshotQuery.error instanceof Error ? snapshotQuery.error.message : 'Please refresh and retry.'}</div>}
-      <div className="local-disclaimer"><span className="disclaimer-icon"><Clock3 size={16} /></span><div><strong>Storage and trust boundary</strong><span>Core records are stored in browser IndexedDB. Cash-up entries, tax profile and manual document notes use local browser storage; photo attachments use a separate local IndexedDB database. None of this is shared with staff or other devices, and local activity notes are not tamper-resistant audit records.</span></div></div>
+      <div className="local-disclaimer"><span className="disclaimer-icon"><Clock3 size={16} /></span><div><strong>Storage and trust boundary</strong><span>{isApiProvider ? 'Business tools request records and attachments from the configured API. Persistence, tenant isolation, role checks, audit logging, backup/restore authorization and upload validation must be enforced by the backend. Failed requests do not fall back to browser business data.' : 'Core records and supporting tool entries are stored only in this browser. They are not shared with staff or other devices and do not provide a tamper-resistant audit trail.'}</span></div></div>
     </div>
   );
 }

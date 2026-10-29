@@ -2,7 +2,11 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowRight, Check, ShieldCheck, Sparkles, Store } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
-import { localWorkspaceRepository } from '../../data/local/workspaces';
+import { workspaces } from '../../data/repositories';
+import { apiBaseUrl, dataProviderMode } from '../../data/remote/runtimeConfig';
+
+function readPreference(key: string): string | null { try { return localStorage.getItem(key); } catch { return null; } }
+function writePreference(key: string, value: string): void { try { localStorage.setItem(key, value); } catch { /* Backend workspace creation must not depend on preferences. */ } }
 
 const businessTypes = [
   { value: 'retail', label: 'Retail shop' },
@@ -26,9 +30,9 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     let cancelled = false;
-    void localWorkspaceRepository.list().then((items) => {
+    void workspaces.list().then((items) => {
       if (cancelled) return;
-      const activeId = localStorage.getItem('lexa.ui.activeWorkspaceId');
+      const activeId = readPreference('lexa.ui.activeWorkspaceId');
       const selected = items.find((item) => item.id === activeId) ?? items[0];
       setSavedWorkspaceName(selected?.businessName ?? '');
     }).catch(() => { /* A fresh browser can legitimately have no saved workspace. */ });
@@ -38,17 +42,17 @@ export default function OnboardingPage() {
   async function openSavedWorkspace() {
     setOpeningSaved(true);
     try {
-      const items = await localWorkspaceRepository.list();
-      const activeId = localStorage.getItem('lexa.ui.activeWorkspaceId');
+      const items = await workspaces.list();
+      const activeId = readPreference('lexa.ui.activeWorkspaceId');
       const workspace = items.find((item) => item.id === activeId) ?? items[0];
       if (!workspace) throw new Error('No saved workspace was found in this browser. Create a workspace below.');
-      let branches = await localWorkspaceRepository.listBranches(workspace.id);
+      let branches = await workspaces.listBranches(workspace.id);
       if (!branches.length) {
-        const repairedBranch = await localWorkspaceRepository.createBranch({ workspaceId: workspace.id, name: 'Main branch' });
+        const repairedBranch = await workspaces.createBranch({ workspaceId: workspace.id, name: 'Main branch' });
         branches = [repairedBranch];
       }
-      localStorage.setItem('lexa.ui.activeWorkspaceId', workspace.id);
-      localStorage.setItem('lexa.ui.activeBranchId', branches[0]!.id);
+      writePreference('lexa.ui.activeWorkspaceId', workspace.id);
+      writePreference('lexa.ui.activeBranchId', branches[0]!.id);
       toast.success('Opening saved workspace', { description: workspace.businessName });
       navigate('/', { replace: true });
     } catch (error) {
@@ -62,9 +66,10 @@ export default function OnboardingPage() {
     event.preventDefault();
     setSaving(true);
     try {
-      const workspace = await localWorkspaceRepository.create({ businessName, businessType, branchName, currency, timezone });
-      localStorage.setItem('lexa.ui.activeWorkspaceId', workspace.id);
-      toast.success('Business workspace created', { description: 'Your setup is saved on this device.' });
+      if (dataProviderMode === 'api' && !apiBaseUrl) throw new Error('The backend URL is not configured. Set VITE_API_BASE_URL before creating a production workspace.');
+      const workspace = await workspaces.create({ businessName, businessType, branchName, currency, timezone });
+      writePreference('lexa.ui.activeWorkspaceId', workspace.id);
+      toast.success('Business workspace created', { description: dataProviderMode === 'api' ? 'Your setup was created by the backend.' : 'Your setup is saved on this device.' });
       navigate('/', { replace: true });
     } catch (error) {
       toast.error('Could not create workspace', { description: error instanceof Error ? error.message : 'Please check the form and try again.' });
@@ -83,8 +88,8 @@ export default function OnboardingPage() {
           <p>Start with your business details. You’ll be able to add products, record stock, make sales and trace what changed — all in one place.</p>
           <div className="onboarding-benefits">
             <div><span className="benefit-icon"><Check size={17} /></span><div><strong>Records that connect</strong><p>Sales link to stock movements, payments and receipts.</p></div></div>
-            <div><span className="benefit-icon"><Check size={17} /></span><div><strong>Saved on this device</strong><p>Your local records remain after a page refresh.</p></div></div>
-            <div><span className="benefit-icon"><ShieldCheck size={17} /></span><div><strong>Clear about limitations</strong><p>Shared access and server services are not connected yet.</p></div></div>
+            <div><span className="benefit-icon"><Check size={17} /></span><div><strong>{dataProviderMode === 'api' ? 'Server-managed records' : 'Saved on this device'}</strong><p>{dataProviderMode === 'api' ? 'Workspace and branch records are created and checked by the configured server.' : 'Your local records remain after a page refresh in this browser.'}</p></div></div>
+            <div><span className="benefit-icon"><ShieldCheck size={17} /></span><div><strong>Access and security</strong><p>{dataProviderMode === 'api' ? 'Only backend-authorized users should access a workspace or branch.' : 'Device-only mode does not provide shared access or account security.'}</p></div></div>
           </div>
           <div className="onboarding-local-note"><span className="status-dot" /> WORKSPACE SETUP <span className="note-divider">·</span> BUSINESS DETAILS</div>
         </section>
@@ -100,10 +105,10 @@ export default function OnboardingPage() {
               <label className="field-label">Currency<select value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="UGX">UGX — Uganda shilling</option><option value="KES">KES — Kenya shilling</option><option value="TZS">TZS — Tanzania shilling</option><option value="USD">USD — US dollar</option><option value="GBP">GBP — Pound sterling</option><option value="EUR">EUR — Euro</option></select></label>
               <label className="field-label">Timezone<select value={timezone} onChange={(event) => setTimezone(event.target.value)}><option value="Africa/Kampala">Kampala (EAT)</option><option value="Africa/Nairobi">Nairobi (EAT)</option><option value="Africa/Dar_es_Salaam">Dar es Salaam (EAT)</option><option value="UTC">UTC</option><option value="Europe/London">London</option></select></label>
             </div>
-            <div className="form-info"><ShieldCheck size={16} /><p>This creates a local workspace only. It does not create a login, invite team members or enable cross-device sync.</p></div>
-            <button className="button button-primary button-wide" type="submit" disabled={saving}>{saving ? 'Creating workspace…' : 'Create workspace'} <ArrowRight size={17} /></button>
+            <div className="form-info"><ShieldCheck size={16} /><p>{dataProviderMode === 'api' ? 'This submits workspace setup to the configured API. A user session and server permissions are required.' : 'This creates a device-only workspace. It does not create an account, invite team members or enable cross-device sync.'}</p></div>
+            <button className="button button-primary button-wide" type="submit" disabled={saving || (dataProviderMode === 'api' && !apiBaseUrl)}>{saving ? 'Creating workspace…' : dataProviderMode === 'api' && !apiBaseUrl ? 'Backend URL required' : 'Create workspace'} <ArrowRight size={17} /></button>
           </form>
-          <div className="setup-footnote"><span className="status-dot" /> Saved locally in this browser</div>
+          <div className="setup-footnote"><span className="status-dot" /> {dataProviderMode === 'api' ? 'Server-backed workspace setup' : 'Saved locally in this browser'}</div>
         </section>
       </div>
       <footer className="onboarding-footer"><span>LEXA · Business workspace</span><span>Designed for connected, accountable business work.</span></footer>

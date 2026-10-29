@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPreviewDataService } from './previewDataService';
+import { createLocalModuleRecordService } from '../local/moduleRecords';
 import type { PreviewRecord } from '../../modules/operations/moduleCatalog';
 
 class MemoryStorage {
@@ -11,76 +11,72 @@ class MemoryStorage {
 
 const scope = { workspaceId: 'ws-alpha', branchId: 'branch-main' };
 const otherScope = { workspaceId: 'ws-beta', branchId: 'branch-main' };
-const seed: PreviewRecord[] = [
-  { id: 'CUS-001', status: 'Active', updatedAt: '2026-10-28T00:00:00.000Z', customerCode: 'CUS-001', name: 'Seed Customer' },
+const oldSampleRows: PreviewRecord[] = [
+  { id: 'CUS-001', status: 'Active', updatedAt: '2026-10-28T00:00:00.000Z', customerCode: 'CUS-001', name: 'Sample must not be seeded' },
 ];
 const created: PreviewRecord = {
-  id: 'CUS-002', status: 'Draft', updatedAt: '2026-10-28T01:00:00.000Z', customerCode: 'CUS-002', name: 'New Customer',
+  id: 'CUS-002', status: 'Draft', updatedAt: '2026-10-28T01:00:00.000Z', customerCode: 'CUS-002', name: 'Real entered customer',
 };
 
-describe('preview data service boundary', () => {
-  it('loads cloned seed rows, saves records, and persists changes across service instances', async () => {
+describe('local development record adapter', () => {
+  it('starts empty and ignores catalogue defaults rather than seeding demo rows', async () => {
+    const service = createLocalModuleRecordService({ storage: new MemoryStorage() });
+    await expect(service.list(scope, 'customers', oldSampleRows)).resolves.toEqual([]);
+    expect(service.getPersistenceMode()).toBe('browser-local');
+  });
+
+  it('saves entered records and persists them between service instances', async () => {
     const storage = new MemoryStorage();
-    const first = createPreviewDataService({ storage });
-    const initial = await first.list(scope, 'customers', seed);
-    expect(initial).toEqual(seed);
-    expect(initial).not.toBe(seed);
-    expect(first.getPersistenceMode()).toBe('browser-local');
-
-    const saved = await first.save(scope, 'customers', created, seed);
-    expect(saved.map((row) => row.id)).toEqual(['CUS-002', 'CUS-001']);
-
-    const second = createPreviewDataService({ storage });
-    await expect(second.list(scope, 'customers', seed)).resolves.toEqual(saved);
+    const first = createLocalModuleRecordService({ storage });
+    const saved = await first.save(scope, 'customers', created, oldSampleRows);
+    expect(saved.map((row) => row.id)).toEqual(['CUS-002']);
+    const second = createLocalModuleRecordService({ storage });
+    await expect(second.list(scope, 'customers')).resolves.toEqual(saved);
   });
 
-  it('isolates data by workspace, branch, and module', async () => {
-    const service = createPreviewDataService({ storage: new MemoryStorage() });
-    await service.save(scope, 'customers', created, seed);
-
-    await expect(service.list(otherScope, 'customers', seed)).resolves.toEqual(seed);
-    await expect(service.list(scope, 'suppliers', seed)).resolves.toEqual(seed);
-    await expect(service.list(scope, 'customers', seed)).resolves.toHaveLength(2);
+  it('isolates data by workspace, branch, and module with no implicit seed records', async () => {
+    const service = createLocalModuleRecordService({ storage: new MemoryStorage() });
+    await service.save(scope, 'customers', created);
+    await expect(service.list(otherScope, 'customers', oldSampleRows)).resolves.toEqual([]);
+    await expect(service.list(scope, 'suppliers', oldSampleRows)).resolves.toEqual([]);
+    await expect(service.list(scope, 'customers')).resolves.toHaveLength(1);
   });
 
-  it('updates status without duplicating the record and rejects a missing record', async () => {
-    const service = createPreviewDataService({ storage: new MemoryStorage() });
-    const updated = await service.updateStatus(scope, 'customers', 'CUS-001', 'On hold', seed);
+  it('updates status without duplicating a record and rejects a missing record', async () => {
+    const service = createLocalModuleRecordService({ storage: new MemoryStorage() });
+    await service.save(scope, 'customers', created);
+    const updated = await service.updateStatus(scope, 'customers', 'CUS-002', 'On hold');
     expect(updated).toHaveLength(1);
     expect(updated[0]?.status).toBe('On hold');
-    await expect(service.updateStatus(scope, 'customers', 'MISSING', 'Active', seed)).rejects.toThrow(/no longer exists/i);
+    await expect(service.updateStatus(scope, 'customers', 'MISSING', 'Active')).rejects.toThrow(/no longer exists/i);
   });
 
-  it('resets a register to the supplied initial records', async () => {
-    const service = createPreviewDataService({ storage: new MemoryStorage() });
-    await service.save(scope, 'customers', created, seed);
-    await expect(service.reset(scope, 'customers', seed)).resolves.toEqual(seed);
+  it('clears the register on reset rather than restoring starter records', async () => {
+    const service = createLocalModuleRecordService({ storage: new MemoryStorage() });
+    await service.save(scope, 'customers', created);
+    await expect(service.reset(scope, 'customers', oldSampleRows)).resolves.toEqual([]);
   });
 
-  it('recovers from malformed stored JSON by restoring safe seed data', async () => {
+  it('recovers from malformed stored JSON into an empty register', async () => {
     const storage = new MemoryStorage();
-    storage.seed('lexa.module-records.v2:ws-alpha:branch-main:customers', '{not-json');
-    const service = createPreviewDataService({ storage });
-    await expect(service.list(scope, 'customers', seed)).resolves.toEqual(seed);
-    expect(storage.getItem('lexa.module-records.v2:ws-alpha:branch-main:customers')).toContain('CUS-001');
+    storage.seed('lexa.module-records.v3:ws-alpha:branch-main:customers', '{not-json');
+    const service = createLocalModuleRecordService({ storage });
+    await expect(service.list(scope, 'customers', oldSampleRows)).resolves.toEqual([]);
   });
 
-  it('falls back to in-memory session data when browser storage is unavailable', async () => {
-    const blockedStorage = {
-      getItem: () => { throw new Error('storage blocked'); },
-      setItem: () => { throw new Error('storage blocked'); },
-    };
-    const service = createPreviewDataService({ storage: blockedStorage });
-    const saved = await service.save(scope, 'customers', created, seed);
-    expect(saved).toHaveLength(2);
+  it('uses memory-only storage when browser persistence is unavailable', async () => {
+    const blockedStorage = { getItem: () => { throw new Error('storage blocked'); }, setItem: () => { throw new Error('storage blocked'); } };
+    const service = createLocalModuleRecordService({ storage: blockedStorage });
+    await expect(service.save(scope, 'customers', created)).resolves.toHaveLength(1);
     expect(service.getPersistenceMode()).toBe('memory-only');
-    await expect(service.list(scope, 'customers', seed)).resolves.toEqual(saved);
+    await expect(service.list(scope, 'customers')).resolves.toHaveLength(1);
   });
 
-  it('returns defensive copies so callers cannot mutate the repository cache by reference', async () => {
-    const service = createPreviewDataService({ storage: new MemoryStorage() });
-    const list = await service.list(scope, 'customers', seed);
-    if (list[0]) list[0].name = 'mutated by caller';
-    await expect(service.list(scope, 'customers', seed)).resolves.toEqual(seed);
+  it('returns defensive copies so callers cannot mutate stored data by reference', async () => {
+    const service = createLocalModuleRecordService({ storage: new MemoryStorage() });
+    await service.save(scope, 'customers', created);
+    const rows = await service.list(scope, 'customers');
+    if (rows[0]) rows[0].name = 'mutated by caller';
+    await expect(service.list(scope, 'customers')).resolves.toEqual([created]);
   });
 });

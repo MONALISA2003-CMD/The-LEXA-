@@ -9,6 +9,7 @@ import { inventory, products } from '../../data/repositories';
 import { salesWorkflow } from '../../data/providers';
 import { formatMinorAmount, minorUnitFactor, parseMajorAmount } from '../../domain/money/money';
 import type { PaymentMethod } from '../../domain/shared/types';
+import { dataProviderMode } from '../../data/remote/runtimeConfig';
 
 const paymentMethods: Array<{ value: PaymentMethod; label: string }> = [
   { value: 'cash', label: 'Cash' }, { value: 'mtn_momo', label: 'MTN Mobile Money' },
@@ -137,7 +138,7 @@ export default function CheckoutPage() {
       ]);
       setCart({}); setCustomerName(''); setCustomerPhone(''); setPromisedPaymentDate('');
       setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '' }]);
-      toast.success('Sale recorded', { description: `Receipt ${result.sale.receiptNumber} saved locally${creditMinor > 0 ? '; customer credit remains outstanding.' : '.'}` });
+      toast.success('Sale recorded', { description: `Receipt ${result.sale.receiptNumber} ${dataProviderMode === 'api' ? 'saved to the LEXA backend' : 'saved on this device'}${creditMinor > 0 ? '; customer credit remains outstanding.' : '.'}` });
       navigate(`/sales/${result.sale.id}`);
     } catch (error) {
       toast.error('Sale was not completed', { description: error instanceof Error ? error.message : 'No sale records were committed. Check the cart and try again.' });

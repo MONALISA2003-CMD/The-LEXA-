@@ -16,6 +16,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 VITE_CONFIG = ROOT / "vite.config.ts"
 REPORTS = ROOT / "src/data/mock/previewReports.ts"
+LOCAL_REPORTS = ROOT / "src/data/local/moduleReports.ts"
 APP_SHELL = ROOT / "src/app/layouts/AppShell.tsx"
 DASHBOARD = ROOT / "src/modules/dashboard/DashboardPage.tsx"
 OPERATIONS = ROOT / "src/modules/operations/OperationsWorkspacePage.tsx"
@@ -40,13 +41,16 @@ def repair_config(text: str) -> str:
 
 
 def repair_reports(text: str) -> str:
+    # The compatibility file is now a deliberate re-export; apply the fix in the live implementation.
+    if "export * from '../local/moduleReports';" in text:
+        return text
     old = "  const contacts = rows('contacts');"
     new = ("  // Master-data coverage is independent of the selected activity period.\n"
            "  const contacts = source['contacts'] ?? [];")
     if new in text:
         return text
     if text.count(old) != 1:
-        fail("could not safely find the contact-count source line in previewReports.ts")
+        fail("could not safely find the contact-count source line in report implementation")
     return text.replace(old, new, 1)
 
 
@@ -153,18 +157,22 @@ def main() -> None:
     # Validate every transform before writing any source file.
     config_before = VITE_CONFIG.read_text(encoding="utf-8")
     reports_before = REPORTS.read_text(encoding="utf-8")
+    local_reports_before = LOCAL_REPORTS.read_text(encoding="utf-8") if LOCAL_REPORTS.is_file() else ""
     app_before = APP_SHELL.read_text(encoding="utf-8")
     dash_before = DASHBOARD.read_text(encoding="utf-8")
     ops_before = OPERATIONS.read_text(encoding="utf-8")
     config_after = repair_config(config_before)
     reports_after = repair_reports(reports_before)
+    local_reports_after = repair_reports(local_reports_before) if local_reports_before else local_reports_before
     app_after, dash_after, ops_after, ts_fixes = repair_unused_typescript(app_before, dash_before, ops_before)
     if "src/**/*.test.{ts,tsx}" not in config_after:
         fail("Vitest include guard was not established")
-    if "const contacts = source['contacts'] ?? [];" not in reports_after:
-        fail("master-data contact count guard was not established")
+    report_fix_present = "const contacts = source['contacts'] ?? [];" in reports_after or "const contacts = source['contacts'] ?? [];" in local_reports_after
+    if not report_fix_present:
+        fail("master-data contact count guard was not established in the active report implementation")
 
     changes = ((VITE_CONFIG, config_before, config_after), (REPORTS, reports_before, reports_after),
+               (LOCAL_REPORTS, local_reports_before, local_reports_after),
                (APP_SHELL, app_before, app_after), (DASHBOARD, dash_before, dash_after),
                (OPERATIONS, ops_before, ops_after))
     for path, before, after in changes:

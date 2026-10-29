@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
-import { PreviewDataServiceProvider } from '../data/providers/PreviewDataServiceProvider';
+import { ModuleRecordServiceProvider } from '../data/providers/ModuleRecordServiceProvider';
 
 export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -12,9 +12,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
   }));
   return (
     <QueryClientProvider client={queryClient}>
-      <PreviewDataServiceProvider>
+      <ModuleRecordServiceProvider>
         {children}
-      </PreviewDataServiceProvider>
+      </ModuleRecordServiceProvider>
       <Toaster position="top-right" richColors closeButton />
     </QueryClientProvider>
   );

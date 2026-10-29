@@ -38,7 +38,7 @@ const edge = (
 });
 
 /**
- * Frontend preview workflow map. Every hand-off creates a separate preview draft with
+ * Module workflow map. Every hand-off creates a separate linked module record with
  * source module/record metadata; it does not post to inventory, the GL, a payment rail,
  * tax authority, payroll provider, email service or the backend.
  */
@@ -137,7 +137,7 @@ const CORE_WORKFLOW_EDGES: WorkflowEdge[] = [
   edge('integrations', 'support', 'Create integration follow-up case', 'Record an investigation task for a failed or unconfigured connector.', ['Error', 'Configuration needed', 'Not connected', 'Paused']),
 ];
 
-// Every writable module gets a source-to-audit preview action, so no module is a dead end.
+// Every writable module gets a source-to-activity action, so no module is a dead end.
 const AUDIT_NOTE_EDGES: WorkflowEdge[] = MODULE_CATALOG
   .filter((module) => module.id !== 'audit' && !module.readOnly)
   .map((module) => edge(
@@ -173,7 +173,7 @@ export function getRelatedActions(moduleId: string, record: PreviewRecord): Work
 }
 
 
-/** Navigation-only shortcuts into the existing core pages; these do not convert preview records. */
+/** Navigation-only shortcuts into the existing core pages; they do not silently post to core ledgers. */
 const CORE_SCREEN_SHORTCUTS: Record<string, CoreScreenShortcut[]> = {
   customers: [{ path: '/sales', label: 'Sales history', description: 'Open saved sales and receipt history. Separate module records are not transferred into core sales.' }],
   contacts: [{ path: '/sales', label: 'Sales history', description: 'Open the core sales and receipt workflow.' }],

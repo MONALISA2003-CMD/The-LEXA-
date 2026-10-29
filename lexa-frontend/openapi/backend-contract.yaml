@@ -1,0 +1,427 @@
+openapi: 3.1.0
+info:
+  title: LEXA Frontend Backend Contract
+  version: 1.0.0
+  description: >-
+    Proposed versioned API contract expected by the LEXA frontend. This is a contract for backend implementation,
+    not evidence that a backend is deployed. All workspace and branch operations must verify the authenticated
+    principal's permissions server-side. Mutating business operations must be transactional and auditable.
+servers:
+  - url: https://api.example.com/api/v1
+    description: Replace with the real backend origin; never use client-side secrets.
+security:
+  - sessionCookie: []
+paths:
+  /health:
+    get:
+      operationId: getApiHealth
+      security: []
+      responses:
+        '200': { description: Service availability only; does not confirm database readiness or authenticated business access, content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [ok, healthy] }, version: { type: string } } } } } }
+  /auth/csrf:
+    get:
+      operationId: getCsrfToken
+      security: []
+      description: Return a short-lived CSRF token bound to the current browser/session context; do not cache it in persistent browser storage.
+      responses:
+        '200': { description: CSRF token, content: { application/json: { schema: { type: object, required: [token], properties: { token: { type: string, minLength: 16 } } } } } }
+  /auth/session:
+    get:
+      operationId: getAuthenticatedSession
+      responses:
+        '200': { description: Current session, content: { application/json: { schema: { $ref: '#/components/schemas/Session' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/login:
+    post:
+      operationId: signIn
+      security: []
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [email, password], properties: { email: { type: string, format: email }, password: { type: string, minLength: 1, maxLength: 1024 } } } } } }
+      responses:
+        '200': { description: Session cookie issued, headers: { Set-Cookie: { schema: { type: string }, description: Secure HttpOnly SameSite session cookie; never expose its value in JSON } }, content: { application/json: { schema: { $ref: '#/components/schemas/Session' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      operationId: signOut
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      responses:
+        '204': { description: Session invalidated and cookie expired }
+  /auth/password/forgot:
+    post:
+      operationId: requestPasswordReset
+      security: []
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [email], properties: { email: { type: string, format: email } } } } } }
+      responses:
+        '202': { description: Generic accepted response that does not reveal whether an account exists }
+  /auth/password/reset:
+    post:
+      operationId: resetPassword
+      security: []
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [token, password], properties: { token: { type: string, minLength: 16 }, password: { type: string, minLength: 12, maxLength: 1024 } } } } } }
+      responses:
+        '204': { description: Password reset token consumed and password changed }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /session:
+    get:
+      operationId: getSession
+      summary: Return the authenticated session and capabilities
+      responses:
+        '200': { description: Authenticated session, content: { application/json: { schema: { $ref: '#/components/schemas/Session' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /workspaces:
+    get:
+      operationId: listWorkspaces
+      responses:
+        '200': { description: Workspaces visible to the current user, content: { application/json: { schema: { $ref: '#/components/schemas/WorkspaceList' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      operationId: createWorkspace
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateWorkspace' } } } }
+      responses:
+        '201': { description: Workspace created, content: { application/json: { schema: { $ref: '#/components/schemas/Workspace' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /workspaces/{workspaceId}:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: getWorkspace
+      responses:
+        '200': { description: Workspace, content: { application/json: { schema: { $ref: '#/components/schemas/Workspace' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      operationId: updateWorkspace
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateWorkspace' } } } }
+      responses:
+        '200': { description: Updated workspace, content: { application/json: { schema: { $ref: '#/components/schemas/Workspace' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /workspaces/{workspaceId}/branches:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: listBranches
+      responses:
+        '200': { description: Branch list, content: { application/json: { schema: { $ref: '#/components/schemas/BranchList' } } } }
+    post:
+      operationId: createBranch
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateBranch' } } } }
+      responses:
+        '201': { description: Branch created, content: { application/json: { schema: { $ref: '#/components/schemas/Branch' } } } }
+  /workspaces/{workspaceId}/products:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: listProducts
+      parameters:
+        - { in: query, name: search, schema: { type: string } }
+        - { in: query, name: activeOnly, schema: { type: boolean } }
+      responses:
+        '200': { description: Products, content: { application/json: { schema: { $ref: '#/components/schemas/ProductList' } } } }
+    post:
+      operationId: createProduct
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateProduct' } } } }
+      responses:
+        '201': { description: Product created, content: { application/json: { schema: { $ref: '#/components/schemas/Product' } } } }
+  /workspaces/{workspaceId}/products/{productId}:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/productId' }]
+    patch:
+      operationId: updateProduct
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Product' } } } }
+      responses:
+        '200': { description: Product updated, content: { application/json: { schema: { $ref: '#/components/schemas/Product' } } } }
+  /workspaces/{workspaceId}/categories:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: listCategories
+      responses:
+        '200': { description: Categories, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Category' } } } } }
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/movements:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }]
+    get:
+      operationId: listInventoryMovements
+      parameters: [{ in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 1000 } }]
+      responses:
+        '200': { description: Movements, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/StockMovement' } } } } }
+    post:
+      operationId: recordInventoryAdjustment
+      parameters: [{ $ref: '#/components/parameters/idempotencyKey' }, { $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StockAdjustment' } } } }
+      responses:
+        '201': { description: Adjustment recorded, content: { application/json: { schema: { $ref: '#/components/schemas/StockMovement' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/balances:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }]
+    get:
+      operationId: getInventoryBalances
+      responses:
+        '200': { description: Product on-hand quantities, content: { application/json: { schema: { type: object, additionalProperties: { type: number } } } } }
+  /workspaces/{workspaceId}/sales:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: listSales
+      parameters: [{ in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 1000 } }]
+      responses:
+        '200': { description: Sales, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Sale' } } } } }
+  /workspaces/{workspaceId}/sales/{saleId}:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/saleId' }]
+    get:
+      operationId: getSale
+      responses:
+        '200': { description: Sale with lines, returns and payments, content: { application/json: { schema: { $ref: '#/components/schemas/SaleDetail' } } } }
+  /workspaces/{workspaceId}/branches/{branchId}/sales/complete:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }, { $ref: '#/components/parameters/idempotencyKey' }]
+    post:
+      operationId: completeSale
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      description: >-
+        In one database transaction validate permissions, product availability, prices and totals; write sale,
+        sale lines, payment records and stock effects; return the canonical sale. Never trust client-calculated totals.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CompleteSale' } } } }
+      responses:
+        '201': { description: Sale completed, content: { application/json: { schema: { type: object, required: [sale], properties: { sale: { $ref: '#/components/schemas/Sale' } } } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /workspaces/{workspaceId}/branches/{branchId}/sales/{saleId}/payments:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }, { $ref: '#/components/parameters/saleId' }, { $ref: '#/components/parameters/idempotencyKey' }]
+    post:
+      operationId: receiveSalePayment
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReceivePayment' } } } }
+      responses:
+        '201': { description: Payment record and outstanding balance }
+  /workspaces/{workspaceId}/branches/{branchId}/sales/{saleId}/returns:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }, { $ref: '#/components/parameters/saleId' }, { $ref: '#/components/parameters/idempotencyKey' }]
+    post:
+      operationId: recordSaleReturn
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RecordReturn' } } } }
+      responses:
+        '201': { description: Return and refund record }
+  /workspaces/{workspaceId}/branches/{branchId}/dashboard:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }]
+    get:
+      operationId: getDashboard
+      responses:
+        '200': { description: Server-derived dashboard, content: { application/json: { schema: { $ref: '#/components/schemas/Dashboard' } } } }
+  /workspaces/{workspaceId}/branches/{branchId}/modules/{moduleId}/records:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }, { $ref: '#/components/parameters/moduleId' }]
+    get:
+      operationId: listModuleRecords
+      responses:
+        '200': { description: Canonical records, content: { application/json: { schema: { $ref: '#/components/schemas/RecordList' } } } }
+    put:
+      operationId: replaceModuleRecords
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      description: Replace collection only when the caller is authorized and provides the current version/ETag; never expose this as a casual end-user destructive action.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [records], properties: { records: { type: array, items: { $ref: '#/components/schemas/ModuleRecord' } } } } } } }
+      responses:
+        '200': { description: Replaced records, content: { application/json: { schema: { $ref: '#/components/schemas/RecordList' } } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      operationId: deleteModuleRecords
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      description: Administrative clear operation; require a privileged role and explicit confirmation/audit trail.
+      responses:
+        '204': { description: Records deleted }
+  /workspaces/{workspaceId}/branches/{branchId}/modules/{moduleId}/records/{recordId}:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }, { $ref: '#/components/parameters/moduleId' }, { $ref: '#/components/parameters/recordId' }]
+    put:
+      operationId: upsertModuleRecord
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ModuleRecord' } } } }
+      responses:
+        '200': { description: Saved canonical record, content: { application/json: { schema: { $ref: '#/components/schemas/ModuleRecord' } } } }
+  /workspaces/{workspaceId}/branches/{branchId}/modules/{moduleId}/records/{recordId}/status:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }, { $ref: '#/components/parameters/moduleId' }, { $ref: '#/components/parameters/recordId' }]
+    patch:
+      operationId: changeModuleRecordStatus
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, minLength: 1, maxLength: 80 } } } } } }
+      responses:
+        '200': { description: Updated record list, content: { application/json: { schema: { $ref: '#/components/schemas/RecordList' } } } }
+  /workspaces/{workspaceId}/branches/{branchId}/reports/modules:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }]
+    get:
+      operationId: getModuleReport
+      parameters:
+        - { in: query, name: report, required: true, schema: { type: string } }
+        - { in: query, name: period, required: true, schema: { type: string } }
+        - { in: query, name: currency, required: true, schema: { type: string, pattern: '^[A-Z]{3}$' } }
+      responses:
+        '200': { description: Server-calculated report snapshot; not a substitute for statutory/accounting certification, content: { application/json: { schema: { $ref: '#/components/schemas/ModuleReport' } } } }
+  /workspaces/{workspaceId}/branches/{branchId}/business-tools/snapshot:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }]
+    get:
+      operationId: getBusinessToolsSnapshot
+      description: Return workspace-scoped products, sales, returns, payments and stock movements from authoritative backend records.
+      responses:
+        '200': { description: Business tools source snapshot, content: { application/json: { schema: { $ref: '#/components/schemas/BusinessToolsSnapshot' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /workspaces/{workspaceId}/business-tools/tax-profile:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: getBusinessTaxProfile
+      responses:
+        '200': { description: Server-maintained tax profile; thresholds are user-supplied, not inferred legal advice, content: { application/json: { schema: { $ref: '#/components/schemas/TaxProfile' } } } }
+    put:
+      operationId: upsertBusinessTaxProfile
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TaxProfile' } } } }
+      responses:
+        '200': { description: Saved profile, content: { application/json: { schema: { $ref: '#/components/schemas/TaxProfile' } } } }
+  /workspaces/{workspaceId}/branches/{branchId}/cash-ups:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }]
+    get:
+      operationId: listCashUps
+      responses:
+        '200': { description: Cash-up records, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CashUp' } } } } }
+  /workspaces/{workspaceId}/branches/{branchId}/cash-ups/{cashUpDate}:
+    parameters:
+      - { $ref: '#/components/parameters/workspaceId' }
+      - { $ref: '#/components/parameters/branchId' }
+      - { in: path, name: cashUpDate, required: true, schema: { type: string, format: date } }
+    put:
+      operationId: upsertCashUp
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CashUp' } } } }
+      responses:
+        '200': { description: Saved cash-up, content: { application/json: { schema: { $ref: '#/components/schemas/CashUp' } } } }
+  /workspaces/{workspaceId}/compliance-notes:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: listComplianceNotes
+      responses:
+        '200': { description: Internal document references, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ComplianceNote' } } } } }
+    post:
+      operationId: createComplianceNote
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ComplianceNoteInput' } } } }
+      responses:
+        '201': { description: Reference created, content: { application/json: { schema: { $ref: '#/components/schemas/ComplianceNote' } } } }
+  /workspaces/{workspaceId}/attachments:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: listAttachments
+      responses:
+        '200': { description: Attachment metadata only, no public storage URLs, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/AttachmentMetadata' } } } } }
+    post:
+      operationId: uploadAttachment
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody: { required: true, content: { multipart/form-data: { schema: { type: object, required: [file, workspaceId, branchId, reference, kind], properties: { file: { type: string, format: binary }, workspaceId: { type: string }, branchId: { type: string }, reference: { type: string, minLength: 1, maxLength: 200 }, kind: { type: string, enum: [product, receipt, other] } } } } } }
+      responses:
+        '201': { description: Attachment metadata, content: { application/json: { schema: { $ref: '#/components/schemas/AttachmentMetadata' } } } }
+  /workspaces/{workspaceId}/attachments/{attachmentId}/download:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { in: path, name: attachmentId, required: true, schema: { type: string, minLength: 1 } }]
+    get:
+      operationId: downloadAttachment
+      responses:
+        '200': { description: Authorized attachment bytes, content: { application/octet-stream: { schema: { type: string, format: binary } }, image/*: { schema: { type: string, format: binary } } } }
+  /workspaces/{workspaceId}/imports/products-csv:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    post:
+      operationId: importProductsCsv
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [currency, csv], properties: { currency: { type: string, pattern: '^[A-Z]{3}$' }, csv: { type: string, minLength: 1 } } } } } }
+      responses:
+        '200': { description: Import summary, content: { application/json: { schema: { type: object, required: [importedCount], properties: { importedCount: { type: integer, minimum: 0 } } } } } }
+  /workspaces/{workspaceId}/branches/{branchId}/imports/opening-stock-csv:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }]
+    post:
+      operationId: importOpeningStockCsv
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [csv], properties: { csv: { type: string, minLength: 1 } } } } } }
+      responses:
+        '200': { description: Import summary, content: { application/json: { schema: { type: object, required: [importedCount], properties: { importedCount: { type: integer, minimum: 0 } } } } } }
+  /workspaces/{workspaceId}/backup:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: exportWorkspaceBackup
+      responses:
+        '200': { description: Authorized versioned workspace backup, content: { application/json: { schema: { type: object, required: [format, version, createdAt, workspaceId, data], properties: { format: { type: string, const: lexa-workspace-backup }, version: { type: integer }, createdAt: { type: string, format: date-time }, workspaceId: { type: string }, data: { type: object, additionalProperties: true } } } } } }
+  /workspaces/{workspaceId}/backup/restore:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    post:
+      operationId: restoreWorkspaceBackup
+      description: Require workspace-owner/admin permission, validate the complete backup, restore transactionally, and create an immutable audit entry before acknowledging completion.
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [backup], properties: { backup: { type: object, additionalProperties: true } } } } } }
+      responses:
+        '200': { description: Restore result, content: { application/json: { schema: { type: object, properties: { tablesRestored: { type: integer }, recordsRestored: { type: integer }, accepted: { type: boolean } } } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: lexa_session
+      description: Secure, HttpOnly session cookie. Use SameSite=Lax for same-site deployments; when the frontend and API are cross-site, use SameSite=None; Secure. Avoid localStorage bearer tokens.
+  parameters:
+    workspaceId: { in: path, name: workspaceId, required: true, schema: { type: string, minLength: 1 } }
+    branchId: { in: path, name: branchId, required: true, schema: { type: string, minLength: 1 } }
+    productId: { in: path, name: productId, required: true, schema: { type: string, minLength: 1 } }
+    saleId: { in: path, name: saleId, required: true, schema: { type: string, minLength: 1 } }
+    moduleId: { in: path, name: moduleId, required: true, schema: { type: string, pattern: '^[a-z0-9-]+$' } }
+    recordId: { in: path, name: recordId, required: true, schema: { type: string, minLength: 1 } }
+    idempotencyKey: { in: header, name: Idempotency-Key, required: true, schema: { type: string, minLength: 8, maxLength: 160 } }
+    csrfToken: { in: header, name: X-CSRF-Token, required: true, schema: { type: string, minLength: 16 } }
+  responses:
+    Unauthorized: { description: Sign-in required, content: { application/json: { schema: { $ref: '#/components/schemas/ApiErrorEnvelope' } } } }
+    Forbidden: { description: The user lacks access to this workspace, branch, record or operation, content: { application/json: { schema: { $ref: '#/components/schemas/ApiErrorEnvelope' } } } }
+    NotFound: { description: Resource not found within the authenticated principal's scope, content: { application/json: { schema: { $ref: '#/components/schemas/ApiErrorEnvelope' } } } }
+    BadRequest: { description: Validation failure, content: { application/json: { schema: { $ref: '#/components/schemas/ApiErrorEnvelope' } } } }
+    Conflict: { description: Business invariant or optimistic concurrency conflict, content: { application/json: { schema: { $ref: '#/components/schemas/ApiErrorEnvelope' } } } }
+  schemas:
+    BusinessToolsSnapshot: { type: object, required: [products, sales, returns, payments, movements], properties: { products: { type: array, items: { $ref: '#/components/schemas/Product' } }, sales: { type: array, items: { $ref: '#/components/schemas/Sale' } }, returns: { type: array, items: { type: object, additionalProperties: true } }, payments: { type: array, items: { type: object, additionalProperties: true } }, movements: { type: array, items: { $ref: '#/components/schemas/StockMovement' } } } }
+    TaxProfile: { type: object, required: [tin, vatRegistered, sector, efrisOverride, vatThreshold, efrisTurnoverThreshold], properties: { tin: { type: string }, vatRegistered: { type: boolean }, sector: { type: string }, efrisOverride: { type: string, enum: [auto, yes, no] }, vatThreshold: { type: string, description: 'Optional user-verified value; do not prefill assumed legal thresholds' }, efrisTurnoverThreshold: { type: string, description: 'Optional user-verified value; do not prefill assumed legal thresholds' }, ruleSource: { type: string, description: 'Optional source/verification note; do not create one automatically' }, ruleEffectiveFrom: { type: string, description: 'Optional effective date for a user-verified policy; empty until verified' } } }
+    CashUp: { type: object, required: [workspaceId, branchId, date, openingFloatMinor, otherCashInMinor, otherCashOutMinor, expectedCashMinor, countedCashMinor, varianceMinor, reason, savedAt], properties: { workspaceId: { type: string }, branchId: { type: string }, date: { type: string, format: date }, openingFloatMinor: { type: integer }, otherCashInMinor: { type: integer }, otherCashOutMinor: { type: integer }, expectedCashMinor: { type: integer }, countedCashMinor: { type: integer }, varianceMinor: { type: integer }, reason: { type: string }, savedAt: { type: string, format: date-time } } }
+    ComplianceNote: { type: object, required: [id, date, documentType, internalReference, fdn, status, notes], properties: { id: { type: string }, date: { type: string, format: date }, documentType: { type: string }, internalReference: { type: string }, fdn: { type: string }, status: { type: string }, notes: { type: string } } }
+    ComplianceNoteInput: { type: object, required: [date, documentType, internalReference, fdn, status, notes], properties: { date: { type: string, format: date }, documentType: { type: string }, internalReference: { type: string, minLength: 1, maxLength: 200 }, fdn: { type: string, maxLength: 200 }, status: { type: string }, notes: { type: string, maxLength: 2000 } } }
+    AttachmentMetadata: { type: object, required: [id, workspaceId, branchId, reference, kind, name, mimeType, size, capturedAt], properties: { id: { type: string }, workspaceId: { type: string }, branchId: { type: string }, reference: { type: string }, kind: { type: string, enum: [product, receipt, other] }, name: { type: string }, mimeType: { type: string }, size: { type: integer }, capturedAt: { type: string, format: date-time } } }
+    ApiErrorEnvelope:
+      type: object
+      required: [error, requestId]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+        requestId: { type: string }
+    Session: { type: object, required: [user, roles], properties: { user: { type: object, required: [id, email], properties: { id: { type: string }, email: { type: string, format: email }, displayName: { type: string } } }, roles: { type: array, items: { type: string } } } }
+    Workspace:
+      type: object
+      required: [id, businessName, businessType, timezone, currency, createdAt]
+      properties:
+        id: { type: string }
+        businessName: { type: string, minLength: 1, maxLength: 100 }
+        businessType: { type: string }
+        timezone: { type: string }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        createdAt: { type: string, format: date-time }
+    WorkspaceList: { type: array, items: { $ref: '#/components/schemas/Workspace' } }
+    Branch: { type: object, required: [id, workspaceId, name], properties: { id: { type: string }, workspaceId: { type: string }, name: { type: string }, address: { type: string } } }
+    BranchList: { type: array, items: { $ref: '#/components/schemas/Branch' } }
+    CreateWorkspace: { type: object, required: [businessName, businessType, timezone, currency, branchName], properties: { businessName: { type: string, minLength: 1, maxLength: 100 }, businessType: { type: string }, timezone: { type: string }, currency: { type: string, pattern: '^[A-Z]{3}$' }, branchName: { type: string, minLength: 1, maxLength: 80 } } }
+    UpdateWorkspace: { type: object, properties: { businessName: { type: string, minLength: 1, maxLength: 100 }, businessType: { type: string }, timezone: { type: string } } }
+    CreateBranch: { type: object, required: [name], properties: { name: { type: string, minLength: 1, maxLength: 100 }, address: { type: string } } }
+    Category: { type: object, required: [id, name], properties: { id: { type: string }, name: { type: string } } }
+    Product: { type: object, required: [id, workspaceId, name, sku, costPriceMinor, sellingPriceMinor, lowStockThreshold, trackStock, active, createdAt, updatedAt], properties: { id: { type: string }, workspaceId: { type: string }, name: { type: string }, sku: { type: string }, barcode: { type: string }, brand: { type: string }, unitOfMeasure: { type: string }, supplierSku: { type: string }, categoryId: { type: string }, costPriceMinor: { type: integer, minimum: 0 }, sellingPriceMinor: { type: integer, minimum: 0 }, lowStockThreshold: { type: integer, minimum: 0 }, trackStock: { type: boolean }, active: { type: boolean }, createdAt: { type: string, format: date-time }, updatedAt: { type: string, format: date-time } } }
+    ProductList: { type: array, items: { $ref: '#/components/schemas/Product' } }
+    CreateProduct: { type: object, required: [workspaceId, name, sku, costPriceMinor, sellingPriceMinor, lowStockThreshold, trackStock], properties: { workspaceId: { type: string }, name: { type: string }, sku: { type: string }, barcode: { type: string }, brand: { type: string }, unitOfMeasure: { type: string }, supplierSku: { type: string }, categoryName: { type: string }, costPriceMinor: { type: integer, minimum: 0 }, sellingPriceMinor: { type: integer, minimum: 0 }, lowStockThreshold: { type: integer, minimum: 0 }, trackStock: { type: boolean } } }
+    StockMovement: { type: object, required: [id, workspaceId, branchId, productId, quantityDelta, movementType, createdAt], properties: { id: { type: string }, workspaceId: { type: string }, branchId: { type: string }, productId: { type: string }, quantityDelta: { type: number }, movementType: { type: string }, createdAt: { type: string, format: date-time }, reason: { type: string } } }
+    StockAdjustment: { type: object, required: [productId, quantityDelta, reason, movementType], properties: { productId: { type: string }, quantityDelta: { type: number }, reason: { type: string, minLength: 3, maxLength: 500 }, movementType: { type: string, enum: [opening, adjustment] } } }
+    Sale: { type: object, additionalProperties: true, required: [id, receiptNumber, workspaceId, branchId, totalMinor, status, createdAt], properties: { id: { type: string }, receiptNumber: { type: string }, workspaceId: { type: string }, branchId: { type: string }, customerName: { type: string }, customerPhone: { type: string }, promisedPaymentDate: { type: string, format: date }, totalMinor: { type: integer, minimum: 0 }, status: { type: string, enum: [completed] }, createdAt: { type: string, format: date-time } } }
+    SaleDetail: { type: object, required: [sale, lines, returns, returnLines, payments], properties: { sale: { $ref: '#/components/schemas/Sale' }, lines: { type: array, items: { type: object, additionalProperties: true } }, returns: { type: array, items: { type: object, additionalProperties: true } }, returnLines: { type: array, items: { type: object, additionalProperties: true } }, payments: { type: array, items: { type: object, additionalProperties: true } } } }
+    CompleteSale: { type: object, required: [items, payments], properties: { items: { type: array, minItems: 1, items: { type: object, required: [productId, quantity], properties: { productId: { type: string }, quantity: { type: number, exclusiveMinimum: 0 } } } }, payments: { type: array, items: { type: object, required: [method, amountMinor], properties: { method: { type: string }, amountMinor: { type: integer, minimum: 0 } } } }, customerName: { type: string }, customerPhone: { type: string }, promisedPaymentDate: { type: string, format: date } } }
+    ReceivePayment: { type: object, required: [method, amountMinor], properties: { method: { type: string }, amountMinor: { type: integer, minimum: 1 }, reference: { type: string } } }
+    RecordReturn: { type: object, required: [items, reason, recordRefund, refundMethod], properties: { items: { type: array, minItems: 1, items: { type: object, additionalProperties: true } }, reason: { type: string, minLength: 3 }, recordRefund: { type: boolean }, refundMethod: { type: [string, 'null'] } } }
+    ModuleRecord: { type: object, required: [id, updatedAt, status], properties: { id: { type: string }, updatedAt: { type: string, format: date-time }, status: { type: string } }, additionalProperties: true }
+    RecordList: { type: array, items: { $ref: '#/components/schemas/ModuleRecord' } }
+    ModuleReport: { type: object, required: [report, period, currency, generatedAt, entries, metrics, filteredRecordCounts], properties: { report: { type: string }, period: { type: string }, currency: { type: string }, generatedAt: { type: string, format: date-time }, entries: { type: array, items: { type: object, additionalProperties: true } }, metrics: { type: array, items: { type: object, additionalProperties: true } }, filteredRecordCounts: { type: object, additionalProperties: { type: integer } }, sourceLabel: { type: string }, interpretationNote: { type: string } } }
+    Dashboard: { type: object, required: [activeProductCount, lowStockCount, itemsInStock, grossSalesMinor, returnsMinor, netSalesMinor, recordedReceiptsMinor, recordedRefundsMinor, outstandingMinor, saleCount, recentSales, recentMovements, lowStockProducts], properties: { activeProductCount: { type: integer }, lowStockCount: { type: integer }, itemsInStock: { type: number }, grossSalesMinor: { type: integer }, returnsMinor: { type: integer }, netSalesMinor: { type: integer }, recordedReceiptsMinor: { type: integer }, recordedRefundsMinor: { type: integer }, outstandingMinor: { type: integer }, saleCount: { type: integer }, recentSales: { type: array, items: { $ref: '#/components/schemas/Sale' } }, recentMovements: { type: array, items: { $ref: '#/components/schemas/StockMovement' } }, lowStockProducts: { type: array, items: { type: object, required: [product, onHand], properties: { product: { $ref: '#/components/schemas/Product' }, onHand: { type: number } } } } } }

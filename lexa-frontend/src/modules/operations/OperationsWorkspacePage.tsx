@@ -13,11 +13,13 @@ import {
 } from './moduleCatalog';
 import { getCoreScreenShortcuts, getRelatedActions, isDuplicateSensitiveHandoff } from './workflowGraph';
 import { calculateRecord, nextStatus, safeNumber, validateRecord, type FormValues } from './previewRules';
-import { usePreviewDataService } from '../../data/providers/PreviewDataServiceProvider';
-import type { PreviewScope } from '../../data/contracts/previewData';
+import { useModuleRecordService } from '../../data/providers/ModuleRecordServiceProvider';
+import type { DataPersistenceMode, ModuleRecordScope } from '../../data/contracts/previewData';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
+import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { filterPreviewRecords, paginatePreviewRecords } from './previewSelectors';
-import { getPreviewDateRange, loadPreviewReportSnapshot, REPORT_NAMES, REPORT_PERIODS, type PreviewReportName, type PreviewReportUnit, type ReportPeriod } from '../../data/mock/previewReports';
+import { getPreviewDateRange, REPORT_NAMES, REPORT_PERIODS, type PreviewReportName, type PreviewReportUnit, type ReportPeriod } from '../../data/local/moduleReports';
+import { moduleReports } from '../../data/repositories';
 import DocumentLineItemsEditor from './DocumentLineItemsEditor';
 import { getDocumentLineConfig, readDocumentLines, syncDocumentLines, validateDocumentLines } from './documentLines';
 import { journalTotals, readAssemblyComponents, readJournalLines, syncAssemblyComponents, syncJournalLines, validateAssemblyComponents, validateJournalLines } from './structuredEntries';
@@ -75,44 +77,18 @@ function initialValues(module: ModuleDefinition): FormValues {
   const today = dateInputValue(new Date());
   const result: FormValues = {};
   for (const field of module.fields) {
-    if (field.kind === 'select') result[field.key] = field.options?.[0] ?? '';
+    if (field.key === 'status') result[field.key] = field.options?.find((option) => option.toLowerCase() === 'draft') ?? field.options?.[0] ?? '';
     else if (field.kind === 'date' && field.required !== false && (field.key === module.dateKey || field.key.toLowerCase().includes('date'))) result[field.key] = today;
     else result[field.key] = '';
   }
-  if (module.id === 'leads') { result.probability = '10'; result.estimatedValue = '0'; }
-  if (module.id === 'cash-sessions') { result.openingFloat = '0'; result.cashSales = '0'; result.cashRefunds = '0'; result.cashDrops = '0'; result.countedCash = '0'; }
-  if (module.id === 'boms') { result.outputQuantity = '1'; result.unitMaterialCost = '0'; }
-  if (module.id === 'job-cards') { result.plannedHours = '1'; result.actualHours = '0'; }
-  if (module.id === 'leave') result.daysRequested = '1';
-  if (module.id === 'replenishment') { result.onHand = '0'; result.reorderPoint = '10'; result.averageDailyDemand = '1'; result.leadTimeDays = '7'; result.safetyStock = '5'; }
-  if (module.id === 'packages') { result.packageCount = '1'; result.weightKg = '0'; result.courier = 'Own fleet'; }
-  if (module.id === 'timesheets') { result.hours = '1'; result.billableHours = '0'; result.hourlyRate = '0'; }
-  if (module.id === 'campaigns') { result.budget = '0'; result.actualSpend = '0'; result.leadsGenerated = '0'; result.opportunitiesCreated = '0'; }
-  if (module.id === 'sales-teams') { result.salesTarget = '0'; result.salesAchieved = '0'; result.commissionRate = '0'; }
-  if (module.id === 'item-bundles') { result.componentCount = '1'; result.unitCost = '0'; result.sellingPrice = '0'; }
-  if (module.id === 'picklists') { result.lineCount = '1'; result.unitsToPick = '1'; result.unitsPicked = '0'; }
-  if (module.id === 'budgets') { result.budgetAmount = '0'; result.actualAmount = '0'; result.committedAmount = '0'; result.forecastAmount = '0'; }
-  if (module.id === 'integrations') { result.recordsProcessed = '0'; result.environment = 'Development'; }
-  if (module.id === 'recurring-invoices') { result.taxRate = '18'; result.quantity = '1'; result.unitPrice = '0'; result.taxTreatment = 'Standard rated'; }
-  if (['quotations', 'sales-orders'].includes(module.id)) { result.discountPercent = '0'; result.taxRate = '18'; result.quantity = '1'; }
-  if (['sales-invoices', 'purchases', 'purchase-invoices'].includes(module.id)) { result.taxRate = '18'; result.quantity = '1'; result.amountPaid = '0'; }
-  if (module.id === 'sales-invoices') result.amountReceived = '0';
-  if (module.id === 'expenses') { result.taxRate = '0'; result.amount = '0'; }
-  if (['sales-returns', 'purchase-returns'].includes(module.id)) { result.taxRate = '18'; result.quantity = '1'; }
-  if (module.id === 'tax-documents') result.taxRate = '18';
-  if (module.id === 'assets') { result.residualValue = '0'; result.accumulatedDepreciation = '0'; result.usefulLifeYears = '5'; }
-  if (module.id === 'receiving') { result.orderedQuantity = '1'; result.acceptedQuantity = '1'; result.rejectedQuantity = '0'; }
-  if (module.id === 'payments') result.amount = '0';
-  if (module.id === 'accounting') result.amount = '0';
-  if (module.id === 'stock-transfers') result.quantity = '1';
-  if (module.id === 'supplier-quotes') { result.taxRate = '18'; result.quantity = '1'; result.deliveryDays = '0'; }
+  // References are generated identifiers, not sample records. All business values remain blank until entered or mapped from a real source record.
   const referenceField = REFERENCE_FIELDS[module.id];
   if (referenceField) result[referenceField] = generateReference(module.id);
   return result;
 }
 function valuesFromRecord(module: ModuleDefinition, record: PreviewRecord): FormValues {
   const result: FormValues = {};
-  module.fields.forEach((field) => { result[field.key] = record[field.key] ?? (field.kind === 'select' ? field.options?.[0] ?? '' : ''); });
+  module.fields.forEach((field) => { result[field.key] = record[field.key] ?? ''; });
   let normalized = result;
   if (module.id === 'accounting') normalized = syncJournalLines(normalized, readJournalLines(normalized));
   if (module.id === 'boms' || module.id === 'item-bundles') normalized = syncAssemblyComponents(module.id, normalized, readAssemblyComponents(module.id, normalized));
@@ -204,7 +180,7 @@ function genericRelatedValues(sourceModuleId: string, source: PreviewRecord, tar
     const sourceTitle = getModuleDefinition(sourceModuleId)?.title ?? sourceModuleId;
     return {
       eventDate: today,
-      actor: 'Workspace user',
+      actor: 'Local user (device only)',
       action: 'Review note created',
       entity: sourceTitle,
       reference: sourceReference,
@@ -302,17 +278,17 @@ function genericRelatedValues(sourceModuleId: string, source: PreviewRecord, tar
   if (targetId === 'sales-orders' && sourceModuleId === 'opportunities') {
     result.customer = source.company ?? source.contactName ?? '';
     result.itemSummary = source.nextAction ?? ('Opportunity ' + (source.opportunityCode ?? source.id));
-    result.quantity = '1';
-    result.unitPrice = source.amount ?? source.estimatedValue ?? '0';
-    result.discountPercent = '0';
-    result.taxTreatment = 'Standard rated';
-    result.taxRate = '18';
+    result.quantity = typeof source.quantity === 'string' ? source.quantity : '';
+    result.unitPrice = source.amount ?? source.estimatedValue ?? ''; 
+    result.discountPercent = source.discountPercent ?? ''; 
+    result.taxTreatment = source.taxTreatment ?? ''; 
+    result.taxRate = source.taxRate ?? ''; 
   }
   if (targetId === 'payments' && sourceModuleId === 'payroll') {
     result.direction = 'Money out';
     result.partyType = 'Other';
     result.partyName = 'Payroll run ' + (source.payrollReference ?? source.id);
-    result.amount = source.netPay ?? '0';
+    result.amount = source.netPay ?? '';
     result.notes = 'Payment record for payroll run ' + (source.payrollReference ?? source.id) + '; no external transfer is initiated.';
   }
   return result;
@@ -321,32 +297,32 @@ function genericRelatedValues(sourceModuleId: string, source: PreviewRecord, tar
 function relatedValues(sourceModuleId: string, source: PreviewRecord, targetId: string): FormValues {
   const today = dateInputValue(new Date());
   const dueDate = dateInputValue(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
-  if (sourceModuleId === 'purchase-requests' && targetId === 'rfqs') return { purchaseRequest: source.requestNumber ?? '', issueDate: today, responseDue: source.neededBy ?? dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '1', supplierInvited: source.preferredSupplier ?? '', deliveryAddress: source.branch ?? '', terms: source.justification ?? '', status: 'Draft' };
-  if (sourceModuleId === 'rfqs' && targetId === 'supplier-quotes') return { rfqNumber: source.rfqNumber ?? '', supplier: source.supplierInvited ?? '', quoteDate: today, validUntil: dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '1', unitCost: '0', taxTreatment: 'Standard rated', taxRate: '18', deliveryDays: '0', paymentTerms: '30 days', status: 'Draft' };
-  if (sourceModuleId === 'supplier-quotes' && targetId === 'purchases') { const expected = dateInputValue(new Date(Date.now() + Math.max(0, safeNumber(source.deliveryDays)) * 86400000)); return { supplier: source.supplier ?? '', orderDate: today, expectedDate: expected, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '1', unitCost: source.unitCost ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', amountPaid: '0', status: 'Draft' }; }
-  if (sourceModuleId === 'opportunities' && targetId === 'sales-orders') return { customer: source.company ?? source.contactName ?? '', orderDate: today, expectedDate: source.expectedCloseDate ?? dueDate, itemSummary: source.nextAction ?? ('Opportunity: ' + (source.opportunityCode ?? source.company ?? '')), quantity: '1', unitPrice: source.amount ?? '0', discountPercent: '0', taxTreatment: 'Standard rated', taxRate: '18', status: 'Draft' };
-  if (sourceModuleId === 'sales-invoices' && targetId === 'sales-returns') return { sourceInvoice: source.invoiceNumber ?? '', customer: source.customer ?? '', returnDate: today, reason: 'Customer changed mind', itemDescription: source.itemSummary ?? '', quantity: '1', unitPrice: source.unitPrice ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', resolution: 'Customer credit', status: 'Draft' };
-  if (sourceModuleId === 'purchase-invoices' && targetId === 'purchase-returns') return { sourcePurchaseOrder: source.purchaseOrder ?? source.billNumber ?? '', supplier: source.supplier ?? '', returnDate: today, reason: 'Other', itemDescription: source.itemSummary ?? '', quantity: '1', unitCost: source.unitCost ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', status: 'Draft' };
-  if (sourceModuleId === 'receiving' && targetId === 'quality') return { sourceType: 'Goods receipt', sourceReference: source.receiptNumber ?? '', item: source.product ?? '', inspectionDate: today, inspector: '', inspectedQuantity: String(Math.max(1, safeNumber(source.acceptedQuantity) + safeNumber(source.rejectedQuantity))), acceptedQuantity: source.acceptedQuantity ?? '0', rejectedQuantity: source.rejectedQuantity ?? '0', defectType: 'None identified', notes: '', status: 'Draft' };
-  if (sourceModuleId === 'work-orders' && targetId === 'quality') return { sourceType: 'Production order', sourceReference: source.workOrderNumber ?? '', item: source.productName ?? '', inspectionDate: today, inspector: '', inspectedQuantity: source.completedQuantity ?? source.plannedQuantity ?? '1', acceptedQuantity: source.completedQuantity ?? source.plannedQuantity ?? '1', rejectedQuantity: '0', defectType: 'None identified', notes: '', status: 'Draft' };
-  if (sourceModuleId === 'customers' && targetId === 'quotations') return { customer: source.name ?? '', issueDate: today, validUntil: dueDate, itemSummary: '', quantity: '1', unitPrice: '0', discountPercent: '0', taxTreatment: 'Standard rated', taxRate: '18', status: 'Draft' };
-  if (sourceModuleId === 'suppliers' && targetId === 'purchases') return { supplier: source.name ?? '', orderDate: today, expectedDate: dueDate, itemSummary: '', quantity: '1', unitCost: '0', taxTreatment: 'Standard rated', taxRate: '18', amountPaid: '0', status: 'Draft' };
-  if (sourceModuleId === 'quotations' && targetId === 'sales-orders') return { customer: source.customer ?? '', orderDate: today, expectedDate: source.validUntil ?? dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '1', unitPrice: source.unitPrice ?? '0', discountPercent: source.discountPercent ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', status: 'Draft' };
-  if (sourceModuleId === 'sales-orders' && targetId === 'deliveries') return { salesOrder: source.orderNumber ?? '', customer: source.customer ?? '', dispatchDate: today, expectedDate: source.expectedDate ?? dueDate, deliveryAddress: '', courier: '', trackingReference: '', deliveryFee: '0', method: 'Own fleet', status: 'Draft' };
-  if (sourceModuleId === 'sales-orders' && targetId === 'sales-invoices') return { customer: source.customer ?? '', salesOrderReference: source.orderNumber ?? '', issueDate: today, dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '1', unitPrice: source.unitPrice ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', amountReceived: '0', status: 'Draft' };
-  if (sourceModuleId === 'purchases' && targetId === 'receiving') return { purchaseOrder: source.poNumber ?? '', supplier: source.supplier ?? '', receiptDate: today, product: source.itemSummary ?? '', orderedQuantity: source.quantity ?? '1', acceptedQuantity: '0', rejectedQuantity: '0', warehouse: '', batchNumber: '', status: 'Draft' };
-  if (sourceModuleId === 'purchases' && targetId === 'purchase-invoices') return { supplier: source.supplier ?? '', purchaseOrder: source.poNumber ?? '', billDate: today, dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '1', unitCost: source.unitCost ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', amountPaid: '0', status: 'Draft' };
-  if (sourceModuleId === 'leads' && targetId === 'opportunities') return { company: source.company ?? '', contactName: source.contactName ?? '', email: source.email ?? '', source: source.source ?? 'Other', owner: source.owner ?? '', createdDate: today, expectedCloseDate: source.expectedCloseDate ?? dueDate, amount: source.estimatedValue ?? '0', probability: source.probability ?? '10', nextAction: source.nextAction ?? '', status: 'New' };
-  if (sourceModuleId === 'sales-orders' && targetId === 'packages') return { salesOrder: source.orderNumber ?? '', customer: source.customer ?? '', packageDate: today, itemSummary: source.itemSummary ?? '', packageCount: '1', weightKg: '0', courier: 'Own fleet', trackingReference: '', status: 'Not shipped' };
-  if (sourceModuleId === 'packages' && targetId === 'deliveries') return { salesOrder: source.salesOrder ?? '', customer: source.customer ?? '', dispatchDate: today, expectedDate: dueDate, deliveryAddress: '', courier: source.courier ?? '', trackingReference: source.trackingReference ?? '', deliveryFee: '0', method: 'Own fleet', status: 'Draft' };
-  if (sourceModuleId === 'work-orders' && targetId === 'job-cards') return { workOrderNumber: source.workOrderNumber ?? '', operation: 'Assembly', workstation: '', operator: '', plannedHours: '1', actualHours: '0', startDate: today, endDate: '', outputReference: source.productName ?? '', status: 'Draft' };
-  if (sourceModuleId === 'boms' && targetId === 'work-orders') return { workOrderNumber: '', productSKU: source.finishedProductSKU ?? '', productName: source.finishedProductName ?? '', bomReference: source.bomCode ?? '', plannedQuantity: source.outputQuantity ?? '1', completedQuantity: '0', unitCost: source.unitMaterialCost ?? '0', startDate: today, targetDate: dueDate, status: 'Draft' };
-  if (sourceModuleId === 'replenishment' && targetId === 'purchases') return { supplier: source.preferredSupplier ?? '', orderDate: today, expectedDate: source.needByDate ?? dueDate, itemSummary: (source.productSKU ?? '') + ' · ' + (source.productName ?? ''), quantity: source.recommendedQuantity ?? '1', unitCost: '0', taxTreatment: 'Standard rated', taxRate: '18', amountPaid: '0', status: 'Draft' };
-  if (sourceModuleId === 'cash-sessions' && targetId === 'bank-reconciliation') return { account: source.terminal ?? 'Cash till', statementDate: source.sessionDate ?? today, statementReference: source.sessionNumber ?? '', openingBalance: source.openingFloat ?? '0', statementBalance: source.countedCash ?? '0', bookBalance: source.expectedCash ?? '0', statementLineCount: '0', matchedCount: '0', unmatchedCount: '0', preparedBy: source.closedBy ?? source.openedBy ?? '', status: 'Draft' };
-  if (sourceModuleId === 'campaigns' && targetId === 'leads') return { company: '', contactName: '', phone: '', email: '', source: source.name ?? 'Campaign', owner: source.owner ?? '', createdDate: today, expectedCloseDate: dueDate, estimatedValue: '0', probability: '10', nextAction: 'Follow up from campaign ' + (source.campaignCode ?? ''), status: 'New' };
-  if (sourceModuleId === 'picklists' && targetId === 'packages') return { salesOrder: source.salesOrder ?? '', customer: '', packageDate: today, itemSummary: 'Picked from ' + (source.picklistNumber ?? '') + '; ' + (source.unitsPicked ?? '0') + ' units', packageCount: '1', weightKg: '0', courier: 'Own fleet', trackingReference: '', status: 'Not shipped' };
-  if (sourceModuleId === 'item-bundles' && targetId === 'work-orders') return { productName: source.bundleName ?? '', bomReference: source.bundleCode ?? '', startDate: today, targetDate: dueDate, plannedQuantity: '1', completedQuantity: '0', unitCost: source.unitCost ?? '0', priority: 'Normal', status: 'Draft' };
-  if (sourceModuleId === 'recurring-invoices' && targetId === 'sales-invoices') return { customer: source.customer ?? '', salesOrderReference: '', issueDate: today, dueDate, itemSummary: source.description ?? 'Recurring invoice draft', quantity: source.quantity ?? '1', unitPrice: source.unitPrice ?? '0', taxTreatment: source.taxTreatment ?? 'Standard rated', taxRate: source.taxRate ?? '18', amountReceived: '0', status: 'Draft' };
+  if (sourceModuleId === 'purchase-requests' && targetId === 'rfqs') return { purchaseRequest: source.requestNumber ?? '', issueDate: today, responseDue: source.neededBy ?? dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '', supplierInvited: source.preferredSupplier ?? '', deliveryAddress: source.branch ?? '', terms: source.justification ?? '', status: 'Draft' };
+  if (sourceModuleId === 'rfqs' && targetId === 'supplier-quotes') return { rfqNumber: source.rfqNumber ?? '', supplier: source.supplierInvited ?? '', quoteDate: today, validUntil: dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '', unitCost: '', taxTreatment: source.taxTreatment ?? '', taxRate: source.taxRate ?? '', deliveryDays: '', paymentTerms: '', status: 'Draft' };
+  if (sourceModuleId === 'supplier-quotes' && targetId === 'purchases') { const expected = dateInputValue(new Date(Date.now() + Math.max(0, safeNumber(source.deliveryDays)) * 86400000)); return { supplier: source.supplier ?? '', orderDate: today, expectedDate: expected, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '', unitCost: source.unitCost ?? '', taxTreatment: source.taxTreatment ?? '', taxRate: source.taxRate ?? '', amountPaid: '', status: 'Draft' }; }
+  if (sourceModuleId === 'opportunities' && targetId === 'sales-orders') return { customer: source.company ?? source.contactName ?? '', orderDate: today, expectedDate: source.expectedCloseDate ?? dueDate, itemSummary: source.nextAction ?? (source.opportunityCode || source.company ? 'Opportunity: ' + (source.opportunityCode ?? source.company) : ''), quantity: '', unitPrice: source.amount ?? '', discountPercent: '', taxTreatment: source.taxTreatment ?? '', taxRate: source.taxRate ?? '', status: 'Draft' };
+  if (sourceModuleId === 'sales-invoices' && targetId === 'sales-returns') return { sourceInvoice: source.invoiceNumber ?? '', customer: source.customer ?? '', returnDate: today, reason: '', itemDescription: source.itemSummary ?? '', quantity: '', unitPrice: source.unitPrice ?? '', taxTreatment: source.taxTreatment ?? '', taxRate: source.taxRate ?? '', resolution: 'Customer credit', status: 'Draft' };
+  if (sourceModuleId === 'purchase-invoices' && targetId === 'purchase-returns') return { sourcePurchaseOrder: source.purchaseOrder ?? source.billNumber ?? '', supplier: source.supplier ?? '', returnDate: today, reason: '', itemDescription: source.itemSummary ?? '', quantity: '', unitCost: source.unitCost ?? '', taxTreatment: source.taxTreatment ?? '', taxRate: source.taxRate ?? '', status: 'Draft' };
+  if (sourceModuleId === 'receiving' && targetId === 'quality') return { sourceType: 'Goods receipt', sourceReference: source.receiptNumber ?? '', item: source.product ?? '', inspectionDate: today, inspector: '', inspectedQuantity: safeNumber(source.acceptedQuantity) + safeNumber(source.rejectedQuantity) > 0 ? String(safeNumber(source.acceptedQuantity) + safeNumber(source.rejectedQuantity)) : '', acceptedQuantity: source.acceptedQuantity ?? '', rejectedQuantity: source.rejectedQuantity ?? '', defectType: '', notes: '', status: 'Draft' };
+  if (sourceModuleId === 'work-orders' && targetId === 'quality') return { sourceType: 'Production order', sourceReference: source.workOrderNumber ?? '', item: source.productName ?? '', inspectionDate: today, inspector: '', inspectedQuantity: source.completedQuantity ?? source.plannedQuantity ?? '', acceptedQuantity: source.completedQuantity ?? source.plannedQuantity ?? '', rejectedQuantity: '', defectType: '', notes: '', status: 'Draft' };
+  if (sourceModuleId === 'customers' && targetId === 'quotations') return { customer: source.name ?? '', issueDate: today, validUntil: dueDate, itemSummary: '', quantity: '', unitPrice: '', discountPercent: '', taxTreatment: source.taxTreatment ?? '', taxRate: source.taxRate ?? '', status: 'Draft' };
+  if (sourceModuleId === 'suppliers' && targetId === 'purchases') return { supplier: source.name ?? '', orderDate: today, expectedDate: dueDate, itemSummary: '', quantity: '', unitCost: '', taxTreatment: source.taxTreatment ?? '', taxRate: source.taxRate ?? '', amountPaid: '', status: 'Draft' };
+  if (sourceModuleId === 'quotations' && targetId === 'sales-orders') return { customer: source.customer ?? '', orderDate: today, expectedDate: source.validUntil ?? dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '', unitPrice: source.unitPrice ?? '', discountPercent: source.discountPercent ?? '', taxTreatment: source.taxTreatment ?? '', taxRate: source.taxRate ?? '', status: 'Draft' };
+  if (sourceModuleId === 'sales-orders' && targetId === 'deliveries') return { salesOrder: source.orderNumber ?? '', customer: source.customer ?? '', dispatchDate: today, expectedDate: source.expectedDate ?? dueDate, deliveryAddress: '', courier: '', trackingReference: '', deliveryFee: '', method: '', status: 'Draft' };
+  if (sourceModuleId === 'sales-orders' && targetId === 'sales-invoices') return { customer: source.customer ?? '', salesOrderReference: source.orderNumber ?? '', issueDate: today, dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '', unitPrice: source.unitPrice ?? '', taxTreatment: source.taxTreatment ?? '', taxRate: source.taxRate ?? '', amountReceived: '', status: 'Draft' };
+  if (sourceModuleId === 'purchases' && targetId === 'receiving') return { purchaseOrder: source.poNumber ?? '', supplier: source.supplier ?? '', receiptDate: today, product: source.itemSummary ?? '', orderedQuantity: source.quantity ?? '', acceptedQuantity: '', rejectedQuantity: '', warehouse: '', batchNumber: '', status: 'Draft' };
+  if (sourceModuleId === 'purchases' && targetId === 'purchase-invoices') return { supplier: source.supplier ?? '', purchaseOrder: source.poNumber ?? '', billDate: today, dueDate, itemSummary: source.itemSummary ?? '', quantity: source.quantity ?? '', unitCost: source.unitCost ?? '', taxTreatment: source.taxTreatment ?? '', taxRate: source.taxRate ?? '', amountPaid: '', status: 'Draft' };
+  if (sourceModuleId === 'leads' && targetId === 'opportunities') return { company: source.company ?? '', contactName: source.contactName ?? '', email: source.email ?? '', source: source.source ?? '', owner: source.owner ?? '', createdDate: today, expectedCloseDate: source.expectedCloseDate ?? dueDate, amount: source.estimatedValue ?? '', probability: source.probability ?? '', nextAction: source.nextAction ?? '', status: 'New' };
+  if (sourceModuleId === 'sales-orders' && targetId === 'packages') return { salesOrder: source.orderNumber ?? '', customer: source.customer ?? '', packageDate: today, itemSummary: source.itemSummary ?? '', packageCount: '', weightKg: '', courier: '', trackingReference: '', status: 'Not shipped' };
+  if (sourceModuleId === 'packages' && targetId === 'deliveries') return { salesOrder: source.salesOrder ?? '', customer: source.customer ?? '', dispatchDate: today, expectedDate: dueDate, deliveryAddress: '', courier: source.courier ?? '', trackingReference: source.trackingReference ?? '', deliveryFee: '', method: '', status: 'Draft' };
+  if (sourceModuleId === 'work-orders' && targetId === 'job-cards') return { workOrderNumber: source.workOrderNumber ?? '', operation: source.operation ?? '', workstation: '', operator: '', plannedHours: '', actualHours: '', startDate: today, endDate: '', outputReference: source.productName ?? '', status: 'Draft' };
+  if (sourceModuleId === 'boms' && targetId === 'work-orders') return { workOrderNumber: '', productSKU: source.finishedProductSKU ?? '', productName: source.finishedProductName ?? '', bomReference: source.bomCode ?? '', plannedQuantity: source.outputQuantity ?? '', completedQuantity: '', unitCost: source.unitMaterialCost ?? '', startDate: today, targetDate: dueDate, status: 'Draft' };
+  if (sourceModuleId === 'replenishment' && targetId === 'purchases') return { supplier: source.preferredSupplier ?? '', orderDate: today, expectedDate: source.needByDate ?? dueDate, itemSummary: (source.productSKU ?? '') + ' · ' + (source.productName ?? ''), quantity: source.recommendedQuantity ?? '', unitCost: '', taxTreatment: source.taxTreatment ?? '', taxRate: source.taxRate ?? '', amountPaid: '', status: 'Draft' };
+  if (sourceModuleId === 'cash-sessions' && targetId === 'bank-reconciliation') return { account: source.terminal ?? '', statementDate: source.sessionDate ?? today, statementReference: source.sessionNumber ?? '', openingBalance: source.openingFloat ?? '', statementBalance: source.countedCash ?? '', bookBalance: source.expectedCash ?? '', statementLineCount: '', matchedCount: '', unmatchedCount: '', preparedBy: source.closedBy ?? source.openedBy ?? '', status: 'Draft' };
+  if (sourceModuleId === 'campaigns' && targetId === 'leads') return { company: '', contactName: '', phone: '', email: '', source: source.name ?? '', owner: source.owner ?? '', createdDate: today, expectedCloseDate: dueDate, estimatedValue: '', probability: '', nextAction: '', status: 'New' };
+  if (sourceModuleId === 'picklists' && targetId === 'packages') return { salesOrder: source.salesOrder ?? '', customer: '', packageDate: today, itemSummary: source.picklistNumber ? 'Picked from ' + source.picklistNumber + (source.unitsPicked ? '; ' + source.unitsPicked + ' units' : '') : '', packageCount: '', weightKg: '', courier: '', trackingReference: '', status: 'Not shipped' };
+  if (sourceModuleId === 'item-bundles' && targetId === 'work-orders') return { productName: source.bundleName ?? '', bomReference: source.bundleCode ?? '', startDate: today, targetDate: dueDate, plannedQuantity: '', completedQuantity: '', unitCost: source.unitCost ?? '', priority: '', status: 'Draft' };
+  if (sourceModuleId === 'recurring-invoices' && targetId === 'sales-invoices') return { customer: source.customer ?? '', salesOrderReference: '', issueDate: today, dueDate, itemSummary: source.description ?? '', quantity: source.quantity ?? '', unitPrice: source.unitPrice ?? '', taxTreatment: source.taxTreatment ?? '', taxRate: source.taxRate ?? '', amountReceived: '', status: 'Draft' };
   if (targetId === 'payments') {
     const moneyIn = sourceModuleId === 'sales-invoices';
     const isSupplierBill = sourceModuleId === 'purchase-invoices';
@@ -357,8 +333,8 @@ function relatedValues(sourceModuleId: string, source: PreviewRecord, targetId: 
       direction: moneyIn ? 'Money in' : 'Money out',
       partyType: moneyIn ? 'Customer' : isSupplierBill ? 'Supplier' : 'Other',
       partyName: moneyIn ? source.customer ?? '' : isSupplierBill ? source.supplier ?? '' : isPayroll ? ('Payroll run ' + (source.payrollReference ?? source.id)) : source.payee ?? '',
-      paymentDate: today, method: 'Bank transfer (recorded)', account: 'Main bank account', reference: '',
-      amount: isPayroll ? source.netPay ?? '0' : isExpense ? source.total ?? source.amount ?? '0' : source.amountDue ?? '0',
+      paymentDate: today, method: '', account: '', reference: '',
+      amount: isPayroll ? source.netPay ?? '' : isExpense ? source.total ?? source.amount ?? '' : source.amountDue ?? '',
       notes: 'Draft created from ' + (source.invoiceNumber ?? source.billNumber ?? source.expenseNumber ?? source.payrollReference ?? source.id) + '. Review and allocate manually; no external payment is initiated.',
       status: 'Pending',
     };
@@ -369,17 +345,17 @@ function relatedValues(sourceModuleId: string, source: PreviewRecord, targetId: 
 function ModuleManager({ module }: { module: ModuleDefinition }) {
   const { workspace, branch } = useWorkspace();
   const navigate = useNavigate();
-  const previewDataService = usePreviewDataService();
-  const previewScope: PreviewScope = { workspaceId: workspace.id, branchId: branch.id };
+  const moduleRecordService = useModuleRecordService();
+  const recordScope: ModuleRecordScope = { workspaceId: workspace.id, branchId: branch.id };
   const queryClient = useQueryClient();
-  const previewQueryKey = ['module-register', workspace.id, branch.id, module.id] as const;
-  const previewQuery = useQuery({
-    queryKey: previewQueryKey,
-    queryFn: () => previewDataService.list(previewScope, module.id, module.initial),
+  const recordsQueryKey = ['module-register', workspace.id, branch.id, module.id] as const;
+  const recordsQuery = useQuery({
+    queryKey: recordsQueryKey,
+    queryFn: () => moduleRecordService.list(recordScope, module.id, module.initial),
   });
-  const rows = previewQuery.data ?? [];
+  const rows = recordsQuery.data ?? [];
   const lineConfig = getDocumentLineConfig(module.id);
-  const [, setStorageMode] = useState<'browser-local' | 'memory-only'>(previewDataService.getPersistenceMode());
+  const [storageMode, setStorageMode] = useState<DataPersistenceMode>(moduleRecordService.getPersistenceMode());
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All statuses');
   const [dateFrom, setDateFrom] = useState('');
@@ -399,7 +375,7 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
   const attentionCount = rows.filter((row) => ATTENTION_STATES.includes(row.status)).length;
   const trackedValue = module.amountKey && rows.length ? rows.reduce((sum, row) => sum + safeNumber(row[module.amountKey!]), 0) : null;
 
-  useEffect(() => { if (previewQuery.isSuccess) setStorageMode(previewDataService.getPersistenceMode()); }, [previewQuery.isSuccess, previewQuery.dataUpdatedAt]);
+  useEffect(() => { if (recordsQuery.isSuccess) setStorageMode(moduleRecordService.getPersistenceMode()); }, [recordsQuery.isSuccess, recordsQuery.dataUpdatedAt]);
 
   useEffect(() => { setPage(1); }, [search, statusFilter, dateFrom, dateTo, pageSize]);
   useEffect(() => {
@@ -445,12 +421,12 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
       const record = calculateRecord(module.id, valuesToSave, editing?.id);
       const validation = validateRecord(module.id, valuesToSave, record);
       if (validation) { toast.error('Check the form', { description: validation }); setSaving(false); return; }
-      const nextRows = await previewDataService.save(previewScope, module.id, record, module.initial);
-      queryClient.setQueryData(previewQueryKey, nextRows);
+      const nextRows = await moduleRecordService.save(recordScope, module.id, record, module.initial);
+      queryClient.setQueryData(recordsQueryKey, nextRows);
       void queryClient.invalidateQueries({ queryKey: ['module-reports', workspace.id, branch.id] });
-      setStorageMode(previewDataService.getPersistenceMode());
+      setStorageMode(moduleRecordService.getPersistenceMode());
       setFormOpen(false); setEditing(null); setForm(initialValues(module));
-      toast.success(editing ? 'Record updated' : 'Record created', { description: previewDataService.getPersistenceMode() === 'browser-local' ? 'Saved on this device for the active business and branch.' : 'Browser storage is unavailable; this record will be lost when the session ends.' });
+      toast.success(editing ? 'Record updated' : 'Record created', { description: moduleRecordService.getPersistenceMode() === 'server' ? 'Saved to the LEXA backend for the active business and branch.' : moduleRecordService.getPersistenceMode() === 'browser-local' ? 'Saved on this device for the active business and branch.' : 'Browser storage is unavailable; this record will be lost when the session ends.' });
     } catch (error) { toast.error('Could not save record', { description: error instanceof Error ? error.message : 'Please check the form.' }); }
     finally { setSaving(false); }
   }
@@ -458,26 +434,26 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
     const next = nextStatus(module.id, record.status);
     if (!next) { toast.info('There are no further status steps for this record'); return; }
     try {
-      const nextRows = await previewDataService.updateStatus(previewScope, module.id, record.id, next, module.initial);
-      queryClient.setQueryData(previewQueryKey, nextRows);
+      const nextRows = await moduleRecordService.updateStatus(recordScope, module.id, record.id, next, module.initial);
+      queryClient.setQueryData(recordsQueryKey, nextRows);
       void queryClient.invalidateQueries({ queryKey: ['module-reports', workspace.id, branch.id] });
       const updated = nextRows.find((row) => row.id === record.id);
       if (updated) setDetail(updated);
-      setStorageMode(previewDataService.getPersistenceMode());
-      toast.success('Status updated', { description: record.status + ' → ' + next + '. No connected server or ledger posting occurred.' });
+      setStorageMode(moduleRecordService.getPersistenceMode());
+      toast.success('Status updated', { description: record.status + ' → ' + next + '. Downstream ledger, inventory and external-system effects occur only when their backend workflows are configured.' });
     } catch (error) { toast.error('Could not change status', { description: error instanceof Error ? error.message : 'Try again.' }); }
   }
 
-  async function createRelatedPreview(targetId: string, source: PreviewRecord) {
+  async function createRelatedRecord(targetId: string, source: PreviewRecord) {
     const target = getModuleDefinition(targetId);
     if (!target) { toast.error('The destination module is unavailable.'); return; }
     if (isDuplicateSensitiveHandoff(module.id, targetId)) {
-      const existingRows = await previewDataService.list(previewScope, targetId, target.initial);
+      const existingRows = await moduleRecordService.list(recordScope, targetId, target.initial);
       const existing = existingRows.find((row) => row.sourceModuleId === module.id && row.sourceRecordId === source.id && !['Cancelled', 'Void', 'Voided', 'Rejected', 'Lost'].includes(row.status));
       if (existing) {
         const targetReferenceField = REFERENCE_FIELDS[targetId];
         const existingReference = targetReferenceField ? (existing[targetReferenceField] ?? existing.id) : existing.id;
-        toast.error('Related draft already exists', { description: `${target.title} ${existingReference} is already linked to this source. Open the target register to review or edit it instead of creating a duplicate.` });
+        toast.error('Related record already exists', { description: `${target.title} ${existingReference} is already linked to this source. Open the target register to review or edit it instead of creating a duplicate.` });
         navigate('/modules/' + targetId);
         return;
       }
@@ -487,9 +463,10 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
     const values = { ...initialValues(target), ...relatedValues(module.id, source, targetId), sourceModuleId: module.id, sourceRecordId: source.id, sourceReference };
     const linked = calculateRecord(targetId, values);
     try {
-      const targetRows = await previewDataService.save(previewScope, targetId, linked, target.initial);
+      const targetRows = await moduleRecordService.save(recordScope, targetId, linked, target.initial);
       queryClient.setQueryData(['module-register', workspace.id, branch.id, targetId], targetRows);
-      if (targetId !== 'audit') {
+      // A browser must never author a privileged audit event. In API mode, the server owns the audit trail; only the explicitly local adapter stores a local activity note.
+      if (!isApiProvider && targetId !== 'audit') {
         const auditModule = getModuleDefinition('audit');
         if (auditModule) {
           try {
@@ -501,8 +478,8 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
               updatedAt: now,
               status: 'Recorded',
               eventDate: now.slice(0, 10),
-              actor: 'Workspace user',
-              action: 'Related draft created',
+              actor: 'Local user (device only)',
+              action: 'Related record created',
               entity: target.title,
               reference: targetReference,
               detail: `${target.title} ${targetReference} was prepared from ${module.title} ${sourceReference}. This activity note does not create a posting in the core ledgers.`,
@@ -510,19 +487,19 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
               sourceRecordId: source.id,
               sourceReference,
             };
-            const auditRows = await previewDataService.save(previewScope, 'audit', auditRecord, auditModule.initial);
+            const auditRows = await moduleRecordService.save(recordScope, 'audit', auditRecord, auditModule.initial);
             queryClient.setQueryData(['module-register', workspace.id, branch.id, 'audit'], auditRows);
           } catch (auditError) {
-            toast.warning('Related draft saved, but the activity note could not be saved', { description: auditError instanceof Error ? auditError.message : 'The local activity register could not be updated.' });
+            toast.warning('Related record saved, but the activity note could not be saved', { description: auditError instanceof Error ? auditError.message : 'The activity record could not be updated.' });
           }
         }
       }
       void queryClient.invalidateQueries({ queryKey: ['module-reports', workspace.id, branch.id] });
-      setStorageMode(previewDataService.getPersistenceMode());
+      setStorageMode(moduleRecordService.getPersistenceMode());
       setDetail(null);
-      toast.success('Related draft created', { description: 'Saved on this device. The related core stock and accounting ledgers were not changed.' });
+      toast.success('Related record created', { description: 'The linked record is saved, but this action does not automatically post to core stock, payment or accounting ledgers.' });
       navigate('/modules/' + targetId);
-    } catch (error) { toast.error('Could not save the related record', { description: error instanceof Error ? error.message : 'Browser storage may be unavailable.' }); }
+    } catch (error) { toast.error('Could not save the related record', { description: error instanceof Error ? error.message : 'Check the backend connection or device storage, then retry.' }); }
   }
 
   function exportRows() {
@@ -534,7 +511,7 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
 
   return (
     <div className="page-stack phase-two-page" data-module-accent={moduleAccentForPath("/modules/" + module.id)}>
-      <div className="page-heading-row module-heading"><div><div className="eyebrow eyebrow-blue">{module.group} / MODULE REGISTER</div><h2>{module.title}</h2><p>{module.description}</p></div><div className="phase-two-heading-actions"><span className="module-preview-badge"><span />Saved on this device</span>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={16} /> New {module.singular}</button>}</div></div>
+      <div className="page-heading-row module-heading"><div><div className="eyebrow eyebrow-blue">{module.group} / MODULE REGISTER</div><h2>{module.title}</h2><p>{module.description}</p></div><div className="phase-two-heading-actions"><span className="module-persistence-badge"><span />{storageMode === 'server' ? 'Saved to backend' : storageMode === 'browser-local' ? 'Saved on this device' : 'Session-only storage'}</span>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={16} /> New {module.singular}</button>}</div></div>
       <div className="module-workflow-strip"><span className="module-workflow-icon"><Activity size={17} /></span><div><strong>Typical workflow</strong><p>{module.workflow}</p></div></div>
       <div className="metric-strip three-metrics phase-two-metrics">
         <div className="mini-metric"><span>Total {recordCountLabel}</span><strong>{rows.length.toLocaleString()}</strong><small>In this register</small></div>
@@ -551,7 +528,7 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
           {(search || statusFilter !== 'All statuses' || dateFrom || dateTo) && <button className="phase-clear-filters" onClick={() => { setSearch(''); setStatusFilter('All statuses'); setDateFrom(''); setDateTo(''); }}>Clear</button>}
         </div>
         {dateFrom && dateTo && dateFrom > dateTo && <div className="inline-warning" role="alert">The start date must be on or before the end date.</div>}
-        {previewQuery.isError ? <div className="inline-error"><strong>Could not load this register.</strong><span>{previewQuery.error instanceof Error ? previewQuery.error.message : 'Check browser storage and retry.'}</span><button className="button button-secondary button-small" onClick={() => void previewQuery.refetch()}>Retry load</button></div> : previewQuery.isLoading ? <div className="loading-state">Loading records…</div> : visible.length === 0 ? <div className="empty-state"><div className="empty-icon"><Search size={22} /></div><h3>No matching records</h3><p>Change the search, status or date filters. New records will appear here after you save them.</p>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={15} /> Add {module.singular}</button>}</div> : <div className="responsive-table-wrap phase-two-table-wrap"><table className="data-table phase-two-table"><thead><tr>{module.columns.map((column) => <th key={column.key}>{column.label}</th>)}<th className="phase-actions-heading">ACTIONS</th></tr></thead><tbody>{visible.map((record) => <tr key={record.id}>{module.columns.map((column) => <td key={column.key} className={column.kind === 'money' ? 'amount-cell' : ''}>{column.kind === 'status' ? <span className={'status-pill ' + (['Active', 'Received', 'Paid', 'Posted', 'Reconciled', 'Accepted', 'Accepted externally', 'Completed', 'Delivered', 'Approved', 'Reviewed', 'Present'].includes(record[column.key] ?? '') ? 'status-good' : ['Draft', 'Pending', 'Ready for integration', 'Needs review', 'Overdue', 'Disputed', 'Rejected externally', 'Needs inspection', 'On hold', 'In transit', 'Review', 'Late', 'Restricted', 'Delivery failed', 'Needs review', 'Blocked', 'Expired', 'Disabled', 'Matching', 'Reopened', 'Error', 'Not connected', 'Configuration needed', 'Needs attention', 'Failed', 'Short pick', 'Exception', 'Quarantined', 'Blocked', 'Variance review', 'Review needed', 'Missing mapping'].includes(record[column.key] ?? '') ? 'status-warning' : '')}>{record[column.key] || '—'}</span> : cellValue(record, column.key, column.kind, workspace.currency)}</td>)}<td><div className="phase-row-actions"><button className="icon-button table-action" aria-label={'View ' + module.singular} title="View details" onClick={() => setDetail(record)}><Eye size={15} /></button>{!module.readOnly && <button className="icon-button table-action" aria-label={'Edit ' + module.singular} title="Edit record" onClick={() => openEdit(record)}><Edit3 size={15} /></button>}</div></td></tr>)}</tbody></table></div>}
+        {recordsQuery.isError ? <div className="inline-error"><strong>Could not load this register.</strong><span>{recordsQuery.error instanceof Error ? recordsQuery.error.message : 'Check the backend connection or device storage and retry.'}</span><button className="button button-secondary button-small" onClick={() => void recordsQuery.refetch()}>Retry load</button></div> : recordsQuery.isLoading ? <div className="loading-state">Loading records…</div> : visible.length === 0 ? <div className="empty-state"><div className="empty-icon"><Search size={22} /></div><h3>No matching records</h3><p>Change the search, status or date filters. New records will appear here after you save them.</p>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={15} /> Add {module.singular}</button>}</div> : <div className="responsive-table-wrap phase-two-table-wrap"><table className="data-table phase-two-table"><thead><tr>{module.columns.map((column) => <th key={column.key}>{column.label}</th>)}<th className="phase-actions-heading">ACTIONS</th></tr></thead><tbody>{visible.map((record) => <tr key={record.id}>{module.columns.map((column) => <td key={column.key} className={column.kind === 'money' ? 'amount-cell' : ''}>{column.kind === 'status' ? <span className={'status-pill ' + (['Active', 'Received', 'Paid', 'Posted', 'Reconciled', 'Accepted', 'Accepted externally', 'Completed', 'Delivered', 'Approved', 'Reviewed', 'Present'].includes(record[column.key] ?? '') ? 'status-good' : ['Draft', 'Pending', 'Ready for integration', 'Needs review', 'Overdue', 'Disputed', 'Rejected externally', 'Needs inspection', 'On hold', 'In transit', 'Review', 'Late', 'Restricted', 'Delivery failed', 'Needs review', 'Blocked', 'Expired', 'Disabled', 'Matching', 'Reopened', 'Error', 'Not connected', 'Configuration needed', 'Needs attention', 'Failed', 'Short pick', 'Exception', 'Quarantined', 'Blocked', 'Variance review', 'Review needed', 'Missing mapping'].includes(record[column.key] ?? '') ? 'status-warning' : '')}>{record[column.key] || '—'}</span> : cellValue(record, column.key, column.kind, workspace.currency)}</td>)}<td><div className="phase-row-actions"><button className="icon-button table-action" aria-label={'View ' + module.singular} title="View details" onClick={() => setDetail(record)}><Eye size={15} /></button>{!module.readOnly && <button className="icon-button table-action" aria-label={'Edit ' + module.singular} title="Edit record" onClick={() => openEdit(record)}><Edit3 size={15} /></button>}</div></td></tr>)}</tbody></table></div>}
         <div className="phase-two-table-footer"><span>Showing {filtered.length ? ((page - 1) * Number(pageSize) + 1).toLocaleString() : 0}–{Math.min(page * Number(pageSize), filtered.length).toLocaleString()} of {filtered.length.toLocaleString()}</span><div className="phase-pagination"><label><span>Rows</span><select aria-label="Rows per page" value={pageSize} onChange={(event) => setPageSize(event.target.value)}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label><button className="button button-secondary button-small" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button><span>Page {page} of {pageCount}</span><button className="button button-secondary button-small" disabled={page >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>Next</button></div></div>
       </section>
 
@@ -563,9 +540,9 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
           if (module.id === 'boms' && ['componentSummary', 'unitMaterialCost'].includes(field.key)) return false;
           if (module.id === 'item-bundles' && ['componentsSummary', 'componentCount', 'unitCost'].includes(field.key)) return false;
           return true;
-        }).map((field) => <FieldInput key={field.key} field={field} value={form[field.key] ?? ''} onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))} currency={workspace.currency} editing={Boolean(editing)} />)}</div><CalculatedFigures moduleId={module.id} values={form} currency={workspace.currency} /><div className="phase-form-disclaimer"><ShieldAlert size={15} /><span>Save stores this record in the active workspace on this device. It does not transfer money, submit tax documents or create accounting entries.</span></div><div className="phase-modal-actions"><button type="button" className="button button-secondary" onClick={() => { setFormOpen(false); setEditing(null); }}>Cancel</button><button type="submit" className="button button-primary" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Save record'} <Check size={15} /></button></div></form></section></div>}
+        }).map((field) => <FieldInput key={field.key} field={field} value={form[field.key] ?? ''} onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))} currency={workspace.currency} editing={Boolean(editing)} />)}</div><CalculatedFigures moduleId={module.id} values={form} currency={workspace.currency} /><div className="phase-form-disclaimer"><ShieldAlert size={15} /><span>{storageMode === 'server' ? 'This saves a module record through the backend. A saved register record does not itself transfer money, submit tax documents or post core accounting entries.' : 'This saves a device-local module record. It does not transfer money, submit tax documents or create accounting entries.'}</span></div><div className="phase-modal-actions"><button type="button" className="button button-secondary" onClick={() => { setFormOpen(false); setEditing(null); }}>Cancel</button><button type="submit" className="button button-primary" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Save record'} <Check size={15} /></button></div></form></section></div>}
 
-      {detail && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section className="phase-modal phase-detail-modal" role="dialog" aria-modal="true" aria-labelledby="phase-detail-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.title.toUpperCase()} / RECORD DETAILS</div><h3 id="phase-detail-title">{detail[module.columns[0]?.key ?? 'id'] || detail.id}</h3><p>Reference: {detail.id} · Updated {displayDate(detail.updatedAt)}</p></div><button className="icon-button" aria-label="Close details" onClick={() => setDetail(null)}><X size={18} /></button></div><div className="phase-detail-status"><span className={'status-pill ' + (CLOSED_STATES.includes(detail.status) ? 'status-good' : 'status-warning')}>{detail.status}</span><span className="module-preview-badge"><span /> Saved on this device</span></div><div className="phase-detail-grid">{Object.entries(detail).filter(([key]) => key !== 'id' && key !== 'updatedAt').map(([key, value]) => <div className="phase-detail-field" key={key}><span>{module.fields.find((field) => field.key === key)?.label ?? module.columns.find((column) => column.key === key)?.label ?? ({ sourceModuleId: 'Source module', sourceRecordId: 'Source record' } as Record<string, string>)[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</span><strong>{detailValue(module, key, value, detail.currency || workspace.currency)}</strong></div>)}</div><div className="phase-modal-actions">{getCoreScreenShortcuts(module.id).map((action) => <button key={action.path} className="button button-secondary" title={action.description} onClick={() => navigate(action.path)}><ArrowUpRight size={15} /> {action.label}</button>)}{!module.readOnly && <>{relatedActions(module.id, detail).map((action) => <button key={action.targetId} className="button button-secondary" title={action.description} onClick={() => createRelatedPreview(action.targetId, detail)}><ArrowRight size={15} /> {action.label}</button>)}{nextStatus(module.id, detail.status) && <button className="button button-secondary" onClick={() => updateStatus(detail)}><BadgeCheck size={15} /> Advance to {nextStatus(module.id, detail.status)}</button>}<button className="button button-primary" onClick={() => openEdit(detail)}><Edit3 size={15} /> Edit record</button></>}<button className="button button-secondary" onClick={() => setDetail(null)}>Close</button></div></section></div>}
+      {detail && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section className="phase-modal phase-detail-modal" role="dialog" aria-modal="true" aria-labelledby="phase-detail-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.title.toUpperCase()} / RECORD DETAILS</div><h3 id="phase-detail-title">{detail[module.columns[0]?.key ?? 'id'] || detail.id}</h3><p>Reference: {detail.id} · Updated {displayDate(detail.updatedAt)}</p></div><button className="icon-button" aria-label="Close details" onClick={() => setDetail(null)}><X size={18} /></button></div><div className="phase-detail-status"><span className={'status-pill ' + (CLOSED_STATES.includes(detail.status) ? 'status-good' : 'status-warning')}>{detail.status}</span><span className="module-persistence-badge"><span /> {moduleRecordService.getPersistenceMode() === 'server' ? 'Saved to backend' : moduleRecordService.getPersistenceMode() === 'browser-local' ? 'Saved on this device' : 'Session-only storage'}</span></div><div className="phase-detail-grid">{Object.entries(detail).filter(([key]) => key !== 'id' && key !== 'updatedAt').map(([key, value]) => <div className="phase-detail-field" key={key}><span>{module.fields.find((field) => field.key === key)?.label ?? module.columns.find((column) => column.key === key)?.label ?? ({ sourceModuleId: 'Source module', sourceRecordId: 'Source record' } as Record<string, string>)[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</span><strong>{detailValue(module, key, value, detail.currency || workspace.currency)}</strong></div>)}</div><div className="phase-modal-actions">{getCoreScreenShortcuts(module.id).map((action) => <button key={action.path} className="button button-secondary" title={action.description} onClick={() => navigate(action.path)}><ArrowUpRight size={15} /> {action.label}</button>)}{!module.readOnly && <>{relatedActions(module.id, detail).map((action) => <button key={action.targetId} className="button button-secondary" title={action.description} onClick={() => createRelatedRecord(action.targetId, detail)}><ArrowRight size={15} /> {action.label}</button>)}{nextStatus(module.id, detail.status) && <button className="button button-secondary" onClick={() => updateStatus(detail)}><BadgeCheck size={15} /> Advance to {nextStatus(module.id, detail.status)}</button>}<button className="button button-primary" onClick={() => openEdit(detail)}><Edit3 size={15} /> Edit record</button></>}<button className="button button-secondary" onClick={() => setDetail(null)}>Close</button></div></section></div>}
     </div>
   );
 }
@@ -688,14 +665,13 @@ function ReportsPage() {
   const { workspace, branch } = useWorkspace();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const previewDataService = usePreviewDataService();
   const [period, setPeriod] = useState<ReportPeriod>('Last 30 days');
   const [report, setReport] = useState<PreviewReportName>('Sales & receipts');
   const [reportSearch, setReportSearch] = useState('');
   const scope = { workspaceId: workspace.id, branchId: branch.id };
   const snapshotQuery = useQuery({
     queryKey: ['module-reports', workspace.id, branch.id, report, period],
-    queryFn: () => loadPreviewReportSnapshot(previewDataService, scope, report, period, workspace.currency),
+    queryFn: () => moduleReports.getSnapshot(scope, report, period, workspace.currency),
   });
   const snapshot = snapshotQuery.data;
   const filteredReportNames = REPORT_NAMES.filter((name) => name.toLocaleLowerCase().includes(reportSearch.trim().toLocaleLowerCase()));

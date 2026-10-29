@@ -62,11 +62,11 @@ def generic_values_source() -> str:
     const sourceTitle = getModuleDefinition(sourceModuleId)?.title ?? sourceModuleId;
     return {
       eventDate: today,
-      actor: 'Preview workspace user',
+      actor: '',
       action: 'Review note created',
       entity: sourceTitle,
       reference: sourceReference,
-      detail: `Preview review note for ${sourceTitle} ${sourceReference}. This is not a trusted security audit event or a posted business transaction.`,
+      detail: `Activity note for ${sourceTitle} ${sourceReference}. This is not a trusted security audit event or a posted business transaction.`,
       status: 'Recorded',
     };
   }
@@ -160,18 +160,18 @@ def generic_values_source() -> str:
   if (targetId === 'sales-orders' && sourceModuleId === 'opportunities') {
     result.customer = source.company ?? source.contactName ?? '';
     result.itemSummary = source.nextAction ?? ('Opportunity ' + (source.opportunityCode ?? source.id));
-    result.quantity = '1';
-    result.unitPrice = source.amount ?? source.estimatedValue ?? '0';
-    result.discountPercent = '0';
-    result.taxTreatment = 'Standard rated';
-    result.taxRate = '18';
+    result.quantity = source.quantity ?? ''; 
+    result.unitPrice = source.amount ?? source.estimatedValue ?? ''; 
+    result.discountPercent = source.discountPercent ?? ''; 
+    result.taxTreatment = source.taxTreatment ?? ''; 
+    result.taxRate = source.taxRate ?? ''; 
   }
   if (targetId === 'payments' && sourceModuleId === 'payroll') {
     result.direction = 'Money out';
     result.partyType = 'Other';
     result.partyName = 'Payroll run ' + (source.payrollReference ?? source.id);
-    result.amount = source.netPay ?? '0';
-    result.notes = 'Preview payment for payroll run ' + (source.payrollReference ?? source.id) + '; no external transfer is initiated.';
+    result.amount = source.netPay ?? ''; 
+    result.notes = 'Payment record draft for payroll run ' + (source.payrollReference ?? source.id) + '; no external transfer is initiated.';
   }
   return result;
 }
@@ -513,8 +513,10 @@ def main() -> None:
         tools = tools.replace("definition.title", "definition.id")
     elif "definition.id} export contains invalid rows" in tools and "definition.id} export contains duplicate record IDs" in tools:
         print("TypeScript title-reference fix already applied")
+    elif "export {};" in tools and "intentionally disabled" in tools.lower():
+        print("No-demo module data tools remain disabled; no fixture/export helper will be generated")
     else:
-        fail("previewDataTools.ts does not match the expected seed-validation source")
+        fail("previewDataTools.ts is neither the supported validator nor the intentional no-demo stub")
 
     # Add the shared graph import once.
     if "from './workflowGraph'" not in page:
@@ -608,11 +610,11 @@ def main() -> None:
               updatedAt: now,
               status: 'Recorded',
               eventDate: now.slice(0, 10),
-              actor: 'Preview workspace user',
-              action: 'Related draft created',
+              actor: '',
+              action: 'Related record created',
               entity: target.title,
               reference: targetReference,
-              detail: `${target.title} ${targetReference} was prepared from ${module.title} ${sourceReference}. Preview only; no live posting occurred.`,
+              detail: `${target.title} ${targetReference} was prepared from ${module.title} ${sourceReference}. This activity note does not create a core ledger posting.`,
               sourceModuleId: module.id,
               sourceRecordId: source.id,
               sourceReference,
@@ -620,14 +622,14 @@ def main() -> None:
             const auditRows = await previewDataService.save(previewScope, 'audit', auditRecord, auditModule.initial);
             queryClient.setQueryData(['phase-preview', workspace.id, branch.id, 'audit'], auditRows);
           } catch (auditError) {
-            toast.warning('Related draft saved, but its preview note failed', { description: auditError instanceof Error ? auditError.message : 'The local audit-preview register could not be updated.' });
+            toast.warning('Related record saved, but its activity note failed', { description: auditError instanceof Error ? auditError.message : 'The activity register could not be updated.' });
           }
         }
       }
       void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] });
       setStorageMode(previewDataService.getPersistenceMode());
       setDetail(null);
-      toast.success('Related draft created', { description: 'Saved in the browser-local preview workspace only. A local activity note was recorded where storage allowed. No live module, stock or ledger was changed.' });
+      toast.success('Related record created', { description: 'The linked register record was saved. Core stock, payments and accounting are not posted by this action.' });
       navigate('/modules/' + targetId);"""
     if event_marker in page:
         page = replace_once(page, event_marker, event_replacement, "preview activity note")
@@ -641,7 +643,7 @@ def main() -> None:
       direction: moneyIn ? 'Money in' : 'Money out',
       partyType: moneyIn ? 'Customer' : isSupplierBill ? 'Supplier' : 'Other',
       partyName: moneyIn ? source.customer ?? '' : isSupplierBill ? source.supplier ?? '' : source.payee ?? '',
-      paymentDate: today, method: 'Bank transfer (recorded)', account: 'Main bank account', reference: '',
+      paymentDate: today, method: '', account: '', reference: '',
       amount: isExpense ? source.total ?? source.amount ?? '0' : source.amountDue ?? '0',
       notes: 'Draft created from ' + (source.invoiceNumber ?? source.billNumber ?? source.expenseNumber ?? source.id) + '. Review and allocate manually; no external payment is initiated.',
       status: 'Pending',
@@ -653,8 +655,8 @@ def main() -> None:
       direction: moneyIn ? 'Money in' : 'Money out',
       partyType: moneyIn ? 'Customer' : isSupplierBill ? 'Supplier' : 'Other',
       partyName: moneyIn ? source.customer ?? '' : isSupplierBill ? source.supplier ?? '' : isPayroll ? ('Payroll run ' + (source.payrollReference ?? source.id)) : source.payee ?? '',
-      paymentDate: today, method: 'Bank transfer (recorded)', account: 'Main bank account', reference: '',
-      amount: isPayroll ? source.netPay ?? '0' : isExpense ? source.total ?? source.amount ?? '0' : source.amountDue ?? '0',
+      paymentDate: today, method: '', account: '', reference: '',
+      amount: isPayroll ? source.netPay ?? '' : isExpense ? source.total ?? source.amount ?? '' : source.amountDue ?? '',
       notes: 'Draft created from ' + (source.invoiceNumber ?? source.billNumber ?? source.expenseNumber ?? source.payrollReference ?? source.id) + '. Review and allocate manually; no external payment is initiated.',
       status: 'Pending',
     };"""

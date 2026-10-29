@@ -92,6 +92,7 @@ const allowed: ModuleAccentKey[] = ['navy','blue','cyan','emerald','gold','orang
 describe('LEXA module accents', () => {
   it('covers every existing and Phase 2 directory link', () => { for (const link of [...EXISTING_MODULE_LINKS, ...PHASE_TWO_LINKS]) expect(MODULE_ACCENTS_BY_PATH[link.to], link.to).toBeDefined(); });
   it('covers every operational catalogue module', () => { for (const module of MODULE_CATALOG) expect(MODULE_ACCENTS_BY_PATH['/modules/' + module.id], module.id).toBeDefined(); });
+  it('ships operational modules without preloaded demo records', () => { for (const module of MODULE_CATALOG) expect(module.initial, module.id).toEqual([]); });
   it('uses only approved accents', () => { for (const [path, accent] of Object.entries(MODULE_ACCENTS_BY_PATH)) expect(allowed, path).toContain(accent); });
   it('assigns semantic colours to representative families', () => { expect(moduleAccentForPath('/checkout')).toBe('blue'); expect(moduleAccentForPath('/modules/receiving')).toBe('cyan'); expect(moduleAccentForPath('/modules/purchases')).toBe('orange'); expect(moduleAccentForPath('/modules/accounting')).toBe('gold'); expect(moduleAccentForPath('/modules/leads')).toBe('emerald'); expect(moduleAccentForPath('/modules/recurring-invoices')).toBe('gold'); expect(moduleAccentForPath('/business-tools')).toBe('cyan'); });
   it('keeps manufacturing registers in the cyan module family', () => { expect(moduleAccentForPath('/modules/boms')).toBe('cyan'); expect(moduleAccentForPath('/modules/job-cards')).toBe('cyan'); expect(moduleAccentForGroup('MANUFACTURING')).toBe('cyan'); });
@@ -280,7 +281,17 @@ def wire_accent_metadata() -> None:
     write(SHELL, shell)
 
     ops = read(OPS)
-    ops = replace_idempotent(ops, "import type { PreviewScope } from '../../data/contracts/previewData';", "import type { PreviewScope } from '../../data/contracts/previewData';\nimport { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';", 'module workspace metadata import')
+    # Accept both the original preview adapter and the backend-ready ModuleRecordScope contract.
+    # Do not re-import a module accent utility that is already present.
+    if "moduleAccentForGroup" not in ops or "moduleAccentForPath" not in ops:
+        module_scope_import = "import type { ModuleRecordScope } from '../../data/contracts/previewData';"
+        preview_scope_import = "import type { PreviewScope } from '../../data/contracts/previewData';"
+        if module_scope_import in ops:
+            ops = replace_idempotent(ops, module_scope_import, module_scope_import + "\nimport { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';", 'module workspace metadata import')
+        elif preview_scope_import in ops:
+            ops = replace_idempotent(ops, preview_scope_import, preview_scope_import + "\nimport { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';", 'module workspace metadata import')
+        else:
+            fail('module workspace metadata import: neither supported module-scope import was found')
     ops = replace_idempotent(ops, '<section className="module-group" key={group}>', '<section className="module-group" key={group} data-module-accent={moduleAccentForGroup(group)}>', 'module group accent')
     ops = replace_idempotent(ops, '<Link className="module-directory-card" to={item.to} key={item.to}>', '<Link className="module-directory-card" data-module-accent={moduleAccentForPath(item.to)} to={item.to} key={item.to}>', 'directory card accent')
     ops = add_root_attribute(ops, 'function ModuleManager(', 'function ReportsPage(', 'data-module-accent={moduleAccentForPath("/modules/" + module.id)}', 'module manager')
