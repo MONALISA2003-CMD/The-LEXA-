@@ -19,6 +19,7 @@ CORE = {
     SRC / 'modules/inventory/InventoryPage.tsx': ('/inventory', '<div className="page-stack">', 'page-stack'),
     SRC / 'modules/checkout/CheckoutPage.tsx': ('/checkout', '<div className="page-stack checkout-page">', 'page-stack checkout-page'),
     SRC / 'modules/sales/SalesPage.tsx': ('/sales', '<div className="page-stack">', 'page-stack'),
+    SRC / 'modules/tools/BusinessToolsPage.tsx': ('/business-tools', '<div className="page-stack business-tools-page">', 'page-stack business-tools-page'),
 }
 MARKER = '/* LEXA-CANONICAL-PALETTE-V1 */'
 
@@ -56,6 +57,7 @@ export type ModuleAccentKey = 'navy' | 'blue' | 'cyan' | 'emerald' | 'gold' | 'o
 const forPaths = (accent: ModuleAccentKey, paths: string[]) => Object.fromEntries(paths.map((path) => [path, accent])) as Record<string, ModuleAccentKey>;
 export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
   ...forPaths('navy', ['/', '/workspace', '/modules', '/modules/', '/settings', '/modules/projects', '/modules/team', '/modules/audit']),
+  ...forPaths('cyan', ['/business-tools']),
   ...forPaths('blue', ['/checkout', '/sales', '/modules/sales-orders', '/modules/sales-invoices', '/modules/quotations', '/modules/price-lists', '/modules/sales-returns', '/modules/cash-sessions']),
   ...forPaths('emerald', ['/modules/leads', '/modules/opportunities', '/modules/contacts', '/modules/campaigns', '/modules/sales-teams', '/modules/customers', '/modules/employees', '/modules/attendance', '/modules/payroll', '/modules/leave', '/modules/timesheets', '/modules/support']),
   ...forPaths('cyan', ['/products', '/inventory', '/modules/receiving', '/modules/stock-counts', '/modules/stock-transfers', '/modules/warehouses', '/modules/picklists', '/modules/item-bundles', '/modules/work-orders', '/modules/quality', '/modules/batches', '/modules/replenishment', '/modules/deliveries', '/modules/packages', '/modules/tasks', '/modules/integrations']),
@@ -77,7 +79,7 @@ describe('LEXA module accents', () => {
   it('covers every existing and Phase 2 directory link', () => { for (const link of [...EXISTING_MODULE_LINKS, ...PHASE_TWO_LINKS]) expect(MODULE_ACCENTS_BY_PATH[link.to], link.to).toBeDefined(); });
   it('covers every operational catalogue module', () => { for (const module of MODULE_CATALOG) expect(MODULE_ACCENTS_BY_PATH['/modules/' + module.id], module.id).toBeDefined(); });
   it('uses only approved accents', () => { for (const [path, accent] of Object.entries(MODULE_ACCENTS_BY_PATH)) expect(allowed, path).toContain(accent); });
-  it('assigns semantic colours to representative families', () => { expect(moduleAccentForPath('/checkout')).toBe('blue'); expect(moduleAccentForPath('/modules/receiving')).toBe('cyan'); expect(moduleAccentForPath('/modules/purchases')).toBe('orange'); expect(moduleAccentForPath('/modules/accounting')).toBe('gold'); expect(moduleAccentForPath('/modules/leads')).toBe('emerald'); expect(moduleAccentForPath('/modules/recurring-invoices')).toBe('gold'); });
+  it('assigns semantic colours to representative families', () => { expect(moduleAccentForPath('/checkout')).toBe('blue'); expect(moduleAccentForPath('/modules/receiving')).toBe('cyan'); expect(moduleAccentForPath('/modules/purchases')).toBe('orange'); expect(moduleAccentForPath('/modules/accounting')).toBe('gold'); expect(moduleAccentForPath('/modules/leads')).toBe('emerald'); expect(moduleAccentForPath('/modules/recurring-invoices')).toBe('gold'); expect(moduleAccentForPath('/business-tools')).toBe('cyan'); });
   it('uses explicit group metadata and a safe default', () => { expect(moduleAccentForGroup('CRM & GROWTH')).toBe('emerald'); expect(moduleAccentForGroup('PROCUREMENT')).toBe('orange'); expect(moduleAccentForGroup('FINANCE')).toBe('gold'); expect(moduleAccentForGroup('INTEGRATION & CONTROL')).toBe('cyan'); expect(moduleAccentForGroup('unknown group')).toBe('navy'); expect(moduleAccentForPath('/modules/not-real')).toBe('navy'); });
 });
 '''
