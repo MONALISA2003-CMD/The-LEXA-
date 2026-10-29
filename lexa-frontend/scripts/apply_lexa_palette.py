@@ -85,8 +85,11 @@ describe('LEXA module accents', () => {
 '''
 
 COLOR_TEST = '''import { readFileSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
 import { describe, expect, it } from 'vitest';
-const css = readFileSync(new URL('./lexa-brand.css', import.meta.url), 'utf8');
+// Resolve from Vite/Vitest's project working directory. import.meta.url may be
+// rewritten to a non-file URL by the test transform, which fs cannot read.
+const css = readFileSync(resolvePath(process.cwd(), 'src/styles/lexa-brand.css'), 'utf8');
 type Theme = 'light' | 'dark';
 function themeBlock(theme: Theme): string { const pattern = theme === 'light' ? /:root\\{color-scheme:light;[\\s\\S]*?\\}/ : /:root\\[data-theme=['\"]?dark['\"]?\\]\\{color-scheme:dark;[\\s\\S]*?\\}/; const m = css.match(pattern); if (!m) throw new Error('Missing token block ' + theme); return m[0]; }
 function declarations(theme: Theme): Map<string,string> { const a = [...themeBlock('light').matchAll(/(--[a-z0-9-]+):([^;]+);/g)].map(m=>[m[1]!,m[2]!] as const); const b = theme === 'dark' ? [...themeBlock('dark').matchAll(/(--[a-z0-9-]+):([^;]+);/g)].map(m=>[m[1]!,m[2]!] as const) : []; return new Map([...a,...b]); }
