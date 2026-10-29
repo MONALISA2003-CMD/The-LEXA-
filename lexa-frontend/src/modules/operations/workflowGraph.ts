@@ -28,7 +28,14 @@ const edge = (
   description: string,
   statuses?: readonly string[],
   positiveValueField?: string,
-): WorkflowEdge => ({ sourceId, targetId, label, description, statuses, positiveValueField });
+): WorkflowEdge => ({
+  sourceId,
+  targetId,
+  label,
+  description,
+  ...(statuses !== undefined ? { statuses } : {}),
+  ...(positiveValueField !== undefined ? { positiveValueField } : {}),
+});
 
 /**
  * Frontend preview workflow map. Every hand-off creates a separate preview draft with

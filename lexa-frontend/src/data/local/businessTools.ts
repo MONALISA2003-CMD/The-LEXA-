@@ -65,9 +65,12 @@ export function validateLocalDatabaseBackup(value: unknown): LocalDatabaseBackup
       if (!row || typeof row !== 'object' || typeof (row as Record<string, unknown>).id !== 'string') {
         throw new Error(`The ${name} table contains a record without a valid id.`);
       }
-      const id = (row as Record<string, string>).id;
-      if (ids.has(id)) throw new Error(`The ${name} table contains duplicate record id ${id}.`);
-      ids.add(id);
+      const rowId = (row as Record<string, unknown>).id;
+      if (typeof rowId !== 'string') {
+        throw new Error(`The ${name} table contains a record without a valid id.`);
+      }
+      if (ids.has(rowId)) throw new Error(`The ${name} table contains duplicate record id ${rowId}.`);
+      ids.add(rowId);
     }
   }
   return backup as unknown as LocalDatabaseBackup;

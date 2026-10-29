@@ -80,4 +80,15 @@ describe('core workflow navigation shortcuts', () => {
     }
     expect(getCoreScreenShortcuts('sales-orders').some((item) => item.path === '/checkout')).toBe(true);
   });
+  it('omits undefined optional edge fields under exactOptionalPropertyTypes', () => {
+    for (const item of WORKFLOW_EDGES) {
+      if (item.statuses === undefined) {
+        expect(Object.prototype.hasOwnProperty.call(item, 'statuses')).toBe(false);
+      }
+      if (item.positiveValueField === undefined) {
+        expect(Object.prototype.hasOwnProperty.call(item, 'positiveValueField')).toBe(false);
+      }
+    }
+  });
+
 });

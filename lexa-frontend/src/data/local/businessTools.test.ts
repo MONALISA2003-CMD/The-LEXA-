@@ -64,4 +64,12 @@ describe('Business Tools data services', () => {
     expect(await db.products.count()).toBe(0);
     expect(await db.workspaces.count()).toBe(1);
   });
+  it('rejects backup records that do not have a string id', async () => {
+    await seedWorkspace();
+    const backup = await createLocalDatabaseBackup();
+    const malformed = structuredClone(backup);
+    malformed.tables.workspaces = [{ businessName: 'Missing identifier' }];
+    expect(() => validateLocalDatabaseBackup(malformed)).toThrow(/without a valid id/i);
+  });
+
 });
