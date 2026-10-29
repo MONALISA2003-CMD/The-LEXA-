@@ -19,7 +19,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "pretest": "python3 scripts/fix_build_origin.py"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.2",
