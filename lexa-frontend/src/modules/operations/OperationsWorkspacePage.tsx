@@ -16,6 +16,9 @@ import { calculateRecord, nextStatus, safeNumber, validateRecord, type FormValue
 import { useModuleRecordService } from '../../data/providers/ModuleRecordServiceProvider';
 import type { DataPersistenceMode, ModuleRecordScope } from '../../data/contracts/previewData';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
+import { BarcodeCapture } from '../../components/barcode/BarcodeCapture';
+import { RecordConversationPanel } from '../../components/inbox/RecordConversationPanel';
+import { products } from '../../data/repositories';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { filterPreviewRecords, paginatePreviewRecords } from './previewSelectors';
 import { getPreviewDateRange, REPORT_NAMES, REPORT_PERIODS, type PreviewReportName, type PreviewReportUnit, type ReportPeriod } from '../../data/local/moduleReports';
@@ -24,6 +27,10 @@ import DocumentLineItemsEditor from './DocumentLineItemsEditor';
 import { getDocumentLineConfig, readDocumentLines, syncDocumentLines, validateDocumentLines } from './documentLines';
 import { journalTotals, readAssemblyComponents, readJournalLines, syncAssemblyComponents, syncJournalLines, validateAssemblyComponents, validateJournalLines } from './structuredEntries';
 import { AssemblyComponentsEditor, JournalLinesEditor } from './StructuredEntryEditors';
+
+type ModuleSavedView = { id: string; name: string; search: string; statusFilter: string; dateFrom: string; dateTo: string; savedAt: string };
+
+function readModuleSavedViews(key: string): ModuleSavedView[] { try { const parsed: unknown = JSON.parse(window.localStorage.getItem(key) ?? '[]'); return Array.isArray(parsed) ? parsed.filter((item): item is ModuleSavedView => Boolean(item && typeof item === 'object' && typeof (item as ModuleSavedView).id === 'string' && typeof (item as ModuleSavedView).name === 'string')) : []; } catch { return []; } }
 
 const CLOSED_STATES = ['Paid', 'Received', 'Reconciled', 'Posted', 'Active', 'Accepted', 'Accepted externally', 'Completed', 'Delivered', 'Approved', 'Disposed', 'Reviewed'];
 const ATTENTION_STATES = ['Draft', 'Pending', 'Overdue', 'Disputed', 'Needs review', 'Rejected externally', 'Needs inspection', 'On hold', 'Invited', 'Reconciliation needed', 'Requested', 'In transit', 'Partially received', 'Ready for integration', 'Review', 'Late', 'Delivery failed', 'Restricted', 'Matching', 'Reopened', 'Error', 'Not connected', 'Configuration needed', 'Needs attention', 'Failed', 'Short pick', 'Exception', 'Expired', 'Quarantined', 'Rejected', 'Blocked', 'Variance review', 'Review needed', 'Missing mapping'];
@@ -360,6 +367,11 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
   const [statusFilter, setStatusFilter] = useState('All statuses');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const savedViewKey = `lexa.ui.savedModuleViews.${workspace.id}.${branch.id}.${module.id}`;
+  const [savedViews, setSavedViews] = useState<ModuleSavedView[]>(() => readModuleSavedViews(savedViewKey));
+  const [selectedSavedView, setSelectedSavedView] = useState('');
+  const [saveViewOpen, setSaveViewOpen] = useState(false);
+  const [saveViewName, setSaveViewName] = useState('');
   const [pageSize, setPageSize] = useState('10');
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
@@ -376,6 +388,22 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
   const trackedValue = module.amountKey && rows.length ? rows.reduce((sum, row) => sum + safeNumber(row[module.amountKey!]), 0) : null;
 
   useEffect(() => { if (recordsQuery.isSuccess) setStorageMode(moduleRecordService.getPersistenceMode()); }, [recordsQuery.isSuccess, recordsQuery.dataUpdatedAt]);
+  useEffect(() => { try { window.localStorage.setItem(savedViewKey, JSON.stringify(savedViews)); } catch { /* Saved filters are a convenience, never a business-data dependency. */ } }, [savedViewKey, savedViews]);
+  function saveCurrentView() {
+    const name = saveViewName.trim();
+    if (!name) { toast.error('Give this view a name first.'); return; }
+    const view: ModuleSavedView = { id: `view-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, search, statusFilter, dateFrom, dateTo, savedAt: new Date().toISOString() };
+    setSavedViews((current) => [...current.filter((item) => item.name.toLocaleLowerCase() !== name.toLocaleLowerCase()), view]);
+    setSelectedSavedView(view.id); setSaveViewName(''); setSaveViewOpen(false);
+    toast.success('View saved on this device', { description: 'This stores filter preferences only; it does not save or duplicate business records.' });
+  }
+  function applySavedView(viewId: string) {
+    setSelectedSavedView(viewId);
+    const view = savedViews.find((item) => item.id === viewId);
+    if (!view) { setSearch(''); setStatusFilter('All statuses'); setDateFrom(''); setDateTo(''); return; }
+    setSearch(view.search); setStatusFilter(view.statusFilter); setDateFrom(view.dateFrom); setDateTo(view.dateTo); setPage(1);
+  }
+
 
   useEffect(() => { setPage(1); }, [search, statusFilter, dateFrom, dateTo, pageSize]);
   useEffect(() => {
@@ -502,6 +530,39 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
     } catch (error) { toast.error('Could not save the related record', { description: error instanceof Error ? error.message : 'Check the backend connection or device storage, then retry.' }); }
   }
 
+  const barcodeEnabledModules = ['receiving', 'stock-counts', 'stock-transfers', 'picklists', 'packages', 'deliveries', 'work-orders', 'batches', 'quality'];
+  async function handleModuleBarcode(code: string) {
+    const normalized = code.trim().toLocaleLowerCase();
+    try {
+      const catalogue = await products.list({ workspaceId: workspace.id, activeOnly: true });
+      const matches = catalogue.filter((item) => item.barcode?.trim().toLocaleLowerCase() === normalized || item.sku.trim().toLocaleLowerCase() === normalized);
+      if (matches.length !== 1) {
+        setSearch(code);
+        toast.error(matches.length ? 'Duplicate barcode or SKU' : 'Product was not found', { description: matches.length ? 'Resolve duplicate product identifiers before recording inventory movement.' : 'No matching product exists in the active catalogue. Check the code or register the product first.' });
+        return;
+      }
+      const product = matches[0]!;
+      const values: FormValues = { ...initialValues(module) };
+      const fieldValues: Record<string, string> = {
+        product: product.name, item: product.name, productName: product.name, productCode: product.sku,
+        productSKU: product.sku, sku: product.sku, barcode: product.barcode ?? code,
+        itemCode: product.sku, itemSummary: product.name, itemDescription: product.name,
+      };
+      let populated = false;
+      for (const field of module.fields) {
+        if (fieldValues[field.key] !== undefined) { values[field.key] = fieldValues[field.key]!; populated = true; }
+        if (['quantity', 'expectedQuantity', 'countedQuantity', 'orderedQuantity', 'acceptedQuantity', 'receivedQuantity', 'plannedQuantity', 'inspectedQuantity'].includes(field.key) && !values[field.key]) values[field.key] = '1';
+      }
+      if (populated) {
+        setEditing(null); setForm(values); setFormOpen(true);
+        toast.success('Product identified', { description: `${product.name} (${product.sku}) was matched by exact SKU/barcode. Review the form before saving.` });
+      } else {
+        setSearch(code);
+        toast.info('Product identified', { description: `${product.name} (${product.sku}). This register does not contain a product field; add it through the appropriate workflow.` });
+      }
+    } catch (error) { toast.error('Could not resolve barcode', { description: error instanceof Error ? error.message : 'Check the catalogue connection and retry.' }); }
+  }
+
   function exportRows() {
     const cols = module.columns;
     downloadCsv('lexa-records-' + module.id + '.csv', cols.map((column) => column.label), filtered.map((row) => cols.map((column) => row[column.key] ?? '')));
@@ -520,13 +581,14 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
       </div>
 
       <section className="section-card table-card phase-two-table-card">
-        <div className="table-toolbar phase-two-table-toolbar"><div><h3>{module.title} register</h3><p>{filtered.length.toLocaleString()} matching {filtered.length === 1 ? 'record' : 'records'} · records in the active business and branch</p></div><div className="phase-two-table-actions"><button className="button button-secondary button-small" onClick={exportRows} disabled={!filtered.length}><Download size={14} /> Export CSV</button></div></div>
+        <div className="table-toolbar phase-two-table-toolbar"><div><h3>{module.title} register</h3><p>{filtered.length.toLocaleString()} matching {filtered.length === 1 ? 'record' : 'records'} · records in the active business and branch</p></div><div className="phase-two-table-actions">{savedViews.length > 0 && <label className="module-saved-view-select"><span className="sr-only">Saved filter views</span><select aria-label="Load saved filter view" value={selectedSavedView} onChange={(event) => applySavedView(event.target.value)}><option value="">Saved views…</option>{savedViews.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}</select></label>}<button className="button button-secondary button-small" onClick={() => setSaveViewOpen((value) => !value)}><Check size={14} /> Save view</button><button className="button button-secondary button-small" onClick={exportRows} disabled={!filtered.length}><Download size={14} /> Export CSV</button></div></div>{saveViewOpen && <form className="module-save-view-row" onSubmit={(event) => { event.preventDefault(); saveCurrentView(); }}><label>View name<input required maxLength={80} value={saveViewName} onChange={(event) => setSaveViewName(event.target.value)} placeholder="e.g. Overdue approvals" /></label><button type="submit" className="button button-primary button-small">Save current filters</button><button type="button" className="button button-secondary button-small" onClick={() => setSaveViewOpen(false)}>Cancel</button><span>Filter preferences are stored in this browser only.</span></form>}
         <div className="phase-two-filters">
           <label className="phase-two-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={'Search ' + module.title.toLowerCase() + '…'} aria-label={'Search ' + module.title} /><kbd>/</kbd></label>
           <label className="phase-filter-select"><Filter size={14} /><span className="sr-only">Filter by status</span><select aria-label="Filter by status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All statuses</option>{statuses.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown size={13} /></label>
           {module.dateKey && <><label className="phase-date-filter"><CalendarDays size={14} /><span className="sr-only">From date</span><input type="date" aria-label="From date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label className="phase-date-filter"><span className="sr-only">To date</span><input type="date" aria-label="To date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label></>}
           {(search || statusFilter !== 'All statuses' || dateFrom || dateTo) && <button className="phase-clear-filters" onClick={() => { setSearch(''); setStatusFilter('All statuses'); setDateFrom(''); setDateTo(''); }}>Clear</button>}
         </div>
+        {barcodeEnabledModules.includes(module.id) && <BarcodeCapture compact label={`Scan product for ${module.title}`} onCode={handleModuleBarcode} />}
         {dateFrom && dateTo && dateFrom > dateTo && <div className="inline-warning" role="alert">The start date must be on or before the end date.</div>}
         {recordsQuery.isError ? <div className="inline-error"><strong>Could not load this register.</strong><span>{recordsQuery.error instanceof Error ? recordsQuery.error.message : 'Check the backend connection or device storage and retry.'}</span><button className="button button-secondary button-small" onClick={() => void recordsQuery.refetch()}>Retry load</button></div> : recordsQuery.isLoading ? <div className="loading-state">Loading records…</div> : visible.length === 0 ? <div className="empty-state"><div className="empty-icon"><Search size={22} /></div><h3>No matching records</h3><p>Change the search, status or date filters. New records will appear here after you save them.</p>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={15} /> Add {module.singular}</button>}</div> : <div className="responsive-table-wrap phase-two-table-wrap"><table className="data-table phase-two-table"><thead><tr>{module.columns.map((column) => <th key={column.key}>{column.label}</th>)}<th className="phase-actions-heading">ACTIONS</th></tr></thead><tbody>{visible.map((record) => <tr key={record.id}>{module.columns.map((column) => <td key={column.key} className={column.kind === 'money' ? 'amount-cell' : ''}>{column.kind === 'status' ? <span className={'status-pill ' + (['Active', 'Received', 'Paid', 'Posted', 'Reconciled', 'Accepted', 'Accepted externally', 'Completed', 'Delivered', 'Approved', 'Reviewed', 'Present'].includes(record[column.key] ?? '') ? 'status-good' : ['Draft', 'Pending', 'Ready for integration', 'Needs review', 'Overdue', 'Disputed', 'Rejected externally', 'Needs inspection', 'On hold', 'In transit', 'Review', 'Late', 'Restricted', 'Delivery failed', 'Needs review', 'Blocked', 'Expired', 'Disabled', 'Matching', 'Reopened', 'Error', 'Not connected', 'Configuration needed', 'Needs attention', 'Failed', 'Short pick', 'Exception', 'Quarantined', 'Blocked', 'Variance review', 'Review needed', 'Missing mapping'].includes(record[column.key] ?? '') ? 'status-warning' : '')}>{record[column.key] || '—'}</span> : cellValue(record, column.key, column.kind, workspace.currency)}</td>)}<td><div className="phase-row-actions"><button className="icon-button table-action" aria-label={'View ' + module.singular} title="View details" onClick={() => setDetail(record)}><Eye size={15} /></button>{!module.readOnly && <button className="icon-button table-action" aria-label={'Edit ' + module.singular} title="Edit record" onClick={() => openEdit(record)}><Edit3 size={15} /></button>}</div></td></tr>)}</tbody></table></div>}
         <div className="phase-two-table-footer"><span>Showing {filtered.length ? ((page - 1) * Number(pageSize) + 1).toLocaleString() : 0}–{Math.min(page * Number(pageSize), filtered.length).toLocaleString()} of {filtered.length.toLocaleString()}</span><div className="phase-pagination"><label><span>Rows</span><select aria-label="Rows per page" value={pageSize} onChange={(event) => setPageSize(event.target.value)}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label><button className="button button-secondary button-small" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button><span>Page {page} of {pageCount}</span><button className="button button-secondary button-small" disabled={page >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>Next</button></div></div>
@@ -542,7 +604,7 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
           return true;
         }).map((field) => <FieldInput key={field.key} field={field} value={form[field.key] ?? ''} onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))} currency={workspace.currency} editing={Boolean(editing)} />)}</div><CalculatedFigures moduleId={module.id} values={form} currency={workspace.currency} /><div className="phase-form-disclaimer"><ShieldAlert size={15} /><span>{storageMode === 'server' ? 'This saves a module record through the backend. A saved register record does not itself transfer money, submit tax documents or post core accounting entries.' : 'This saves a device-local module record. It does not transfer money, submit tax documents or create accounting entries.'}</span></div><div className="phase-modal-actions"><button type="button" className="button button-secondary" onClick={() => { setFormOpen(false); setEditing(null); }}>Cancel</button><button type="submit" className="button button-primary" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Save record'} <Check size={15} /></button></div></form></section></div>}
 
-      {detail && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section className="phase-modal phase-detail-modal" role="dialog" aria-modal="true" aria-labelledby="phase-detail-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.title.toUpperCase()} / RECORD DETAILS</div><h3 id="phase-detail-title">{detail[module.columns[0]?.key ?? 'id'] || detail.id}</h3><p>Reference: {detail.id} · Updated {displayDate(detail.updatedAt)}</p></div><button className="icon-button" aria-label="Close details" onClick={() => setDetail(null)}><X size={18} /></button></div><div className="phase-detail-status"><span className={'status-pill ' + (CLOSED_STATES.includes(detail.status) ? 'status-good' : 'status-warning')}>{detail.status}</span><span className="module-persistence-badge"><span /> {moduleRecordService.getPersistenceMode() === 'server' ? 'Saved to backend' : moduleRecordService.getPersistenceMode() === 'browser-local' ? 'Saved on this device' : 'Session-only storage'}</span></div><div className="phase-detail-grid">{Object.entries(detail).filter(([key]) => key !== 'id' && key !== 'updatedAt').map(([key, value]) => <div className="phase-detail-field" key={key}><span>{module.fields.find((field) => field.key === key)?.label ?? module.columns.find((column) => column.key === key)?.label ?? ({ sourceModuleId: 'Source module', sourceRecordId: 'Source record' } as Record<string, string>)[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</span><strong>{detailValue(module, key, value, detail.currency || workspace.currency)}</strong></div>)}</div><div className="phase-modal-actions">{getCoreScreenShortcuts(module.id).map((action) => <button key={action.path} className="button button-secondary" title={action.description} onClick={() => navigate(action.path)}><ArrowUpRight size={15} /> {action.label}</button>)}{!module.readOnly && <>{relatedActions(module.id, detail).map((action) => <button key={action.targetId} className="button button-secondary" title={action.description} onClick={() => createRelatedRecord(action.targetId, detail)}><ArrowRight size={15} /> {action.label}</button>)}{nextStatus(module.id, detail.status) && <button className="button button-secondary" onClick={() => updateStatus(detail)}><BadgeCheck size={15} /> Advance to {nextStatus(module.id, detail.status)}</button>}<button className="button button-primary" onClick={() => openEdit(detail)}><Edit3 size={15} /> Edit record</button></>}<button className="button button-secondary" onClick={() => setDetail(null)}>Close</button></div></section></div>}
+      {detail && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section className="phase-modal phase-detail-modal" role="dialog" aria-modal="true" aria-labelledby="phase-detail-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.title.toUpperCase()} / RECORD DETAILS</div><h3 id="phase-detail-title">{detail[module.columns[0]?.key ?? 'id'] || detail.id}</h3><p>Reference: {detail.id} · Updated {displayDate(detail.updatedAt)}</p></div><button className="icon-button" aria-label="Close details" onClick={() => setDetail(null)}><X size={18} /></button></div><div className="phase-detail-status"><span className={'status-pill ' + (CLOSED_STATES.includes(detail.status) ? 'status-good' : 'status-warning')}>{detail.status}</span><span className="module-persistence-badge"><span /> {moduleRecordService.getPersistenceMode() === 'server' ? 'Saved to backend' : moduleRecordService.getPersistenceMode() === 'browser-local' ? 'Saved on this device' : 'Session-only storage'}</span></div><div className="phase-detail-grid">{Object.entries(detail).filter(([key]) => key !== 'id' && key !== 'updatedAt').map(([key, value]) => <div className="phase-detail-field" key={key}><span>{module.fields.find((field) => field.key === key)?.label ?? module.columns.find((column) => column.key === key)?.label ?? ({ sourceModuleId: 'Source module', sourceRecordId: 'Source record' } as Record<string, string>)[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</span><strong>{detailValue(module, key, value, detail.currency || workspace.currency)}</strong></div>)}</div><RecordConversationPanel recordType={module.id} recordId={detail.id} recordTitle={`${module.title}: ${detail[module.columns[0]?.key ?? 'id'] || detail.id}`} /><div className="phase-modal-actions">{getCoreScreenShortcuts(module.id).map((action) => <button key={action.path} className="button button-secondary" title={action.description} onClick={() => navigate(action.path)}><ArrowUpRight size={15} /> {action.label}</button>)}{!module.readOnly && <>{relatedActions(module.id, detail).map((action) => <button key={action.targetId} className="button button-secondary" title={action.description} onClick={() => createRelatedRecord(action.targetId, detail)}><ArrowRight size={15} /> {action.label}</button>)}{nextStatus(module.id, detail.status) && <button className="button button-secondary" onClick={() => updateStatus(detail)}><BadgeCheck size={15} /> Advance to {nextStatus(module.id, detail.status)}</button>}<button className="button button-primary" onClick={() => openEdit(detail)}><Edit3 size={15} /> Edit record</button></>}<button className="button button-secondary" onClick={() => setDetail(null)}>Close</button></div></section></div>}
     </div>
   );
 }

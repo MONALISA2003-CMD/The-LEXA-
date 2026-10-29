@@ -1,80 +1,97 @@
+import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ArrowDownRight, ArrowRight, ArrowUpRight, Box, Building2, CircleDollarSign,
-  Clock3, Package, ShoppingBag, ShoppingCart, Wallet,
+  Activity, AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, Box, CalendarDays, CheckCircle2,
+  CircleDollarSign, Clock3, MessageCircle, Package, RefreshCw, ShoppingBag, ShoppingCart, Users, Wallet,
 } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { reports } from '../../data/repositories';
+import { apiDashboard } from '../../data/remote/apiDashboard';
+import type { DashboardPeriod } from '../../data/contracts/dashboardAnalytics';
+import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { formatMinorAmount } from '../../domain/money/money';
 import { PHASE_TWO_LINKS } from '../operations/moduleCatalog';
 import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
+import { BarBreakdownChart, DonutBreakdownChart, LineTrendChart } from '../../components/charts/Charts';
 
-const dashboardModulePaths = [
-  '/modules/customers', '/modules/quotations', '/modules/sales-orders', '/modules/sales-invoices',
-  '/modules/suppliers', '/modules/purchases', '/modules/purchase-invoices', '/modules/receiving',
-  '/modules/expenses', '/modules/reports',
-];
+const dashboardModulePaths = ['/modules/customers', '/modules/quotations', '/modules/sales-orders', '/modules/sales-invoices', '/modules/suppliers', '/modules/purchases', '/modules/purchase-invoices', '/modules/receiving', '/modules/expenses', '/modules/reports'];
 const dashboardModules = PHASE_TWO_LINKS.filter((item) => dashboardModulePaths.includes(item.to));
+const periodLabels: Record<DashboardPeriod, string> = { today: 'Today', '7d': 'Last 7 days', '30d': 'Last 30 days', '90d': 'Last 90 days', '12m': 'Last 12 months' };
+type OverviewMode = 'owner' | 'sales' | 'finance' | 'operations' | 'people';
+const overviewModeLabels: Record<OverviewMode, string> = { owner: 'Business owner', sales: 'Sales & CRM', finance: 'Finance', operations: 'Operations', people: 'People & payroll' };
+function categoryForKpi(key: string): OverviewMode { const keyText = key.toLocaleLowerCase(); if (/sales|revenue|lead|opportunit|conversion|customer|crm/.test(keyText)) return 'sales'; if (/cash|receipt|receivable|payable|expense|profit|margin|budget|finance|invoice|payment|balance/.test(keyText)) return 'finance'; if (/stock|inventor|warehouse|deliver|fulfil|production|quality|movement/.test(keyText)) return 'operations'; if (/employee|staff|attendance|payroll|leave|workforce|headcount/.test(keyText)) return 'people'; return 'owner'; }
+const dateLabel = (timezone: string) => { try { return new Intl.DateTimeFormat('en-UG', { dateStyle: 'full', timeZone: timezone }).format(new Date()); } catch { return new Date().toLocaleDateString(); } };
 
 export default function DashboardPage() {
   const { workspace, branch } = useWorkspace();
   const navigate = useNavigate();
-  const snapshotQuery = useQuery({
-    queryKey: ['dashboard', workspace.id, branch.id],
-    queryFn: () => reports.getDashboardSnapshot({ workspaceId: workspace.id, branchId: branch.id }),
+  const [period, setPeriod] = useState<DashboardPeriod>('30d');
+  const [overviewMode, setOverviewMode] = useState<OverviewMode>('owner');
+  const snapshotQuery = useQuery({ queryKey: ['dashboard', workspace.id, branch.id], queryFn: () => reports.getDashboardSnapshot({ workspaceId: workspace.id, branchId: branch.id }) });
+  const analyticsQuery = useQuery({
+    queryKey: ['dashboard-analytics', workspace.id, branch.id, period],
+    queryFn: ({ signal }) => apiDashboard.getOverview(workspace.id, branch.id, period, signal),
+    enabled: isApiProvider,
+    staleTime: 60_000,
+    retry: 1,
   });
   const snapshot = snapshotQuery.data;
-  const localDate = (() => {
-    try { return new Intl.DateTimeFormat('en-UG', { dateStyle: 'full', timeZone: workspace.timezone }).format(new Date()); }
-    catch { return new Date().toLocaleDateString(); }
-  })();
+  const analytics = analyticsQuery.data;
+  const money = (value: number) => new Intl.NumberFormat('en-UG', { style: 'currency', currency: workspace.currency, maximumFractionDigits: workspace.currency === 'UGX' ? 0 : 2 }).format(value);
+  const kpis = useMemo(() => {
+    const base = [
+      { key: 'net-sales', category: 'sales' as OverviewMode, label: 'Net sales', value: snapshot ? formatMinorAmount(snapshot.netSalesMinor, workspace.currency) : '—', note: 'Sales less recorded returns', icon: <CircleDollarSign size={18}/>, accent: 'blue', href: '/sales' },
+      { key: 'recorded-receipts', category: 'finance' as OverviewMode, label: 'Receipts recorded', value: snapshot ? formatMinorAmount(snapshot.recordedReceiptsMinor, workspace.currency) : '—', note: 'Payments marked received', icon: <Wallet size={18}/>, accent: 'emerald', href: '/modules/payments' },
+      { key: 'outstanding-estimate', category: 'finance' as OverviewMode, label: 'Outstanding estimate', value: snapshot ? formatMinorAmount(snapshot.outstandingMinor, workspace.currency) : '—', note: 'Recorded sales/payment estimate', icon: <Clock3 size={18}/>, accent: 'gold', href: '/modules/sales-invoices' },
+      { key: 'units-on-hand', category: 'operations' as OverviewMode, label: 'Units on hand', value: snapshot ? snapshot.itemsInStock.toLocaleString() : '—', note: 'From stock movement history', icon: <Box size={18}/>, accent: 'cyan', href: '/inventory' },
+      { key: 'low-stock', category: 'operations' as OverviewMode, label: 'Low-stock products', value: snapshot ? snapshot.lowStockCount.toLocaleString() : '—', note: 'At or below reorder level', icon: <AlertTriangle size={18}/>, accent: snapshot?.lowStockCount ? 'orange' : 'emerald', href: '/inventory' },
+    ];
+    const extra = (analytics?.kpis ?? []).map((item) => ({ key: item.key, category: categoryForKpi(item.key) === 'owner' && item.href ? categoryForKpi(item.href) : categoryForKpi(item.key), label: item.label, value: item.unit === 'currency' ? money(item.value) : item.unit === 'percent' ? `${item.value.toFixed(1)}%` : item.value.toLocaleString(undefined, { maximumFractionDigits: 1 }), note: item.description ?? (item.changePercent == null ? 'Backend-calculated metric' : `${item.changePercent > 0 ? '+' : ''}${item.changePercent.toFixed(1)}% vs comparison`), icon: <Activity size={18}/>, accent: 'navy', href: item.href ?? '/modules/reports' }));
+    const all = [...base, ...extra];
+    return overviewMode === 'owner' ? all : all.filter((item) => item.category === overviewMode);
+  }, [analytics, snapshot, workspace.currency, overviewMode, money]);
 
-  return (
-    <div className="page-stack dashboard-page" data-module-accent={moduleAccentForPath("/")}>
-      <section className="welcome-banner">
-        <div className="welcome-copy">
-          <div className="welcome-kicker"><span className="welcome-kicker-dot" /> BUSINESS OVERVIEW <span className="welcome-separator">·</span> {localDate.toUpperCase()}</div>
-          <h2>One clear view of <span>your business.</span></h2>
-          <p>Welcome to {workspace.businessName} / {branch.name}. Track sales, stock and business activity for your active branch.</p>
-          <div className="welcome-actions">
-            <button className="button button-white" onClick={() => navigate('/checkout')}><ShoppingCart size={16} /> New sale</button>
-            <button className="button button-outline-light" onClick={() => navigate('/modules')}><Building2 size={16} /> Browse all modules</button>
-          </div>
-        </div>
-        <div className="welcome-illustration" aria-hidden="true"><div className="orb orb-one" /><div className="orb orb-two" /><div className="illustration-card"><div className="illustration-card-top"><span /><span /><span /></div><div className="illustration-card-chart"><span /><span /><span /><span /><span /><span /><span /></div><div className="illustration-card-footer"><div /><div /><div /></div></div><div className="illustration-float"><CircleDollarSign size={19} /><span>LEXA workspace</span><strong>Module by module</strong></div></div><div className="welcome-decoration" />
-      </section>
-
-      {snapshotQuery.isError && <div className="inline-error"><strong>Could not load the business overview.</strong><span>{snapshotQuery.error instanceof Error ? snapshotQuery.error.message : 'Check the connection and retry loading the business overview.'}</span></div>}
-      <div className="dashboard-section-title"><div><h3>Current business snapshot</h3><p>Figures derived from existing saved sales and inventory records for this branch.</p></div><span className="data-period"><Clock3 size={14} /> Since tracking started</span></div>
-      <div className="metric-strip four-metrics">
-        <button className="metric-card" onClick={() => navigate('/sales')}><div className="metric-card-top"><span>Net sales value</span><span className="metric-icon blue-metric" data-module-accent={moduleAccentForPath("/sales")}><CircleDollarSign size={18} /></span></div><strong>{snapshot ? formatMinorAmount(snapshot.netSalesMinor, workspace.currency) : '—'}</strong><small><span className="metric-inline-dot blue-dot" /> After recorded returns</small><span className="metric-card-link">View sales <ArrowUpRight size={13} /></span></button>
-        <button className="metric-card" onClick={() => navigate('/sales')}><div className="metric-card-top"><span>Recorded receipts</span><span className="metric-icon green-metric" data-module-accent={moduleAccentForPath("/modules/payments")}><Wallet size={18} /></span></div><strong>{snapshot ? formatMinorAmount(snapshot.recordedReceiptsMinor, workspace.currency) : '—'}</strong><small><span className="metric-inline-dot green-dot" /> Amounts marked as received</small><span className="metric-card-link">Payment activity <ArrowUpRight size={13} /></span></button>
-        <button className="metric-card" onClick={() => navigate('/sales')}><div className="metric-card-top"><span>Outstanding estimate</span><span className="metric-icon amber-metric" data-module-accent={moduleAccentForPath("/modules/sales-invoices")}><Clock3 size={18} /></span></div><strong>{snapshot ? formatMinorAmount(snapshot.outstandingMinor, workspace.currency) : '—'}</strong><small><span className="metric-inline-dot amber-dot" /> Based on local sale/payment records</small><span className="metric-card-link">Review sales <ArrowUpRight size={13} /></span></button>
-        <button className="metric-card" onClick={() => navigate('/inventory')}><div className="metric-card-top"><span>Units on hand</span><span className="metric-icon purple-metric" data-module-accent={moduleAccentForPath("/inventory")}><Box size={18} /></span></div><strong>{snapshot ? snapshot.itemsInStock.toLocaleString() : '—'}</strong><small><span className="metric-inline-dot purple-dot" /> From the stock movement ledger</small><span className="metric-card-link">View inventory <ArrowUpRight size={13} /></span></button>
+  return <div className="page-stack dashboard-page modern-overview" data-module-accent={moduleAccentForPath("/")}>
+    <section className="overview-hero">
+      <div className="overview-hero-copy"><div className="overview-kicker"><span /> BUSINESS OVERVIEW <i /> {dateLabel(workspace.timezone).toLocaleUpperCase()}</div>
+        <h2>Your business, <span>in focus.</span></h2>
+        <p>{workspace.businessName} <span className="overview-hero-separator">/</span> {branch.name}. A decision-ready view of sales, stock, exceptions and day-to-day activity.</p>
+        <div className="overview-hero-actions"><button className="button button-white" onClick={() => navigate('/checkout')}><ShoppingCart size={16} /> New sale</button><button className="button button-outline-light" onClick={() => navigate('/modules/reports')}><BarChart3 size={16} /> View analytics</button></div>
       </div>
+      <div className="overview-hero-art" aria-hidden="true"><div className="overview-hero-orb"/><div className="overview-hero-grid"><span/><span/><span/><span/><span/><span/><span/><span/><span/><span/><span/><span/></div><div className="overview-hero-mini overview-hero-brand-card"><span>LEXA BUSINESS SYSTEM</span><strong>One workspace.<br/>Every workflow.</strong><small>Built for operational clarity</small></div></div>
+    </section>
 
-      <div className="dashboard-main-grid">
-        <section className="section-card table-card recent-activity-card">
-          <div className="table-toolbar"><div><h3>Recent sales</h3><p>Latest saved transactions from the active branch</p></div><button className="text-link" onClick={() => navigate('/sales')}>All sales <ArrowRight size={14} /></button></div>
-          {snapshotQuery.isLoading ? <div className="loading-state">Calculating from saved records…</div> : !snapshot?.recentSales.length ? <div className="empty-state compact"><div className="empty-icon"><ShoppingBag size={21} /></div><h3>Your activity will appear here</h3><p>Complete a sale to see its receipt and related stock movements here.</p><button className="button button-primary" onClick={() => navigate('/checkout')}><ShoppingCart size={15} /> Start a sale</button></div> : <div className="recent-sales-list">{snapshot.recentSales.map((sale) => <button key={sale.id} className="recent-sale-row" onClick={() => navigate(`/sales/${sale.id}`)}><span className="recent-sale-icon"><ReceiptMini /></span><span className="recent-sale-main"><strong>{sale.customerName || 'Walk-in customer'}</strong><span>{sale.receiptNumber} <span className="tiny-separator">·</span> {new Date(sale.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span></span><span className="recent-sale-total"><strong>{formatMinorAmount(sale.totalMinor, workspace.currency)}</strong><span>Completed</span></span><ArrowRight size={15} className="recent-row-arrow" /></button>)}</div>}
-        </section>
-        <section className="section-card operational-panel"><div className="section-card-heading"><div className="heading-icon amber-icon"><Package size={18} /></div><div><h3>Stock needs attention</h3><p>Products at or below their minimum quantity</p></div></div>{snapshotQuery.isLoading ? <div className="loading-state">Checking inventory…</div> : !snapshot?.lowStockProducts.length ? <div className="compact-empty"><div className="success-ring"><ArrowUpRight size={17} /></div><strong>Nothing to flag in current records</strong><span>Alerts are calculated from the active branch stock ledger.</span></div> : <div className="low-stock-list">{snapshot.lowStockProducts.map(({ product, onHand }) => <div className="low-stock-row" key={product.id}><div><strong>{product.name}</strong><span>{product.sku}</span></div><div className="low-stock-amount"><strong>{onHand}</strong><span>min {product.lowStockThreshold}</span></div></div>)}</div>}<button className="panel-bottom-link" onClick={() => navigate('/inventory')}>Open inventory <ArrowRight size={14} /></button></section>
-      </div>
+    <section className="overview-controls" aria-label="Overview filters"><div className="overview-context"><span className="overview-context-icon"><CalendarDays size={16}/></span><div><strong>{branch.name}</strong><span>{workspace.businessName} · {workspace.currency}</span></div></div><div className="overview-control-actions"><label className="overview-period"><span>View</span><select aria-label="Overview role view" value={overviewMode} onChange={(event) => setOverviewMode(event.target.value as OverviewMode)}>{Object.entries(overviewModeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="overview-period"><span>Trend period</span><select aria-label="Overview trend period" value={period} onChange={(event) => setPeriod(event.target.value as DashboardPeriod)}>{Object.entries(periodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><button className="button button-secondary button-small" onClick={() => { void snapshotQuery.refetch(); if (isApiProvider) void analyticsQuery.refetch(); }} disabled={snapshotQuery.isFetching || (isApiProvider && analyticsQuery.isFetching)}><RefreshCw size={14} className={snapshotQuery.isFetching || (isApiProvider && analyticsQuery.isFetching) ? 'spin-icon' : ''}/> Refresh</button><button className="button button-secondary button-small" onClick={() => navigate('/modules/reports')}><ArrowUpRight size={14}/> Reports</button></div></section>
 
-      <section className="section-card phase-two-launch-card">
-        <div className="phase-two-launch-heading"><div><div className="eyebrow eyebrow-blue">BUSINESS WORKSPACE</div><h3>Explore the full business workspace</h3><p>Explore workflows for customers, suppliers, purchasing, finance, people and operations.</p></div><button className="button button-secondary button-small" onClick={() => navigate('/modules')}>All modules <ArrowRight size={14} /></button></div>
-        <div className="phase-two-launch-grid">
-          {dashboardModules.map((item) => { const Icon = item.icon; return <button key={item.to} onClick={() => navigate(item.to)}><span className="quick-action-icon quick-blue" data-module-accent={moduleAccentForPath(item.to)}><Icon size={17} /></span><span><strong>{item.title}</strong><small>{item.description}</small></span><ArrowRight size={14} /></button>; })}
-        </div>
-      </section>
+    {snapshotQuery.isError && <div className="inline-error" role="alert"><strong>Could not load the overview totals.</strong><span>{snapshotQuery.error instanceof Error ? snapshotQuery.error.message : 'Check the data connection and retry.'}</span><button className="button button-secondary button-small" onClick={() => void snapshotQuery.refetch()}>Retry</button></div>}
 
-      <div className="dashboard-lower-grid">
-        <section className="section-card quick-actions-card"><div className="section-card-heading"><div className="heading-icon blue-icon"><ArrowUpRight size={18} /></div><div><h3>Core workflow shortcuts</h3><p>Go directly to common business tasks.</p></div></div><div className="quick-actions-grid"><button onClick={() => navigate('/checkout')}><span className="quick-action-icon quick-blue" data-module-accent={moduleAccentForPath("/checkout")}><ShoppingCart size={18} /></span><span><strong>Record a sale</strong><small>Checkout & receipt</small></span><ArrowRight size={15} /></button><button onClick={() => navigate('/products')}><span className="quick-action-icon quick-purple" data-module-accent={moduleAccentForPath("/products")}><Package size={18} /></span><span><strong>Add product</strong><small>Catalogue & pricing</small></span><ArrowRight size={15} /></button><button onClick={() => navigate('/inventory')}><span className="quick-action-icon quick-green" data-module-accent={moduleAccentForPath("/inventory")}><ArrowDownRight size={18} /></span><span><strong>Record stock</strong><small>Opening or adjustment</small></span><ArrowRight size={15} /></button></div></section>
-        <section className="section-card data-integrity-card"><div className="section-card-heading"><div className="heading-icon green-icon"><CircleDollarSign size={18} /></div><div><h3>How to read these figures</h3><p>Keep the source and limitations clear.</p></div></div><div className="integrity-item"><span className="integrity-marker integrity-blue" /><div><strong>Sales value</strong><p>Completed sale totals less recorded returns.</p></div></div><div className="integrity-item"><span className="integrity-marker integrity-green" /><div><strong>Receipts</strong><p>Amounts marked received, not external transfer confirmation.</p></div></div><div className="integrity-item"><span className="integrity-marker integrity-amber" /><div><strong>Stock on hand</strong><p>Opening quantities plus recorded receipts, sales, returns and adjustments.</p></div></div></section>
-      </div>
-    </div>
-  );
+    <section className="overview-kpi-section"><div className="overview-section-heading"><div><span className="eyebrow eyebrow-blue">PERFORMANCE SNAPSHOT</span><h3>Key business indicators</h3><p>Current totals from the active workspace and branch. Trend changes are shown only when supplied by the analytics service.</p></div><button className="overview-heading-link" onClick={() => navigate('/modules/reports')}>Explore reports <ArrowRight size={15}/></button></div>
+      {kpis.length ? <div className="overview-kpi-grid">{kpis.map((item) => <KpiCard key={item.key} label={item.label} value={item.value} note={item.note} icon={item.icon} accent={item.accent} onClick={() => navigate(item.href)}/>)}</div> : <div className="overview-service-note"><Activity size={17}/><div><strong>No KPIs for this view yet</strong><span>The analytics backend has not returned any measures for {overviewModeLabels[overviewMode]}. No invented values are substituted.</span></div></div>}
+    </section>
+
+    <section className="overview-section" aria-labelledby="overview-performance-title"><div className="overview-section-heading"><div><span className="eyebrow eyebrow-blue">BUSINESS PERFORMANCE</span><h3 id="overview-performance-title">Performance over time</h3><p>Comparison period is returned by the backend; no synthetic chart values are generated.</p></div><span className="overview-freshness">{analytics?.generatedAt ? `Updated ${new Date(analytics.generatedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : isApiProvider ? 'Waiting for analytics' : 'Local analytics unavailable'}</span></div>
+      {analyticsQuery.isError && <div className="overview-service-note" role="status"><AlertTriangle size={17}/><div><strong>Analytics service not connected</strong><span>{analyticsQuery.error instanceof Error ? analyticsQuery.error.message : 'The overview analytics endpoint is unavailable. Existing verified totals remain visible above.'}</span></div><button className="button button-secondary button-small" onClick={() => void analyticsQuery.refetch()}>Retry</button></div>}
+      {!isApiProvider && <div className="overview-service-note"><Activity size={17}/><div><strong>Charts require the analytics service</strong><span>Only saved local transactions are available in local mode. Connect the backend analytics endpoint to show complete trends and comparison periods.</span></div></div>}
+      {analyticsQuery.isLoading && <div className="overview-chart-skeletons"><div/><div/><div/></div>}
+      <div className="overview-chart-grid"><LineTrendChart title="Sales trend" description={`${periodLabels[period]}${analytics?.comparisonPeriod ? ` · compared with ${analytics.comparisonPeriod}` : ''}`} points={analytics?.salesTrend ?? []} currencyFormatter={money}/><DonutBreakdownChart title="Sales mix" description="Breakdown from recorded sales channels" points={analytics?.salesByChannel ?? []} centerLabel="Sales" formatValue={money}/><BarBreakdownChart title="Stock health" description="Current products grouped by their stock status" points={analytics?.stockHealth ?? []} formatValue={(value) => value.toLocaleString()}/></div>
+    </section>
+
+    <section className="overview-lower-grid"><div className="overview-panel section-card"><div className="section-card-heading"><span className="heading-icon amber-icon"><AlertTriangle size={18}/></span><div><h3>Needs attention</h3><p>Exceptions that require a real operational action</p></div><span className="overview-counter">{analytics?.exceptions.length ?? 0}</span></div>{analyticsQuery.isLoading ? <div className="loading-state">Loading exceptions…</div> : !analytics?.exceptions.length ? <div className="overview-empty"><CheckCircle2 size={22}/><strong>No exceptions supplied</strong><span>When connected, alerts will come from actual business rules and records.</span></div> : <div className="overview-exception-list">{analytics.exceptions.slice(0, 8).map((item) => <button key={item.id} className={`overview-exception overview-severity-${item.severity}`} onClick={() => item.href && navigate(item.href)} disabled={!item.href}><span className="overview-exception-marker"/><span><strong>{item.title}</strong><small>{item.detail}</small></span><ArrowRight size={15}/></button>)}</div>}<button className="overview-panel-footer" onClick={() => navigate('/inbox?tab=tasks')}>Open tasks and approvals <ArrowRight size={14}/></button></div>
+      <div className="overview-panel section-card"><div className="section-card-heading"><span className="heading-icon blue-icon"><Activity size={18}/></span><div><h3>Business activity</h3><p>Recent events from the active workspace</p></div><button className="icon-button" title="Open activity log" aria-label="Open activity log" onClick={() => navigate('/inbox?tab=activity')}><ArrowUpRight size={16}/></button></div>{analyticsQuery.isLoading ? <div className="loading-state">Loading activity…</div> : !analytics?.recentActivity.length ? <div className="overview-empty"><Activity size={22}/><strong>No activity feed available</strong><span>Connected business events will appear here. No sample events are shown.</span></div> : <div className="overview-activity-list">{analytics.recentActivity.slice(0, 7).map((item) => <button key={item.id} className="overview-activity-item" onClick={() => item.href && navigate(item.href)} disabled={!item.href}><span className="overview-activity-dot"/><span><strong>{item.summary}</strong><small>{item.actorName ? `${item.actorName} · ` : ''}{new Date(item.occurredAt).toLocaleString()}</small></span><ArrowRight size={14}/></button>)}</div>}<button className="overview-panel-footer" onClick={() => navigate('/inbox?tab=activity')}>View activity log <ArrowRight size={14}/></button></div>
+    </section>
+
+    <section className="overview-workspace-section"><div className="overview-section-heading"><div><span className="eyebrow eyebrow-blue">QUICK ACCESS</span><h3>Continue your work</h3><p>Open common workflows without cluttering the main business overview.</p></div><button className="overview-heading-link" onClick={() => navigate('/modules')}>All modules <ArrowRight size={15}/></button></div><div className="overview-workflow-grid"><WorkflowCard title="Checkout / POS" description="Scan items and record a sale" icon={<ShoppingCart size={18}/>} accent="blue" onClick={() => navigate('/checkout')}/><WorkflowCard title="Inventory" description="Stock levels and movements" icon={<Package size={18}/>} accent="cyan" onClick={() => navigate('/inventory')}/><WorkflowCard title="Inbox" description="Messages, tasks and approvals" icon={<MessageCircle size={18}/>} accent="emerald" onClick={() => navigate('/inbox')}/><WorkflowCard title="Reports & analytics" description="Detailed performance and exports" icon={<BarChart3 size={18}/>} accent="gold" onClick={() => navigate('/modules/reports')}/><WorkflowCard title="Customers & CRM" description="Relationships and pipeline" icon={<Users size={18}/>} accent="emerald" onClick={() => navigate('/modules/customers')}/><WorkflowCard title="Business tools" description="Capture, import and data recovery" icon={<ShoppingBag size={18}/>} accent="navy" onClick={() => navigate('/business-tools')}/></div></section>
+
+    <section className="overview-transaction-panel section-card"><div className="section-card-heading"><span className="heading-icon blue-icon"><ShoppingBag size={18}/></span><div><h3>Recent sales</h3><p>Latest transactions saved to the active branch</p></div><button className="overview-heading-link" onClick={() => navigate('/sales')}>All sales <ArrowRight size={14}/></button></div>{snapshotQuery.isLoading ? <div className="loading-state">Loading recent sales…</div> : !snapshot?.recentSales.length ? <div className="overview-empty"><ShoppingBag size={22}/><strong>No sales records yet</strong><span>Once real transactions are recorded, they will appear here.</span><button className="button button-primary button-small" onClick={() => navigate('/checkout')}>Start a sale <ArrowRight size={14}/></button></div> : <div className="overview-transaction-table"><div className="overview-transaction-head"><span>Receipt / customer</span><span>Date</span><span>Value</span><span>Status</span></div>{snapshot.recentSales.slice(0, 6).map((sale) => <button key={sale.id} className="overview-transaction-row" onClick={() => navigate(`/sales/${sale.id}`)}><span><strong>{sale.receiptNumber}</strong><small>{sale.customerName || 'Walk-in customer'}</small></span><span>{new Date(sale.createdAt).toLocaleDateString()}</span><strong>{formatMinorAmount(sale.totalMinor, workspace.currency)}</strong><span className="status-pill status-good">Recorded</span></button>)}</div>}</section>
+
+    <section className="overview-integrity-note"><CheckCircle2 size={16}/><p><strong>Trustworthy figures by design.</strong> Overview totals are read from the selected provider. Analytics trends, comparisons, exceptions and activity require backend-calculated data; unavailable values are not replaced with fabricated figures.</p></section>
+  </div>;
 }
 
-function ReceiptMini() { return <ShoppingBag size={16} />; }
+function KpiCard({ label, value, note, icon, accent, onClick }: { label: string; value: string; note: string; icon: ReactNode; accent: string; onClick: () => void }) {
+  return <button type="button" className={`overview-kpi-card overview-accent-${accent}`} onClick={onClick}><span className="overview-kpi-top"><span>{label}</span><i>{icon}</i></span><strong className="overview-kpi-value">{value}</strong><span className="overview-kpi-note">{note}</span><span className="overview-kpi-link">View details <ArrowUpRight size={13}/></span></button>;
+}
+function WorkflowCard({ title, description, icon, accent, onClick }: { title: string; description: string; icon: ReactNode; accent: string; onClick: () => void }) {
+  return <button type="button" className={`overview-workflow-card overview-accent-${accent}`} onClick={onClick}><i>{icon}</i><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={15}/></button>;
+}

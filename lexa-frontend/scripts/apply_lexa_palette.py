@@ -56,7 +56,7 @@ ACCENT_SOURCE = '''/** Explicit LEXA module accent metadata; never inferred from
 export type ModuleAccentKey = 'navy' | 'blue' | 'cyan' | 'emerald' | 'gold' | 'orange';
 const forPaths = (accent: ModuleAccentKey, paths: string[]) => Object.fromEntries(paths.map((path) => [path, accent])) as Record<string, ModuleAccentKey>;
 export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
-  ...forPaths('navy', ['/', '/workspace', '/modules', '/modules/', '/settings', '/modules/projects', '/modules/team', '/modules/audit']),
+  ...forPaths('navy', ['/', '/workspace', '/modules', '/modules/', '/settings', '/inbox', '/modules/projects', '/modules/team', '/modules/audit']),
   ...forPaths('cyan', ['/business-tools']),
   ...forPaths('blue', ['/checkout', '/sales', '/modules/sales-orders', '/modules/sales-invoices', '/modules/quotations', '/modules/price-lists', '/modules/sales-returns', '/modules/cash-sessions']),
   ...forPaths('emerald', ['/modules/leads', '/modules/opportunities', '/modules/contacts', '/modules/campaigns', '/modules/sales-teams', '/modules/customers', '/modules/employees', '/modules/attendance', '/modules/payroll', '/modules/leave', '/modules/timesheets', '/modules/support']),
@@ -94,7 +94,7 @@ describe('LEXA module accents', () => {
   it('covers every operational catalogue module', () => { for (const module of MODULE_CATALOG) expect(MODULE_ACCENTS_BY_PATH['/modules/' + module.id], module.id).toBeDefined(); });
   it('ships operational modules without preloaded demo records', () => { for (const module of MODULE_CATALOG) expect(module.initial, module.id).toEqual([]); });
   it('uses only approved accents', () => { for (const [path, accent] of Object.entries(MODULE_ACCENTS_BY_PATH)) expect(allowed, path).toContain(accent); });
-  it('assigns semantic colours to representative families', () => { expect(moduleAccentForPath('/checkout')).toBe('blue'); expect(moduleAccentForPath('/modules/receiving')).toBe('cyan'); expect(moduleAccentForPath('/modules/purchases')).toBe('orange'); expect(moduleAccentForPath('/modules/accounting')).toBe('gold'); expect(moduleAccentForPath('/modules/leads')).toBe('emerald'); expect(moduleAccentForPath('/modules/recurring-invoices')).toBe('gold'); expect(moduleAccentForPath('/business-tools')).toBe('cyan'); });
+  it('assigns semantic colours to representative families', () => { expect(moduleAccentForPath('/checkout')).toBe('blue'); expect(moduleAccentForPath('/modules/receiving')).toBe('cyan'); expect(moduleAccentForPath('/modules/purchases')).toBe('orange'); expect(moduleAccentForPath('/modules/accounting')).toBe('gold'); expect(moduleAccentForPath('/modules/leads')).toBe('emerald'); expect(moduleAccentForPath('/modules/recurring-invoices')).toBe('gold'); expect(moduleAccentForPath('/business-tools')).toBe('cyan'); expect(moduleAccentForPath('/inbox')).toBe('navy'); });
   it('keeps manufacturing registers in the cyan module family', () => { expect(moduleAccentForPath('/modules/boms')).toBe('cyan'); expect(moduleAccentForPath('/modules/job-cards')).toBe('cyan'); expect(moduleAccentForGroup('MANUFACTURING')).toBe('cyan'); });
   it('normalises and carries module accents into nested routes', () => { expect(moduleAccentForPath('/modules/purchases/PO-2026-001')).toBe('orange'); expect(moduleAccentForPath('/modules/reports/monthly?period=month')).toBe('gold'); expect(moduleAccentForPath('/products/sku-1/')).toBe('cyan'); expect(moduleAccentForPath('/checkout?mode=quick')).toBe('blue'); expect(moduleAccentForPath('/modules/not-real/detail')).toBe('navy'); });
   it('uses explicit group metadata and a safe default', () => { expect(moduleAccentForGroup('CRM & GROWTH')).toBe('emerald'); expect(moduleAccentForGroup('CRM')).toBe('emerald'); expect(moduleAccentForGroup('MANUFACTURING')).toBe('cyan'); expect(moduleAccentForGroup('PROCUREMENT')).toBe('orange'); expect(moduleAccentForGroup('FINANCE')).toBe('gold'); expect(moduleAccentForGroup('INTEGRATION & CONTROL')).toBe('cyan'); expect(moduleAccentForGroup('unknown group')).toBe('navy'); expect(moduleAccentForPath('/modules/not-real')).toBe('navy'); });
@@ -300,7 +300,7 @@ def wire_accent_metadata() -> None:
 
     dashboard = read(DASH)
     dashboard = replace_idempotent(dashboard, "import { PHASE_TWO_LINKS } from '../operations/moduleCatalog';", "import { PHASE_TWO_LINKS } from '../operations/moduleCatalog';\nimport { moduleAccentForPath } from '../../domain/shared/moduleAccents';", 'dashboard metadata import')
-    dashboard = replace_idempotent(dashboard, '<div className="page-stack dashboard-page">', '<div className="page-stack dashboard-page" data-module-accent={moduleAccentForPath("/")}>', 'dashboard page accent')
+    dashboard = replace_idempotent(dashboard, '<div className="page-stack dashboard-page modern-overview">', '<div className="page-stack dashboard-page modern-overview" data-module-accent={moduleAccentForPath("/")}>', 'dashboard page accent')
     for old, new, label in [
         ('className="metric-icon blue-metric"', 'className="metric-icon blue-metric" data-module-accent={moduleAccentForPath("/sales")}', 'sales metric accent'),
         ('className="metric-icon green-metric"', 'className="metric-icon green-metric" data-module-accent={moduleAccentForPath("/modules/payments")}', 'payment metric accent'),
@@ -313,8 +313,8 @@ def wire_accent_metadata() -> None:
     ]:
         if new not in dashboard and old in dashboard:
             dashboard = dashboard.replace(old, new)
-        elif new not in dashboard and label in ('sales metric accent','payment metric accent','invoice metric accent','inventory metric accent'):
-            # A source structure change is safer than silently leaving a requested metric uncoloured.
+        elif new not in dashboard and label in ('sales metric accent','payment metric accent','invoice metric accent','inventory metric accent') and 'modern-overview' not in dashboard:
+            # Legacy overview markup needs explicit icon accent metadata; the modern overview uses the reusable KPI accent system.
             fail(label + ': anchor not found')
     write(DASH, dashboard)
 

@@ -10,6 +10,7 @@ import { salesWorkflow } from '../../data/providers';
 import { formatMinorAmount, minorUnitFactor, parseMajorAmount } from '../../domain/money/money';
 import type { PaymentMethod } from '../../domain/shared/types';
 import { dataProviderMode } from '../../data/remote/runtimeConfig';
+import { BarcodeCapture } from '../../components/barcode/BarcodeCapture';
 
 const paymentMethods: Array<{ value: PaymentMethod; label: string }> = [
   { value: 'cash', label: 'Cash' }, { value: 'mtn_momo', label: 'MTN Mobile Money' },
@@ -38,7 +39,7 @@ export default function CheckoutPage() {
     const needle = search.trim().toLocaleLowerCase();
     return productsList.filter((product) => {
       if (!needle) return true;
-      return product.name.toLocaleLowerCase().includes(needle) || product.sku.toLocaleLowerCase().includes(needle);
+      return product.name.toLocaleLowerCase().includes(needle) || product.sku.toLocaleLowerCase().includes(needle) || (product.barcode ?? '').toLocaleLowerCase().includes(needle);
     }).filter((product) => !product.trackStock || (balanceQuery.data?.get(product.id) ?? 0) > 0);
   }, [productsList, search, balanceQuery.data]);
   const cartLines = useMemo(() => Object.entries(cart).map(([productId, quantity]) => {
@@ -53,6 +54,22 @@ export default function CheckoutPage() {
 
   useEffect(() => { setPaymentLines((current) => current.length === 1 && current[0] ? [{ ...current[0], amount: String(totalMinor / factor) }] : current); }, [totalMinor, factor]);
   useEffect(() => { setCart({}); setCustomerName(''); setCustomerPhone(''); setPromisedPaymentDate(''); setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '' }]); }, [workspace.id, branch.id]);
+
+
+  async function handleScannedProduct(code: string) {
+    setSearch(code);
+    const normalized = code.trim().toLocaleLowerCase();
+    const exact = productsList.filter((product) => product.active && (product.barcode?.trim().toLocaleLowerCase() === normalized || product.sku.trim().toLocaleLowerCase() === normalized));
+    if (exact.length === 1) {
+      addToCart(exact[0]!.id);
+      return;
+    }
+    if (exact.length > 1) {
+      toast.error('Barcode is not unique', { description: 'Ask an administrator to resolve duplicate barcode/SKU records before checkout.' });
+      return;
+    }
+    toast.error('Product code not found', { description: 'The code was searched against the current product catalogue. Verify the barcode or add the product first.' });
+  }
 
   function addToCart(productId: string) {
     const product = productsList.find((item) => item.id === productId);
@@ -150,6 +167,7 @@ export default function CheckoutPage() {
       <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">POINT OF SALE</div><h2>Checkout</h2><p>Build a cart, record payment received, and save a traceable receipt.</p></div><div className="soft-badge"><span className="status-dot" /> {branch.name}</div></div>
       <div className="checkout-layout">
         <section className="section-card product-picker-card"><div className="checkout-section-heading"><div><h3>Choose products</h3><p>Only products with stock are shown when inventory is tracked.</p></div><span className="round-icon"><ShoppingBag size={17} /></span></div><label className="search-field product-search"><Search size={17} /><input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search product or scan SKU" aria-label="Search products for checkout" /><Barcode size={16} className="search-trailing-icon" /></label>
+          <BarcodeCapture compact autoResolve label="Scan an item into checkout" onCode={handleScannedProduct} />
           {productQuery.isLoading ? <div className="loading-state">Loading product catalogue…</div> : filtered.length === 0 ? <div className="empty-state"><div className="empty-icon"><PackageIcon /></div><h3>{productsList.length === 0 ? 'No products yet' : 'No products match'}</h3><p>{productsList.length === 0 ? 'Add a product from the catalogue, then record opening stock before checkout.' : 'Check the search term or add stock in Inventory.'}</p><button type="button" className="button button-secondary" onClick={() => navigate('/products')}>{productsList.length === 0 ? 'Open products' : 'Manage products'}</button></div> : <div className="checkout-product-grid">{filtered.map((product) => { const stock = balanceQuery.data?.get(product.id) ?? 0; return <button key={product.id} className="checkout-product" onClick={() => addToCart(product.id)}><span className="checkout-product-icon"><PackageIcon /></span><span className="checkout-product-name">{product.name}</span><span className="checkout-product-sku">{product.sku}</span><span className="checkout-product-bottom"><strong>{formatMinorAmount(product.sellingPriceMinor, workspace.currency)}</strong><small>{product.trackStock ? `${stock} in stock` : 'Non-stock item'}</small></span><span className="add-product-plus"><Plus size={16} /></span></button>; })}</div>}
         </section>
         <section className="section-card cart-card"><div className="checkout-section-heading"><div><h3>Current sale</h3><p>{cartLines.length} {cartLines.length === 1 ? 'line item' : 'line items'}</p></div><span className="cart-count">{cartLines.reduce((sum, line) => sum + line.quantity, 0)}</span></div>

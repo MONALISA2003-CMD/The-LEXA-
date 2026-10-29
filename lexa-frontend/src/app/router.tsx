@@ -7,6 +7,7 @@ export const router = createBrowserRouter([
   { path: '/sign-in', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).SignInPage }), errorElement: <RouteErrorBoundary /> },
   { path: '/forgot-password', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).ForgotPasswordPage }), errorElement: <RouteErrorBoundary /> },
   { path: '/reset-password', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).ResetPasswordPage }), errorElement: <RouteErrorBoundary /> },
+  { path: '/inbox', lazy: async () => ({ Component: (await import('../modules/inbox/InboxPage')).default }), errorElement: <RouteErrorBoundary /> },
   {
     path: '/onboarding',
     Component: OnboardingPage,

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import {
   Activity, ArrowDownUp, Banknote, Bell, BookOpen, Building2, BarChart3, ChevronDown, Target, Boxes, Plug,
-  CircleHelp, ClipboardList, Command, CreditCard, FileText, LayoutDashboard, Menu,
+  CircleHelp, ClipboardList, Command, CreditCard, FileText, LayoutDashboard, Menu, MessageCircle,
   Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X, Moon, Sun,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -11,6 +12,8 @@ import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { WorkspaceContext } from '../WorkspaceContext';
 import type { Branch, Workspace } from '../../domain/shared/types';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
+import GlobalSearch from '../../components/GlobalSearch';
+import { apiCollaboration } from '../../data/remote/apiCollaboration';
 
 const ACTIVE_WORKSPACE_KEY = 'lexa.ui.activeWorkspaceId';
 const ACTIVE_BRANCH_KEY = 'lexa.ui.activeBranchId';
@@ -26,6 +29,9 @@ const navSections = [
     { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
     { to: '/workspace', label: 'Business & branches', icon: Building2 },
     { to: '/modules', label: 'All modules', icon: Command, end: true },
+  ] },
+  { title: 'INBOX & WORK', items: [
+    { to: '/inbox', label: 'Inbox & collaboration', icon: MessageCircle },
   ] },
   { title: 'CRM & GROWTH', items: [
     { to: '/modules/leads', label: 'Leads & prospects', icon: Users },
@@ -117,6 +123,15 @@ export default function AppShell() {
   const [loadErrorStatus, setLoadErrorStatus] = useState<number | null>(null);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [resolvedBranchWorkspaceId, setResolvedBranchWorkspaceId] = useState<string | null>(null);
+  const notificationSummaryQuery = useQuery({
+    queryKey: ['notifications-summary', workspace?.id, branch?.id],
+    queryFn: () => { if (!workspace || !branch) throw new Error('Choose a workspace and branch first.'); return apiCollaboration.notifications(workspace.id, branch.id); },
+    enabled: isApiProvider && Boolean(workspace?.id && branch?.id),
+    staleTime: 20_000,
+    refetchInterval: isApiProvider && workspace && branch ? 60_000 : false,
+    retry: false,
+  });
+  const unreadNotificationCount = (notificationSummaryQuery.data ?? []).filter((item) => !item.readAt).length;
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [uiMode, setUiMode] = useState<'simple' | 'advanced'>(() => {
     try { return readPreference('lexa.ui.mode') === 'advanced' ? 'advanced' : 'simple'; }
@@ -142,6 +157,7 @@ export default function AppShell() {
     { title: 'WORKSPACE', items: (navSections[0]?.items ?? []).filter((item) => item.to === '/' || item.to === '/workspace') },
     { title: 'QUICK ACTIONS', items: [
       { to: '/checkout', label: 'Sell', icon: ShoppingCart },
+      { to: '/inbox', label: 'Inbox', icon: MessageCircle },
       { to: '/modules/purchases', label: 'Buy', icon: ShoppingCart },
       { to: '/modules/expenses', label: 'Expense', icon: ReceiptText },
       { to: '/inventory', label: 'Stock', icon: Package },
@@ -308,12 +324,13 @@ export default function AppShell() {
         <main className="main-panel" data-module-accent={moduleAccentForPath(location.pathname)}>
           <header className="topbar">
             <div className="topbar-title"><button className="icon-button mobile-menu-button" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}><Menu size={20} /></button><div><div className="eyebrow">BUSINESS WORKSPACE</div><h1>{routeTitle(location.pathname)}</h1></div></div>
+            <GlobalSearch />
             <div className="topbar-actions">
               <label className="select-wrap workspace-select"><Building2 size={15} /><span className="sr-only">Active business</span><select aria-label="Active business" value={workspace.id} onChange={(event) => void setActiveWorkspace(event.target.value)}>{workspaces.map((item) => <option key={item.id} value={item.id}>{item.businessName}</option>)}</select><ChevronDown size={14} /></label>
               <label className="select-wrap branch-select"><Store size={15} /><span className="sr-only">Active branch</span><select aria-label="Active branch" value={branch.id} onChange={(event) => setActiveBranch(event.target.value)}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><ChevronDown size={14} /></label>
               <div className="topbar-divider" />
               <button className="icon-button theme-toggle" type="button" aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
-              <button className="icon-button notification-button" aria-label="Notifications" onClick={() => toast.info('No connected alerts yet', { description: 'Live notifications will be enabled when the existing backend integration is connected.' })}><Bell size={18} /></button>
+              <button className="icon-button notification-button" aria-label={`Open notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ''}`} title={unreadNotificationCount ? `${unreadNotificationCount} unread notifications` : 'Notifications'} onClick={() => navigate('/inbox?tab=notifications')}><Bell size={18} />{unreadNotificationCount > 0 && <span className="notification-count-badge">{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</span>}</button>
               <div className="user-avatar" aria-label="Workspace operator">L</div>
             </div>
           </header>

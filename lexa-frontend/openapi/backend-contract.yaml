@@ -352,6 +352,140 @@ paths:
         '200': { description: Restore result, content: { application/json: { schema: { type: object, properties: { tablesRestored: { type: integer }, recordsRestored: { type: integer }, accepted: { type: boolean } } } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /workspaces/{workspaceId}/search:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: searchWorkspaceRecords
+      description: Search authorized workspace records across supported modules. Search by product name, SKU, barcode, receipt, customer, supplier, order/invoice reference and record title. Enforce workspace/branch and row-level permissions server-side.
+      parameters:
+        - { in: query, name: branchId, required: true, schema: { type: string } }
+        - { in: query, name: q, required: true, schema: { type: string, minLength: 2, maxLength: 160 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        '200': { description: Search results, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/GlobalSearchResult' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /workspaces/{workspaceId}/branches/{branchId}/analytics/overview:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { $ref: '#/components/parameters/branchId' }]
+    get:
+      operationId: getOverviewAnalytics
+      description: Return verified, server-calculated overview KPIs and analytics. Omit unavailable metrics or mark sourceCoverage false; never fabricate chart values. Currency metrics use major currency units; core ledgers remain in minor units.
+      parameters:
+        - { in: query, name: period, required: true, schema: { type: string, enum: [today, 7d, 30d, 90d, 12m] } }
+        - { in: query, name: compare, schema: { type: boolean, default: true } }
+      responses:
+        '200': { description: Dashboard metrics, trends, breakdowns, activity and exceptions, content: { application/json: { schema: { type: object, required: [generatedAt, period, kpis, salesTrend, salesByChannel, stockHealth, recentActivity, exceptions], properties: { generatedAt: { type: string, format: date-time }, period: { type: string }, comparisonPeriod: { type: string }, kpis: { type: array, items: { type: object, required: [key, label, value, unit], properties: { key: { type: string }, label: { type: string }, value: { type: number }, unit: { type: string, enum: [currency, number, percent, duration] }, changePercent: { type: number, nullable: true }, previousValue: { type: number, nullable: true }, trend: { type: string, enum: [up, down, flat] }, description: { type: string }, href: { type: string } } } }, salesTrend: { type: array, items: { type: object, required: [label, value], properties: { label: { type: string }, value: { type: number }, comparisonValue: { type: number, nullable: true } } } }, salesByChannel: { type: array, items: { $ref: '#/components/schemas/AnalyticsBreakdown' } }, stockHealth: { type: array, items: { $ref: '#/components/schemas/AnalyticsBreakdown' } }, recentActivity: { type: array, items: { $ref: '#/components/schemas/ActivityEvent' } }, exceptions: { type: array, items: { $ref: '#/components/schemas/OverviewException' } }, sourceCoverage: { type: object, additionalProperties: { type: boolean } } } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /workspaces/{workspaceId}/inbox/threads:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: listInboxThreads
+      parameters: [{ in: query, name: branchId, required: true, schema: { type: string } }, { in: query, name: recordType, schema: { type: string } }, { in: query, name: recordId, schema: { type: string } }]
+      responses:
+        '200': { description: Authorized message threads, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/InboxThread' } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: createInboxThread
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [branchId, title, kind, participantIds], properties: { branchId: { type: string }, title: { type: string, minLength: 1, maxLength: 120 }, kind: { type: string, enum: [direct, group, record] }, participantIds: { type: array, minItems: 1, items: { type: string } }, recordType: { type: string }, recordId: { type: string } } } } } }
+      responses:
+        '201': { description: Created thread, content: { application/json: { schema: { $ref: '#/components/schemas/InboxThread' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /workspaces/{workspaceId}/inbox/threads/{threadId}/messages:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { in: path, name: threadId, required: true, schema: { type: string } }]
+    get:
+      operationId: listThreadMessages
+      responses:
+        '200': { description: Messages in an authorized thread, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/InboxMessage' } } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      operationId: sendThreadMessage
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [body], properties: { body: { type: string, minLength: 1, maxLength: 10000 }, attachmentIds: { type: array, items: { type: string } } } } } } }
+      responses:
+        '201': { description: Message accepted, content: { application/json: { schema: { $ref: '#/components/schemas/InboxMessage' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /workspaces/{workspaceId}/inbox/threads/{threadId}/messages/{messageId}/reactions:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { in: path, name: threadId, required: true, schema: { type: string } }, { in: path, name: messageId, required: true, schema: { type: string } }]
+    post:
+      operationId: reactToInboxMessage
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [emoji], properties: { emoji: { type: string, enum: ['👍', '✅', '👀'] } } } } } }
+      responses:
+        '200':
+          description: Reaction toggled for the authenticated participant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reactions:
+                    type: array
+                    items: { $ref: '#/components/schemas/MessageReaction' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /workspaces/{workspaceId}/inbox/threads/{threadId}/read:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { in: path, name: threadId, required: true, schema: { type: string } }]
+    post:
+      operationId: markThreadRead
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      responses: { '204': { description: Thread marked read }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /workspaces/{workspaceId}/tasks:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: listTasks
+      parameters: [{ in: query, name: branchId, required: true, schema: { type: string } }, { in: query, name: status, schema: { type: string } }]
+      responses: { '200': { description: Tasks visible to this user, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/InboxTask' } } } } } }
+    post:
+      operationId: createTask
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [branchId, title, priority], properties: { branchId: { type: string }, title: { type: string, minLength: 1, maxLength: 200 }, description: { type: string, maxLength: 3000 }, priority: { type: string, enum: [low, normal, high, urgent] }, dueAt: { type: string, format: date-time }, assigneeId: { type: string } } } } } }
+      responses: { '201': { description: Task created, content: { application/json: { schema: { $ref: '#/components/schemas/InboxTask' } } } } }
+  /workspaces/{workspaceId}/tasks/{taskId}:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { in: path, name: taskId, required: true, schema: { type: string } }]
+    patch:
+      operationId: updateTask
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [open, in_progress, blocked, done, cancelled] } } } } } }
+      responses: { '200': { description: Updated task, content: { application/json: { schema: { $ref: '#/components/schemas/InboxTask' } } } }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /workspaces/{workspaceId}/approvals:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: listApprovals
+      parameters: [{ in: query, name: branchId, required: true, schema: { type: string } }, { in: query, name: status, schema: { type: string, enum: [pending, approved, rejected] } }]
+      responses: { '200': { description: Approvals available to the current user, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/InboxApproval' } } } } } }
+  /workspaces/{workspaceId}/approvals/{approvalId}/decision:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { in: path, name: approvalId, required: true, schema: { type: string } }]
+    post:
+      operationId: decideApproval
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [decision], properties: { decision: { type: string, enum: [approve, reject] }, comment: { type: string, maxLength: 2000 } } } } } }
+      responses: { '200': { description: Decision recorded, content: { application/json: { schema: { $ref: '#/components/schemas/InboxApproval' } } } }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /workspaces/{workspaceId}/notifications:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: listNotifications
+      parameters: [{ in: query, name: branchId, required: true, schema: { type: string } }, { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100 } }]
+      responses: { '200': { description: Notifications visible to the current user, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/InboxNotification' } } } } } }
+  /workspaces/{workspaceId}/notifications/{notificationId}/read:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }, { in: path, name: notificationId, required: true, schema: { type: string } }]
+    post:
+      operationId: markNotificationRead
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      responses: { '204': { description: Notification marked read }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /workspaces/{workspaceId}/notifications/read-all:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    post:
+      operationId: markAllNotificationsRead
+      parameters: [{ $ref: '#/components/parameters/csrfToken' }, { $ref: '#/components/parameters/idempotencyKey' }]
+      responses: { '204': { description: All visible notifications marked read }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /workspaces/{workspaceId}/activity:
+    parameters: [{ $ref: '#/components/parameters/workspaceId' }]
+    get:
+      operationId: listActivity
+      parameters: [{ in: query, name: branchId, required: true, schema: { type: string } }, { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100 } }]
+      responses: { '200': { description: Permission-filtered activity and audit events, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ActivityEvent' } } } } } }
 components:
   securitySchemes:
     sessionCookie:
@@ -375,6 +509,16 @@ components:
     BadRequest: { description: Validation failure, content: { application/json: { schema: { $ref: '#/components/schemas/ApiErrorEnvelope' } } } }
     Conflict: { description: Business invariant or optimistic concurrency conflict, content: { application/json: { schema: { $ref: '#/components/schemas/ApiErrorEnvelope' } } } }
   schemas:
+    GlobalSearchResult: { type: object, required: [id, type, label, href], properties: { id: { type: string }, type: { type: string }, label: { type: string }, description: { type: string }, href: { type: string }, reference: { type: string } } }
+    AnalyticsBreakdown: { type: object, required: [label, value], properties: { label: { type: string }, value: { type: number, minimum: 0 }, color: { type: string } } }
+    ActivityEvent: { type: object, required: [id, kind, summary, occurredAt], properties: { id: { type: string }, kind: { type: string }, summary: { type: string }, actorName: { type: string }, occurredAt: { type: string, format: date-time }, href: { type: string } } }
+    OverviewException: { type: object, required: [id, severity, title, detail], properties: { id: { type: string }, severity: { type: string, enum: [info, warning, critical] }, title: { type: string }, detail: { type: string }, href: { type: string } } }
+    InboxThread: { type: object, required: [id, title, kind, unreadCount], properties: { id: { type: string }, title: { type: string }, kind: { type: string, enum: [direct, group, record] }, lastMessage: { type: string }, lastMessageAt: { type: string, format: date-time }, unreadCount: { type: integer, minimum: 0 }, participants: { type: array, items: { type: string } }, recordType: { type: string }, recordId: { type: string }, recordHref: { type: string } } }
+    MessageReaction: { type: object, required: [emoji, count], properties: { emoji: { type: string }, count: { type: integer, minimum: 0 }, reactedByMe: { type: boolean } } }
+    InboxMessage: { type: object, required: [id, threadId, body, senderId, senderName, sentAt], properties: { id: { type: string }, threadId: { type: string }, body: { type: string }, senderId: { type: string }, senderName: { type: string }, sentAt: { type: string, format: date-time }, editedAt: { type: string, format: date-time }, attachments: { type: array, items: { type: object, required: [id, name], properties: { id: { type: string }, name: { type: string }, url: { type: string, format: uri }, mimeType: { type: string } } } }, reactions: { type: array, items: { $ref: '#/components/schemas/MessageReaction' } } } }
+    InboxTask: { type: object, required: [id, title, status, priority], properties: { id: { type: string }, title: { type: string }, description: { type: string }, status: { type: string, enum: [open, in_progress, blocked, done, cancelled] }, priority: { type: string, enum: [low, normal, high, urgent] }, dueAt: { type: string, format: date-time }, assigneeName: { type: string }, href: { type: string } } }
+    InboxApproval: { type: object, required: [id, title, requestedBy, requestedAt, status], properties: { id: { type: string }, title: { type: string }, description: { type: string }, requestedBy: { type: string }, requestedAt: { type: string, format: date-time }, status: { type: string, enum: [pending, approved, rejected] }, href: { type: string } } }
+    InboxNotification: { type: object, required: [id, title, body, kind, createdAt], properties: { id: { type: string }, title: { type: string }, body: { type: string }, kind: { type: string }, createdAt: { type: string, format: date-time }, readAt: { type: string, format: date-time, nullable: true }, href: { type: string } } }
     BusinessToolsSnapshot: { type: object, required: [products, sales, returns, payments, movements], properties: { products: { type: array, items: { $ref: '#/components/schemas/Product' } }, sales: { type: array, items: { $ref: '#/components/schemas/Sale' } }, returns: { type: array, items: { type: object, additionalProperties: true } }, payments: { type: array, items: { type: object, additionalProperties: true } }, movements: { type: array, items: { $ref: '#/components/schemas/StockMovement' } } } }
     TaxProfile: { type: object, required: [tin, vatRegistered, sector, efrisOverride, vatThreshold, efrisTurnoverThreshold], properties: { tin: { type: string }, vatRegistered: { type: boolean }, sector: { type: string }, efrisOverride: { type: string, enum: [auto, yes, no] }, vatThreshold: { type: string, description: 'Optional user-verified value; do not prefill assumed legal thresholds' }, efrisTurnoverThreshold: { type: string, description: 'Optional user-verified value; do not prefill assumed legal thresholds' }, ruleSource: { type: string, description: 'Optional source/verification note; do not create one automatically' }, ruleEffectiveFrom: { type: string, description: 'Optional effective date for a user-verified policy; empty until verified' } } }
     CashUp: { type: object, required: [workspaceId, branchId, date, openingFloatMinor, otherCashInMinor, otherCashOutMinor, expectedCashMinor, countedCashMinor, varianceMinor, reason, savedAt], properties: { workspaceId: { type: string }, branchId: { type: string }, date: { type: string, format: date }, openingFloatMinor: { type: integer }, otherCashInMinor: { type: integer }, otherCashOutMinor: { type: integer }, expectedCashMinor: { type: integer }, countedCashMinor: { type: integer }, varianceMinor: { type: integer }, reason: { type: string }, savedAt: { type: string, format: date-time } } }
