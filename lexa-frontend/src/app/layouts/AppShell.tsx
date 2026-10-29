@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
 import {
   Activity, ArrowDownUp, Banknote, Bell, BookOpen, Building2, BarChart3, ChevronDown, Target, Boxes, Plug,
   CircleHelp, ClipboardList, Command, CreditCard, FileText, LayoutDashboard, Menu,
@@ -99,7 +99,6 @@ function routeTitle(pathname: string): string {
 }
 
 export default function AppShell() {
-  const navigate = useNavigate();
   const location = useLocation();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);

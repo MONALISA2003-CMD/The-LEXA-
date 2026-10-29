@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Box, Building2, CircleDollarSign,
+  ArrowDownRight, ArrowRight, ArrowUpRight, Box, Building2, CircleDollarSign,
   Clock3, Package, ShoppingBag, ShoppingCart, Wallet,
 } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';

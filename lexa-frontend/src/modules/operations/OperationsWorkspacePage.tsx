@@ -8,7 +8,7 @@ import {
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import {
-  EXISTING_MODULE_LINKS, MODULE_CATALOG, PHASE_TWO_LINKS,
+  EXISTING_MODULE_LINKS, PHASE_TWO_LINKS,
   getModuleDefinition, type ModuleDefinition, type ModuleField, type PreviewRecord,
 } from './moduleCatalog';
 import { getCoreScreenShortcuts, getRelatedActions, isDuplicateSensitiveHandoff } from './workflowGraph';
@@ -159,8 +159,6 @@ export default function OperationsWorkspacePage() {
 }
 
 function ModuleDirectoryPage() {
-  const { workspace, branch } = useWorkspace();
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const groupedLinks = useMemo(() => {
     const needle = search.trim().toLowerCase();
