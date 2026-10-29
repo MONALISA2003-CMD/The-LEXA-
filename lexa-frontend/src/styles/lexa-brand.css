@@ -1,6 +1,6 @@
 /* LEXA-CANONICAL-PALETTE-V1 */
 :root{color-scheme:light;
---lexa-navy:#06132f;--lexa-navy-2:#0d2042;--lexa-blue:#075cf5;--lexa-blue-hover:#064bd0;--lexa-cyan:#08bdeb;--lexa-cyan-dark:#047fba;--lexa-emerald:#00bd83;--lexa-emerald-dark:#087953;--lexa-gold:#f5c84b;--lexa-gold-dark:#825a00;--lexa-orange:#ff9b18;--lexa-orange-dark:#8a4300;--lexa-red:#f52235;--lexa-red-dark:#b51b2b;--lexa-cloud:#f4f7fc;
+--lexa-navy:#06132f;--lexa-navy-2:#0d2042;--lexa-blue:#075cf5;--lexa-blue-hover:#064bd0;--lexa-cyan:#08bdeb;--lexa-cyan-dark:#036a9b;--lexa-emerald:#00bd83;--lexa-emerald-dark:#087953;--lexa-gold:#f5c84b;--lexa-gold-dark:#825a00;--lexa-orange:#ff9b18;--lexa-orange-dark:#8a4300;--lexa-red:#f52235;--lexa-red-dark:#b51b2b;--lexa-cloud:#f4f7fc;
 --color-bg-canvas:#f4f7fc;--color-surface:#ffffff;--color-surface-raised:#ffffff;--color-surface-muted:#f0f4fa;
 --color-text-primary:#17243b;--color-text-secondary:#52647c;--color-text-muted:#52647c;--color-text-on-dark:#eef4ff;
 --color-border:#dce5f0;--color-border-strong:#7b8da6;--color-border-control:#7b8da6;
@@ -252,3 +252,138 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 :root[data-theme=dark] .data-table tbody tr:hover{background:var(--color-primary-soft)}
 @media(max-width:760px){.brand-lockup{min-height:88px;padding:0 8px 12px!important}.lexa-brand-logo-frame{height:88px}.lexa-brand-logo{max-height:88px}.topbar-actions{gap:5px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* LEXA-MODULE-ACCENT-INTEGRATION-V2 */
+/*
+ * Module identity accents are deliberately separate from semantic actions:
+ * primary actions remain blue, keyboard/focus feedback remains cyan, and
+ * success/warning/danger states keep their green/gold/red meanings.
+ */
+[data-module-accent=navy] { --module-accent-rgb: 6,19,47; --module-accent-wash: rgba(6,19,47,.055); }
+[data-module-accent=blue] { --module-accent-rgb: 7,92,245; --module-accent-wash: rgba(7,92,245,.065); }
+[data-module-accent=cyan] { --module-accent-rgb: 8,189,235; --module-accent-wash: rgba(8,189,235,.075); }
+[data-module-accent=emerald] { --module-accent-rgb: 0,189,131; --module-accent-wash: rgba(0,189,131,.075); }
+[data-module-accent=gold] { --module-accent-rgb: 245,200,75; --module-accent-wash: rgba(245,200,75,.12); }
+[data-module-accent=orange] { --module-accent-rgb: 255,155,24; --module-accent-wash: rgba(255,155,24,.09); }
+:root[data-theme=dark] [data-module-accent=navy] { --module-accent-rgb: 170,189,224; --module-accent-wash: rgba(170,189,224,.09); }
+:root[data-theme=dark] [data-module-accent=blue] { --module-accent-rgb: 120,169,255; --module-accent-wash: rgba(120,169,255,.12); }
+:root[data-theme=dark] [data-module-accent=cyan] { --module-accent-rgb: 50,209,245; --module-accent-wash: rgba(50,209,245,.11); }
+:root[data-theme=dark] [data-module-accent=emerald] { --module-accent-rgb: 53,213,161; --module-accent-wash: rgba(53,213,161,.11); }
+:root[data-theme=dark] [data-module-accent=gold] { --module-accent-rgb: 245,200,75; --module-accent-wash: rgba(245,200,75,.12); }
+:root[data-theme=dark] [data-module-accent=orange] { --module-accent-rgb: 255,173,74; --module-accent-wash: rgba(255,173,74,.11); }
+
+/* The root accent now reaches every page family, including core screens and
+   the shared register screen used by the operational catalogue. */
+.page-stack[data-module-accent] { accent-color: var(--module-accent); }
+.page-stack[data-module-accent] > .page-heading-row .eyebrow-blue,
+.page-stack[data-module-accent] .module-heading .eyebrow-blue,
+.page-stack[data-module-accent] .phase-two-heading .eyebrow-blue { color: var(--module-accent-strong); }
+.page-stack[data-module-accent] > .page-heading-row h2,
+.page-stack[data-module-accent] .module-heading h2,
+.page-stack[data-module-accent] .phase-two-heading h2 {
+  text-decoration-color: var(--module-accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+
+/* Module signature: icon wells, workflow strip and saved-register indicator. */
+.page-stack[data-module-accent] .section-card-heading .heading-icon,
+.page-stack[data-module-accent] .table-toolbar .heading-icon,
+.page-stack[data-module-accent] .checkout-section-heading .round-icon,
+.page-stack[data-module-accent] .empty-state .empty-icon,
+.page-stack[data-module-accent] .module-workflow-icon {
+  color: var(--module-accent-strong);
+  background: var(--module-accent-soft);
+  border-color: var(--module-accent-border);
+}
+.page-stack[data-module-accent] .module-preview-badge {
+  color: var(--module-accent-strong);
+  border-color: var(--module-accent-border);
+  background: var(--module-accent-soft);
+}
+.page-stack[data-module-accent] .module-preview-badge > span { background: var(--module-accent); }
+.phase-two-page[data-module-accent] .module-workflow-strip {
+  border-color: var(--module-accent-border);
+  border-left: 3px solid var(--module-accent);
+  background: var(--module-accent-soft);
+}
+.phase-two-page[data-module-accent] .module-workflow-strip strong { color: var(--module-accent-strong); }
+.phase-two-page[data-module-accent] .module-workflow-strip p { color: var(--color-text-secondary); }
+.phase-two-page[data-module-accent] .phase-calculated-panel {
+  border-color: var(--module-accent-border);
+  background: var(--module-accent-soft);
+}
+
+/* Summary surfaces carry a restrained accent edge instead of recolouring the
+   full card; status labels inside them remain semantic green/gold/red. */
+.page-stack[data-module-accent] .metric-strip > .mini-metric {
+  border-top: 2px solid var(--module-accent-border);
+}
+.page-stack[data-module-accent] .metric-strip > .mini-metric:hover {
+  border-top-color: var(--module-accent);
+}
+.page-stack[data-module-accent] .phase-two-table-card,
+.page-stack[data-module-accent] .phase-two-launch-card,
+.page-stack[data-module-accent] .phase-report-chart,
+.page-stack[data-module-accent] .phase-report-questions {
+  border-top-color: var(--module-accent-border);
+}
+
+/* Register and core-data tables: the module is identifiable before a row is
+   read, without changing the meaning or colour of status pills. */
+.page-stack[data-module-accent] .data-table thead th,
+.page-stack[data-module-accent] .data-table tfoot td,
+.page-stack[data-module-accent] .phase-two-table th {
+  color: var(--module-accent-strong);
+  background-color: var(--module-accent-soft);
+  border-color: var(--module-accent-border);
+}
+.page-stack[data-module-accent] .data-table tbody tr:hover,
+.page-stack[data-module-accent] .phase-two-table tbody tr:hover {
+  background: var(--module-accent-wash);
+}
+.page-stack[data-module-accent] .phase-two-table-wrap { border-top-color: var(--module-accent-border); }
+.page-stack[data-module-accent] .phase-two-table-footer { border-top-color: var(--module-accent-border); }
+.page-stack[data-module-accent] .phase-row-actions .icon-button:hover,
+.page-stack[data-module-accent] .data-table .table-action:hover {
+  color: var(--module-accent-strong);
+  background: var(--module-accent-soft);
+  border-color: var(--module-accent-border);
+}
+
+/* Filters use the module colour for their affordance, but retain LEXA's cyan
+   focus ring so keyboard focus has the same meaning in every module. */
+.page-stack[data-module-accent] .phase-two-search > svg,
+.page-stack[data-module-accent] .phase-filter-select > svg,
+.page-stack[data-module-accent] .phase-date-filter > svg,
+.page-stack[data-module-accent] .phase-clear-filters,
+.page-stack[data-module-accent] .phase-report-link > svg,
+.page-stack[data-module-accent] .metric-card-link {
+  color: var(--module-accent-strong);
+}
+.page-stack[data-module-accent] .phase-two-search:focus-within,
+.page-stack[data-module-accent] .search-field:focus-within,
+.page-stack[data-module-accent] .field-label input:focus,
+.page-stack[data-module-accent] .field-label select:focus,
+.page-stack[data-module-accent] .field-label textarea:focus {
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+.page-stack[data-module-accent] .phase-two-launch-grid > button:hover {
+  border-color: var(--module-accent-border);
+  background: var(--module-accent-soft);
+}
+.page-stack[data-module-accent] .phase-report-link:hover { background: var(--module-accent-wash); }
+
+/* Reports deliberately combine the LEXA primary blue with the report accent
+   (gold) so charts carry both the data and insight identities. */
+.page-stack[data-module-accent=gold] .phase-bar-track > span {
+  background: linear-gradient(90deg, var(--lexa-blue), var(--module-accent));
+}
+
+/* Links inherit each module's accent; primary actions and status classes are
+   intentionally excluded from this identity layer. */
+.page-stack[data-module-accent] a:not(.nav-link):not(.button):hover {
+  color: var(--module-accent-strong);
+}
+

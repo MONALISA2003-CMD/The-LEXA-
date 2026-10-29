@@ -14,4 +14,40 @@ describe('LEXA semantic colour tokens',()=>{
   it.each(['light','dark'] as const)('%s text, action, status and disabled pairs meet WCAG AA',theme=>{const pairs=[['--color-text-primary','--color-bg-canvas'],['--color-text-secondary','--color-surface'],['--color-text-muted','--color-bg-canvas'],['--color-primary','--color-on-primary'],['--color-success','--color-success-soft'],['--color-warning','--color-warning-soft'],['--color-danger','--color-danger-soft'],['--color-info','--color-info-soft'],['--color-disabled-text','--color-disabled-bg']] as const; for(const [fg,bg] of pairs) expect(ratio(theme,fg,bg),fg+' / '+bg).toBeGreaterThanOrEqual(4.5);});
   it.each(['light','dark'] as const)('%s focus and control borders meet 3:1',theme=>{expect(ratio(theme,'--color-focus','--color-surface')).toBeGreaterThanOrEqual(3);expect(ratio(theme,'--color-border-control','--color-surface')).toBeGreaterThanOrEqual(3);});
   it('defines the semantic roles in both theme token blocks',()=>{for(const role of ['--color-primary','--color-primary-hover','--color-secondary','--color-text-primary','--color-text-secondary','--color-bg-canvas','--color-surface','--color-border','--color-focus','--color-success','--color-warning','--color-danger','--color-disabled-text','--color-disabled-bg']){expect(themeBlock('light')).toContain(role+':');expect(themeBlock('dark')).toContain(role+':');}});
+
+  it('keeps module accent text above 4.5:1 contrast in both themes', () => {
+    const pairs = [
+      ['light navy', '#0d2042', '#e8edf4'], ['light blue', '#0752ce', '#e7efff'],
+      ['light cyan', '#036a9b', '#e5f8ff'], ['light emerald', '#087953', '#e2f8ef'],
+      ['light gold', '#825a00', '#fff3ce'], ['light orange', '#8a4300', '#fff0d9'],
+      ['dark navy', '#d5e2fa', '#142e53'], ['dark blue', '#a8caff', '#142e53'],
+      ['dark cyan', '#7de4fa', '#103044'], ['dark emerald', '#78e4ba', '#103c37'],
+      ['dark gold', '#ffe08a', '#423719'], ['dark orange', '#ffd19a', '#4a2b15'],
+    ] as const;
+    for (const [label, foreground, background] of pairs) {
+      const values = [lum(foreground), lum(background)].sort((a, b) => b - a);
+      expect((values[0]! + 0.05) / (values[1]! + 0.05), label).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+  it('applies module accents to core pages and shared register surfaces', () => {
+    const integration = css.split('/* LEXA-MODULE-ACCENT-INTEGRATION-V2 */')[1] ?? '';
+    expect(integration.length).toBeGreaterThan(500);
+    for (const accent of ['navy','blue','cyan','emerald','gold','orange']) {
+      expect(integration).toContain(`[data-module-accent=${accent}]`);
+    }
+    for (const selector of [
+      '.module-heading .eyebrow-blue',
+      '.section-card-heading .heading-icon',
+      '.module-workflow-strip',
+      '.metric-strip > .mini-metric',
+      '.data-table thead th',
+      '.phase-two-table th',
+      '.phase-two-search:focus-within',
+    ]) expect(integration).toContain(selector);
+    expect(integration).not.toContain('.button-primary');
+    expect(integration).not.toContain('.status-good');
+    expect(integration).not.toContain('.status-warning');
+    expect(integration).not.toContain('.status-danger');
+  });
+
 });
