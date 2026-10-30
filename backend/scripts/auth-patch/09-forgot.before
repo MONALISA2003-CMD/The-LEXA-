@@ -1,0 +1,25 @@
+  @Post('auth/password/forgot')
+  @UseGuards(CsrfGuard)
+  @HttpCode(202)
+  async forgotPassword(@Body() raw: unknown): Promise<{ accepted: true }> {
+    const body = asObject(raw);
+    const email = requiredString(body.email, 'Email', 254).toLowerCase();
+    const deliveryUrl = process.env.PASSWORD_RESET_DELIVERY_URL;
+    const frontendUrl = process.env.FRONTEND_PUBLIC_URL ?? 'https://lexareview.vercel.app';
+    if (!deliveryUrl) throw new ServiceUnavailableException({ code: 'PASSWORD_RESET_DELIVERY_NOT_CONFIGURED', message: 'Password recovery delivery is not configured yet. Contact the administrator.' });
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (user) {
+      const rawToken = randomBytes(32).toString('base64url');
+      const tokenHash = sha256(rawToken);
+      await this.prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + RESET_SECONDS * 1000) } });
+      const resetUrl = `${frontendUrl.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(rawToken)}`;
+      try {
+        const response = await fetch(deliveryUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: user.email, displayName: user.displayName, resetUrl, expiresInMinutes: RESET_SECONDS / 60 }) });
+        if (!response.ok) throw new Error(`Delivery returned ${response.status}`);
+      } catch {
+        await this.prisma.passwordResetToken.deleteMany({ where: { tokenHash } });
+        throw new ServiceUnavailableException({ code: 'PASSWORD_RESET_DELIVERY_FAILED', message: 'Recovery instructions could not be delivered. Contact the administrator.' });
+      }
+    }
+    return { accepted: true };
+  }

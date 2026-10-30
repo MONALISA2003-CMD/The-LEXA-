@@ -3,15 +3,11 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "engines": {
-    "node": ">=22.12.0 <23"
-  },
-  "allowScripts": {
-    "esbuild@0.28.2": true
-  },
+  "engines": { "node": ">=22.12.0 <23" },
+  "allowScripts": { "esbuild@0.28.2": true },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "prebuild": "python3 scripts/complete_modules.py && python3 scripts/apply_lexa_palette.py && npm test",
+    "prebuild": "node scripts/apply_auth_security_ui.mjs && python3 scripts/complete_modules.py && python3 scripts/apply_lexa_palette.py && npm test",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -b --pretty",

@@ -1,0 +1,4 @@
+const RESET_SECONDS = 60 * 30;
+const IDEMPOTENCY_SECONDS = 60 * 60 * 24;
+const AUTH_RATE_CLEANUP_INTERVAL = 500;
+const BLOCKLISTED_PASSWORDS = new Set(['passwordpassword', '123456789012345', 'qwertyuiopasdfg', 'letmeinletmein', 'adminadminadmin']);

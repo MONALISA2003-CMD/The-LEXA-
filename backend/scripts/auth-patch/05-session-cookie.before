@@ -1,0 +1,1 @@
+reply.header('Set-Cookie', `lexa_session=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${SESSION_SECONDS}`);

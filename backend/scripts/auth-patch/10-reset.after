@@ -1,0 +1,55 @@
+  @Post('auth/password/reset')
+  @UseGuards(CsrfGuard)
+  @HttpCode(204)
+  async resetPassword(@Body() raw: unknown, @Res({ passthrough: true }) reply: FastifyReply): Promise<void> {
+    const body = asObject(raw);
+    const token = requiredString(body.token, 'Recovery token', 500);
+    const passwordHash = await this.passwordHash(newPasswordValue(body.password));
+    const row = await this.prisma.passwordResetToken.findFirst({ where: { tokenHash: sha256(token), consumedAt: null, expiresAt: { gt: new Date() } }, include: { user: true } });
+    if (!row) throw new BadRequestException({ code: 'RESET_TOKEN_INVALID', message: 'This recovery link is expired or invalid. Request a new one.' });
+    await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.passwordResetToken.updateMany({ where: { id: row.id, consumedAt: null, expiresAt: { gt: new Date() } }, data: { consumedAt: new Date() } });
+      if (updated.count !== 1) throw new BadRequestException('This recovery link has already been used.');
+      await tx.user.update({ where: { id: row.userId }, data: { passwordHash } });
+      await tx.session.deleteMany({ where: { userId: row.userId } });
+      await tx.passwordResetToken.deleteMany({ where: { userId: row.userId, id: { not: row.id } } });
+    });
+    reply.header('Set-Cookie', [
+      'lexa_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0',
+      'lexa_csrf=; Path=/; Secure; SameSite=Lax; Max-Age=0',
+    ]);
+    void this.sendPasswordChangedNotice(row.user.email, row.user.displayName).catch(() => undefined);
+  }
+
+  @Post('auth/password/change')
+  @UseGuards(CsrfGuard)
+  async changePassword(@Body() raw: unknown, @Req() request: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply): Promise<{ changed: true }> {
+    const body = asObject(raw);
+    const session = await this.sessionFor(request);
+    const userBucket = this.authRateKey('password-change-user', session.user.email);
+    const ipBucket = this.authRateKey('password-change-ip', this.authIp(request));
+    const userAllowed = await this.consumeAuthRateLimit(userBucket, 5, 15 * 60 * 1000);
+    const ipAllowed = await this.consumeAuthRateLimit(ipBucket, 20, 15 * 60 * 1000);
+    if (!userAllowed || !ipAllowed) throw new HttpException({ statusCode: 429, code: 'PASSWORD_CHANGE_RATE_LIMITED', message: 'Too many password-change attempts. Wait a little and try again.' }, 429);
+    const currentPassword = passwordForVerification(body.currentPassword);
+    const newPassword = newPasswordValue(body.newPassword);
+    if (!(await this.passwordMatches(currentPassword, session.user.passwordHash))) {
+      throw new UnauthorizedException({ code: 'CURRENT_PASSWORD_INVALID', message: 'Your current password is incorrect.' });
+    }
+    if (await this.passwordMatches(newPassword, session.user.passwordHash)) {
+      throw new BadRequestException('Choose a password that is different from your current password.');
+    }
+    const nextToken = randomBytes(32).toString('base64url');
+    const passwordHash = await this.passwordHash(newPassword);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: session.userId }, data: { passwordHash } });
+      await tx.session.deleteMany({ where: { userId: session.userId } });
+      await tx.session.create({ data: { userId: session.userId, tokenHash: sha256(nextToken), expiresAt: new Date(Date.now() + SESSION_SECONDS * 1000) } });
+    });
+    reply.header('Set-Cookie', [
+      `lexa_session=${encodeURIComponent(nextToken)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_SECONDS}`,
+      'lexa_csrf=; Path=/; Secure; SameSite=Lax; Max-Age=0',
+    ]);
+    void this.sendPasswordChangedNotice(session.user.email, session.user.displayName).catch(() => undefined);
+    return { changed: true };
+  }

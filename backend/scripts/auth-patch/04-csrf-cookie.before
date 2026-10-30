@@ -1,0 +1,1 @@
+reply.header('Set-Cookie', `lexa_csrf=${encodeURIComponent(token)}; Path=/; Secure; SameSite=None; Max-Age=3600`);

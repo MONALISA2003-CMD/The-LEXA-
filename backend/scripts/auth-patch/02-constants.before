@@ -1,0 +1,2 @@
+const RESET_SECONDS = 60 * 30;
+const IDEMPOTENCY_SECONDS = 60 * 60 * 24;

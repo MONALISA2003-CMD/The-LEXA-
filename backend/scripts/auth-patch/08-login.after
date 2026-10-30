@@ -1,0 +1,20 @@
+  @Post('auth/login')
+  @UseGuards(CsrfGuard)
+  async login(@Body() raw: unknown, @Req() request: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
+    const body = asObject(raw);
+    const email = requiredString(body.email, 'Email', 254).toLowerCase();
+    const password = passwordForVerification(body.password);
+    const emailBucket = this.authRateKey('login-email', email);
+    const ipBucket = this.authRateKey('login-ip', this.authIp(request));
+    const emailAllowed = await this.consumeAuthRateLimit(emailBucket, 5, 15 * 60 * 1000);
+    const ipAllowed = await this.consumeAuthRateLimit(ipBucket, 40, 15 * 60 * 1000);
+    if (!emailAllowed || !ipAllowed) throw new HttpException({ statusCode: 429, code: 'AUTH_RATE_LIMITED', message: 'Too many sign-in attempts. Wait a little and try again.' }, 429);
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || !(await this.passwordMatches(password, user.passwordHash))) {
+      throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect.' });
+    }
+    await this.prisma.authRateLimit.deleteMany({ where: { key: emailBucket } });
+    await this.createSession(user.id, reply);
+    const memberships = await this.prisma.membership.findMany({ where: { userId: user.id, status: 'ACTIVE' } });
+    return { user: { id: user.id, email: user.email, displayName: user.displayName ?? undefined }, roles: [...new Set(memberships.map((m) => m.role))] };
+  }
