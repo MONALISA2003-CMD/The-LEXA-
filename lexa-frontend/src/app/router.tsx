@@ -5,18 +5,13 @@ import OnboardingPage from '../modules/onboarding/OnboardingPage';
 
 export const router = createBrowserRouter([
   { path: '/sign-in', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).SignInPage }), errorElement: <RouteErrorBoundary /> },
+  { path: '/create-account', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).CreateAccountPage }), errorElement: <RouteErrorBoundary /> },
   { path: '/forgot-password', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).ForgotPasswordPage }), errorElement: <RouteErrorBoundary /> },
   { path: '/reset-password', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).ResetPasswordPage }), errorElement: <RouteErrorBoundary /> },
   { path: '/inbox', lazy: async () => ({ Component: (await import('../modules/inbox/InboxPage')).default }), errorElement: <RouteErrorBoundary /> },
+  { path: '/onboarding', Component: OnboardingPage, errorElement: <RouteErrorBoundary /> },
   {
-    path: '/onboarding',
-    Component: OnboardingPage,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: '/',
-    Component: AppShell,
-    ErrorBoundary: RouteErrorBoundary,
+    path: '/', Component: AppShell, ErrorBoundary: RouteErrorBoundary,
     children: [
       { index: true, lazy: async () => ({ Component: (await import('../modules/dashboard/DashboardPage')).default }) },
       { path: 'workspace', lazy: async () => ({ Component: (await import('../modules/workspace/WorkspacePage')).default }) },

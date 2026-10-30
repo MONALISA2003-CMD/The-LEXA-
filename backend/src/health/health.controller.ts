@@ -5,6 +5,11 @@ import { PrismaService } from '../prisma/prisma.service';
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @Get()
+  health(): { status: string; version: string } {
+    return { status: 'ok', version: '1.0.0' };
+  }
+
   @Get('live')
   live(): { status: string; service: string; timestamp: string } {
     return {
