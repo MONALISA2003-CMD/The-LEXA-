@@ -109,5 +109,9 @@ function lexaPayablesIntegration(): Plugin {
 
 export default defineConfig({
   plugins: [lexaReceivablesIntegration(), lexaPayablesIntegration(), react(), tailwindcss()],
-  test: { environment: 'jsdom', setupFiles: ['./src/test/setup.ts'], clearMocks: true },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    clearMocks: true,
+  },
 });
