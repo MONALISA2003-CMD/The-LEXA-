@@ -1,9 +1,14 @@
-# Render build correction
+# LEXA Increment 3 — deployment build repair
 
-Render's first build for commit `4fa06d01cc3ad6d31647793902bbc814a9f57a47` reached `npm run build` and failed with:
+This is a small repository-root overlay for the two compile errors reported by the first Increment 3 deployment attempt.
 
-`backend/src/core/core.controller.ts:198:18 - TS2532: Object is possibly 'undefined'.`
+## Changes
 
-The issue was the optional `maximumFractionDigits` value returned by `Intl.NumberFormat(...).resolvedOptions()`. The controller now uses a nullish fallback of `2` before exponentiation. The corrected expression was separately checked with TypeScript 5.8.3 in strict mode.
+- `backend/src/receivables/receivables.controller.ts`: imports the NestJS `Body` parameter decorator, which is used by the create-invoice and record-receipt handlers.
+- `lexa-frontend/src/modules/operations/AccountsReceivablePanel.tsx`: handles `Intl.NumberFormat.resolvedOptions().maximumFractionDigits` as an optional value under strict TypeScript settings, defaulting to zero fraction digits.
 
-This file is included in the full consolidated overlay at `backend/src/core/core.controller.ts`. No database contents or migration history were changed by this build fix.
+No migration, production data, permissions, ledger logic, or workflow behaviour is changed by this patch.
+
+## Install
+
+Upload this ZIP to the root of `MONALISA2003-CMD/The-LEXA-` on branch `main`, then allow the existing LEXA ZIP Extractor workflow to commit the extracted files. Confirm that the resulting extraction commit is the commit used by both Vercel and Render. Do not manually run migrations; the backend Dockerfile applies migrations before starting NestJS.

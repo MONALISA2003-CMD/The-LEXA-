@@ -14,7 +14,7 @@ function localDate() {
   return `${values.year}-${values.month}-${values.day}`;
 }
 function currencyScale(currency: string) {
-  try { return 10 ** new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits; }
+  try { return 10 ** (new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 0); }
   catch { return 1; }
 }
 function money(minor: number, currency: string) {

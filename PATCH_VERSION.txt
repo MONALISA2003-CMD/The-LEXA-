@@ -1,6 +1,3 @@
-LEXA_ACCOUNTS_RECEIVABLE_INCREMENT_3
-Patch type: repository-root overlay
-Target branch: main
-Target repository: MONALISA2003-CMD/The-LEXA-
-Database migration: 20261030200000_accounts_receivable
-Prepared: 2026-10-30
+LEXA Increment 3 build repair
+Based on extracted Increment 3 commit e8c1671b10d17140c37ede96bcc428632c46046c
+Patch scope: missing Nest Body decorator import; strict TypeScript optional fraction digit handling.
