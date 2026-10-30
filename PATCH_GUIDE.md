@@ -1,32 +1,94 @@
-# LEXA backend integration patch
+# LEXA backend integration — consolidated patch (including Render build fix)
 
-Overlay for the confirmed GitHub repository **`MONALISA2003-CMD/The-LEXA-`**, branch **`main`**. The Render project is named **LEXA BACKEND**; the service to use is **`lexa-backend-api-live`** (`https://lexa-backend-api-live.onrender.com`). The Vercel frontend project is **LEXA Review** (`https://lexareview.vercel.app/`).
+This is the consolidated source overlay for the existing repository:
 
-**This ZIP is source code, not a deployment.** The connected GitHub integration denied direct writes with HTTP 403, so the overlay must be committed to `main` before Render/Vercel can build the changes. Do not extract it into a different repository.
+- GitHub repository: `MONALISA2003-CMD/The-LEXA-`
+- Branch: `main`
+- Render project: **LEXA BACKEND**
+- Render web service: `lexa-backend-api-live`
+- Render service ID: `srv-dbhp0f0m7kps73ffeqrg`
+- Render API origin: `https://lexa-backend-api-live.onrender.com`
+- Vercel project: **LEXA Review**
+- Frontend URL: `https://lexareview.vercel.app`
 
-## Included files
+**This ZIP is a source patch, not a deployment.** It contains the full earlier integration overlay plus the fix for the strict TypeScript build error reported by Render at `backend/src/core/core.controller.ts:198` (`TS2532`, possibly undefined `maximumFractionDigits`).
 
-- `backend/Dockerfile` — installs OpenSSL for Prisma and runs the production migration command before starting NestJS.
-- `backend/prisma/schema.prisma` and `backend/prisma/migrations/20261029195000_api_foundation/migration.sql` — adds account sessions/reset tokens, product catalogue/categories, module records, stock movements, sales, payments, returns and the workspace fields required by the frontend.
-- `backend/src/app.module.ts`, `backend/src/health/health.controller.ts`, `backend/src/core/core.controller.ts`, `backend/src/core/csrf.guard.ts` — authentication bootstrap, cookie sessions, CSRF, workspace/branch CRUD, product/category CRUD, inventory, sales/payment/returns, dashboard/analytics, generic module records and reports, business-tools snapshots/tax profile/cash-ups/compliance notes, inbox/tasks/approvals/notifications/activity, global search, CSV imports and workspace backup/restore.
-- `lexa-frontend/src/data/remote/apiAuth.ts`, `lexa-frontend/src/modules/auth/AuthPage.tsx`, `lexa-frontend/src/app/router.tsx` — first-administrator setup route that is available only while the database has no users.
-- `lexa-frontend/vercel.json` — proxies `/api/v1/*` through the same Vercel origin to Render. This avoids relying on third-party cookies between `vercel.app` and `onrender.com` in browsers that restrict cross-site cookies.
+## 1. Apply the ZIP to GitHub
 
-## Apply and deploy
+1. Download and extract this ZIP at the **root** of `MONALISA2003-CMD/The-LEXA-`, on branch `main`.
+2. Allow the included `backend/` and `lexa-frontend/` folders to merge into the existing folders and replace matching files.
+3. Keep all files that are not in this ZIP. Do not delete products, data, or unrelated project files.
+4. Commit the extracted changes to `main` (suggested message: `Apply consolidated LEXA API patch and Render build fix`).
 
-1. Extract this ZIP at the **repository root** so the included `backend/` and `lexa-frontend/` paths overlay the current files. Keep every file not included in this patch.
-2. Commit the changes to `main` in `MONALISA2003-CMD/The-LEXA-` (or use the existing ZIP-extractor workflow and commit its extracted files).
-3. In the Render project **LEXA BACKEND**, open the service **`lexa-backend-api-live`** and clear its **Docker Command override**. The current override `node dist/src/main.js` skips database migrations. Once cleared, the Dockerfile default will run `npx prisma migrate deploy && node dist/src/main.js`.
-4. In Render, keep `DATABASE_URL` as the Neon connection string, `FRONTEND_ORIGINS=https://lexareview.vercel.app`, and `NODE_ENV=production`. Also configure `LEXA_BOOTSTRAP_SECRET` as a strong one-time setup code (at least 32 random characters). Use a code you choose and can keep private; do not put it in Vercel environment variables or commit it to Git. Do not expose database credentials in any `VITE_*` variable.
-5. Let Render deploy the committed `main` revision. Confirm `https://lexa-backend-api-live.onrender.com/health/live` and `/health/ready` return 200.
-6. After the commit containing `lexa-frontend/vercel.json` is deployed to Vercel, update `VITE_API_BASE_URL` in the **LEXA Review** Vercel project to **`https://lexareview.vercel.app`** (not the Render hostname), keep `VITE_DATA_PROVIDER=api`, then trigger a production redeploy. The Vercel rewrite will proxy `/api/v1/*` to Render and keep session cookies first-party.
-7. Open `https://lexareview.vercel.app/sign-in`. The **first administrator setup** link should appear only when the database is empty and `LEXA_BOOTSTRAP_SECRET` is configured. Enter that one-time code on `/create-account` to create the first admin, then create the business workspace at `/onboarding`.
+Do not upload the ZIP itself as one repository file. Extract its contents first.
 
-## Important configuration / limits
+## 2. Render settings — exact service
 
-- The Neon database currently has zero users. First-account creation is one-time and closes once the first user exists; it is not public account registration.
-- Password recovery is fail-closed until `PASSWORD_RESET_DELIVERY_URL` is configured to a trusted **HTTPS** delivery webhook. The webhook must accept POST JSON `{ "email", "displayName", "resetUrl", "expiresInMinutes" }` and send the link. `FRONTEND_PUBLIC_URL` defaults to `https://lexareview.vercel.app`. Do not point it at an untrusted endpoint.
-- Attachment upload/download and external file storage are **not implemented** in this patch. Message attachments are rejected. Payment gateways, tax authority/EFRIS submissions, official compliance determinations and full statutory payroll/accounting integrations are not implemented.
-- The module-record service persists operational register records in PostgreSQL; report snapshots are generic record-based summaries and are **not certified accounting or statutory reports**. Some richer business integrations and contract routes still require separate implementation and integration tests.
-- The live Render service is currently healthy and connected to Neon, but until this source overlay is committed and deployed, the live API still returns 404 for frontend-required endpoints such as `/api/v1/auth/csrf` and `/api/v1/workspaces`.
-- Validation performed on this overlay includes a TypeScript syntax transpile and a stubbed TypeScript check. A full build and Prisma schema validation could not be run without installing the repository's actual dependencies. Verify the build and migrations in the Render deploy logs before using real business records.
+Open the service: `https://dashboard.render.com/web/srv-dbhp0f0m7kps73ffeqrg`
+
+The service is configured for:
+
+- Repository: `MONALISA2003-CMD/The-LEXA-`
+- Branch: `main`
+- Dockerfile path: `backend/Dockerfile`
+- Docker context: `.`
+- Region: Frankfurt
+
+**Required manual setting:** under Settings → Build & Deploy, clear the custom **Docker Command** override currently set to:
+
+`node dist/src/main.js`
+
+Save the Docker Command as blank / unset. The `backend/Dockerfile` included here has the required default command:
+
+`npx prisma migrate deploy && node dist/src/main.js`
+
+The override must be cleared; otherwise it bypasses the migration command in the Dockerfile.
+
+### Render environment variables
+
+The Render service environment was updated on 30 October 2026 to set:
+
+- `NODE_ENV=production`
+- `FRONTEND_ORIGINS=https://lexareview.vercel.app`
+- `LEXA_BOOTSTRAP_SECRET` (private one-time first-administrator setup secret)
+
+Keep the existing `DATABASE_URL` unchanged. Do not paste database credentials into GitHub or any `VITE_*` variable. Do not add `LEXA_BOOTSTRAP_SECRET` to Vercel or commit it to the repository.
+
+The existing Render service automatically deploys when a new commit reaches `main`; do not manually trigger another deploy immediately after the push unless auto-deploy does not start.
+
+## 3. Vercel configuration
+
+The Vercel project settings have already been updated:
+
+- Root directory: `lexa-frontend`
+- Framework: Vite
+- Node version: `22.x`
+- `VITE_DATA_PROVIDER=api`
+- `VITE_API_BASE_URL=https://lexareview.vercel.app`
+
+`lexa-frontend/vercel.json` routes `/api/v1/*` through the same-origin Render API proxy. Vercel production deployment `dpl_3BmEHectfypoUAt41ovHNo26XuvK` reached **READY** on 30 October 2026. Once the consolidated ZIP is committed, Vercel should automatically create a new production deployment from that commit.
+
+## 4. Verify after the commit
+
+Check the Render deployment for the new `main` commit. The build must complete successfully, and the service must become `live`.
+
+Then verify:
+
+- `https://lexa-backend-api-live.onrender.com/health/live` → HTTP 200
+- `https://lexa-backend-api-live.onrender.com/health/ready` → HTTP 200 with `database: ok`
+- `https://lexareview.vercel.app/api/v1/workspaces` → must no longer return `Cannot GET /api/v1/workspaces` (an authentication response may be expected before login)
+- `https://lexareview.vercel.app/sign-in` loads and can request the backend API
+
+The current live API still returned 404 for `/api/v1/workspaces` before this consolidated patch is deployed. Do not treat the existing healthy health checks as proof that the new API routes are deployed.
+
+## 5. First administrator and scope
+
+After the API is live, open `https://lexareview.vercel.app/sign-in`. The one-time first-administrator setup should be available only while the database has no users and the bootstrap secret is configured. Create the first administrator, then create the initial business workspace through onboarding.
+
+Password reset email delivery remains unavailable until `PASSWORD_RESET_DELIVERY_URL` is configured to a trusted HTTPS delivery endpoint. Attachment storage, payment processors, tax-authority/EFRIS submissions, and certified statutory accounting/payroll reporting are outside this patch. Generic module reports are operational summaries, not certified statutory reports.
+
+## 6. What this ZIP includes
+
+It includes the earlier API foundation (Prisma schema and migration, authentication/session and first-admin setup, workspace and branch routes, catalogue, inventory, sales, payments and returns, dashboard and operational module endpoints, auth frontend wiring, and Vercel proxy) plus the Render TypeScript build correction in `backend/src/core/core.controller.ts`.
+
+A successful TypeScript correction does not itself prove every business workflow is production-validated. Check the actual Render build/migration output and exercise the workflows before entering live business records.

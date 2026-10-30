@@ -195,7 +195,8 @@ function requiredCsvCell(row: string[], headers: string[], name: string, rowNumb
 function currencyFactor(currency: string): number {
   try {
     if (!/^[A-Z]{3}$/.test(currency)) throw new Error('Invalid currency');
-    return 10 ** new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits;
+    const fractionDigits = new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2;
+    return 10 ** fractionDigits;
   } catch {
     throw new BadRequestException('Currency must be a supported three-letter currency code.');
   }
