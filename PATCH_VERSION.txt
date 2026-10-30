@@ -1,5 +1,6 @@
-LEXA Module Integration Increment 1
-Base GitHub commit: ec8f28c3d9f40cc0e8dc0bc91163958be83796ad
+LEXA Operational Workflows — Increment 2
+Base GitHub commit: 6be4554a5bc495e3dde5ec48c906612aa2260c62
 Repository: MONALISA2003-CMD/The-LEXA-
 Branch: main
-Scope: backend module registry + persisted module relationships + module event stream + frontend record relationship/activity panels
+Scope: transactional sales orders, stock reservations, partial fulfilment/dispatch, CRM lead conversion, supplier purchase orders, counted goods receiving, accepted-stock posting and delivery tracking/POD
+Migration: backend/prisma/migrations/20261030190000_commerce_workflows/migration.sql

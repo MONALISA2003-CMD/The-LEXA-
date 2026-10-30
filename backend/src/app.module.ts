@@ -4,10 +4,11 @@ import { PrismaModule } from './prisma/prisma.module';
 import { CoreController } from './core/core.controller';
 import { CsrfGuard } from './core/csrf.guard';
 import { ModuleGraphController } from './module-graph/module-graph.controller';
+import { CommerceController } from './commerce/commerce.controller';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [HealthController, CoreController, ModuleGraphController],
+  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController],
   providers: [CsrfGuard],
 })
 export class AppModule {}
