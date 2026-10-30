@@ -1,0 +1,13 @@
+diff --git a/lexa-frontend/src/modules/operations/moduleCatalog.ts b/lexa-frontend/src/modules/operations/moduleCatalog.ts
+--- a/lexa-frontend/src/modules/operations/moduleCatalog.ts
++++ b/lexa-frontend/src/modules/operations/moduleCatalog.ts
+@@ -154,5 +154,5 @@
+-    id: 'accounting', title: 'Accounting journals', singular: 'journal entry', group: 'FINANCE', icon: BookOpen,
+-    description: 'Prepare a balanced journal voucher with posting date, debit account, credit account, amount and a review state.',
+-    workflow: 'Use routine sales, purchases, receipts and supplier payments in their operational modules. Journals are for controlled adjustments; total debits must equal total credits before posting.',
++    id: 'accounting', title: 'General Ledger', singular: 'journal entry', group: 'FINANCE', icon: BookOpen, readOnly: true,
++    description: 'Configure the chart of accounts, automatic source postings, accounting periods, balanced journals and financial statements.',
++    workflow: 'Sales, stock, customer receipts, supplier invoices and supplier payments remain the operational source records. The General Ledger receives controlled, traceable postings and generates the trial balance, Profit & Loss, Balance Sheet and control reconciliations.',
+     dateKey: 'journalDate', amountKey: 'amount',
+-    fields: [text('journalNumber', 'Journal reference'), date('journalDate', 'Posting date'), text('description', 'Narration / description'), select('debitAccount', 'Debit account', ['Cash', 'Bank', 'Accounts receivable', 'Inventory', 'Expenses', 'Fixed assets', 'Tax recoverable']), select('creditAccount', 'Credit account', ['Bank', 'Cash', 'Accounts payable', 'Sales income', 'Capital', 'Accumulated depreciation', 'Tax payable']), amount('amount', 'Journal amount'), text('sourceReference', 'Supporting document reference', false), status(['Draft', 'Posted', 'Voided'])],
++    fields: [],
