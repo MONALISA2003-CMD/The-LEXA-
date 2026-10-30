@@ -1,6 +1,6 @@
-LEXA Operational Workflows — Increment 2
-Base GitHub commit: 6be4554a5bc495e3dde5ec48c906612aa2260c62
-Repository: MONALISA2003-CMD/The-LEXA-
-Branch: main
-Scope: transactional sales orders, stock reservations, partial fulfilment/dispatch, CRM lead conversion, supplier purchase orders, counted goods receiving, accepted-stock posting and delivery tracking/POD
-Migration: backend/prisma/migrations/20261030190000_commerce_workflows/migration.sql
+LEXA_ACCOUNTS_RECEIVABLE_INCREMENT_3
+Patch type: repository-root overlay
+Target branch: main
+Target repository: MONALISA2003-CMD/The-LEXA-
+Database migration: 20261030200000_accounts_receivable
+Prepared: 2026-10-30
