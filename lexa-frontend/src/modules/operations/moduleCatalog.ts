@@ -28,6 +28,8 @@ export interface ModuleDefinition {
   workflow: string;
   icon: LucideIcon;
   fields: ModuleField[];
+  /** Display-only field metadata for read-only records; never used to render editable inputs. */
+  detailFields?: ModuleField[];
   columns: ModuleColumn[];
   initial: PreviewRecord[];
   dateKey?: string;
@@ -70,7 +72,8 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
     description: 'Create a customer commitment with product lines and expected delivery. Confirmed orders reserve available stock; dispatched quantities post to the stock and sales ledgers.',
     workflow: 'Draft → confirm and reserve stock → fulfil/dispatch selected quantities → issue a sales transaction → track delivery and proof of delivery. Dispatch is atomic with stock movements.',
     dateKey: 'orderDate', amountKey: 'total',
-    fields: [text('orderNumber', 'Sales order number'), text('customer', 'Customer'), date('orderDate', 'Order date'), date('expectedDate', 'Expected delivery date'), text('itemSummary', 'Item / service description'), amount('quantity', 'Quantity'), amount('unitPrice', 'Unit selling price before tax'), amount('discountPercent', 'Discount (%)'), select('taxTreatment', 'Tax treatment', ['Standard rated', 'Zero-rated', 'Exempt', 'Outside scope']), amount('taxRate', 'Tax rate (%)'), status(['Draft', 'Confirmed', 'Partially fulfilled', 'Fulfilled', 'Invoiced', 'Cancelled'])],
+    fields: [],
+    detailFields: [text('orderNumber', 'Sales order number'), text('customer', 'Customer'), date('orderDate', 'Order date'), date('expectedDate', 'Expected delivery date'), text('itemSummary', 'Item / service description'), amount('quantity', 'Quantity'), amount('unitPrice', 'Unit selling price before tax'), amount('discountPercent', 'Discount (%)'), select('taxTreatment', 'Tax treatment', ['Standard rated', 'Zero-rated', 'Exempt', 'Outside scope']), amount('taxRate', 'Tax rate (%)'), status(['Draft', 'Confirmed', 'Partially fulfilled', 'Fulfilled', 'Invoiced', 'Cancelled'])],
     columns: [{ key: 'orderNumber', label: 'SALES ORDER' }, { key: 'customer', label: 'CUSTOMER' }, { key: 'orderDate', label: 'ORDER DATE', kind: 'date' }, { key: 'expectedDate', label: 'EXPECTED', kind: 'date' }, { key: 'total', label: 'ESTIMATED TOTAL', kind: 'money' }, { key: 'status', label: 'STATUS', kind: 'status' }],
     initial: [],
   },
@@ -97,7 +100,8 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
     description: 'Create a supplier commitment with product quantities, unit costs and expected receipt date. Purchase orders do not increase stock until goods are counted and accepted.',
     workflow: 'Draft → place order → receive partial or complete deliveries → record accepted and rejected quantities → accepted quantities post to the stock ledger.',
     dateKey: 'orderDate', amountKey: 'total',
-    fields: [text('poNumber', 'Purchase order number'), text('supplier', 'Supplier'), date('orderDate', 'Order date'), date('expectedDate', 'Expected delivery'), text('itemSummary', 'Item / service description'), amount('quantity', 'Quantity ordered'), amount('unitCost', 'Unit cost before tax'), select('taxTreatment', 'Tax treatment', ['Standard rated', 'Zero-rated', 'Exempt', 'Outside scope']), amount('taxRate', 'Tax rate (%)'), amount('amountPaid', 'Amount already paid'), status(['Draft', 'Ordered', 'Partially received', 'Received', 'Cancelled'])],
+    fields: [],
+    detailFields: [text('poNumber', 'Purchase order number'), text('supplier', 'Supplier'), date('orderDate', 'Order date'), date('expectedDate', 'Expected delivery'), text('itemSummary', 'Item / service description'), amount('quantity', 'Quantity ordered'), amount('unitCost', 'Unit cost before tax'), select('taxTreatment', 'Tax treatment', ['Standard rated', 'Zero-rated', 'Exempt', 'Outside scope']), amount('taxRate', 'Tax rate (%)'), amount('amountPaid', 'Amount already paid'), status(['Draft', 'Ordered', 'Partially received', 'Received', 'Cancelled'])],
     columns: [{ key: 'poNumber', label: 'PURCHASE ORDER' }, { key: 'supplier', label: 'SUPPLIER' }, { key: 'orderDate', label: 'ORDER DATE', kind: 'date' }, { key: 'expectedDate', label: 'EXPECTED', kind: 'date' }, { key: 'total', label: 'ORDER TOTAL', kind: 'money' }, { key: 'amountDue', label: 'EST. DUE', kind: 'money' }, { key: 'status', label: 'STATUS', kind: 'status' }],
     initial: [],
   },
@@ -115,7 +119,8 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
     description: 'Count what physically arrived against a supplier order, record accepted and rejected quantities, batch details and discrepancies. Accepted quantities post to the stock ledger.',
     workflow: 'Ordered purchase → count receipt lines → classify accepted and rejected quantities → post receipt. Partial receipts leave the remaining order quantity open; rejected goods never increase on-hand stock.',
     dateKey: 'receiptDate',
-    fields: [text('receiptNumber', 'Goods receipt number'), text('purchaseOrder', 'Purchase order reference'), text('supplier', 'Supplier'), date('receiptDate', 'Receipt date'), text('product', 'Product / item'), amount('orderedQuantity', 'Ordered quantity'), amount('acceptedQuantity', 'Accepted quantity'), amount('rejectedQuantity', 'Rejected / damaged quantity'), text('warehouse', 'Receiving warehouse'), text('batchNumber', 'Batch / lot reference', false), date('expiryDate', 'Expiry date', false), status(['Draft', 'Received', 'Needs inspection', 'Rejected'])],
+    fields: [],
+    detailFields: [text('receiptNumber', 'Goods receipt number'), text('purchaseOrder', 'Purchase order reference'), text('supplier', 'Supplier'), date('receiptDate', 'Receipt date'), text('product', 'Product / item'), amount('orderedQuantity', 'Ordered quantity'), amount('acceptedQuantity', 'Accepted quantity'), amount('rejectedQuantity', 'Rejected / damaged quantity'), text('warehouse', 'Receiving warehouse'), text('batchNumber', 'Batch / lot reference', false), date('expiryDate', 'Expiry date', false), status(['Draft', 'Received', 'Needs inspection', 'Rejected'])],
     columns: [{ key: 'receiptNumber', label: 'RECEIPT' }, { key: 'purchaseOrder', label: 'PURCHASE ORDER' }, { key: 'supplier', label: 'SUPPLIER' }, { key: 'receiptDate', label: 'RECEIVED', kind: 'date' }, { key: 'acceptedQuantity', label: 'ACCEPTED', kind: 'number' }, { key: 'rejectedQuantity', label: 'REJECTED', kind: 'number' }, { key: 'status', label: 'STATUS', kind: 'status' }],
     initial: [],
   },
@@ -213,7 +218,8 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
     description: 'Track dispatched sales fulfilments, carrier or driver, tracking reference, delivery status and proof of delivery.',
     workflow: 'Confirmed order → fulfil and dispatch with a stock issue → track in transit → capture proof of delivery → close or record a delivery exception.',
     dateKey: 'dispatchDate', amountKey: 'deliveryFee',
-    fields: [text('deliveryNumber', 'Delivery reference'), text('salesOrder', 'Sales order reference'), text('customer', 'Customer / recipient'), { key: 'deliveryAddress', label: 'Delivery address', kind: 'textarea', fullWidth: true }, date('dispatchDate', 'Dispatch date'), date('expectedDate', 'Expected arrival'), text('courier', 'Courier / driver'), text('trackingReference', 'Tracking / proof reference', false), amount('deliveryFee', 'Delivery fee'), select('method', 'Delivery method', ['Own fleet', 'Courier', 'Customer collection', 'Third-party logistics']), status(['Draft', 'Picking', 'Packed', 'Dispatched', 'In transit', 'Delivered', 'Delivery failed', 'Cancelled'])],
+    fields: [],
+    detailFields: [text('deliveryNumber', 'Delivery reference'), text('salesOrder', 'Sales order reference'), text('customer', 'Customer / recipient'), { key: 'deliveryAddress', label: 'Delivery address', kind: 'textarea', fullWidth: true }, date('dispatchDate', 'Dispatch date'), date('expectedDate', 'Expected arrival'), text('courier', 'Courier / driver'), text('trackingReference', 'Tracking / proof reference', false), amount('deliveryFee', 'Delivery fee'), select('method', 'Delivery method', ['Own fleet', 'Courier', 'Customer collection', 'Third-party logistics']), status(['Draft', 'Picking', 'Packed', 'Dispatched', 'In transit', 'Delivered', 'Delivery failed', 'Cancelled'])],
     columns: [{ key: 'deliveryNumber', label: 'DELIVERY' }, { key: 'salesOrder', label: 'SALES ORDER' }, { key: 'customer', label: 'CUSTOMER' }, { key: 'dispatchDate', label: 'DISPATCHED', kind: 'date' }, { key: 'expectedDate', label: 'EXPECTED', kind: 'date' }, { key: 'courier', label: 'COURIER / DRIVER' }, { key: 'deliveryFee', label: 'DELIVERY FEE', kind: 'money' }, { key: 'status', label: 'STATUS', kind: 'status' }],
     initial: [],
   },
