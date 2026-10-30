@@ -1,0 +1,5 @@
+LEXA Module Integration Increment 1
+Base GitHub commit: ec8f28c3d9f40cc0e8dc0bc91163958be83796ad
+Repository: MONALISA2003-CMD/The-LEXA-
+Branch: main
+Scope: backend module registry + persisted module relationships + module event stream + frontend record relationship/activity panels
