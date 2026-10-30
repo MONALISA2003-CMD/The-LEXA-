@@ -78,7 +78,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
     initial: [],
   },
   {
-    id: 'sales-invoices', title: 'Sales invoices', singular: 'sales invoice', group: 'SELLING', icon: ReceiptText,
+    id: 'sales-invoices', title: 'Customer invoices & receivables', singular: 'sales invoice', group: 'SELLING', icon: ReceiptText,
     description: 'Track invoice references, customer, issue and due dates, billable lines, tax estimate, received amount and remaining amount due.',
     workflow: 'Invoice draft → issue from an approved sales workflow → allocate customer receipt → reconcile → customer statement. Only validated and issued invoices should be included in statutory records.',
     dateKey: 'issueDate', amountKey: 'total',
@@ -106,7 +106,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
     initial: [],
   },
   {
-    id: 'purchase-invoices', title: 'Supplier invoices', singular: 'supplier invoice', group: 'PROCUREMENT', icon: ReceiptText,
+    id: 'purchase-invoices', title: 'Supplier invoices & payables', singular: 'supplier invoice', group: 'PROCUREMENT', icon: ReceiptText,
     description: 'Track supplier bill references, linked purchase order, issue and due dates, item/cost estimate, tax, payments and remaining payable.',
     workflow: 'Link the supplier bill to the related purchase order and receipt when available → approve invoice → allocate supplier payment → reconcile. Supplier liabilities must be reconciled through the accounting workflow.',
     dateKey: 'billDate', amountKey: 'amountDue',
@@ -151,7 +151,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
     initial: [],
   },
   {
-    id: 'accounting', title: 'Accounting journals', singular: 'journal entry', group: 'FINANCE', icon: BookOpen,
+    id: 'accounting', title: 'General Ledger', singular: 'journal entry', group: 'FINANCE', icon: BookOpen,
     description: 'Prepare a balanced journal voucher with posting date, debit account, credit account, amount and a review state.',
     workflow: 'Use routine sales, purchases, receipts and supplier payments in their operational modules. Journals are for controlled adjustments; total debits must equal total credits before posting.',
     dateKey: 'journalDate', amountKey: 'amount',

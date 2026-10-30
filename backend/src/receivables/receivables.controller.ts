@@ -15,6 +15,8 @@ import {
 import type { FastifyRequest } from 'fastify';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertBranchAccess } from '../authorization/branch-scope';
+import { postLedgerJournal, settlementAccountKey } from '../general-ledger/ledger-posting';
 import { CsrfGuard } from '../core/csrf.guard';
 
 type RequestWithBody = FastifyRequest & { body?: unknown };
@@ -100,6 +102,7 @@ export class ReceivablesController {
       select: { id: true, currency: true },
     });
     if (!branch) throw new NotFoundException('Branch not found.');
+    await assertBranchAccess(this.prisma, workspaceId, branchId, session.userId, membership.role);
     return { userId: session.userId, role: membership.role, currency: branch.currency };
   }
 
@@ -520,6 +523,10 @@ export class ReceivablesController {
         await this.writeModuleRecord(tx, workspaceId, branchId, 'sales-invoices', allocation.invoiceId, data);
         await this.event(tx, workspaceId, branchId, allocation.invoiceId, 'customer_invoice.receipt_allocated', { receiptId, receiptNumber, amountMinor: allocation.amountMinor, balanceDueMinor: balance }, actor.userId, `ar-allocation:${salePayment.id}`);
       }
+      await postLedgerJournal(tx,{tenantId:workspaceId,branchId,actorUserId:actor.userId,sourceType:'customer_receipt_recorded',sourceId:receiptId,memo:`Customer receipt ${receiptNumber}`,entryDate:paymentDate,lines:[
+        {accountKey:settlementAccountKey(method),debitMinor:amountMinor,description:`Customer funds received - ${method}`},
+        {accountKey:'accounts_receivable',creditMinor:amountMinor,description:`Settle customer invoices - ${receiptNumber}`},
+      ]});
       await this.audit(tx, workspaceId, actor.userId, 'customer_receipt.recorded', 'customer_receipt', receiptId);
       }, { isolationLevel: 'Serializable' });
     } catch (error) {

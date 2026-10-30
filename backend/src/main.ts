@@ -12,7 +12,7 @@ async function bootstrap(): Promise<void> {
   );
 
   await app.register(helmet);
-  const allowedOrigins = (process.env.FRONTEND_ORIGINS ?? 'http://localhost:5173')
+  const allowedOrigins = (process.env.FRONTEND_ORIGINS ?? 'http://localhost:5173,https://lexareview.vercel.app')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);

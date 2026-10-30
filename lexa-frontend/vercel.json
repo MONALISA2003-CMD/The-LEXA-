@@ -2,6 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/api/v1/health/live",
+      "destination": "https://lexa-backend-api-live.onrender.com/health/live"
+    },
+    {
+      "source": "/api/v1/health/ready",
+      "destination": "https://lexa-backend-api-live.onrender.com/health/ready"
+    },
+    {
       "source": "/api/v1/:path*",
       "destination": "https://lexa-backend-api-live.onrender.com/api/v1/:path*"
     },

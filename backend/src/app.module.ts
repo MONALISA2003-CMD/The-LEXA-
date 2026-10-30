@@ -9,10 +9,12 @@ import { ModuleGraphController } from './module-graph/module-graph.controller';
 import { CommerceController } from './commerce/commerce.controller';
 import { ReceivablesController } from './receivables/receivables.controller';
 import { PayablesController } from './payables/payables.controller';
+import { TenantAuthorizationGuard } from './authorization/tenant-authorization.guard';
+import { GeneralLedgerController } from './general-ledger/general-ledger.controller';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, ReceivablesController, PayablesController],
-  providers: [CsrfGuard, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
+  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, ReceivablesController, PayablesController, GeneralLedgerController],
+  providers: [CsrfGuard, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
 })
 export class AppModule {}

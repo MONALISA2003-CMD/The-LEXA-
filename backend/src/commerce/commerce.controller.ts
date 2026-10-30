@@ -5,6 +5,8 @@ import {
 import type { FastifyRequest } from 'fastify';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertBranchAccess } from '../authorization/branch-scope';
+import { postLedgerJournal } from '../general-ledger/ledger-posting';
 import { CsrfGuard } from '../core/csrf.guard';
 
 type Obj = Record<string, unknown>;
@@ -65,6 +67,7 @@ export class CommerceController {
     if (!member || member.status !== 'ACTIVE') throw new NotFoundException('Workspace not found.');
     const branch = await this.prisma.branch.findFirst({ where: { id: branchId, tenantId: workspaceId }, select: { id: true } });
     if (!branch) throw new NotFoundException('Branch not found.');
+    await assertBranchAccess(this.prisma, workspaceId, branchId, session.userId, member.role);
     return { userId: session.userId, role: member.role };
   }
 
@@ -169,6 +172,8 @@ export class CommerceController {
       const rows=await tx.$queryRaw<any[]>`SELECT * FROM commerce_sales_orders WHERE id=${orderId}::uuid AND tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid FOR UPDATE`;
       const order=rows[0]; if(!order) throw new NotFoundException('Sales order not found.'); if(order.status!=='draft') throw new ConflictException('Only a draft sales order can be confirmed.');
       const lines=await tx.$queryRaw<any[]>`SELECT * FROM commerce_sales_order_lines WHERE order_id=${orderId}::uuid`;
+      const productIds=[...new Set(lines.map((line:any)=>String(line.product_id)))].sort();
+      if(productIds.length) await tx.$queryRaw`SELECT id FROM products WHERE tenant_id=${workspaceId}::uuid AND id=ANY(${productIds}::uuid[]) ORDER BY id FOR UPDATE`;
       for(const line of lines){
         const product=await tx.product.findFirst({where:{id:line.product_id,tenantId:workspaceId,active:true}}); if(!product) throw new NotFoundException('An ordered product is no longer active.');
         if(!product.trackStock) continue;
@@ -195,6 +200,8 @@ export class CommerceController {
       const rows=await tx.$queryRaw<any[]>`SELECT * FROM commerce_sales_orders WHERE id=${orderId}::uuid AND tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid FOR UPDATE`;
       const order=rows[0]; if(!order) throw new NotFoundException('Sales order not found.'); if(!['confirmed','partially_fulfilled'].includes(order.status)) throw new ConflictException('Confirm the order before dispatching it.');
       const orderLines=await tx.$queryRaw<any[]>`SELECT * FROM commerce_sales_order_lines WHERE order_id=${orderId}::uuid FOR UPDATE`;
+      const productIds=[...new Set(orderLines.map((line:any)=>String(line.product_id)))].sort();
+      if(productIds.length) await tx.$queryRaw`SELECT id FROM products WHERE tenant_id=${workspaceId}::uuid AND id=ANY(${productIds}::uuid[]) ORDER BY id FOR UPDATE`;
       const requested=Array.isArray(body.lines)?body.lines.map((v)=>{const r=object(v,'Fulfilment line');return {orderLineId:text(r.orderLineId,'Order line ID',80)!,quantity:quantity(r.quantity,'Fulfilled quantity')}}):null;
       if(requested && new Set(requested.map(x=>x.orderLineId)).size!==requested.length) throw new BadRequestException('A fulfilment request cannot repeat the same order line.');
       const fulfilLines:Array<{line:any;qty:number;product:any}>=[];
@@ -281,10 +288,33 @@ export class CommerceController {
     return this.prisma.$transaction(async(tx)=>{
       const orders=await tx.$queryRaw<any[]>`SELECT * FROM commerce_purchase_orders WHERE id=${orderId}::uuid AND tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid FOR UPDATE`;const order=orders[0];if(!order)throw new NotFoundException('Purchase order not found.');if(!['ordered','partially_received'].includes(order.status))throw new ConflictException('Only an ordered purchase order can receive goods.');
       const poLines=await tx.$queryRaw<any[]>`SELECT * FROM commerce_purchase_order_lines WHERE order_id=${orderId}::uuid FOR UPDATE`;const received:Array<{line:any;accepted:number;rejected:number;product:any;batch?:string;expiry?:string;rejectReason?:string}> = [];
+      const selectedLineIds = new Set(receiptLineIds as string[]);
+      const selectedProductIds = [...new Set(poLines.filter((line:any)=>selectedLineIds.has(String(line.id))).map((line:any)=>String(line.product_id)))].sort();
+      if (selectedProductIds.length) await tx.$queryRaw`SELECT id FROM products WHERE tenant_id=${workspaceId}::uuid AND id=ANY(${selectedProductIds}::uuid[]) ORDER BY id FOR UPDATE`;
       for(const itemValue of receiptLineValues){const item=object(itemValue,'Receipt line');const line=poLines.find(l=>l.id===item.orderLineId);if(!line)throw new BadRequestException('A receipt line does not belong to this purchase order.');const accepted=item.acceptedQuantity===undefined||item.acceptedQuantity===''?0:nonNegativeQuantity(item.acceptedQuantity,'Accepted quantity');const rejected=item.rejectedQuantity===undefined||item.rejectedQuantity===''?0:nonNegativeQuantity(item.rejectedQuantity,'Rejected quantity');if(!accepted&&!rejected)throw new BadRequestException('Enter an accepted or rejected quantity for every receipt line.');const remaining=Number(line.quantity)-Number(line.quantity_accepted);if(accepted>remaining)throw new ConflictException(`Accepted quantity exceeds ${remaining} still outstanding for ${line.product_name_snapshot}. Rejected units do not satisfy the purchase commitment.`);const product=await tx.product.findFirst({where:{id:line.product_id,tenantId:workspaceId,active:true}});if(!product)throw new NotFoundException('A purchase-order product is unavailable.');const expiry=dateValue(item.expiryDate,'Expiry date');received.push({line,accepted,rejected,product,batch:text(item.batchNumber,'Batch number',100,true),expiry:expiry??undefined,rejectReason:text(item.rejectionReason,'Rejection reason',300,true)});}
       const receiptId=randomUUID();const receiptNumber=doc('GRN');
       await tx.$executeRaw`INSERT INTO commerce_goods_receipts (id,tenant_id,branch_id,purchase_order_id,receipt_number,status,reason,created_by_user_id) VALUES (${receiptId}::uuid,${workspaceId}::uuid,${branchId}::uuid,${orderId}::uuid,${receiptNumber},'posted',${reason},${actor.userId}::uuid)`;
-      for(const item of received){await tx.$executeRaw`INSERT INTO commerce_goods_receipt_lines (id,tenant_id,receipt_id,purchase_order_line_id,product_id,quantity_accepted,quantity_rejected,rejection_reason,batch_number,expiry_date) VALUES (${randomUUID()}::uuid,${workspaceId}::uuid,${receiptId}::uuid,${item.line.id}::uuid,${item.product.id}::uuid,${String(item.accepted)}::numeric,${String(item.rejected)}::numeric,${item.rejectReason??reason},${item.batch??null},${item.expiry??null}::date)`;await tx.$executeRaw`UPDATE commerce_purchase_order_lines SET quantity_accepted=quantity_accepted+${String(item.accepted)}::numeric,quantity_rejected=quantity_rejected+${String(item.rejected)}::numeric WHERE id=${item.line.id}::uuid`;if(item.accepted>0&&item.product.trackStock)await tx.stockMovement.create({data:{tenantId:workspaceId,branchId,productId:item.product.id,type:'receiving',quantityDelta:String(item.accepted),reason:`Goods receipt ${receiptNumber}`,sourceId:receiptId}});}
+      let inventoryValueMinor = 0;
+      let expenseValueMinor = 0;
+      for(const item of received){
+        await tx.$executeRaw`INSERT INTO commerce_goods_receipt_lines (id,tenant_id,receipt_id,purchase_order_line_id,product_id,quantity_accepted,quantity_rejected,rejection_reason,batch_number,expiry_date) VALUES (${randomUUID()}::uuid,${workspaceId}::uuid,${receiptId}::uuid,${item.line.id}::uuid,${item.product.id}::uuid,${String(item.accepted)}::numeric,${String(item.rejected)}::numeric,${item.rejectReason??reason},${item.batch??null},${item.expiry??null}::date)`;
+        await tx.$executeRaw`UPDATE commerce_purchase_order_lines SET quantity_accepted=quantity_accepted+${String(item.accepted)}::numeric,quantity_rejected=quantity_rejected+${String(item.rejected)}::numeric WHERE id=${item.line.id}::uuid`;
+        if(item.accepted>0){
+          const lineValue = Math.round(item.accepted * Number(item.line.unit_cost_minor));
+          if(item.product.trackStock){
+            inventoryValueMinor += lineValue;
+            await tx.stockMovement.create({data:{tenantId:workspaceId,branchId,productId:item.product.id,type:'receiving',quantityDelta:String(item.accepted),unitCostMinor:Number(item.line.unit_cost_minor),reason:`Goods receipt ${receiptNumber}`,sourceId:receiptId}});
+          } else expenseValueMinor += lineValue;
+        }
+      }
+      const goodsReceiptValueMinor = inventoryValueMinor + expenseValueMinor;
+      if(goodsReceiptValueMinor > 0){
+        const postingLines: Array<{accountKey:string;debitMinor?:number;creditMinor?:number;description?:string}> = [];
+        if(inventoryValueMinor > 0) postingLines.push({accountKey:'inventory',debitMinor:inventoryValueMinor,description:`Inventory received - ${receiptNumber}`});
+        if(expenseValueMinor > 0) postingLines.push({accountKey:'operating_expenses',debitMinor:expenseValueMinor,description:`Non-stock goods received - ${receiptNumber}`});
+        postingLines.push({accountKey:'goods_received_not_invoiced',creditMinor:goodsReceiptValueMinor,description:`Accrued supplier receipt - ${receiptNumber}`});
+        await postLedgerJournal(tx,{tenantId:workspaceId,branchId,actorUserId:actor.userId,sourceType:'goods_receipt_posted',sourceId:receiptId,memo:`Goods receipt ${receiptNumber}`,lines:postingLines});
+      }
       const outstanding=await tx.$queryRaw<Array<{qty:any}>>`SELECT COALESCE(SUM(quantity-quantity_accepted),0) AS qty FROM commerce_purchase_order_lines WHERE order_id=${orderId}::uuid`;const poStatus=Number(outstanding[0]?.qty??0)===0?'received':received.length?'partially_received':'ordered';
       await tx.$executeRaw`UPDATE commerce_purchase_orders SET status=${poStatus},updated_at=CURRENT_TIMESTAMP WHERE id=${orderId}::uuid`;await tx.$executeRaw`UPDATE module_records SET data=jsonb_set(data,'{status}',to_jsonb(${poStatus==='received'?'Received':'Partially received'}::text)),version=version+1,updated_at=CURRENT_TIMESTAMP WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND module_id='purchases' AND record_id=${orderId}`;
       const receiptData={id:receiptId,receiptNumber,purchaseOrder:order.order_number,supplier:order.supplier_name,receiptDate:new Date().toISOString().slice(0,10),acceptedQuantity:String(received.reduce((s,x)=>s+x.accepted,0)),rejectedQuantity:String(received.reduce((s,x)=>s+x.rejected,0)),status:'Received'};await this.moduleRecord(tx,workspaceId,branchId,'receiving',receiptId,receiptData);await this.link(tx,workspaceId,branchId,'purchases',orderId,'receiving',receiptId,actor.userId);

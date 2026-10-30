@@ -7,6 +7,9 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { PrismaService } from '../prisma/prisma.service';
+import { hasPermission, isWorkspaceAdministrator, normalizeRole } from '../authorization/role-policy';
+import { postLedgerJournal, settlementAccountKey } from '../general-ledger/ledger-posting';
+import { assertBranchAccess } from '../authorization/branch-scope';
 import { CsrfGuard } from './csrf.guard';
 
 const scrypt = promisify(scryptCallback);
@@ -295,10 +298,24 @@ export class CoreController {
     return membership;
   }
 
-  private async branchFor(tenantId: string, branchId: string): Promise<any> {
+  private async branchFor(tenantId: string, branchId: string, userId?: string): Promise<any> {
     const branch = await this.prisma.branch.findFirst({ where: { id: branchId, tenantId } });
     if (!branch) throw new NotFoundException('Branch not found.');
+    if (userId) {
+      const member = await this.membershipFor(userId, tenantId);
+      await assertBranchAccess(this.prisma, tenantId, branchId, userId, member.role);
+    }
     return branch;
+  }
+
+  /** Return null for workspace-wide members, otherwise the explicit branch allow-list (including an empty list). */
+  private async visibleBranchIds(tenantId: string, userId: string): Promise<string[] | null> {
+    const member = await this.membershipFor(userId, tenantId);
+    if (isWorkspaceAdministrator(member.role) || member.branchScopeMode !== 'restricted') return null;
+    const rows = await this.prisma.$queryRaw<Array<{ branchId: string }>>`
+      SELECT branch_id AS "branchId" FROM branch_memberships
+      WHERE tenant_id=${tenantId}::uuid AND user_id=${userId}::uuid ORDER BY branch_id`;
+    return rows.map((row) => row.branchId);
   }
 
   private async audit(tenantId: string, actorUserId: string | null, action: string, resourceType: string, resourceId?: string, requestId?: string): Promise<void> {
@@ -489,7 +506,7 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
-    if (!['owner', 'admin'].includes(membership.role)) throw new ForbiddenException('You do not have permission to update this workspace.');
+    if (!isWorkspaceAdministrator(membership.role)) throw new ForbiddenException('You do not have permission to update this workspace.');
     const data: Record<string, string> = {};
     if (body.businessName !== undefined) data.name = requiredString(body.businessName, 'Business name', 100);
     if (body.businessType !== undefined) data.businessType = requiredString(body.businessType, 'Business type', 80);
@@ -503,8 +520,18 @@ export class CoreController {
   @Get('workspaces/:workspaceId/branches')
   async listBranches(@Param('workspaceId') workspaceId: string, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
-    await this.membershipFor(session.userId, workspaceId);
-    const rows = await this.prisma.branch.findMany({ where: { tenantId: workspaceId }, orderBy: { createdAt: 'asc' } });
+    const member = await this.membershipFor(session.userId, workspaceId);
+    if (isWorkspaceAdministrator(member.role)) {
+      const rows = await this.prisma.branch.findMany({ where: { tenantId: workspaceId }, orderBy: { createdAt: 'asc' } });
+      return rows.map(toBranch);
+    }
+    const where: any = { tenantId: workspaceId };
+    if (member.branchScopeMode === 'restricted') {
+      const grants = await this.prisma.$queryRaw<Array<{ branchId: string }>>`
+        SELECT branch_id AS "branchId" FROM branch_memberships WHERE tenant_id=${workspaceId}::uuid AND user_id=${session.userId}::uuid`;
+      where.id = { in: grants.map((row) => row.branchId) };
+    }
+    const rows = await this.prisma.branch.findMany({ where, orderBy: { createdAt: 'asc' } });
     return rows.map(toBranch);
   }
 
@@ -514,13 +541,94 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
-    if (!['owner', 'admin'].includes(membership.role)) throw new ForbiddenException('You do not have permission to create branches.');
+    if (!isWorkspaceAdministrator(membership.role)) throw new ForbiddenException('You do not have permission to create branches.');
     const name = requiredString(body.name, 'Branch name', 80);
     const address = optionalString(body.address, 250);
     const code = `${slugify(name).replace(/-/g, '').toUpperCase().slice(0, 8)}${randomBytes(2).toString('hex').toUpperCase()}`;
     const branch = await this.prisma.branch.create({ data: { tenantId: workspaceId, name, code, address, timezone: membership.tenant.timezone, currency: membership.tenant.currency } });
     await this.audit(workspaceId, session.userId, 'branch.created', 'branch', branch.id, request.headers['x-request-id'] as string | undefined);
     return toBranch(branch);
+  }
+
+  @Get('workspaces/:workspaceId/members')
+  async listWorkspaceMembers(@Param('workspaceId') workspaceId: string, @Req() request: FastifyRequest) {
+    const session = await this.sessionFor(request);
+    const actor = await this.membershipFor(session.userId, workspaceId);
+    if (!isWorkspaceAdministrator(actor.role)) throw new ForbiddenException('Only workspace owners and administrators can view workspace access details.');
+    const members = await this.prisma.membership.findMany({
+      where: { tenantId: workspaceId },
+      include: { user: { select: { id: true, email: true, displayName: true } } },
+      orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
+    });
+    const grants = await this.prisma.$queryRaw<Array<{ userId: string; branchId: string }>>`
+      SELECT user_id AS "userId",branch_id AS "branchId" FROM branch_memberships WHERE tenant_id=${workspaceId}::uuid ORDER BY user_id,branch_id`;
+    const byUser = new Map<string, string[]>();
+    for (const grant of grants) byUser.set(grant.userId, [...(byUser.get(grant.userId) ?? []), grant.branchId]);
+    return members.map((member) => ({
+      userId: member.userId, email: member.user.email, displayName: member.user.displayName ?? '',
+      role: member.role, status: member.status, branchScopeMode: member.branchScopeMode,
+      branchIds: byUser.get(member.userId) ?? [], allBranches: member.branchScopeMode === 'all',
+      createdAt: member.createdAt.toISOString(),
+    }));
+  }
+
+  @Put('workspaces/:workspaceId/memberships/:userId/role')
+  @UseGuards(CsrfGuard)
+  async updateMemberRole(@Param('workspaceId') workspaceId: string, @Param('userId') userId: string, @Body() raw: unknown, @Req() request: FastifyRequest) {
+    const body = asObject(raw);
+    const session = await this.sessionFor(request);
+    const actor = await this.membershipFor(session.userId, workspaceId);
+    if (!isWorkspaceAdministrator(actor.role)) throw new ForbiddenException('Only workspace owners and administrators can change member roles.');
+    if (session.userId === userId) throw new BadRequestException('Use another workspace administrator to change your own role.');
+    const target = await this.prisma.membership.findUnique({ where: { tenantId_userId: { tenantId: workspaceId, userId } }, select: { role: true, status: true } });
+    if (!target || target.status !== 'ACTIVE') throw new NotFoundException('Active workspace member not found.');
+    const actorIsOwner = ['owner', 'owner_administrator'].includes(normalizeRole(actor.role));
+    if (['owner', 'owner_administrator'].includes(normalizeRole(target.role))) throw new ForbiddenException('Workspace ownership cannot be changed through ordinary role management.');
+    if (isWorkspaceAdministrator(target.role) && !actorIsOwner) throw new ForbiddenException('Only a workspace owner can change another administrator role.');
+    const role = requiredString(body.role, 'Member role', 40).trim().toLowerCase().replace(/[\s/-]+/g, '_');
+    const allowed = new Set(['administrator','business_manager','manager','branch_manager','cashier','sales','sales_operator','inventory_operator','warehouse_operator','accountant','read_only','readonly','viewer','member']);
+    if (!allowed.has(role)) throw new BadRequestException('Choose a supported workspace role.');
+    if (role === 'administrator' && !actorIsOwner) throw new ForbiddenException('Only a workspace owner can assign administrator access.');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.membership.update({ where: { tenantId_userId: { tenantId: workspaceId, userId } }, data: { role } });
+      await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'membership.role_updated', resourceType: 'membership', resourceId: userId, requestId: request.headers['x-request-id'] as string | undefined, metadata: { fromRole: target.role, toRole: role } } });
+    }, { isolationLevel: 'Serializable' });
+    return { userId, role, previousRole: target.role };
+  }
+
+  @Get('workspaces/:workspaceId/memberships/:userId/branches')
+  async listMemberBranches(@Param('workspaceId') workspaceId: string, @Param('userId') userId: string, @Req() request: FastifyRequest) {
+    const session = await this.sessionFor(request);
+    const actor = await this.membershipFor(session.userId, workspaceId);
+    if (!isWorkspaceAdministrator(actor.role)) throw new ForbiddenException('Only workspace owners and administrators can manage branch access.');
+    const target = await this.prisma.membership.findUnique({ where: { tenantId_userId: { tenantId: workspaceId, userId } }, select: { userId: true, status: true, role: true } });
+    if (!target) throw new NotFoundException('Workspace member not found.');
+    const rows = await this.prisma.$queryRaw<Array<{ branchId: string }>>`SELECT branch_id AS "branchId" FROM branch_memberships WHERE tenant_id=${workspaceId}::uuid AND user_id=${userId}::uuid ORDER BY branch_id`;
+    const member = await this.prisma.membership.findUnique({ where: { tenantId_userId: { tenantId: workspaceId, userId } }, select: { branchScopeMode: true } });
+    return { userId, role: target.role, status: target.status, branchIds: rows.map((row) => row.branchId), branchScopeMode: member?.branchScopeMode ?? 'all', allBranches: member?.branchScopeMode !== 'restricted' };
+  }
+
+  @Put('workspaces/:workspaceId/memberships/:userId/branches')
+  @UseGuards(CsrfGuard)
+  async replaceMemberBranches(@Param('workspaceId') workspaceId: string, @Param('userId') userId: string, @Body() raw: unknown, @Req() request: FastifyRequest) {
+    const body = asObject(raw);
+    const session = await this.sessionFor(request);
+    const actor = await this.membershipFor(session.userId, workspaceId);
+    if (!isWorkspaceAdministrator(actor.role)) throw new ForbiddenException('Only workspace owners and administrators can manage branch access.');
+    const target = await this.prisma.membership.findUnique({ where: { tenantId_userId: { tenantId: workspaceId, userId } }, select: { userId: true, status: true, role: true } });
+    if (!target || target.status !== 'ACTIVE') throw new NotFoundException('Active workspace member not found.');
+    const allBranches = body.allBranches === true;
+    if (!allBranches && (!Array.isArray(body.branchIds) || body.branchIds.length > 500 || body.branchIds.some((id) => typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)))) throw new BadRequestException('For restricted access, branchIds must be an array of valid branch UUIDs.');
+    const branchIds = allBranches ? [] : [...new Set(body.branchIds as string[])];
+    const branches = await this.prisma.branch.findMany({ where: { tenantId: workspaceId, id: { in: branchIds } }, select: { id: true } });
+    if (branches.length !== branchIds.length) throw new BadRequestException('Every selected branch must belong to this workspace.');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`DELETE FROM branch_memberships WHERE tenant_id=${workspaceId}::uuid AND user_id=${userId}::uuid`;
+      if (branchIds.length) await tx.$executeRaw`INSERT INTO branch_memberships (tenant_id,branch_id,user_id,created_by_user_id) SELECT ${workspaceId}::uuid, value::uuid, ${userId}::uuid, ${session.userId}::uuid FROM unnest(${branchIds}::uuid[]) AS value`;
+      await tx.membership.update({ where: { tenantId_userId: { tenantId: workspaceId, userId } }, data: { branchScopeMode: allBranches ? 'all' : 'restricted' } });
+      await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'membership.branch_scope_updated', resourceType: 'membership', resourceId: userId, requestId: request.headers['x-request-id'] as string | undefined, metadata: { branchIds, branchScopeMode: allBranches ? 'all' : 'restricted' } } });
+    }, { isolationLevel: 'Serializable' });
+    return { userId, branchIds, branchScopeMode: allBranches ? 'all' : 'restricted', allBranches };
   }
 
   @Get('workspaces/:workspaceId/categories')
@@ -617,7 +725,7 @@ export class CoreController {
   async listMovements(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Query('limit') limit: string | undefined, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const take = Math.min(1000, Math.max(1, Number.parseInt(limit ?? '100', 10) || 100));
     const rows = await this.prisma.stockMovement.findMany({ where: { tenantId: workspaceId, branchId }, orderBy: { createdAt: 'desc' }, take });
     return rows.map(toMovement);
@@ -629,26 +737,71 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const productId = requiredString(body.productId, 'Product ID', 80);
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(productId)) throw new BadRequestException('Product ID is invalid.');
     const delta = Number(body.quantityDelta);
     const reason = requiredString(body.reason, 'Reason', 500);
     const type = body.movementType === 'opening' ? 'opening' : 'adjustment';
-    if (!Number.isFinite(delta) || delta === 0 || Math.round(delta * 1000) !== delta * 1000) throw new BadRequestException('Quantity adjustment must be a non-zero number with at most three decimal places.');
-    const product = await this.prisma.product.findFirst({ where: { id: productId, tenantId: workspaceId } });
-    if (!product) throw new NotFoundException('Product not found.');
-    const balance = await this.stockBalance(this.prisma, workspaceId, branchId, productId);
-    if (product.trackStock && balance + delta < 0) throw new ConflictException({ code: 'INSUFFICIENT_STOCK', message: 'This adjustment would make stock negative.' });
-    const movement = await this.prisma.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId, type, quantityDelta: String(delta), reason } });
-    await this.audit(workspaceId, session.userId, 'inventory.movement.created', 'stock_movement', movement.id, request.headers['x-request-id'] as string | undefined);
-    return toMovement(movement);
+    if (!Number.isFinite(delta) || delta === 0 || Math.abs(delta) > 1_000_000 || Math.round(delta * 1000) !== delta * 1000) throw new BadRequestException('Quantity adjustment must be a non-zero number, no greater than one million, with at most three decimal places.');
+    if (type === 'opening' && delta < 0) throw new BadRequestException('Opening stock must be a positive quantity. Use a stock adjustment to reduce inventory.');
+    const rawKey = request.headers['idempotency-key'];
+    const key = Array.isArray(rawKey) ? rawKey[0] : rawKey;
+    if (!key || key.length > 200) throw new BadRequestException('Idempotency-Key header is required for inventory adjustments.');
+    const requestHash = sha256(JSON.stringify({ workspaceId, branchId, productId, delta, reason, type }));
+    const duplicate = await this.idempotentResponse(workspaceId, key, requestHash);
+    if (duplicate) return duplicate;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const existing = await tx.idempotencyRecord.findUnique({ where: { tenantId_key: { tenantId: workspaceId, key } } });
+        if (existing) {
+          if (existing.requestHash !== requestHash) throw new ConflictException({ code: 'IDEMPOTENCY_CONFLICT', message: 'This request key has already been used for different inventory data.' });
+          if (existing.status === 'COMPLETED' && existing.responseBody) return existing.responseBody as any;
+          throw new ConflictException({ code: 'REQUEST_IN_PROGRESS', message: 'This inventory adjustment is already being processed. Retry with the same request key.' });
+        }
+        await tx.idempotencyRecord.create({ data: { tenantId: workspaceId, key, requestHash, status: 'IN_PROGRESS', expiresAt: new Date(Date.now() + IDEMPOTENCY_SECONDS * 1000) } });
+        const locked = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM products WHERE id = ${productId}::uuid AND tenant_id = ${workspaceId}::uuid FOR UPDATE`;
+        if (!locked.length) throw new NotFoundException('Product not found.');
+        const product = await tx.product.findFirst({ where: { id: productId, tenantId: workspaceId } });
+        if (!product) throw new NotFoundException('Product not found.');
+        const aggregate = await tx.stockMovement.aggregate({ where: { tenantId: workspaceId, branchId, productId }, _sum: { quantityDelta: true } });
+        const balance = Number(aggregate._sum.quantityDelta ?? 0);
+        if (product.trackStock && balance + delta < 0) throw new ConflictException({ code: 'INSUFFICIENT_STOCK', message: 'This adjustment would make stock negative.' });
+        const unitCostMinor = product.costPriceMinor;
+        const movement = await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId, type, quantityDelta: String(delta), unitCostMinor, reason } });
+        const movementValueMinor = Math.round(Math.abs(delta) * unitCostMinor);
+        if (product.trackStock && movementValueMinor > 0) {
+          const postingLines = delta > 0
+            ? [
+                { accountKey: 'inventory', debitMinor: movementValueMinor, description: `Stock added - ${product.sku}` },
+                { accountKey: type === 'opening' ? 'owner_equity' : 'inventory_adjustment_gain', creditMinor: movementValueMinor, description: type === 'opening' ? 'Opening inventory balance' : 'Positive inventory adjustment' },
+              ]
+            : [
+                { accountKey: 'inventory_shrinkage', debitMinor: movementValueMinor, description: `Stock write-off - ${product.sku}` },
+                { accountKey: 'inventory', creditMinor: movementValueMinor, description: 'Inventory reduced' },
+              ];
+          await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'stock_movement_recorded', sourceId: movement.id, memo: `${type === 'opening' ? 'Opening stock' : 'Stock adjustment'} - ${product.sku}`, lines: postingLines });
+        }
+        await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'inventory.movement.created', resourceType: 'stock_movement', resourceId: movement.id, requestId: request.headers['x-request-id'] as string | undefined, metadata: { branchId, quantityDelta: delta, unitCostMinor } } });
+        const response = toMovement(movement);
+        await tx.idempotencyRecord.update({ where: { tenantId_key: { tenantId: workspaceId, key } }, data: { status: 'COMPLETED', responseStatus: 201, responseBody: response as any } });
+        return response;
+      }, { isolationLevel: 'Serializable' });
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002') {
+        const retry = await this.idempotentResponse(workspaceId, key, requestHash);
+        if (retry) return retry;
+      }
+      if ((error as { code?: string }).code === 'P2034') throw new ConflictException({ code: 'INVENTORY_CONCURRENCY_CONFLICT', message: 'Inventory changed during this adjustment. Retry using the same request key.' });
+      throw error;
+    }
   }
 
   @Get('workspaces/:workspaceId/branches/:branchId/inventory/balances')
   async inventoryBalances(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const rows = await this.prisma.stockMovement.findMany({ where: { tenantId: workspaceId, branchId }, select: { productId: true, quantityDelta: true } });
     const balances: Record<string, number> = {};
     for (const row of rows) balances[row.productId] = (balances[row.productId] ?? 0) + Number(row.quantityDelta);
@@ -659,7 +812,7 @@ export class CoreController {
   async listModuleRecords(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Param('moduleId') moduleId: string, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const rows = await this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId, moduleId }, orderBy: { updatedAt: 'desc' }, take: 5000 });
     return rows.map(toModuleRecord);
   }
@@ -670,8 +823,8 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
-    if (!['owner', 'admin'].includes(membership.role)) throw new ForbiddenException('Only workspace administrators can replace a complete module collection.');
-    await this.branchFor(workspaceId, branchId);
+    if (!isWorkspaceAdministrator(membership.role)) throw new ForbiddenException('Only workspace administrators can replace a complete module collection.');
+    await this.branchFor(workspaceId, branchId, session.userId);
     if (!Array.isArray(body.records) || body.records.length > 5000) throw new BadRequestException('Records must be an array with no more than 5000 items.');
     const records = body.records.map((rawRecord) => {
       const record = asObject(rawRecord, 'record');
@@ -695,8 +848,8 @@ export class CoreController {
   async deleteModuleRecords(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Param('moduleId') moduleId: string, @Req() request: FastifyRequest): Promise<void> {
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
-    if (!['owner', 'admin'].includes(membership.role)) throw new ForbiddenException('Only workspace administrators can clear a module collection.');
-    await this.branchFor(workspaceId, branchId);
+    if (!isWorkspaceAdministrator(membership.role)) throw new ForbiddenException('Only workspace administrators can clear a module collection.');
+    await this.branchFor(workspaceId, branchId, session.userId);
     await this.prisma.$transaction(async (tx) => {
       await tx.moduleRecord.deleteMany({ where: { tenantId: workspaceId, branchId, moduleId } });
       await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'module.records.cleared', resourceType: 'module', resourceId: moduleId, requestId: request.headers['x-request-id'] as string | undefined } });
@@ -709,7 +862,7 @@ export class CoreController {
     const body = asObject(raw, 'record');
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const bodyId = requiredString(body.id, 'Record ID', 160);
     if (bodyId !== recordId) throw new BadRequestException('The record ID in the URL and body must match.');
     if (typeof body.status !== 'string' || !body.status.trim()) throw new BadRequestException('Record status is required.');
@@ -729,7 +882,7 @@ export class CoreController {
     const status = requiredString(body.status, 'Status', 80);
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const row = await this.prisma.moduleRecord.findUnique({ where: { tenantId_branchId_moduleId_recordId: { tenantId: workspaceId, branchId, moduleId, recordId } } });
     if (!row) throw new NotFoundException('Record not found.');
     const current = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
@@ -743,8 +896,9 @@ export class CoreController {
   async listSales(@Param('workspaceId') workspaceId: string, @Query('limit') limit: string | undefined, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
+    const visibleBranches = await this.visibleBranchIds(workspaceId, session.userId);
     const take = Math.min(1000, Math.max(1, Number.parseInt(limit ?? '100', 10) || 100));
-    const rows = await this.prisma.sale.findMany({ where: { tenantId: workspaceId }, orderBy: { createdAt: 'desc' }, take });
+    const rows = await this.prisma.sale.findMany({ where: { tenantId: workspaceId, ...(visibleBranches ? { branchId: { in: visibleBranches } } : {}) }, orderBy: { createdAt: 'desc' }, take });
     return rows.map(toSale);
   }
 
@@ -754,6 +908,7 @@ export class CoreController {
     await this.membershipFor(session.userId, workspaceId);
     const sale = await this.prisma.sale.findFirst({ where: { tenantId: workspaceId, id: saleId }, include: { lines: true, payments: true, returns: { include: { lines: true } } } });
     if (!sale) throw new NotFoundException('Sale not found.');
+    await this.branchFor(workspaceId, sale.branchId, session.userId);
     return {
       sale: toSale(sale),
       lines: sale.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, saleId: line.saleId, productId: line.productId, productNameSnapshot: line.productNameSnapshot, quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor })),
@@ -769,7 +924,7 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     if (!Array.isArray(body.items) || !body.items.length || body.items.length > 200) throw new BadRequestException('A sale must contain between 1 and 200 items.');
     const items = body.items.map((item) => {
       const row = asObject(item, 'sale item');
@@ -803,6 +958,9 @@ export class CoreController {
           throw new ConflictException({ code: 'REQUEST_IN_PROGRESS', message: 'This sale request is already being processed.' });
         }
         await tx.idempotencyRecord.create({ data: { tenantId: workspaceId, key, requestHash, status: 'IN_PROGRESS', expiresAt: new Date(Date.now() + IDEMPOTENCY_SECONDS * 1000) } });
+        const productIds = [...new Set(items.map((item) => item.productId))].sort();
+        if (productIds.some((id) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))) throw new BadRequestException('A product ID is invalid.');
+        await tx.$queryRaw`SELECT id FROM products WHERE tenant_id = ${workspaceId}::uuid AND id = ANY(${productIds}::uuid[]) ORDER BY id FOR UPDATE`;
         const createdLines: any[] = [];
         const requestedStock = new Map<string, number>();
         for (const item of items) requestedStock.set(item.productId, (requestedStock.get(item.productId) ?? 0) + item.quantity);
@@ -833,10 +991,26 @@ export class CoreController {
           totalMinor, status: 'completed',
         } });
         for (const line of createdLines) {
-          await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, productNameSnapshot: line.product.name, quantity: String(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
-          if (line.product.trackStock) await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: line.product.id, type: 'sale', quantityDelta: String(-line.quantity), reason: `Sale ${receiptNumber}`, sourceId: sale.id } });
+          await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, productNameSnapshot: line.product.name, quantity: String(line.quantity), unitCostMinor: line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
+          if (line.product.trackStock) await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: line.product.id, type: 'sale', quantityDelta: String(-line.quantity), unitCostMinor: line.product.costPriceMinor, reason: `Sale ${receiptNumber}`, sourceId: sale.id } });
         }
         for (const payment of payments) await tx.salePayment.create({ data: { tenantId: workspaceId, saleId: sale.id, kind: 'receipt', method: payment.method, amountMinor: payment.amountMinor, reference: payment.reference } });
+        const settlementTotals = new Map<string, number>();
+        for (const payment of payments) {
+          const accountKey = settlementAccountKey(payment.method);
+          settlementTotals.set(accountKey, (settlementTotals.get(accountKey) ?? 0) + payment.amountMinor);
+        }
+        const postingLines: Array<{ accountKey: string; debitMinor?: number; creditMinor?: number; description?: string }> = [];
+        for (const [accountKey, amount] of settlementTotals) if (amount > 0) postingLines.push({ accountKey, debitMinor: amount, description: `Sale receipt - ${accountKey}` });
+        const outstandingMinor = totalMinor - paidMinor;
+        if (outstandingMinor > 0) postingLines.push({ accountKey: 'accounts_receivable', debitMinor: outstandingMinor, description: 'Customer balance due' });
+        if (totalMinor > 0) postingLines.push({ accountKey: 'sales_revenue', creditMinor: totalMinor, description: `Revenue - ${receiptNumber}` });
+        const costOfGoodsMinor = createdLines.filter((line) => line.product.trackStock).reduce((sum, line) => sum + Math.round(line.product.costPriceMinor * line.quantity), 0);
+        if (costOfGoodsMinor > 0) {
+          postingLines.push({ accountKey: 'cost_of_goods_sold', debitMinor: costOfGoodsMinor, description: `Cost of goods sold - ${receiptNumber}` });
+          postingLines.push({ accountKey: 'inventory', creditMinor: costOfGoodsMinor, description: `Inventory relieved - ${receiptNumber}` });
+        }
+        if (postingLines.length >= 2) await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'sale_completed', sourceId: sale.id, memo: `Sale ${receiptNumber}`, lines: postingLines });
         await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'sale.completed', resourceType: 'sale', resourceId: sale.id, requestId: request.headers['x-request-id'] as string | undefined } });
         const response = { sale: toSale(sale) };
         await tx.idempotencyRecord.update({ where: { tenantId_key: { tenantId: workspaceId, key } }, data: { status: 'COMPLETED', responseStatus: 201, responseBody: response as any } });
@@ -848,6 +1022,7 @@ export class CoreController {
         const retry = await this.idempotentResponse(workspaceId, key, requestHash);
         if (retry) return retry;
       }
+      if ((error as { code?: string }).code === 'P2034') throw new ConflictException({ code: 'SALES_CONCURRENCY_CONFLICT', message: 'The sale conflicted with another inventory operation. Retry using the same request key.' });
       throw error;
     }
   }
@@ -858,7 +1033,7 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const amountMinor = moneyMinor(body.amountMinor, 'Payment amount', false);
     const method = requiredString(body.method, 'Payment method', 40);
     if (!PAYMENT_METHODS.has(method)) throw new BadRequestException('Unsupported payment method.');
@@ -878,6 +1053,8 @@ export class CoreController {
           throw new ConflictException({ code: 'REQUEST_IN_PROGRESS', message: 'This payment request is already being processed.' });
         }
         await tx.idempotencyRecord.create({ data: { tenantId: workspaceId, key, requestHash, status: 'IN_PROGRESS', expiresAt: new Date(Date.now() + IDEMPOTENCY_SECONDS * 1000) } });
+        const lockedSale = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM sales WHERE id = ${saleId}::uuid AND tenant_id = ${workspaceId}::uuid AND branch_id = ${branchId}::uuid FOR UPDATE`;
+        if (!lockedSale.length) throw new NotFoundException('Sale not found.');
         const sale = await tx.sale.findFirst({ where: { id: saleId, tenantId: workspaceId, branchId } });
         if (!sale) throw new NotFoundException('Sale not found.');
         const priorPayments = await tx.salePayment.findMany({ where: { tenantId: workspaceId, saleId } });
@@ -885,6 +1062,10 @@ export class CoreController {
         const balance = sale.totalMinor - alreadyPaid;
         if (amountMinor > balance) throw new ConflictException('Payment exceeds the current outstanding balance.');
         const payment = await tx.salePayment.create({ data: { tenantId: workspaceId, saleId, kind: 'receipt', method, amountMinor, reference } });
+        await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'sale_payment_received', sourceId: payment.id, memo: `Payment received for ${sale.receiptNumber}`, lines: [
+          { accountKey: settlementAccountKey(method), debitMinor: amountMinor, description: `Customer payment - ${method}` },
+          { accountKey: 'accounts_receivable', creditMinor: amountMinor, description: 'Reduce customer balance due' },
+        ] });
         await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'sale.payment.received', resourceType: 'sale_payment', resourceId: payment.id, requestId: request.headers['x-request-id'] as string | undefined } });
         const response = { payment: { id: payment.id, workspaceId, saleId, kind: payment.kind, method: payment.method, amountMinor: payment.amountMinor, ...(payment.reference ? { reference: payment.reference } : {}), createdAt: payment.createdAt.toISOString() }, outstandingMinor: balance - amountMinor };
         await tx.idempotencyRecord.update({ where: { tenantId_key: { tenantId: workspaceId, key } }, data: { status: 'COMPLETED', responseStatus: 201, responseBody: response as any } });
@@ -895,6 +1076,7 @@ export class CoreController {
         const retry = await this.idempotentResponse(workspaceId, key, requestHash);
         if (retry) return retry;
       }
+      if ((error as { code?: string }).code === 'P2034') throw new ConflictException({ code: 'PAYMENT_CONCURRENCY_CONFLICT', message: 'The outstanding balance changed during payment recording. Retry using the same request key.' });
       throw error;
     }
   }
@@ -905,7 +1087,7 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     if (!Array.isArray(body.items) || !body.items.length || body.items.length > 200) throw new BadRequestException('Select between 1 and 200 items to return.');
     const reason = requiredString(body.reason, 'Return reason', 500);
     const recordRefund = body.recordRefund === true;
@@ -930,8 +1112,15 @@ export class CoreController {
           throw new ConflictException({ code: 'REQUEST_IN_PROGRESS', message: 'This return request is already being processed.' });
         }
         await tx.idempotencyRecord.create({ data: { tenantId: workspaceId, key, requestHash, status: 'IN_PROGRESS', expiresAt: new Date(Date.now() + IDEMPOTENCY_SECONDS * 1000) } });
+        const lockedSale = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM sales WHERE id = ${saleId}::uuid AND tenant_id = ${workspaceId}::uuid AND branch_id = ${branchId}::uuid FOR UPDATE`;
+        if (!lockedSale.length) throw new NotFoundException('Sale not found.');
         const sale = await tx.sale.findFirst({ where: { id: saleId, tenantId: workspaceId, branchId }, include: { lines: true } });
         if (!sale) throw new NotFoundException('Sale not found.');
+        const returnProductIds = [...new Set(sale.lines.map((line: any) => line.productId))].sort();
+        const lockedProducts = returnProductIds.length
+          ? await tx.$queryRaw<Array<{ id: string; track_stock: boolean }>>`SELECT id,track_stock FROM products WHERE tenant_id = ${workspaceId}::uuid AND id = ANY(${returnProductIds}::uuid[]) ORDER BY id FOR UPDATE`
+          : [];
+        const trackedProductIds = new Set(lockedProducts.filter((product) => product.track_stock).map((product) => String(product.id)));
         const oldReturns = await tx.saleReturn.findMany({ where: { tenantId: workspaceId, saleId }, include: { lines: true } });
         let totalMinor = 0;
         const resolved: any[] = [];
@@ -942,15 +1131,33 @@ export class CoreController {
           if (previouslyReturned + item.quantity > Number(line.quantity)) throw new ConflictException('Return quantity exceeds the quantity originally sold minus prior returns.');
           const amount = Math.round(line.unitPriceMinor * item.quantity);
           totalMinor += amount;
-          resolved.push({ line, quantity: item.quantity, amount });
+          resolved.push({ line, quantity: item.quantity, amount, trackStock: trackedProductIds.has(line.productId) });
         }
         const returnNumber = `LR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomBytes(4).toString('hex').toUpperCase()}`;
+        if (recordRefund) {
+          const priorPayments = await tx.salePayment.findMany({ where: { tenantId: workspaceId, saleId }, select: { kind: true, amountMinor: true } });
+          const grossReceipts = priorPayments.filter((payment: any) => payment.kind === 'receipt').reduce((sum: number, payment: any) => sum + payment.amountMinor, 0);
+          const refundsAlreadyRecorded = priorPayments.filter((payment: any) => payment.kind === 'refund').reduce((sum: number, payment: any) => sum + payment.amountMinor, 0);
+          const refundable = Math.max(0, grossReceipts - refundsAlreadyRecorded);
+          if (totalMinor > refundable) throw new ConflictException({ code: 'REFUND_EXCEEDS_RECEIPTS', message: `Only ${refundable} minor currency units have been received and remain refundable.` });
+        }
         const returned = await tx.saleReturn.create({ data: { tenantId: workspaceId, branchId, saleId, returnNumber, totalMinor, reason, refundRecorded: recordRefund } });
         for (const item of resolved) {
           await tx.saleReturnLine.create({ data: { tenantId: workspaceId, returnId: returned.id, originalSaleLineId: item.line.id, productId: item.line.productId, productNameSnapshot: item.line.productNameSnapshot, quantity: String(item.quantity), unitPriceMinor: item.line.unitPriceMinor, lineTotalMinor: item.amount } });
-          await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: item.line.productId, type: 'return', quantityDelta: String(item.quantity), reason: `Return ${returnNumber}`, sourceId: returned.id } });
+          if (item.trackStock) await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: item.line.productId, type: 'return', quantityDelta: String(item.quantity), unitCostMinor: item.line.unitCostMinor ?? 0, reason: `Return ${returnNumber}`, sourceId: returned.id } });
         }
         if (recordRefund) await tx.salePayment.create({ data: { tenantId: workspaceId, saleId, kind: 'refund', method: refundMethod, amountMinor: totalMinor, reference: returnNumber } });
+        const returnCostMinor = resolved.filter((item) => item.trackStock).reduce((sum, item) => sum + Math.round(Number(item.line.unitCostMinor ?? 0) * item.quantity), 0);
+        if (totalMinor > 0 || returnCostMinor > 0) {
+          const returnLines: Array<{ accountKey: string; debitMinor?: number; creditMinor?: number; description?: string }> = [];
+          if (totalMinor > 0) returnLines.push({ accountKey: 'sales_returns', debitMinor: totalMinor, description: `Sales return - ${returnNumber}` }, { accountKey: recordRefund ? settlementAccountKey(refundMethod) : 'customer_credit_liability', creditMinor: totalMinor, description: recordRefund ? `Refund recorded - ${refundMethod}` : 'Customer credit balance' });
+
+          if (returnCostMinor > 0) {
+            returnLines.push({ accountKey: 'inventory', debitMinor: returnCostMinor, description: `Returned goods restored - ${returnNumber}` });
+            returnLines.push({ accountKey: 'cost_of_goods_sold', creditMinor: returnCostMinor, description: `Reverse cost of goods sold - ${returnNumber}` });
+          }
+          await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'sale_return_recorded', sourceId: returned.id, memo: `Sales return ${returnNumber}`, lines: returnLines });
+        }
         await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'sale.return.recorded', resourceType: 'sale_return', resourceId: returned.id, requestId: request.headers['x-request-id'] as string | undefined } });
         const response = { returnRecord: { id: returned.id, workspaceId, branchId, saleId, returnNumber, totalMinor, reason, refundRecorded: recordRefund, createdAt: returned.createdAt.toISOString() } };
         await tx.idempotencyRecord.update({ where: { tenantId_key: { tenantId: workspaceId, key } }, data: { status: 'COMPLETED', responseStatus: 201, responseBody: response as any } });
@@ -961,6 +1168,7 @@ export class CoreController {
         const retry = await this.idempotentResponse(workspaceId, key, requestHash);
         if (retry) return retry;
       }
+      if ((error as { code?: string }).code === 'P2034') throw new ConflictException({ code: 'RETURN_CONCURRENCY_CONFLICT', message: 'The sale changed during return processing. Retry using the same request key.' });
       throw error;
     }
   }
@@ -969,7 +1177,7 @@ export class CoreController {
   async dashboard(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const [products, recentSalesRows, recentMovementRows, saleSum, returnSum, receiptsSum, refundsSum, saleCount, movements] = await Promise.all([
       this.prisma.product.findMany({ where: { tenantId: workspaceId, active: true }, orderBy: { name: 'asc' } }),
       this.prisma.sale.findMany({ where: { tenantId: workspaceId, branchId }, orderBy: { createdAt: 'desc' }, take: 10 }),
@@ -1010,7 +1218,7 @@ export class CoreController {
   async analyticsOverview(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Query('period') periodQuery: string | undefined, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const period = periodQuery ?? '30d';
     const durationByPeriod: Record<string, number> = { today: 24 * 60 * 60 * 1000, '7d': 7 * 24 * 60 * 60 * 1000, '30d': 30 * 24 * 60 * 60 * 1000, '90d': 90 * 24 * 60 * 60 * 1000, '12m': 365 * 24 * 60 * 60 * 1000 };
     const duration = durationByPeriod[period];
@@ -1083,7 +1291,7 @@ export class CoreController {
   async businessToolsSnapshot(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const [products, sales, returns, payments, movements] = await Promise.all([
       this.prisma.product.findMany({ where: { tenantId: workspaceId }, orderBy: { name: 'asc' }, take: 5000 }),
       this.prisma.sale.findMany({ where: { tenantId: workspaceId, branchId }, orderBy: { createdAt: 'desc' }, take: 5000 }),
@@ -1117,7 +1325,7 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
-    if (!['owner', 'admin'].includes(membership.role)) throw new ForbiddenException('Only workspace administrators can change the tax profile.');
+    if (!isWorkspaceAdministrator(membership.role)) throw new ForbiddenException('Only workspace administrators can change the tax profile.');
     const branch = await this.prisma.branch.findFirst({ where: { tenantId: workspaceId }, orderBy: { createdAt: 'asc' } });
     if (!branch) throw new ConflictException('Create a branch before configuring business tax settings.');
     const efrisOverride = requiredString(body.efrisOverride ?? 'auto', 'EFRIS setting', 10);
@@ -1145,7 +1353,7 @@ export class CoreController {
   async listCashUps(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const rows = await this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId, moduleId: 'cash-ups' }, orderBy: { recordId: 'desc' }, take: 500 });
     return rows.map((row) => row.data);
   }
@@ -1157,7 +1365,7 @@ export class CoreController {
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
     if (!['owner', 'admin', 'manager', 'member'].includes(membership.role)) throw new ForbiddenException('You cannot record a cash-up.');
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const dateText = requiredString(cashUpDate, 'Cash-up date', 10);
     const date = new Date(`${dateText}T00:00:00.000Z`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText) || Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== dateText) throw new BadRequestException('Cash-up date must be a valid YYYY-MM-DD date.');
@@ -1189,9 +1397,10 @@ export class CoreController {
   async listComplianceNotes(@Param('workspaceId') workspaceId: string, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    const branches = await this.prisma.branch.findMany({ where: { tenantId: workspaceId }, select: { id: true } });
+    const visibleBranches = await this.visibleBranchIds(workspaceId, session.userId);
+    const branches = visibleBranches ?? (await this.prisma.branch.findMany({ where: { tenantId: workspaceId }, select: { id: true } })).map((branch) => branch.id);
     if (!branches.length) return [];
-    const rows = await this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId: { in: branches.map((branch) => branch.id) }, moduleId: 'compliance-notes' }, orderBy: { createdAt: 'desc' }, take: 1000 });
+    const rows = await this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId: { in: branches }, moduleId: 'compliance-notes' }, orderBy: { createdAt: 'desc' }, take: 1000 });
     return rows.map((row) => row.data);
   }
 
@@ -1201,8 +1410,9 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    const branch = await this.prisma.branch.findFirst({ where: { tenantId: workspaceId }, orderBy: { createdAt: 'asc' } });
-    if (!branch) throw new ConflictException('Create a branch before adding a compliance note.');
+    const visibleBranches = await this.visibleBranchIds(workspaceId, session.userId);
+    const branch = await this.prisma.branch.findFirst({ where: { tenantId: workspaceId, ...(visibleBranches ? { id: { in: visibleBranches } } : {}) }, orderBy: { createdAt: 'asc' } });
+    if (!branch) throw new ConflictException('No accessible branch is available for a compliance note. Ask a workspace administrator to grant branch access.');
     const dateText = requiredString(body.date, 'Date', 10);
     const parsedDate = new Date(`${dateText}T00:00:00.000Z`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== dateText) throw new BadRequestException('Date must be a valid YYYY-MM-DD date.');
@@ -1227,7 +1437,7 @@ export class CoreController {
     if (text.length < 2) return [];
     if (text.length > 160) throw new BadRequestException('Search text is too long.');
     if (!branchId) throw new BadRequestException('A branch ID is required for global search.');
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const take = Math.min(20, Math.max(1, Number.parseInt(limit ?? '20', 10) || 20));
     const [products, sales, rows] = await Promise.all([
       this.prisma.product.findMany({ where: { tenantId: workspaceId, OR: [{ name: { contains: text, mode: 'insensitive' } }, { sku: { contains: text, mode: 'insensitive' } }, { barcode: { contains: text, mode: 'insensitive' } }] }, orderBy: { updatedAt: 'desc' }, take }),
@@ -1253,7 +1463,7 @@ export class CoreController {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
     if (!branchId) throw new BadRequestException('A branch ID is required to list inbox threads.');
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const [threads, messages, reads] = await Promise.all([
       this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId, moduleId: 'inbox-threads' }, orderBy: { updatedAt: 'desc' }, take: 500 }),
       this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId, moduleId: 'inbox-messages' }, orderBy: { createdAt: 'desc' }, take: 5000 }),
@@ -1292,13 +1502,14 @@ export class CoreController {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
     const branchId = requiredString(body.branchId, 'Branch ID', 80);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const title = requiredString(body.title, 'Conversation title', 200);
     const participantIds = Array.isArray(body.participantIds) ? body.participantIds.map((id) => requiredString(id, 'Participant ID', 80)) : [];
     const participants = [...new Set([...participantIds, session.userId])];
     if (participants.length > 50) throw new BadRequestException('A conversation cannot have more than 50 participants.');
-    const active = await this.prisma.membership.findMany({ where: { tenantId: workspaceId, userId: { in: participants }, status: 'ACTIVE' }, select: { userId: true } });
+    const active = await this.prisma.membership.findMany({ where: { tenantId: workspaceId, userId: { in: participants }, status: 'ACTIVE' }, select: { userId: true, role: true } });
     if (active.length !== participants.length) throw new BadRequestException('All conversation participants must be active members of this workspace.');
+    for (const participant of active) await assertBranchAccess(this.prisma, workspaceId, branchId, participant.userId, participant.role);
     const kind = body.kind === 'record' ? 'record' : participants.length > 2 ? 'group' : 'direct';
     const recordType = body.recordType === undefined ? undefined : requiredString(body.recordType, 'Record type', 100);
     const relatedRecordId = body.recordId === undefined ? undefined : requiredString(body.recordId, 'Record ID', 160);
@@ -1319,6 +1530,7 @@ export class CoreController {
     if (!thread) throw new NotFoundException('Conversation not found.');
     const threadData = thread.data && typeof thread.data === 'object' && !Array.isArray(thread.data) ? thread.data as Record<string, unknown> : {};
     if (!Array.isArray(threadData.participants) || !threadData.participants.includes(session.userId)) throw new NotFoundException('Conversation not found.');
+    await this.branchFor(workspaceId, thread.branchId, session.userId);
     const rows = await this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId: thread.branchId, moduleId: 'inbox-messages' }, orderBy: { createdAt: 'asc' }, take: 5000 });
     return rows.flatMap((row) => {
       const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
@@ -1342,6 +1554,7 @@ export class CoreController {
     if (!thread) throw new NotFoundException('Conversation not found.');
     const threadData = thread.data && typeof thread.data === 'object' && !Array.isArray(thread.data) ? thread.data as Record<string, unknown> : {};
     if (!Array.isArray(threadData.participants) || !threadData.participants.includes(session.userId)) throw new NotFoundException('Conversation not found.');
+    await this.branchFor(workspaceId, thread.branchId, session.userId);
     if (Array.isArray(body.attachmentIds) && body.attachmentIds.length) throw new ServiceUnavailableException({ code: 'ATTACHMENTS_NOT_CONFIGURED', message: 'File attachments are not configured on this backend yet. Send the message without attachments.' });
     const content = requiredString(body.body, 'Message', 10000);
     const user = await this.prisma.user.findUnique({ where: { id: session.userId }, select: { displayName: true, email: true } });
@@ -1364,6 +1577,7 @@ export class CoreController {
     const thread = await this.prisma.moduleRecord.findFirst({ where: { tenantId: workspaceId, moduleId: 'inbox-threads', recordId: threadId } });
     const threadData = thread?.data && typeof thread.data === 'object' && !Array.isArray(thread.data) ? thread.data as Record<string, unknown> : {};
     if (!thread || !Array.isArray(threadData.participants) || !threadData.participants.includes(session.userId)) throw new NotFoundException('Conversation not found.');
+    await this.branchFor(workspaceId, thread.branchId, session.userId);
     const row = await this.prisma.moduleRecord.findFirst({ where: { tenantId: workspaceId, branchId: thread.branchId, moduleId: 'inbox-messages', recordId: messageId } });
     if (!row) throw new NotFoundException('Message not found.');
     const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
@@ -1387,6 +1601,7 @@ export class CoreController {
     const thread = await this.prisma.moduleRecord.findFirst({ where: { tenantId: workspaceId, moduleId: 'inbox-threads', recordId: threadId } });
     const threadData = thread?.data && typeof thread.data === 'object' && !Array.isArray(thread.data) ? thread.data as Record<string, unknown> : {};
     if (!thread || !Array.isArray(threadData.participants) || !threadData.participants.includes(session.userId)) throw new NotFoundException('Conversation not found.');
+    await this.branchFor(workspaceId, thread.branchId, session.userId);
     const recordId = `${threadId}:${session.userId}`;
     const data = { threadId, userId: session.userId, readAt: new Date().toISOString() };
     await this.prisma.moduleRecord.upsert({ where: { tenantId_branchId_moduleId_recordId: { tenantId: workspaceId, branchId: thread.branchId, moduleId: 'inbox-thread-reads', recordId } }, create: { tenantId: workspaceId, branchId: thread.branchId, moduleId: 'inbox-thread-reads', recordId, data }, update: { data, version: { increment: 1 } } });
@@ -1397,7 +1612,7 @@ export class CoreController {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
     if (!branchId) throw new BadRequestException('A branch ID is required to list tasks.');
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const rows = await this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId, moduleId: 'tasks' }, orderBy: { updatedAt: 'desc' }, take: 2000 });
     return rows.flatMap((row) => { const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {}; return status && data.status !== status ? [] : [{ ...data, id: row.recordId }]; });
   }
@@ -1409,7 +1624,7 @@ export class CoreController {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
     const branchId = requiredString(body.branchId, 'Branch ID', 80);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const title = requiredString(body.title, 'Task title', 200);
     const priority = requiredString(body.priority ?? 'normal', 'Priority', 20);
     if (!['low', 'normal', 'high', 'urgent'].includes(priority)) throw new BadRequestException('Unsupported task priority.');
@@ -1418,6 +1633,7 @@ export class CoreController {
     if (assigneeId) {
       const membership = await this.prisma.membership.findUnique({ where: { tenantId_userId: { tenantId: workspaceId, userId: assigneeId } }, include: { user: true } });
       if (!membership || membership.status !== 'ACTIVE') throw new BadRequestException('Assignee must be an active member of this workspace.');
+      await assertBranchAccess(this.prisma, workspaceId, branchId, assigneeId, membership.role);
       assigneeName = membership.user.displayName || membership.user.email;
     }
     const dueAt = optionalString(body.dueAt, 40);
@@ -1440,6 +1656,7 @@ export class CoreController {
     if (!['open', 'in_progress', 'blocked', 'done', 'cancelled'].includes(status)) throw new BadRequestException('Unsupported task status.');
     const row = await this.prisma.moduleRecord.findFirst({ where: { tenantId: workspaceId, moduleId: 'tasks', recordId: taskId } });
     if (!row) throw new NotFoundException('Task not found.');
+    await this.branchFor(workspaceId, row.branchId, session.userId);
     const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
     const updated = { ...data, status, updatedAt: new Date().toISOString() };
     await this.prisma.moduleRecord.update({ where: { id: row.id }, data: { data: updated as any, version: { increment: 1 } } });
@@ -1452,7 +1669,7 @@ export class CoreController {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
     if (!branchId) throw new BadRequestException('A branch ID is required to list approvals.');
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const rows = await this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId, moduleId: 'approvals' }, orderBy: { createdAt: 'desc' }, take: 1000 });
     return rows.flatMap((row) => { const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {}; return status && data.status !== status ? [] : [{ ...data, id: row.recordId }]; });
   }
@@ -1463,11 +1680,12 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
-    if (!['owner', 'admin', 'manager'].includes(membership.role)) throw new ForbiddenException('You do not have permission to decide approvals.');
+    if (!hasPermission(membership.role, 'approval.decide')) throw new ForbiddenException('You do not have permission to decide approvals.');
     const decision = requiredString(body.decision, 'Decision', 20);
     if (!['approve', 'reject'].includes(decision)) throw new BadRequestException('Decision must be approve or reject.');
     const row = await this.prisma.moduleRecord.findFirst({ where: { tenantId: workspaceId, moduleId: 'approvals', recordId: approvalId } });
     if (!row) throw new NotFoundException('Approval not found.');
+    await this.branchFor(workspaceId, row.branchId, session.userId);
     const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
     if (data.status !== 'pending') throw new ConflictException('This approval has already been decided.');
     const updated = { ...data, status: decision === 'approve' ? 'approved' : 'rejected', decisionComment: optionalString(body.comment, 1000) ?? '', decidedBy: session.userId, decidedAt: new Date().toISOString() };
@@ -1481,7 +1699,7 @@ export class CoreController {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
     if (!branchId) throw new BadRequestException('A branch ID is required to list notifications.');
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const [rows, reads] = await Promise.all([
       this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId, moduleId: 'notifications' }, orderBy: { createdAt: 'desc' }, take: Math.min(500, Math.max(1, Number.parseInt(limit ?? '100', 10) || 100)) }),
       this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId, moduleId: 'notification-reads' }, take: 5000 }),
@@ -1502,6 +1720,7 @@ export class CoreController {
     await this.membershipFor(session.userId, workspaceId);
     const notification = await this.prisma.moduleRecord.findFirst({ where: { tenantId: workspaceId, moduleId: 'notifications', recordId: notificationId } });
     if (!notification) throw new NotFoundException('Notification not found.');
+    await this.branchFor(workspaceId, notification.branchId, session.userId);
     const recordId = `${notificationId}:${session.userId}`;
     const data = { notificationId, userId: session.userId, readAt: new Date().toISOString() };
     await this.prisma.moduleRecord.upsert({ where: { tenantId_branchId_moduleId_recordId: { tenantId: workspaceId, branchId: notification.branchId, moduleId: 'notification-reads', recordId } }, create: { tenantId: workspaceId, branchId: notification.branchId, moduleId: 'notification-reads', recordId, data }, update: { data, version: { increment: 1 } } });
@@ -1513,7 +1732,8 @@ export class CoreController {
   async markAllNotificationsRead(@Param('workspaceId') workspaceId: string, @Req() request: FastifyRequest): Promise<void> {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    const rows = await this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, moduleId: 'notifications' }, take: 5000 });
+    const visibleBranches = await this.visibleBranchIds(workspaceId, session.userId);
+    const rows = await this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, moduleId: 'notifications', ...(visibleBranches ? { branchId: { in: visibleBranches } } : {}) }, take: 5000 });
     const readAt = new Date().toISOString();
     await this.prisma.$transaction(async (tx) => {
       for (const row of rows) {
@@ -1528,17 +1748,25 @@ export class CoreController {
   async listActivity(@Param('workspaceId') workspaceId: string, @Query('branchId') branchId: string | undefined, @Query('limit') limit: string | undefined, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    if (branchId) await this.branchFor(workspaceId, branchId);
+    const visibleBranches = await this.visibleBranchIds(workspaceId, session.userId);
+    if (visibleBranches && !branchId) throw new BadRequestException('A branch ID is required to view activity for a restricted branch membership.');
+    if (branchId) await this.branchFor(workspaceId, branchId, session.userId);
     const take = Math.min(500, Math.max(1, Number.parseInt(limit ?? '100', 10) || 100));
-    const rows = await this.prisma.auditEvent.findMany({ where: { tenantId: workspaceId }, include: { actor: true }, orderBy: { createdAt: 'desc' }, take });
-    return rows.map((row) => ({ id: row.id, kind: row.action, summary: `${row.actor?.displayName || row.actor?.email || 'Workspace user'} ${row.action.replace(/[._]/g, ' ')}${row.resourceType ? ` (${row.resourceType})` : ''}`, ...(row.actor?.displayName || row.actor?.email ? { actorName: row.actor.displayName || row.actor.email } : {}), occurredAt: row.createdAt.toISOString(), href: row.resourceType === 'sale' && row.resourceId ? `/sales/${row.resourceId}` : undefined }));
+    const rows = await this.prisma.auditEvent.findMany({ where: { tenantId: workspaceId }, include: { actor: true }, orderBy: { createdAt: 'desc' }, take: Math.min(2000, take * 4) });
+    const scopedRows = branchId ? rows.filter((row: any) => {
+      const metadata = row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata) ? row.metadata as Record<string, unknown> : {};
+      if (metadata.branchId === branchId) return true;
+      if (row.resourceType === 'sale' && row.resourceId) return false;
+      return metadata.branchId === undefined && ['workspace.created','workspace.updated','branch.created','membership.role_updated','membership.branches_updated'].includes(row.action);
+    }).slice(0, take) : rows.slice(0, take);
+    return scopedRows.map((row) => ({ id: row.id, kind: row.action, summary: `${row.actor?.displayName || row.actor?.email || 'Workspace user'} ${row.action.replace(/[._]/g, ' ')}${row.resourceType ? ` (${row.resourceType})` : ''}`, ...(row.actor?.displayName || row.actor?.email ? { actorName: row.actor.displayName || row.actor.email } : {}), occurredAt: row.createdAt.toISOString(), href: row.resourceType === 'sale' && row.resourceId ? `/sales/${row.resourceId}` : undefined }));
   }
 
   @Get('workspaces/:workspaceId/branches/:branchId/reports/modules')
   async moduleReport(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Query('report') reportQuery: string | undefined, @Query('period') periodQuery: string | undefined, @Query('currency') currencyQuery: string | undefined, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const report = requiredString(reportQuery, 'Report name', 120);
     const period = requiredString(periodQuery, 'Report period', 40);
     const currency = requiredString(currencyQuery, 'Currency', 3).toUpperCase();
@@ -1648,7 +1876,7 @@ export class CoreController {
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
     if (!['owner', 'admin', 'manager'].includes(membership.role)) throw new ForbiddenException('Only workspace managers can import opening stock.');
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const { headers, rows } = parseCsvRows(body.csv);
     const seen = new Set<string>();
     const items = rows.map((row, i) => {
@@ -1661,24 +1889,44 @@ export class CoreController {
       if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity > 1_000_000) throw new BadRequestException(`CSV row ${rowNumber}: opening quantity must be a positive whole number.`);
       return { sku, quantity, reason: csvCell(row, headers, 'reason') || 'Opening stock imported from validated CSV', rowNumber };
     });
-    await this.prisma.$transaction(async (tx) => {
+    try {
+      await this.prisma.$transaction(async (tx) => {
+      let openingInventoryValueMinor = 0;
       for (const item of items) {
         const product = await tx.product.findFirst({ where: { tenantId: workspaceId, sku: { equals: item.sku, mode: 'insensitive' } } });
         if (!product) throw new NotFoundException(`CSV row ${item.rowNumber}: SKU ${item.sku} was not found. Import products first.`);
         if (!product.trackStock) throw new BadRequestException(`CSV row ${item.rowNumber}: stock tracking is disabled for ${product.name}.`);
+        await tx.$queryRaw`SELECT id FROM products WHERE id=${product.id}::uuid AND tenant_id=${workspaceId}::uuid FOR UPDATE`;
         const prior = await tx.stockMovement.count({ where: { tenantId: workspaceId, branchId, productId: product.id } });
         if (prior) throw new ConflictException(`CSV row ${item.rowNumber}: opening stock already exists for ${product.name}. Use the stock adjustment workflow instead.`);
-        await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: product.id, type: 'opening', quantityDelta: String(item.quantity), reason: requiredString(item.reason, 'Reason', 500) } });
+        const unitCostMinor = product.costPriceMinor;
+        const lineValueMinor = item.quantity * unitCostMinor;
+        if (!Number.isSafeInteger(lineValueMinor) || lineValueMinor < 0) throw new BadRequestException(`CSV row ${item.rowNumber}: opening stock value is outside the supported range.`);
+        openingInventoryValueMinor += lineValueMinor;
+        if (!Number.isSafeInteger(openingInventoryValueMinor) || openingInventoryValueMinor > 2_000_000_000) throw new BadRequestException('Opening stock import value exceeds the supported amount range.');
+        await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: product.id, type: 'opening', quantityDelta: String(item.quantity), unitCostMinor, reason: requiredString(item.reason, 'Reason', 500) } });
+      }
+      if (openingInventoryValueMinor > 0) {
+        const openingSourceId = randomUUID();
+        await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'opening_stock_import', sourceId: openingSourceId, memo: `Opening stock import (${items.length} items)`, lines: [
+          { accountKey: 'inventory', debitMinor: openingInventoryValueMinor, description: 'Opening inventory value' },
+          { accountKey: 'owner_equity', creditMinor: openingInventoryValueMinor, description: 'Opening stock balancing entry' },
+        ] });
       }
       await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'opening_stock.csv_imported', resourceType: 'stock_import', requestId: request.headers['x-request-id'] as string | undefined, metadata: { importedCount: items.length, branchId } } });
-    }, { isolationLevel: 'Serializable' });
+      }, { isolationLevel: 'Serializable' });
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2034') throw new ConflictException({ code: 'OPENING_STOCK_CONCURRENCY_CONFLICT', message: 'Opening stock changed during import. Refresh the stock register and retry.' });
+      throw error;
+    }
     return { importedCount: items.length };
   }
 
   @Get('workspaces/:workspaceId/backup')
   async exportWorkspaceBackup(@Param('workspaceId') workspaceId: string, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
-    await this.membershipFor(session.userId, workspaceId);
+    const membership = await this.membershipFor(session.userId, workspaceId);
+    if (!isWorkspaceAdministrator(membership.role)) throw new ForbiddenException('Only workspace owners and administrators can export a complete workspace backup.');
     const [workspace, branches, categories, products, stockMovements, sales, saleLines, salePayments, saleReturns, saleReturnLines, moduleRecords] = await Promise.all([
       this.prisma.tenant.findUnique({ where: { id: workspaceId }, select: { id: true, name: true, slug: true, businessType: true, currency: true, timezone: true, enabledModules: true } }),
       this.prisma.branch.findMany({ where: { tenantId: workspaceId }, orderBy: { createdAt: 'asc' } }),
@@ -1709,7 +1957,7 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
-    if (!['owner', 'admin'].includes(membership.role)) throw new ForbiddenException('Only a workspace owner or administrator can restore a backup.');
+    if (!isWorkspaceAdministrator(membership.role)) throw new ForbiddenException('Only a workspace owner or administrator can restore a backup.');
     const backup = asObject(body.backup, 'backup');
     if (backup.format !== 'lexa-server-workspace-backup' || backup.version !== 1 || backup.database !== 'neon-postgresql') throw new BadRequestException('This is not a supported LEXA server backup. Upload a backup downloaded from the LEXA backend.');
     if (backup.workspaceId !== workspaceId) throw new BadRequestException('A server backup can only be restored into the same workspace it was exported from.');

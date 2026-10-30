@@ -42,6 +42,9 @@ model Tenant {
   updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
   memberships        Membership[]
   branches           Branch[]
+  ledgerAccounts     LedgerAccount[]
+  accountingPeriods  AccountingPeriod[]
+  ledgerJournals     LedgerJournal[]
   auditEvents        AuditEvent[]
   idempotencyRecords IdempotencyRecord[]
   sessions           Session[]
@@ -70,6 +73,10 @@ model User {
   auditEvents        AuditEvent[]        @relation("AuditActor")
   sessions           Session[]
   passwordResetTokens PasswordResetToken[]
+  branchGrantsCreated BranchMembership[] @relation("BranchGrantCreator")
+  accountingPeriodsClosed AccountingPeriod[] @relation("AccountingPeriodCloser")
+  ledgerJournalsCreated LedgerJournal[] @relation("LedgerJournalCreator")
+  ledgerJournalsPosted LedgerJournal[] @relation("LedgerJournalPoster")
 
   @@map("users")
 }
@@ -79,10 +86,12 @@ model Membership {
   userId    String           @map("user_id") @db.Uuid
   role      String           @default("member")
   status    MembershipStatus @default(INVITED)
+  branchScopeMode String     @default("all") @map("branch_scope_mode")
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
   tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user      User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  branchAccesses BranchMembership[]
 
   @@id([tenantId, userId])
   @@index([userId, status])
@@ -100,14 +109,123 @@ model Branch {
   createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branchMemberships BranchMembership[]
+  ledgerJournals LedgerJournal[]
   moduleRecords  ModuleRecord[]
   stockMovements StockMovement[]
   sales          Sale[]
   saleReturns    SaleReturn[]
 
   @@unique([tenantId, code])
+  @@unique([tenantId, id])
   @@index([tenantId, name])
   @@map("branches")
+}
+
+model BranchMembership {
+  tenantId        String     @map("tenant_id") @db.Uuid
+  branchId        String     @map("branch_id") @db.Uuid
+  userId          String     @map("user_id") @db.Uuid
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdByUserId String?    @map("created_by_user_id") @db.Uuid
+  membership      Membership @relation(fields: [tenantId, userId], references: [tenantId, userId], onDelete: Cascade)
+  branch          Branch      @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+  createdByUser   User?       @relation("BranchGrantCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@id([tenantId, branchId, userId])
+  @@index([tenantId, userId])
+  @@index([tenantId, branchId])
+  @@map("branch_memberships")
+}
+
+model LedgerAccount {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  accountCode   String   @map("account_code")
+  accountName   String   @map("account_name")
+  accountType   String   @map("account_type")
+  normalBalance String   @map("normal_balance")
+  systemKey     String?  @map("system_key")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  journalLines  LedgerJournalLine[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, accountCode])
+  @@unique([tenantId, systemKey])
+  @@index([tenantId, accountType, accountCode])
+  @@map("ledger_accounts")
+}
+
+model AccountingPeriod {
+  id              String    @id @default(uuid()) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  periodKey       String    @map("period_key")
+  startsOn        DateTime  @map("starts_on") @db.Date
+  endsOn          DateTime  @map("ends_on") @db.Date
+  status          String    @default("open")
+  closedAt        DateTime? @map("closed_at") @db.Timestamptz(3)
+  closedByUserId  String?   @map("closed_by_user_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  closedByUser    User?     @relation("AccountingPeriodCloser", fields: [closedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, periodKey])
+  @@index([tenantId, startsOn, endsOn])
+  @@map("accounting_periods")
+}
+
+model LedgerJournal {
+  id               String              @id @default(uuid()) @db.Uuid
+  tenantId         String              @map("tenant_id") @db.Uuid
+  branchId         String              @map("branch_id") @db.Uuid
+  journalNumber    String              @map("journal_number")
+  entryDate        DateTime            @map("entry_date") @db.Date
+  memo             String
+  sourceType       String?             @map("source_type")
+  sourceId         String?             @map("source_id")
+  status           String              @default("draft")
+  reversalOfId     String?             @map("reversal_of_id") @db.Uuid
+  idempotencyKey   String?             @map("idempotency_key")
+  requestHash      String?             @map("request_hash")
+  createdByUserId  String              @map("created_by_user_id") @db.Uuid
+  postedByUserId   String?             @map("posted_by_user_id") @db.Uuid
+  postedAt         DateTime?           @map("posted_at") @db.Timestamptz(3)
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime            @default(now()) @map("updated_at") @db.Timestamptz(3)
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch           Branch              @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  createdByUser    User                @relation("LedgerJournalCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  postedByUser     User?               @relation("LedgerJournalPoster", fields: [postedByUserId], references: [id], onDelete: Restrict)
+  reversalOf       LedgerJournal?      @relation("LedgerJournalReversals", fields: [tenantId, reversalOfId], references: [tenantId, id], onDelete: Restrict)
+  reversals        LedgerJournal[]     @relation("LedgerJournalReversals")
+  lines            LedgerJournalLine[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, journalNumber])
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, branchId, entryDate])
+  @@index([tenantId, status, entryDate])
+  @@map("ledger_journals")
+}
+
+model LedgerJournalLine {
+  id          String        @id @default(uuid()) @db.Uuid
+  tenantId    String        @map("tenant_id") @db.Uuid
+  journalId   String        @map("journal_id") @db.Uuid
+  lineNumber  Int           @map("line_number")
+  accountId   String        @map("account_id") @db.Uuid
+  description String?
+  debitMinor  BigInt        @default(0) @map("debit_minor")
+  creditMinor BigInt        @default(0) @map("credit_minor")
+  journal     LedgerJournal @relation(fields: [tenantId, journalId], references: [tenantId, id], onDelete: Restrict)
+  account     LedgerAccount @relation(fields: [tenantId, accountId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, journalId, lineNumber])
+  @@index([tenantId, accountId, journalId])
+  @@map("ledger_journal_lines")
 }
 
 model AuditEvent {
@@ -246,6 +364,7 @@ model StockMovement {
   productId    String            @map("product_id") @db.Uuid
   type         StockMovementType
   quantityDelta Decimal          @map("quantity_delta") @db.Decimal(12, 3)
+  unitCostMinor  Int              @default(0) @map("unit_cost_minor")
   reason       String
   sourceId     String?           @map("source_id")
   createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -287,6 +406,7 @@ model SaleLine {
   productId           String   @map("product_id") @db.Uuid
   productNameSnapshot String   @map("product_name_snapshot")
   quantity            Decimal  @db.Decimal(12, 3)
+  unitCostMinor       Int      @default(0) @map("unit_cost_minor")
   unitPriceMinor      Int      @map("unit_price_minor")
   lineTotalMinor      Int      @map("line_total_minor")
   tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)

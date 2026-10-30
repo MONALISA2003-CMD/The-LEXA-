@@ -5,6 +5,8 @@ import {
 import type { FastifyRequest } from 'fastify';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertBranchAccess } from '../authorization/branch-scope';
+import { postLedgerJournal, settlementAccountKey } from '../general-ledger/ledger-posting';
 import { CsrfGuard } from '../core/csrf.guard';
 
 type Obj = Record<string, unknown>;
@@ -86,6 +88,7 @@ export class PayablesController {
     if (!member || member.status !== 'ACTIVE') throw new NotFoundException('Workspace not found.');
     const branch = await this.prisma.branch.findFirst({ where: { id: branchId, tenantId: workspaceId }, select: { id: true } });
     if (!branch) throw new NotFoundException('Branch not found.');
+    await assertBranchAccess(this.prisma, workspaceId, branchId, session.userId, member.role);
     return { userId: session.userId, role: member.role };
   }
 
@@ -287,6 +290,20 @@ export class PayablesController {
           FROM commerce_goods_receipt_lines grl WHERE grl.id=${line.receipt_line_id}::uuid AND grl.tenant_id=${workspaceId}::uuid FOR UPDATE`;
         if (!check.length || Number(check[0].accepted) < Number(check[0].already_approved) + Number(line.quantity) - 0.0000001) throw new ConflictException('The received quantity is no longer available for this invoice.');
       }
+      const receivedCostRows = await tx.$queryRaw<any[]>`SELECT COALESCE(ROUND(SUM(ail.quantity*pol.unit_cost_minor)),0)::bigint AS received_cost_minor
+        FROM ap_supplier_invoice_lines ail JOIN commerce_purchase_order_lines pol ON pol.id=ail.purchase_order_line_id AND pol.tenant_id=ail.tenant_id
+        WHERE ail.tenant_id=${workspaceId}::uuid AND ail.invoice_id=${invoiceId}::uuid`;
+      const receivedCostMinor = Number(receivedCostRows[0]?.received_cost_minor ?? 0);
+      const invoiceSubtotalMinor = Number(invoice.subtotal_minor);
+      const invoiceTaxMinor = Number(invoice.tax_minor);
+      const priceVarianceMinor = invoiceSubtotalMinor - receivedCostMinor;
+      const postingLines: Array<{accountKey:string;debitMinor?:number;creditMinor?:number;description?:string}> = [];
+      if(receivedCostMinor > 0) postingLines.push({accountKey:'goods_received_not_invoiced',debitMinor:receivedCostMinor,description:`Clear received-goods accrual - ${invoice.invoice_number}`});
+      if(priceVarianceMinor > 0) postingLines.push({accountKey:'purchase_price_variance',debitMinor:priceVarianceMinor,description:`Supplier price variance - ${invoice.invoice_number}`});
+      if(priceVarianceMinor < 0) postingLines.push({accountKey:'purchase_price_variance',creditMinor:Math.abs(priceVarianceMinor),description:`Supplier price variance credit - ${invoice.invoice_number}`});
+      if(invoiceTaxMinor > 0) postingLines.push({accountKey:'input_tax',debitMinor:invoiceTaxMinor,description:`Recoverable input tax - ${invoice.invoice_number}`});
+      postingLines.push({accountKey:'accounts_payable',creditMinor:Number(invoice.total_minor),description:`Supplier payable - ${invoice.invoice_number}`});
+      await postLedgerJournal(tx,{tenantId:workspaceId,branchId,actorUserId:actor.userId,sourceType:'supplier_invoice_approved',sourceId:invoiceId,memo:`Supplier invoice ${invoice.invoice_number}`,entryDate:isoDate(invoice.bill_date),lines:postingLines});
       await tx.$executeRaw`UPDATE ap_supplier_invoices SET status='approved',approved_by_user_id=${actor.userId}::uuid,approved_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=${invoiceId}::uuid`;
       await this.invoiceProjection(tx, workspaceId, branchId, invoiceId);
       await this.event(tx, workspaceId, branchId, 'purchase-invoices', invoiceId, 'supplier_invoice.approved', { invoiceNumber: invoice.invoice_number, totalMinor: invoice.total_minor }, actor.userId, `ap-invoice-approved:${invoiceId}`);
@@ -401,6 +418,11 @@ export class PayablesController {
           await this.link(tx, workspaceId, branchId, 'purchase-invoices', allocation.invoiceId, 'payments', id, actor.userId);
           await this.event(tx, workspaceId, branchId, 'purchase-invoices', allocation.invoiceId, 'supplier_invoice.payment_allocated', { paymentId: id, paymentNumber, amountMinor: allocation.amountMinor, balanceDueMinor: Math.max(0, Number(balances[0]?.total_minor) - paid) }, actor.userId, `ap-allocation:${id}:${allocation.invoiceId}`);
         }
+        const settlementKey = ['cash','bank','mobile_money'].includes(account) ? account : settlementAccountKey(method);
+        await postLedgerJournal(tx,{tenantId:workspaceId,branchId,actorUserId:actor.userId,sourceType:'supplier_payment_recorded',sourceId:id,memo:`Supplier payment ${paymentNumber}`,entryDate:paymentDate,lines:[
+          {accountKey:'accounts_payable',debitMinor:totalMinor,description:`Settle supplier invoices - ${paymentNumber}`},
+          {accountKey:settlementKey,creditMinor:totalMinor,description:`Supplier funds paid - ${account}`},
+        ]});
         await this.event(tx, workspaceId, branchId, 'payments', id, 'supplier_payment.recorded', { paymentNumber, supplierName, amountMinor: totalMinor }, actor.userId, `ap-payment:${id}`);
         await this.audit(tx, workspaceId, actor.userId, 'supplier_payment.recorded', 'supplier_payment', id);
         return id;

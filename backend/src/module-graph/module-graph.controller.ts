@@ -16,6 +16,7 @@ import {
 import type { FastifyRequest } from 'fastify';
 import { createHash, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertBranchAccess } from '../authorization/branch-scope';
 import { CsrfGuard } from '../core/csrf.guard';
 
 type JsonObject = Record<string, unknown>;
@@ -106,9 +107,11 @@ export class ModuleGraphController {
     return membership;
   }
 
-  private async branchFor(workspaceId: string, branchId: string): Promise<void> {
+  private async branchFor(workspaceId: string, branchId: string, userId: string): Promise<void> {
     const branch = await this.prisma.branch.findFirst({ where: { id: branchId, tenantId: workspaceId }, select: { id: true } });
     if (!branch) throw new NotFoundException('Branch not found.');
+    const membership = await this.membershipFor(userId, workspaceId);
+    await assertBranchAccess(this.prisma, workspaceId, branchId, userId, membership.role);
   }
 
   private async assertModule(moduleId: string): Promise<void> {
@@ -156,7 +159,7 @@ export class ModuleGraphController {
   ) {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     return this.prisma.$queryRaw`
       SELECT module_id AS "id", title, singular_label AS "singularLabel", group_name AS "group",
              schema_version AS "schemaVersion", is_writable AS "writable", storage_kind AS "storageKind"
@@ -174,7 +177,7 @@ export class ModuleGraphController {
   ): Promise<LinkRow[]> {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     await this.assertModule(moduleId);
     await this.assertRecord(workspaceId, branchId, moduleId, recordId);
     return this.prisma.$queryRaw<LinkRow[]>`
@@ -205,7 +208,7 @@ export class ModuleGraphController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const sourceModuleId = requiredString(body.sourceModuleId, 'Source module', 80);
     const sourceRecordId = requiredString(body.sourceRecordId, 'Source record', 160);
     const targetModuleId = requiredString(body.targetModuleId, 'Target module', 80);
@@ -251,7 +254,7 @@ export class ModuleGraphController {
     if (!isUuid(linkId)) throw new BadRequestException('Relationship ID is invalid.');
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     await this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<Array<{ id: string; sourceModuleId: string; sourceRecordId: string; targetModuleId: string; targetRecordId: string }>>`
         DELETE FROM module_record_links
@@ -280,7 +283,7 @@ export class ModuleGraphController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     const moduleId = requiredString(body.moduleId, 'Module ID', 80);
     const recordId = optionalString(body.recordId, 'Record ID', 160);
     const eventType = requiredString(body.eventType, 'Event type', 120);
@@ -307,7 +310,7 @@ export class ModuleGraphController {
   ): Promise<EventRow[]> {
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
-    await this.branchFor(workspaceId, branchId);
+    await this.branchFor(workspaceId, branchId, session.userId);
     if (moduleId) await this.assertModule(moduleId);
     const parsedLimit = Math.min(100, Math.max(1, Number.parseInt(limit ?? '30', 10) || 30));
     const afterDate = after ? new Date(after) : null;
