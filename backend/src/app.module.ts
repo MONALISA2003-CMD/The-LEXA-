@@ -1,15 +1,18 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { CoreController } from './core/core.controller';
 import { CsrfGuard } from './core/csrf.guard';
+import { TypedModuleWriteGuard } from './core/typed-module-write.guard';
 import { ModuleGraphController } from './module-graph/module-graph.controller';
 import { CommerceController } from './commerce/commerce.controller';
 import { ReceivablesController } from './receivables/receivables.controller';
+import { PayablesController } from './payables/payables.controller';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, ReceivablesController],
-  providers: [CsrfGuard],
+  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, ReceivablesController, PayablesController],
+  providers: [CsrfGuard, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
 })
 export class AppModule {}

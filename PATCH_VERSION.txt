@@ -1,3 +1,4 @@
-LEXA Increment 3 build repair
-Based on extracted Increment 3 commit e8c1671b10d17140c37ede96bcc428632c46046c
-Patch scope: missing Nest Body decorator import; strict TypeScript optional fraction digit handling.
+LEXA_ACCOUNTS_PAYABLE_INCREMENT_4
+Database migration: 20261030210000_accounts_payable
+Base commit: 4d2d4503a9b87c0e5ba0158ae70837f854b921f8
+Scope: typed supplier invoices, approved payables, allocated payments, ageing, reconciliation, frontend integration.
