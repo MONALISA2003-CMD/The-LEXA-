@@ -751,13 +751,13 @@ export class PeopleProjectsController {
       const old=rows[0];if(!old)throw new NotFoundException('Support case not found.');
       if(status==='closed'&&old.status!=='resolved'&&old.status!=='closed')throw new ConflictException('Resolve a support case before closing it.');
       if(status==='resolved'&&!resolution)throw new BadRequestException('A resolution note is required before resolving a case.');
-      const next=status??old.status;
+      const next: string = status ?? String(old.status);
       await tx.$executeRaw`UPDATE support_cases SET status=${next},assigned_employee_id=CASE WHEN ${assigned===undefined} THEN assigned_employee_id ELSE ${assigned}::uuid END,
         resolution=CASE WHEN ${v.resolution===undefined} THEN resolution ELSE ${resolution} END,
         resolved_at=CASE WHEN ${next}='resolved' THEN COALESCE(resolved_at,now()) ELSE resolved_at END,
         closed_at=CASE WHEN ${next}='closed' THEN COALESCE(closed_at,now()) ELSE NULL END,updated_at=now()
         WHERE tenant_id=${w}::uuid AND id=${id}::uuid`;
-      await this.mirror(tx,w,b,'support',id,{id,ticketNumber:old.case_number,subject:old.subject,priority:old.priority,status:next.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase()),customerRecordId:old.customer_record_id,taskRecordId:old.task_record_id,resolution:resolution??''});
+      await this.mirror(tx,w,b,'support',id,{id,ticketNumber:old.case_number,subject:old.subject,priority:old.priority,status:next.replaceAll('_',' ').replace(/\b\w/g,(character: string)=>character.toUpperCase()),customerRecordId:old.customer_record_id,taskRecordId:old.task_record_id,resolution:resolution??''});
       await this.audit(tx,w,b,a.userId,'support.case_updated','support_case',id,{from:old.status,to:next,assignedEmployeeId:assigned??undefined});
       return {id,status:next,resolution:resolution??null};
     },{isolationLevel:'Serializable'});

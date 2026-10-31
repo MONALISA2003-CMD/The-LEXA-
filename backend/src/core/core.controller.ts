@@ -1918,7 +1918,7 @@ export class CoreController {
     if (!hasPermission(membership.role, 'approval.decide')) throw new ForbiddenException('You do not have permission to decide approvals.');
     const decision = requiredString(body.decision, 'Decision', 20);
     if (!['approve', 'reject'].includes(decision)) throw new BadRequestException('Decision must be approve or reject.');
-    const row = await this.prisma.moduleRecord.findFirst({ where: { tenantId: workspaceId, moduleId: 'approvals', recordId: approvalId }, select: { branchId: true } });
+    const row = await this.prisma.moduleRecord.findFirst({ where: { tenantId: workspaceId, moduleId: 'approvals', recordId: approvalId }, select: { branchId: true, data: true } });
     if (!row) throw new NotFoundException('Approval not found.');
     await this.branchFor(workspaceId, row.branchId, session.userId);
     const approvalData = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   ConflictException,
+  ForbiddenException,
   Delete,
   Get,
   NotFoundException,
