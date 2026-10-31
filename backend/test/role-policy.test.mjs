@@ -85,3 +85,17 @@ test('restricted branch scope can deliberately deny every branch while all mode 
   assert.equal(canAccessBranch('member', 'restricted', true), true);
   assert.equal(canAccessBranch('owner', 'restricted', false), true);
 });
+
+
+test('maps Workstream 5 procurement, warehouse and manufacturing transactions to scoped capabilities', () => {
+  const base = '/api/v1/workspaces/w/branches/b/supply-chain';
+  assert.equal(permissionForRequest('POST', `${base}/procurement/purchase-orders/po/receipts`), 'procurement.receive');
+  assert.equal(permissionForRequest('POST', `${base}/procurement/awards/award/approve`), 'approval.decide');
+  assert.equal(permissionForRequest('POST', `${base}/procurement/approval-rules`), 'workspace.manage');
+  assert.equal(permissionForRequest('POST', `${base}/inventory/stock-counts/count/review`), 'inventory.write');
+  assert.equal(permissionForRequest('POST', `${base}/inventory/stock-counts/count/approve`), 'approval.decide');
+  assert.equal(permissionForRequest('GET', `${base}/inventory/transfers`), 'inventory.read');
+  assert.equal(permissionForRequest('POST', `${base}/inventory/transfers`), 'inventory.write');
+  assert.equal(permissionForRequest('POST', `${base}/manufacturing/work-orders/wo/release`), 'manufacturing.write');
+  assert.equal(permissionForRequest('POST', `${base}/quality/inspections/inspection/decision`), 'approval.decide');
+});

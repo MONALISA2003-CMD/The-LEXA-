@@ -14,10 +14,11 @@ import { GeneralLedgerController } from './general-ledger/general-ledger.control
 import { InvitationsController } from './invitations/invitations.controller';
 import { CatalogInventoryController } from './commerce/catalog-inventory.controller';
 import { FinanceOperationsController } from './finance/finance-operations.controller';
+import { SupplyChainController } from './supply-chain/supply-chain.controller';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, ReceivablesController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController],
+  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, ReceivablesController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController, SupplyChainController],
   providers: [CsrfGuard, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
 })
 export class AppModule {}

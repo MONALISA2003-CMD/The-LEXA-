@@ -3297,6 +3297,1452 @@ paths:
         '404': {description: Resource not found}
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/packages/{packageId}/packing-slip:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-inventory-packages-packageid-packing-slip
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: packageId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/picklists:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-inventory-picklists
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-picklists
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/picklists/{picklistId}/dispatch:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-picklists-picklistid-dispatch
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: picklistId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/picklists/{picklistId}/packages:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-picklists-picklistid-packages
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: picklistId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/picklists/{picklistId}/pick:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-picklists-picklistid-pick
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: picklistId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/replenishment/policies:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-replenishment-policies
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/replenishment/suggestions:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-inventory-replenishment-suggestions
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/stock-counts:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-inventory-stock-counts
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-stock-counts
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/stock-counts/{countId}/approve:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-stock-counts-countid-approve
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: countId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/stock-counts/{countId}/submit:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-stock-counts-countid-submit
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: countId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/transfers:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-inventory-transfers
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-transfers
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/transfers/{transferId}/dispatch:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-transfers-transferid-dispatch
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: transferId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/transfers/{transferId}/receive:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-transfers-transferid-receive
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: transferId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/warehouses:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-inventory-warehouses
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-warehouses
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/boms:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-boms
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-boms
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/job-cards/{cardId}/steps/{stepId}/complete:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-job-cards-cardid-steps-stepid-complete
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: cardId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: stepId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/job-cards/{cardId}/steps/{stepId}/start:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-job-cards-cardid-steps-stepid-start
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: cardId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: stepId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/work-orders:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-work-orders
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-work-orders
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/work-orders/{workOrderId}/complete:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-work-orders-workorderid-complete
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: workOrderId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/work-orders/{workOrderId}/job-cards:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-work-orders-workorderid-job-cards
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: workOrderId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/work-orders/{workOrderId}/release:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-work-orders-workorderid-release
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: workOrderId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/approval-rules:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-approval-rules
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-approval-rules
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/awards:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-awards
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/awards/{awardId}/approve:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-awards-awardid-approve
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: awardId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/awards/{awardId}/reject:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-awards-awardid-reject
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: awardId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/purchase-orders:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-purchase-orders
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/purchase-orders/{purchaseOrderId}/receipts:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-purchase-orders-purchaseorderid-receipts
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: purchaseOrderId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/purchase-requests:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-purchase-requests
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-purchase-requests
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/purchase-requests/{requestId}/decision:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-purchase-requests-requestid-decision
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: requestId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/purchase-requests/{requestId}/submit:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-purchase-requests-requestid-submit
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: requestId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/rfqs:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-rfqs
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/rfqs/{rfqId}/invitations:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-rfqs-rfqid-invitations
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: rfqId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/rfqs/{rfqId}/issue:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-rfqs-rfqid-issue
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: rfqId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/rfqs/{rfqId}/quotations:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-rfqs-rfqid-quotations
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: rfqId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-rfqs-rfqid-quotations
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: rfqId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/supplier-returns:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-supplier-returns
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-supplier-returns
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/supplier-returns/{returnId}/approve:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-supplier-returns-returnid-approve
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: returnId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/supplier-returns/{returnId}/dispatch:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-supplier-returns-returnid-dispatch
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: returnId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/suppliers:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-suppliers
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-suppliers
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/quality/inspections:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-quality-inspections
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/quality/inspections/{inspectionId}/decision:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-quality-inspections-inspectionid-decision
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: inspectionId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/quality/plans:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-quality-plans
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-quality-plans
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/supplier-returns/{returnId}/notes:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-supplier-returns-returnid-notes
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - {name: workspaceId, in: path, required: true, schema: {type: string}}
+        - {name: branchId, in: path, required: true, schema: {type: string}}
+        - {name: returnId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Supplier debit and credit notes linked to the return}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Supplier return not found}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/supplier-returns/{returnId}/credit-note:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-supplier-returns-returnid-credit-note
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - {name: workspaceId, in: path, required: true, schema: {type: string}}
+        - {name: branchId, in: path, required: true, schema: {type: string}}
+        - {name: returnId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [noteNumber, amountMinor]
+              properties:
+                noteNumber: {type: string, minLength: 1, maxLength: 100}
+                amountMinor: {type: integer, minimum: 1}
+      responses:
+        '200': {description: Supplier credit note recorded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Supplier return not found}
+        '409': {description: Credit exceeds the supplier debit note balance}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/stock-counts/{countId}/review:
+    post:
+      operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-stock-counts-countid-review
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - {name: workspaceId, in: path, required: true, schema: {type: string}}
+        - {name: branchId, in: path, required: true, schema: {type: string}}
+        - {name: countId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Stock count reviewed; variances are ready for approval}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Stock count not found}
+        '409': {description: Stock count is not in the submitted state}
 components:
   securitySchemes:
     sessionCookie:

@@ -28,6 +28,12 @@ enum StockMovementType {
   transfer_in
   transfer_out
   write_off
+  supplier_return
+  production_issue
+  production_receipt
+  count_adjustment
+  quarantine
+  release
 }
 
 model Tenant {
