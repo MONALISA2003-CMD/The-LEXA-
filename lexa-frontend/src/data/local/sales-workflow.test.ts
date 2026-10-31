@@ -58,6 +58,27 @@ describe('local transaction workflow', () => {
     expect(await db.stockMovements.where('[workspaceId+branchId+productId]').equals([workspace.id, branch.id, product.id]).count()).toBe(1);
   });
 
+
+  it('does not put quarantined or scrapped returns back into saleable stock', async () => {
+    const { workspace, branch, product } = await setupStock(5);
+    const { sale } = await localSalesWorkflow.completeSale({
+      workspaceId: workspace.id, branchId: branch.id,
+      items: [{ productId: product.id, quantity: 2 }],
+      payments: [{ method: 'cash', amountMinor: 24000 }],
+    });
+    const line = (await db.saleLines.where('[workspaceId+saleId]').equals([workspace.id, sale.id]).toArray())[0];
+    if (!line) throw new Error('Sale line was not saved.');
+    await localSalesWorkflow.recordReturn({
+      workspaceId: workspace.id, branchId: branch.id, saleId: sale.id,
+      items: [{ saleLineId: line.id, quantity: 1, disposition: 'quarantine' }],
+      reason: 'Needs inspection', recordRefund: false, refundMethod: 'cash',
+    });
+    const movements = await db.stockMovements.where('[workspaceId+branchId+productId]').equals([workspace.id, branch.id, product.id]).toArray();
+    const detail = await localSalesRepository.getSale({ workspaceId: workspace.id, saleId: sale.id });
+    expect(stockOnHand(movements)).toBe(3);
+    expect(detail?.returnLines[0]?.disposition).toBe('quarantine');
+  });
+
   it('records a return against the original sale and rejects excess returns', async () => {
     const { workspace, branch, product } = await setupStock(5);
     const { sale } = await localSalesWorkflow.completeSale({

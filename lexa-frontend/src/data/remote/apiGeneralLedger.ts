@@ -5,6 +5,35 @@ export interface LedgerAccount { id: string; accountCode: string; accountName: s
 export interface LedgerLineInput { accountId: string; debitMinor?: number; creditMinor?: number; description?: string; }
 export interface LedgerJournalInput { entryDate: string; memo: string; lines: LedgerLineInput[]; }
 export interface LedgerJournal { id: string; journalNumber: string; entryDate: string; memo: string; status: 'draft' | 'posted'; sourceType?: string; sourceId?: string; reversalOfId?: string; debitMinor: number; creditMinor: number; createdAt: string; postedAt?: string; lines: Array<{ id: string; lineNumber: number; accountId: string; accountCode: string; accountName: string; description?: string; debitMinor: number; creditMinor: number }>; }
+export interface LedgerSourceWorkflowReconciliation {
+  sourceType: string;
+  expectedCount: number;
+  postedCount: number;
+  missingCount: number;
+  unpostedCount: number;
+  unbalancedCount: number;
+  amountMismatchCount: number;
+  missingIds: string[];
+  unpostedIds: string[];
+  unbalancedIds: string[];
+  amountMismatchIds: string[];
+}
+export interface LedgerSourceReconciliation {
+  workspaceId: string;
+  branchId: string;
+  checkedAt: string;
+  healthy: boolean;
+  expectedCount: number;
+  postedCount: number;
+  missingCount: number;
+  unpostedCount: number;
+  unbalancedCount: number;
+  amountMismatchCount: number;
+  orphanJournalCount: number;
+  orphanJournalIds: string[];
+  workflows: LedgerSourceWorkflowReconciliation[];
+  note: string;
+}
 
 const base = (scope: LedgerScope) => `/workspaces/${encodeURIComponent(scope.workspaceId)}/branches/${encodeURIComponent(scope.branchId)}/ledger`;
 function list<T>(value: unknown, label: string): T[] { if (!Array.isArray(value)) throw new Error(`The backend returned an invalid ${label} collection.`); return value as T[]; }
@@ -23,4 +52,5 @@ export const apiGeneralLedger = {
   async profitAndLoss(scope: LedgerScope, filters: { from?: string; to?: string } = {}) { return record<{ from: string; to: string; revenueMinor: number; expensesMinor: number; netProfitMinor: number; accounts: Array<{ id: string; accountCode: string; accountName: string; accountType: string; amountMinor: number }> }>(await apiClient.get(`${base(scope)}/reports/profit-and-loss`, filters), 'profit and loss report'); },
   async balanceSheet(scope: LedgerScope, asOf?: string) { return record<{ asOf: string; totalAssetsMinor: number; totalLiabilitiesMinor: number; totalEquityMinor: number; accumulatedEarningsMinor: number; liabilitiesAndEquityMinor: number; accounts: Array<{ id: string; accountCode: string; accountName: string; accountType: string; balanceMinor: number }> }>(await apiClient.get(`${base(scope)}/reports/balance-sheet`, { asOf }), 'balance sheet'); },
   async accountActivity(scope: LedgerScope, accountId: string, filters: { from?: string; to?: string } = {}) { return list<Record<string, unknown>>(await apiClient.get(`${base(scope)}/accounts/${encodeURIComponent(accountId)}/activity`, filters), 'account activity'); },
+  async sourceReconciliation(scope: LedgerScope) { return record<LedgerSourceReconciliation>(await apiClient.get(`${base(scope)}/reports/source-reconciliation`), 'source-to-ledger reconciliation'); },
 };

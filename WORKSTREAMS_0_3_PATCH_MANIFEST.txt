@@ -1,13 +1,16 @@
-LEXA Workstreams 0–3 deepened overlay
-Base: MONALISA2003-CMD/The-LEXA- main snapshot
-Apply: extract at the repository root; preserve paths; review diffs before release.
-Production DB/deployments were not modified.
+LEXA Workstreams 0–3 audited implementation overlay
+Base: MONALISA2003-CMD/The-LEXA- main source snapshot evidenced by cloud build log commit ec68f0163be1e0945f8b6da2cbb4413caa015667.
+Apply: extract at the matching repository root, preserve paths, inspect the resulting diff, then run the disposable-database verification sequence in WORKSTREAMS_0_3_IMPLEMENTATION_NOTES.md.
+Includes: prior Render/Vercel TypeScript repairs plus this audit's WS0–WS3 source changes and migrations.
+Safety: no GitHub writes, production migration, production database change, or production deployment was performed. Two additive migrations were directly validated on a non-primary Neon test branch; Prisma migration-runner verification remains open.
 
 Files in this overlay:
 .github/workflows/backend-ci.yml
 .github/workflows/frontend-ci.yml
-WORKSTREAMS_0_3_IMPLEMENTATION_NOTES.md
 DEPLOYMENT_BUILD_REPAIRS_20261031.md
+DEPLOYMENT_HEALTHCHECK.md
+WORKSTREAMS_0_3_AUDIT_MATRIX.md
+WORKSTREAMS_0_3_IMPLEMENTATION_NOTES.md
 backend/package.json
 backend/prisma/migrations/20261030230000_branch_scoped_authorization/migration.sql
 backend/prisma/migrations/20261030240000_general_ledger_foundation/migration.sql
@@ -16,8 +19,13 @@ backend/prisma/migrations/20261030260000_inventory_ledger_accounts/migration.sql
 backend/prisma/migrations/20261030270000_explicit_branch_scope_mode/migration.sql
 backend/prisma/migrations/20261030280000_accounting_period_integrity/migration.sql
 backend/prisma/migrations/20261030290000_automatic_period_rollover/migration.sql
+backend/prisma/migrations/20261030300000_sale_return_disposition/migration.sql
+backend/prisma/migrations/20261030310000_ledger_source_reconciliation/migration.sql
 backend/prisma/schema.prisma
+backend/scripts/RLS_DESIGN_NOT_ENABLED.md
 backend/scripts/check-openapi-coverage.py
+backend/scripts/check-route-adapter-coverage.py
+backend/scripts/test-tenant-rls.sql
 backend/scripts/verify-ledger-posting-coverage.mjs
 backend/scripts/verify-schema-integrity.mjs
 backend/src/app.module.ts
@@ -26,6 +34,7 @@ backend/src/authorization/role-policy.ts
 backend/src/authorization/tenant-authorization.guard.ts
 backend/src/commerce/commerce.controller.ts
 backend/src/core/core.controller.ts
+backend/src/core/typed-module-write.guard.ts
 backend/src/general-ledger/general-ledger.controller.ts
 backend/src/general-ledger/ledger-posting.ts
 backend/src/main.ts
@@ -33,13 +42,27 @@ backend/src/module-graph/module-graph.controller.ts
 backend/src/payables/payables.controller.ts
 backend/src/receivables/receivables.controller.ts
 backend/test/role-policy.test.mjs
+docs/ADR-0001-identity-and-session-source.md
 lexa-frontend/openapi/backend-contract.yaml
 lexa-frontend/src/app/router.tsx
+lexa-frontend/src/data/contracts/collaboration.ts
+lexa-frontend/src/data/local/sales-workflow.test.ts
+lexa-frontend/src/data/local/sales-workflow.ts
+lexa-frontend/src/data/remote/apiBusinessTools.ts
+lexa-frontend/src/data/remote/apiClient.ts
+lexa-frontend/src/data/remote/apiCollaboration.ts
 lexa-frontend/src/data/remote/apiGeneralLedger.ts
+lexa-frontend/src/data/remote/apiModuleRecords.ts
 lexa-frontend/src/data/remote/apiTeamAccess.ts
+lexa-frontend/src/domain/shared/types.ts
+lexa-frontend/src/modules/inbox/InboxPage.tsx
 lexa-frontend/src/modules/operations/GeneralLedgerPanel.tsx
 lexa-frontend/src/modules/operations/TeamAccessPanel.tsx
 lexa-frontend/src/modules/operations/general-ledger.css
 lexa-frontend/src/modules/operations/moduleCatalog.ts
 lexa-frontend/src/modules/operations/team-access.css
+lexa-frontend/src/modules/sales/SaleDetailPage.tsx
+lexa-frontend/src/modules/tools/BusinessToolsPage.tsx
+lexa-frontend/src/styles/index.css
 lexa-frontend/vercel.json
+scripts/verify-workstreams-0-3.sh

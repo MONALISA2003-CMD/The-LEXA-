@@ -91,14 +91,6 @@ paths:
       responses:
         '204': {description: Password reset token consumed and password changed}
         '400': {$ref: '#/components/responses/BadRequest'}
-  /session:
-    get:
-      operationId: getSession
-      summary: Return the authenticated session and capabilities
-      responses:
-        '200': {description: Authenticated session, content: {application/json: {
-              schema: {$ref: '#/components/schemas/Session'}}}}
-        '401': {$ref: '#/components/responses/Unauthorized'}
   /workspaces:
     get:
       operationId: listWorkspaces
@@ -269,10 +261,9 @@ paths:
                 schema: {$ref: '#/components/schemas/RecordList'}}}}
     put:
       operationId: replaceModuleRecords
+      deprecated: true
       parameters: [$ref: '#/components/parameters/csrfToken']
-      description: Replace collection only when the caller is authorized and 
-        provides the current version/ETag; never expose this as a casual 
-        end-user destructive action.
+      description: Deprecated and blocked by the API guard. Use individual versioned record writes; bulk replacement has no collection-level ETag.
       requestBody: {required: true, content: {application/json: {schema: {type: 
                 object, required: [records], properties: {records: {type: array, 
                     items: {$ref: '#/components/schemas/ModuleRecord'}}}}}}}
@@ -282,9 +273,9 @@ paths:
         '409': {$ref: '#/components/responses/Conflict'}
     delete:
       operationId: deleteModuleRecords
+      deprecated: true
       parameters: [$ref: '#/components/parameters/csrfToken']
-      description: Administrative clear operation; require a privileged role and
-        explicit confirmation/audit trail.
+      description: Deprecated and blocked by the API guard until an explicit collection ETag/confirmation contract exists.
       responses:
         '204': {description: Records deleted}
   /workspaces/{workspaceId}/branches/{branchId}/modules/{moduleId}/records/{recordId}:
@@ -292,23 +283,25 @@ paths:
       $ref: '#/components/parameters/moduleId', $ref: '#/components/parameters/recordId']
     put:
       operationId: upsertModuleRecord
-      parameters: [$ref: '#/components/parameters/csrfToken']
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/ifMatch']
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ModuleRecord'}}}}
       responses:
         '200': {description: Saved canonical record, content: {application/json: {
               schema: {$ref: '#/components/schemas/ModuleRecord'}}}}
+        '409': {$ref: '#/components/responses/Conflict'}
   /workspaces/{workspaceId}/branches/{branchId}/modules/{moduleId}/records/{recordId}/status:
     parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId',
       $ref: '#/components/parameters/moduleId', $ref: '#/components/parameters/recordId']
     patch:
       operationId: changeModuleRecordStatus
-      parameters: [$ref: '#/components/parameters/csrfToken']
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/ifMatchRequired']
       requestBody: {required: true, content: {application/json: {schema: {type: 
                 object, required: [status], properties: {status: {type: string, 
                     minLength: 1, maxLength: 80}}}}}}
       responses:
         '200': {description: Updated record list, content: {application/json: {
                 schema: {$ref: '#/components/schemas/RecordList'}}}}
+        '409': {$ref: '#/components/responses/Conflict'}
   /workspaces/{workspaceId}/branches/{branchId}/reports/modules:
     parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
     get:
@@ -382,35 +375,6 @@ paths:
       responses:
         '201': {description: Reference created, content: {application/json: {
                 schema: {$ref: '#/components/schemas/ComplianceNote'}}}}
-  /workspaces/{workspaceId}/attachments:
-    parameters: [$ref: '#/components/parameters/workspaceId']
-    get:
-      operationId: listAttachments
-      responses:
-        '200': {description: Attachment metadata only, no public storage URLs: 
-            null, content: {application/json: {schema: {type: array, items: {
-                    $ref: '#/components/schemas/AttachmentMetadata'}}}}}
-    post:
-      operationId: uploadAttachment
-      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
-      requestBody: {required: true, content: {multipart/form-data: {schema: {
-                type: object, required: [file, workspaceId, branchId, reference, 
-                  kind], properties: {file: {type: string, format: binary}, 
-                  workspaceId: {type: string}, branchId: {type: string}, 
-                  reference: {type: string, minLength: 1, maxLength: 200}, kind: {
-                  type: string, enum: [product, receipt, other]}}}}}}
-      responses:
-        '201': {description: Attachment metadata, content: {application/json: {
-                schema: {$ref: '#/components/schemas/AttachmentMetadata'}}}}
-  /workspaces/{workspaceId}/attachments/{attachmentId}/download:
-    parameters: [$ref: '#/components/parameters/workspaceId', {in: path, name: 
-          attachmentId, required: true, schema: {type: string, minLength: 1}}]
-    get:
-      operationId: downloadAttachment
-      responses:
-        '200': {description: Authorized attachment bytes, content: {
-              application/octet-stream: {schema: {type: string, format: binary}},
-            image/*: {schema: {type: string, format: binary}}}}
   /workspaces/{workspaceId}/imports/products-csv:
     parameters: [$ref: '#/components/parameters/workspaceId']
     post:
@@ -563,8 +527,7 @@ paths:
       parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
       requestBody: {required: true, content: {application/json: {schema: {type: 
                 object, required: [body], properties: {body: {type: string, 
-                    minLength: 1, maxLength: 10000}, attachmentIds: {type: array,
-                  items: {type: string}}}}}}}
+                    minLength: 1, maxLength: 10000}}}}}}
       responses:
         '201': {description: Message accepted, content: {application/json: {
                 schema: {$ref: '#/components/schemas/InboxMessage'}}}}
@@ -772,8 +735,7 @@ paths:
         '200': {description: Ledger journal register}
     post:
       operationId: createLedgerJournal
-      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey',
-        $ref: '#/components/parameters/idempotencyKey']
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
       requestBody: {required: true, content: {application/json: {schema: {type: 
                 object, required: [entryDate, memo, lines], properties: {
                   entryDate: {type: string, format: date}, memo: {type: string, 
@@ -817,6 +779,15 @@ paths:
       parameters: [{in: query, name: asOf, schema: {type: string, format: date}}]
       responses:
         '200': {description: Posted trial balance by account}
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/reports/source-reconciliation:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: getLedgerSourceReconciliation
+      summary: Reconcile automated business source transactions with posted ledger journals
+      description: Compares the nine supported source workflows against journal source IDs, posting state, debit-credit balance and expected debit values; it also flags orphan source journals. It does not claim coverage for finance subledgers not yet implemented.
+      responses:
+        '200': {description: Branch source-to-ledger reconciliation results}
+        '403': {$ref: '#/components/responses/Forbidden'}
   /workspaces/{workspaceId}/branches/{branchId}/ledger/accounts/{accountId}/activity:
     parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId',
       {in: path, name: accountId, required: true, schema: {type: string, format: 
@@ -836,8 +807,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: Successful response; see the domain DTO returned by this 
-            operation.
+          description: Process is alive.
       security: []
   /auth/register:
     post:
@@ -956,32 +926,30 @@ paths:
                   - member
   /health/live:
     get:
+      servers: [{url: https://api.example.com}]
       operationId: GetHealthLive
-      summary: GET /health/live
-      description: Implemented route. The server validates tenant membership, 
-        branch scope, role permissions, input invariants and audit requirements.
-        Request and response fields are defined by the corresponding domain 
-        service.
+      summary: Liveness probe (unprefixed)
+      description: Process liveness only. Does not prove database readiness. This route is excluded from the global /api/v1 prefix.
       parameters: []
       responses:
         '200':
-          description: Successful response; see the domain DTO returned by this 
-            operation.
+          description: Database dependency is ready.
       security: []
   /health/ready:
     get:
+      servers: [{url: https://api.example.com}]
       operationId: GetHealthReady
-      summary: GET /health/ready
-      description: Implemented route. The server validates tenant membership, 
-        branch scope, role permissions, input invariants and audit requirements.
-        Request and response fields are defined by the corresponding domain 
-        service.
+      summary: Readiness probe (unprefixed)
+      description: Executes SELECT 1 against PostgreSQL; returns 200 when ready and 503 when the database dependency is unavailable. This route is excluded from the global /api/v1 prefix and is the Render health-check path.
       parameters: []
       responses:
         '200':
           description: Successful response; see the domain DTO returned by this 
             operation.
       security: []
+      responses:
+        '200': {description: Database is ready}
+        '503': {description: Database dependency unavailable}
   /workspaces/{workspaceId}/branches/{branchId}/commerce/sales-orders:
     get:
       operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceSalesOrders
@@ -2304,6 +2272,8 @@ components:
           pattern: '^[a-z0-9-]+$'}}
     recordId: {in: path, name: recordId, required: true, schema: {type: string, 
           minLength: 1}}
+    ifMatch: {in: header, name: If-Match, required: false, description: Required when updating an existing record; use its current _version. Stale versions are rejected with 409., schema: {type: string, pattern: '^[1-9][0-9]*$'}}
+    ifMatchRequired: {in: header, name: If-Match, required: true, description: Current record _version. Stale versions are rejected with 409., schema: {type: string, pattern: '^[1-9][0-9]*$'}}
     idempotencyKey: {in: header, name: Idempotency-Key, required: true, schema: {
         type: string, minLength: 8, maxLength: 160}}
     csrfToken: {in: header, name: X-CSRF-Token, required: true, schema: {type: 
@@ -2350,10 +2320,7 @@ components:
           senderName, sentAt], properties: {id: {type: string}, threadId: {type: 
             string}, body: {type: string}, senderId: {type: string}, senderName: {
           type: string}, sentAt: {type: string, format: date-time}, editedAt: {
-            type: string, format: date-time}, attachments: {type: array, items: {
-            type: object, required: [id, name], properties: {id: {type: string}, 
-                name: {type: string}, url: {type: string, format: uri}, mimeType: {
-                type: string}}}}, reactions: {type: array, items: {$ref: '#/components/schemas/MessageReaction'}}}}
+            type: string, format: date-time}, reactions: {type: array, items: {$ref: '#/components/schemas/MessageReaction'}}}}
     InboxTask: {type: object, required: [id, title, status, priority], 
         properties: {id: {type: string}, title: {type: string}, description: {
             type: string}, status: {type: string, enum: [open, in_progress, 
@@ -2516,12 +2483,12 @@ components:
           reference: {type: string}}}
     RecordReturn: {type: object, required: [items, reason, recordRefund, 
           refundMethod], properties: {items: {type: array, minItems: 1, items: {
-              type: object, additionalProperties: true}}, reason: {type: string, 
+              type: object, required: [saleLineId, quantity], properties: {saleLineId: {type: string}, quantity: {type: number, exclusiveMinimum: 0}, disposition: {type: string, enum: [restock, quarantine, scrap], default: restock}}}}, reason: {type: string, 
             minLength: 3}, recordRefund: {type: boolean}, refundMethod: {type: [
               string, 'null']}}}
     ModuleRecord: {type: object, required: [id, updatedAt, status], properties: {
         id: {type: string}, updatedAt: {type: string, format: date-time}, status: {
-          type: string}}, additionalProperties: true}
+          type: string}, _version: {type: string, pattern: '^[1-9][0-9]*$', readOnly: true}}, additionalProperties: true}
     RecordList: {type: array, items: {$ref: '#/components/schemas/ModuleRecord'}}
     ModuleReport: {type: object, required: [report, period, currency, 
           generatedAt, entries, metrics, filteredRecordCounts], properties: {

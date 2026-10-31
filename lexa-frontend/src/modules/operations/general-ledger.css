@@ -14,3 +14,7 @@
 .gl-report-check { display:flex; flex-wrap:wrap; gap:8px; align-items:baseline; padding:10px 12px; border-radius:10px; background:var(--gl-soft, #f3f6fb); font-size:12px; }
 .gl-report-check small { margin-left:auto; color:var(--gl-muted, #667085); }
 @media (max-width: 760px) { .gl-report-summary { grid-template-columns:1fr; } }
+
+.gl-source-reconciliation { margin-top: 1rem; }
+.gl-reconciliation-issues { display: block; margin-top: .25rem; color: var(--text-muted, #8b99b0); font-size: .75rem; overflow-wrap: anywhere; }
+.gl-reconciliation-note { margin: .75rem 0 0; color: var(--text-muted, #8b99b0); font-size: .78rem; line-height: 1.5; }

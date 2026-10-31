@@ -14,11 +14,12 @@
     "db:generate": "prisma generate",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:validate": "prisma validate",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --experimental-strip-types --test test/*.test.mjs",
     "db:migrate:status": "prisma migrate status",
     "db:verify": "node scripts/verify-schema-integrity.mjs",
-    "contract:check": "python scripts/check-openapi-coverage.py",
-    "ledger:coverage": "node scripts/verify-ledger-posting-coverage.mjs"
+    "contract:check": "python scripts/check-openapi-coverage.py && python scripts/check-route-adapter-coverage.py",
+    "ledger:coverage": "node scripts/verify-ledger-posting-coverage.mjs",
+    "adapter:check": "python scripts/check-route-adapter-coverage.py"
   },
   "dependencies": {
     "@fastify/helmet": "^13.2.0",

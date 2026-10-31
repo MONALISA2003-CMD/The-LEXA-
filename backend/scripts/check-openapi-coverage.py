@@ -50,13 +50,23 @@ def contract_routes():
 source = controller_routes()
 contract = contract_routes()
 missing = []
+extra = []
 for path, methods in sorted(source.items()):
     for method in sorted(methods):
         if method not in contract.get(path, set()):
             missing.append(f'{method.upper()} {path}')
-if missing:
-    print('OpenAPI is missing active controller routes:')
-    for route in missing:
-        print(f' - {route}')
+for path, methods in sorted(contract.items()):
+    for method in sorted(methods):
+        if method not in source.get(path, set()):
+            extra.append(f'{method.upper()} {path}')
+if missing or extra:
+    if missing:
+        print('OpenAPI is missing active controller routes:')
+        for route in missing:
+            print(f' - {route}')
+    if extra:
+        print('OpenAPI advertises operations with no active controller:')
+        for route in extra:
+            print(f' - {route}')
     sys.exit(1)
-print(f'OpenAPI coverage passed: {sum(map(len, source.values()))} controller operations across {len(source)} routes.')
+print(f'OpenAPI exact match passed: {sum(map(len, source.values()))} operations across {len(source)} routes; no missing or orphan operations.')

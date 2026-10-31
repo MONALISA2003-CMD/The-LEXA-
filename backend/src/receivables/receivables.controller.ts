@@ -509,6 +509,7 @@ export class ReceivablesController {
           method,
           amountMinor: allocation.amountMinor,
           reference: reference ?? receiptNumber,
+          ledgerSource: 'customer_receipt_recorded',
           createdAt: new Date(`${paymentDate}T00:00:00.000Z`),
         } });
         await tx.$executeRaw`INSERT INTO ar_customer_receipt_allocations

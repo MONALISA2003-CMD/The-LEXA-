@@ -42,12 +42,14 @@ export default function GeneralLedgerPanel() {
   const reportFrom = `${localDate().slice(0, 4)}-01-01`;
   const profitQuery = useQuery({ queryKey: ['general-ledger-profit-and-loss', workspace.id, branch.id, reportFrom], queryFn: () => apiGeneralLedger.profitAndLoss(scope, { from: reportFrom, to: localDate() }) });
   const balanceSheetQuery = useQuery({ queryKey: ['general-ledger-balance-sheet', workspace.id, branch.id], queryFn: () => apiGeneralLedger.balanceSheet(scope) });
+  const reconciliationQuery = useQuery({ queryKey: ['general-ledger-source-reconciliation', workspace.id, branch.id], queryFn: () => apiGeneralLedger.sourceReconciliation(scope) });
   const accounts = accountsQuery.data ?? [];
   const periods = periodsQuery.data ?? [];
   const journals = journalsQuery.data ?? [];
   const trialRows = trialQuery.data ?? [];
   const profitReport = profitQuery.data;
   const balanceSheetReport = balanceSheetQuery.data;
+  const reconciliation = reconciliationQuery.data;
   const [composeOpen, setComposeOpen] = useState(false);
   const [entryDate, setEntryDate] = useState(localDate());
   const [memo, setMemo] = useState('');
@@ -76,6 +78,7 @@ export default function GeneralLedgerPanel() {
       client.invalidateQueries({ queryKey: ['general-ledger-trial-balance', workspace.id, branch.id] }),
       client.invalidateQueries({ queryKey: ['general-ledger-profit-and-loss', workspace.id, branch.id] }),
       client.invalidateQueries({ queryKey: ['general-ledger-balance-sheet', workspace.id, branch.id] }),
+      client.invalidateQueries({ queryKey: ['general-ledger-source-reconciliation', workspace.id, branch.id] }),
       client.invalidateQueries({ queryKey: ['module-register', workspace.id, branch.id, 'accounting'] }),
     ]);
   }
@@ -122,8 +125,8 @@ export default function GeneralLedgerPanel() {
     finally { setSaving(false); }
   }
 
-  const loading = accountsQuery.isLoading || journalsQuery.isLoading || periodsQuery.isLoading || trialQuery.isLoading || profitQuery.isLoading || balanceSheetQuery.isLoading;
-  const error = accountsQuery.error ?? journalsQuery.error ?? periodsQuery.error ?? trialQuery.error ?? profitQuery.error ?? balanceSheetQuery.error;
+  const loading = accountsQuery.isLoading || journalsQuery.isLoading || periodsQuery.isLoading || trialQuery.isLoading || profitQuery.isLoading || balanceSheetQuery.isLoading || reconciliationQuery.isLoading;
+  const error = accountsQuery.error ?? journalsQuery.error ?? periodsQuery.error ?? trialQuery.error ?? profitQuery.error ?? balanceSheetQuery.error ?? reconciliationQuery.error;
   const activePeriod = periods.find(period => period.status === 'open' && period.startsOn.slice(0, 10) <= localDate() && period.endsOn.slice(0, 10) >= localDate());
 
   return (
@@ -159,6 +162,11 @@ export default function GeneralLedgerPanel() {
           {balanceSheetReport ? <><div className="gl-report-summary"><article className="gl-summary-card"><span>Assets</span><strong>{money(balanceSheetReport.totalAssetsMinor, currency)}</strong></article><article className="gl-summary-card"><span>Liabilities</span><strong>{money(balanceSheetReport.totalLiabilitiesMinor, currency)}</strong></article><article className="gl-summary-card"><span>Equity</span><strong>{money(balanceSheetReport.totalEquityMinor, currency)}</strong></article></div><div className="gl-report-check"><span>Liabilities + equity</span><strong>{money(balanceSheetReport.liabilitiesAndEquityMinor, currency)}</strong><small>{balanceSheetReport.totalAssetsMinor === balanceSheetReport.liabilitiesAndEquityMinor ? 'Balances' : 'Difference requires review'}</small></div><div className="gl-report-accounts">{balanceSheetReport.accounts.map(account => <div key={account.id}><span>{account.accountCode} · {account.accountName}</span><strong>{money(account.balanceMinor, currency)}</strong></div>)}</div></> : <div className="gl-empty">Balance sheet is not available.</div>}
         </section>
       </div>
+
+      <section className="gl-section-card gl-source-reconciliation">
+        <div className="gl-section-heading"><div><h4>Source-to-ledger reconciliation</h4><p>Automated sales, inventory, receiving and AP/AR events matched to posted balanced journals.</p></div><span className={reconciliation?.healthy ? 'gl-balanced' : 'gl-unbalanced'}>{reconciliation?.healthy ? <Check size={14} /> : <CircleAlert size={14} />}{reconciliation?.healthy ? 'Reconciled' : 'Review required'}</span></div>
+        {reconciliation ? <><div className="gl-summary-grid gl-report-summary"><article className="gl-summary-card"><span>Expected source events</span><strong>{reconciliation.expectedCount}</strong></article><article className="gl-summary-card"><span>Posted journals</span><strong>{reconciliation.postedCount}</strong></article><article className="gl-summary-card"><span>Missing journals</span><strong>{reconciliation.missingCount}</strong></article><article className="gl-summary-card"><span>Journal exceptions</span><strong>{reconciliation.unpostedCount + reconciliation.unbalancedCount + reconciliation.amountMismatchCount + reconciliation.orphanJournalCount}</strong></article></div><div className="gl-table-wrap"><table className="gl-table"><thead><tr><th>Source workflow</th><th className="is-number">Expected</th><th className="is-number">Posted</th><th className="is-number">Missing</th><th className="is-number">Unposted</th><th className="is-number">Unbalanced</th><th className="is-number">Value mismatch</th></tr></thead><tbody>{reconciliation.workflows.map(row => <tr key={row.sourceType}><td><strong>{row.sourceType.replace(/_/g, ' ')}</strong>{(row.missingCount || row.unpostedCount || row.unbalancedCount || row.amountMismatchCount) > 0 && <small className="gl-reconciliation-issues">Review source IDs: {[...row.missingIds, ...row.unpostedIds, ...row.unbalancedIds, ...row.amountMismatchIds].slice(0, 5).join(', ')}</small>}</td><td className="is-number">{row.expectedCount}</td><td className="is-number">{row.postedCount}</td><td className="is-number">{row.missingCount}</td><td className="is-number">{row.unpostedCount}</td><td className="is-number">{row.unbalancedCount}</td><td className="is-number">{row.amountMismatchCount}</td></tr>)}</tbody></table></div>{reconciliation.orphanJournalCount > 0 && <p className="gl-reconciliation-issues">Orphan source journals: {reconciliation.orphanJournalIds.join(', ')}</p>}<p className="gl-reconciliation-note">{reconciliation.note}</p></> : <div className="gl-empty">Source reconciliation is not available.</div>}
+      </section>
 
       <div className="gl-lower-grid">
         <section className="gl-section-card"><div className="gl-section-heading"><div><h4>Journal register</h4><p>Draft, posted and reversed accounting entries.</p></div><span className="gl-count">{journals.length} entries</span></div>

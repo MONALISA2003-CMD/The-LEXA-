@@ -119,6 +119,7 @@ export interface ReturnLine {
   quantity: number;
   unitPriceMinor: number;
   lineTotalMinor: number;
+  disposition?: ReturnDisposition;
 }
 
 export interface AuditEvent {
@@ -176,9 +177,12 @@ export interface CompleteSaleInput {
   promisedPaymentDate?: string;
 }
 
+export type ReturnDisposition = 'restock' | 'quarantine' | 'scrap';
+
 export interface ReturnItemInput {
   saleLineId: Id;
   quantity: number;
+  disposition?: ReturnDisposition;
 }
 
 export interface RecordReturnInput {

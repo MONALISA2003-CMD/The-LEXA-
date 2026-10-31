@@ -33,17 +33,6 @@ export interface ApiComplianceNote {
   status: string;
   notes: string;
 }
-export interface ApiAttachment {
-  id: string;
-  workspaceId: string;
-  branchId: string;
-  reference: string;
-  kind: 'product' | 'receipt' | 'other';
-  name: string;
-  mimeType: string;
-  size: number;
-  capturedAt: string;
-}
 const enc = (value: string) => encodeURIComponent(value);
 function list<T>(value: unknown, name: string): T[] {
   const candidate = Array.isArray(value) ? value : value && typeof value === 'object' && Array.isArray((value as { items?: unknown }).items) ? (value as { items: unknown[] }).items : null;
@@ -71,21 +60,6 @@ export const apiBusinessTools = {
   },
   async createComplianceNote(workspaceId: string, note: Omit<ApiComplianceNote, 'id'> & { id?: string }) {
     return apiClient.post<ApiComplianceNote>(`/workspaces/${enc(workspaceId)}/compliance-notes`, note, crypto.randomUUID());
-  },
-  async listAttachments(workspaceId: string) {
-    return list<ApiAttachment>(await apiClient.get(`/workspaces/${enc(workspaceId)}/attachments`), 'attachment');
-  },
-  uploadAttachment(workspaceId: string, branchId: string, reference: string, kind: ApiAttachment['kind'], file: File) {
-    const form = new FormData();
-    form.set('file', file, file.name);
-    form.set('workspaceId', workspaceId);
-    form.set('branchId', branchId);
-    form.set('reference', reference);
-    form.set('kind', kind);
-    return apiClient.postForm<ApiAttachment>(`/workspaces/${enc(workspaceId)}/attachments`, form, crypto.randomUUID());
-  },
-  downloadAttachment(workspaceId: string, attachmentId: string) {
-    return apiClient.download(`/workspaces/${enc(workspaceId)}/attachments/${enc(attachmentId)}/download`);
   },
   async exportBackup(workspaceId: string) {
     return apiClient.get<unknown>(`/workspaces/${enc(workspaceId)}/backup`);

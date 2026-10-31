@@ -418,6 +418,167 @@ export class GeneralLedgerController {
     return { asOf: date, totalAssetsMinor, totalLiabilitiesMinor, totalEquityMinor, accumulatedEarningsMinor, liabilitiesAndEquityMinor: totalLiabilitiesMinor + totalEquityMinor, accounts };
   }
 
+  @Get('reports/source-reconciliation')
+  async sourceReconciliation(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Req() req: FastifyRequest) {
+    await this.access(req, workspaceId, branchId);
+    type ExpectedSource = { id: string; expectedDebitMinor: bigint | number };
+    const expected: Record<string, ExpectedSource[]> = {
+      sale_completed: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT s.id::text AS id,
+          (s.total_minor + COALESCE((
+            SELECT SUM(ROUND(sl.quantity * sl.unit_cost_minor))
+            FROM sale_lines sl JOIN products p ON p.tenant_id=sl.tenant_id AND p.id=sl.product_id
+            WHERE sl.tenant_id=s.tenant_id AND sl.sale_id=s.id AND p.track_stock=true
+          ),0))::bigint AS "expectedDebitMinor"
+        FROM sales s
+        WHERE s.tenant_id=${workspaceId}::uuid AND s.branch_id=${branchId}::uuid AND s.status='completed' AND s.total_minor>0
+      `,
+      sale_payment_received: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT p.id::text AS id,p.amount_minor::bigint AS "expectedDebitMinor"
+        FROM sale_payments p JOIN sales s ON s.tenant_id=p.tenant_id AND s.id=p.sale_id
+        WHERE p.tenant_id=${workspaceId}::uuid AND s.branch_id=${branchId}::uuid
+          AND p.ledger_source='sale_payment_received' AND p.kind='receipt' AND p.amount_minor>0
+      `,
+      sale_return_recorded: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT r.id::text AS id,
+          (r.total_minor + COALESCE((
+            SELECT SUM(ROUND(rl.quantity * sl.unit_cost_minor))
+            FROM sale_return_lines rl
+            JOIN sale_lines sl ON sl.tenant_id=rl.tenant_id AND sl.id=rl.original_sale_line_id
+            JOIN products p ON p.tenant_id=rl.tenant_id AND p.id=rl.product_id
+            WHERE rl.tenant_id=r.tenant_id AND rl.return_id=r.id
+              AND rl.disposition='restock' AND p.track_stock=true
+          ),0))::bigint AS "expectedDebitMinor"
+        FROM sale_returns r
+        WHERE r.tenant_id=${workspaceId}::uuid AND r.branch_id=${branchId}::uuid
+          AND (r.total_minor>0 OR EXISTS (
+            SELECT 1 FROM sale_return_lines rl
+            JOIN products p ON p.tenant_id=rl.tenant_id AND p.id=rl.product_id
+            JOIN sale_lines sl ON sl.tenant_id=rl.tenant_id AND sl.id=rl.original_sale_line_id
+            WHERE rl.tenant_id=r.tenant_id AND rl.return_id=r.id
+              AND rl.disposition='restock' AND p.track_stock=true AND sl.unit_cost_minor>0
+          ))
+      `,
+      stock_movement_recorded: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT sm.id::text AS id,ROUND(ABS(sm.quantity_delta) * sm.unit_cost_minor)::bigint AS "expectedDebitMinor"
+        FROM audit_events ae JOIN stock_movements sm
+          ON sm.tenant_id=ae.tenant_id AND sm.id::text=ae.resource_id
+        WHERE ae.tenant_id=${workspaceId}::uuid AND ae.action='inventory.movement.created'
+          AND ae.resource_type='stock_movement' AND ae.resource_id IS NOT NULL
+          AND ae.metadata->>'branchId'=${branchId}
+          AND ae.metadata->>'trackStock'='true'
+          AND COALESCE(sm.unit_cost_minor,0)>0
+      `,
+      opening_stock_import: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT resource_id::text AS id,
+          COALESCE(NULLIF(metadata->>'valueMinor','')::bigint,0) AS "expectedDebitMinor"
+        FROM audit_events
+        WHERE tenant_id=${workspaceId}::uuid AND action='opening_stock.csv_imported'
+          AND resource_type='stock_import' AND resource_id IS NOT NULL
+          AND metadata->>'branchId'=${branchId}
+          AND COALESCE(NULLIF(metadata->>'valueMinor','')::bigint,0)>0
+      `,
+      goods_receipt_posted: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT r.id::text AS id,v.receipt_value::bigint AS "expectedDebitMinor"
+        FROM commerce_goods_receipts r
+        JOIN (
+          SELECT grl.tenant_id,grl.receipt_id,
+            COALESCE(SUM(ROUND(grl.quantity_accepted*pol.unit_cost_minor)),0)::bigint AS receipt_value
+          FROM commerce_goods_receipt_lines grl
+          JOIN commerce_purchase_order_lines pol ON pol.tenant_id=grl.tenant_id AND pol.id=grl.purchase_order_line_id
+          GROUP BY grl.tenant_id,grl.receipt_id
+        ) v ON v.tenant_id=r.tenant_id AND v.receipt_id=r.id
+        WHERE r.tenant_id=${workspaceId}::uuid AND r.branch_id=${branchId}::uuid
+          AND r.status='posted' AND v.receipt_value>0
+      `,
+      customer_receipt_recorded: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT id::text AS id,amount_minor::bigint AS "expectedDebitMinor" FROM ar_customer_receipts
+        WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND kind='receipt' AND amount_minor>0
+      `,
+      supplier_invoice_approved: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT i.id::text AS id,
+          (GREATEST(i.subtotal_minor,COALESCE(v.received_cost_minor,0)) + i.tax_minor)::bigint AS "expectedDebitMinor"
+        FROM ap_supplier_invoices i
+        LEFT JOIN (
+          SELECT ail.tenant_id,ail.invoice_id,COALESCE(ROUND(SUM(ail.quantity*pol.unit_cost_minor)),0)::bigint AS received_cost_minor
+          FROM ap_supplier_invoice_lines ail
+          JOIN commerce_purchase_order_lines pol ON pol.tenant_id=ail.tenant_id AND pol.id=ail.purchase_order_line_id
+          GROUP BY ail.tenant_id,ail.invoice_id
+        ) v ON v.tenant_id=i.tenant_id AND v.invoice_id=i.id
+        WHERE i.tenant_id=${workspaceId}::uuid AND i.branch_id=${branchId}::uuid
+          AND i.status IN ('approved','partially_paid','paid') AND i.total_minor>0
+      `,
+      supplier_payment_recorded: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT id::text AS id,amount_minor::bigint AS "expectedDebitMinor" FROM ap_supplier_payments
+        WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND amount_minor>0
+      `,
+    };
+    const sourceTypes = Object.keys(expected);
+    const expectedKeys = new Set(sourceTypes.flatMap((sourceType) => (expected[sourceType] ?? []).map((source) => `${sourceType}:${source.id}`)));
+    const journalRows = await this.prisma.$queryRaw<Array<{ sourceType: string; sourceId: string; status: string; debitMinor: bigint | number; creditMinor: bigint | number }>>`
+      SELECT j.source_type AS "sourceType",j.source_id AS "sourceId",j.status,
+        COALESCE(SUM(l.debit_minor),0)::bigint AS "debitMinor",
+        COALESCE(SUM(l.credit_minor),0)::bigint AS "creditMinor"
+      FROM ledger_journals j
+      LEFT JOIN ledger_journal_lines l ON l.tenant_id=j.tenant_id AND l.journal_id=j.id
+      WHERE j.tenant_id=${workspaceId}::uuid AND j.branch_id=${branchId}::uuid
+        AND j.source_type=ANY(${sourceTypes}::text[]) AND j.source_id IS NOT NULL
+      GROUP BY j.id
+    `;
+    const journalBySource = new Map(journalRows.map((row) => [`${row.sourceType}:${row.sourceId}`, row]));
+    const orphanJournalIds = journalRows.filter((row) => !expectedKeys.has(`${row.sourceType}:${row.sourceId}`)).map((row) => `${row.sourceType}:${row.sourceId}`).slice(0, 50);
+    const orphanJournalCount = journalRows.filter((row) => !expectedKeys.has(`${row.sourceType}:${row.sourceId}`)).length;
+    const workflows = sourceTypes.map((sourceType) => {
+      const missingIds: string[] = [];
+      const unpostedIds: string[] = [];
+      const unbalancedIds: string[] = [];
+      const amountMismatchIds: string[] = [];
+      let postedCount = 0;
+      for (const source of expected[sourceType] ?? []) {
+        const journal = journalBySource.get(`${sourceType}:${source.id}`);
+        if (!journal) { missingIds.push(source.id); continue; }
+        if (journal.status !== 'posted') unpostedIds.push(source.id);
+        else {
+          postedCount += 1;
+          if (Number(journal.debitMinor) !== Number(source.expectedDebitMinor)) amountMismatchIds.push(source.id);
+        }
+        if (Number(journal.debitMinor) <= 0 || Number(journal.debitMinor) !== Number(journal.creditMinor)) unbalancedIds.push(source.id);
+      }
+      return {
+        sourceType,
+        expectedCount: expected[sourceType]?.length ?? 0,
+        postedCount,
+        missingIds: missingIds.slice(0, 50),
+        unpostedIds: unpostedIds.slice(0, 50),
+        unbalancedIds: unbalancedIds.slice(0, 50),
+        amountMismatchIds: amountMismatchIds.slice(0, 50),
+        missingCount: missingIds.length,
+        unpostedCount: unpostedIds.length,
+        unbalancedCount: unbalancedIds.length,
+        amountMismatchCount: amountMismatchIds.length,
+      };
+    });
+    const totals = workflows.reduce((sum, row) => ({
+      expectedCount: sum.expectedCount + row.expectedCount,
+      postedCount: sum.postedCount + row.postedCount,
+      missingCount: sum.missingCount + row.missingCount,
+      unpostedCount: sum.unpostedCount + row.unpostedCount,
+      unbalancedCount: sum.unbalancedCount + row.unbalancedCount,
+      amountMismatchCount: sum.amountMismatchCount + row.amountMismatchCount,
+    }), { expectedCount: 0, postedCount: 0, missingCount: 0, unpostedCount: 0, unbalancedCount: 0, amountMismatchCount: 0 });
+    return {
+      workspaceId,
+      branchId,
+      checkedAt: new Date().toISOString(),
+      healthy: totals.missingCount === 0 && totals.unpostedCount === 0 && totals.unbalancedCount === 0 && totals.amountMismatchCount === 0 && orphanJournalCount === 0,
+      ...totals,
+      orphanJournalCount,
+      orphanJournalIds,
+      workflows,
+      note: 'Reconciliation checks source IDs, posting status, balanced journal totals and expected debit values for the nine automated source workflows. It does not cover manually prepared journals or finance subledgers not yet implemented.',
+    };
+  }
+
   @Get('accounts/:accountId/activity')
   async accountActivity(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Param('accountId') accountId: string, @Req() req: FastifyRequest, @Query('from') from?: string, @Query('to') to?: string) {
     await this.access(req, workspaceId, branchId); uuid(accountId, 'Account ID');

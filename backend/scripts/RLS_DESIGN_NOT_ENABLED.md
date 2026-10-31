@@ -1,0 +1,7 @@
+# PostgreSQL row-level security: test design, not production activation
+
+The application currently enforces tenant and branch scope in NestJS services and guards. PostgreSQL RLS is **not enabled on production tables** in this overlay because production runtime requests do not yet consistently set a transaction-local tenant context for every Prisma query, raw SQL statement, job and maintenance path. Enabling policies before that wiring would create unpredictable production failures and could still be bypassed by a privileged DB role.
+
+`test-tenant-rls.sql` is a disposable-CI harness. It enables and forces a tenant policy on each `public` base table with a UUID `tenant_id`, and validates two-tenant visibility/write isolation through a `NOLOGIN NOBYPASSRLS` role. The CI PostgreSQL service is destroyed after the job. The test is intentionally **not** a Prisma migration and must never be run against production.
+
+Before production RLS can be marked complete, implement a shared Prisma transaction wrapper that sets `SET LOCAL lexa.tenant_id` from the authenticated tenant for all tenant-scoped work; route every raw query and background worker through that wrapper; use a runtime DB role without `BYPASSRLS`; define narrow exceptions for login/bootstrap/system operations; and test reads, writes, search, export, backups, files, approval queues, workers and cross-tenant FK behavior against the actual runtime role. Keep the existing application authorization checks as defense in depth.

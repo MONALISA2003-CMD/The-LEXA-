@@ -1,8 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const { hasPermission, permissionForRequest, normalizeRole, isWorkspaceAdministrator, canAccessBranch } = require('../dist/src/authorization/role-policy.js');
+import { hasPermission, permissionForRequest, normalizeRole, isWorkspaceAdministrator, canAccessBranch } from '../src/authorization/role-policy.ts';
 
 test('normalizes role labels consistently', () => {
   assert.equal(normalizeRole('Business Manager'), 'business_manager');

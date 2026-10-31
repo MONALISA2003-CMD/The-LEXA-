@@ -426,6 +426,7 @@ model SalePayment {
   method     String
   amountMinor Int     @map("amount_minor")
   reference  String?
+  ledgerSource String? @map("ledger_source")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sale       Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
@@ -464,6 +465,7 @@ model SaleReturnLine {
   quantity            Decimal        @db.Decimal(12, 3)
   unitPriceMinor      Int            @map("unit_price_minor")
   lineTotalMinor      Int            @map("line_total_minor")
+  disposition         String         @default("restock")
   tenant              Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   returnRecord        SaleReturn     @relation(fields: [returnId], references: [id], onDelete: Cascade)
   originalSaleLine    SaleLine       @relation(fields: [originalSaleLineId], references: [id], onDelete: Restrict)

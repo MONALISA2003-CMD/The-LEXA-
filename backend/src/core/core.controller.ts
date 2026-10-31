@@ -1,7 +1,7 @@
 import {
   BadRequestException, ConflictException, Controller, ForbiddenException, Get, HttpCode,
   NotFoundException, Post, Put, Patch, Delete, Body, Param, Query, Req, Res, UseGuards,
-  UnauthorizedException, ServiceUnavailableException,
+  UnauthorizedException, ServiceUnavailableException, Headers,
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
@@ -32,6 +32,14 @@ function cookieValue(request: FastifyRequest, name: string): string | undefined 
 
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function parseIfMatch(value: string | undefined): number | null {
+  if (value === undefined || value.trim() === '') return null;
+  const normalized = value.trim().replace(/^W\//, '').replace(/^"|"$/g, '');
+  const version = Number(normalized);
+  if (!Number.isSafeInteger(version) || version < 1) throw new BadRequestException('If-Match must contain the record version returned by the API.');
+  return version;
 }
 
 function asObject(value: unknown, label = 'request body'): JsonObject {
@@ -235,7 +243,7 @@ function backupUuid(value: unknown, field: string): string {
 
 function toModuleRecord(row: any) {
   const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
-  return { ...data, id: row.recordId, status: typeof data.status === 'string' ? data.status : 'Open', updatedAt: row.updatedAt.toISOString() };
+  return { ...data, id: row.recordId, status: typeof data.status === 'string' ? data.status : 'Open', updatedAt: row.updatedAt.toISOString(), _version: String(row.version) };
 }
 
 @Controller()
@@ -403,11 +411,6 @@ export class CoreController {
       user: { id: session.user.id, email: session.user.email, displayName: session.user.displayName ?? undefined },
       roles: [...new Set(session.user.memberships.map((m: any) => m.role))],
     };
-  }
-
-  @Get('session')
-  async sessionAlias(@Req() request: FastifyRequest) {
-    return this.authenticatedSession(request);
   }
 
   @Post('auth/logout')
@@ -782,7 +785,7 @@ export class CoreController {
               ];
           await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'stock_movement_recorded', sourceId: movement.id, memo: `${type === 'opening' ? 'Opening stock' : 'Stock adjustment'} - ${product.sku}`, lines: postingLines });
         }
-        await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'inventory.movement.created', resourceType: 'stock_movement', resourceId: movement.id, requestId: request.headers['x-request-id'] as string | undefined, metadata: { branchId, quantityDelta: delta, unitCostMinor } } });
+        await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'inventory.movement.created', resourceType: 'stock_movement', resourceId: movement.id, requestId: request.headers['x-request-id'] as string | undefined, metadata: { branchId, quantityDelta: delta, unitCostMinor, trackStock: product.trackStock } } });
         const response = toMovement(movement);
         await tx.idempotencyRecord.update({ where: { tenantId_key: { tenantId: workspaceId, key } }, data: { status: 'COMPLETED', responseStatus: 201, responseBody: response as any } });
         return response;
@@ -858,7 +861,7 @@ export class CoreController {
 
   @Put('workspaces/:workspaceId/branches/:branchId/modules/:moduleId/records/:recordId')
   @UseGuards(CsrfGuard)
-  async saveModuleRecord(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Param('moduleId') moduleId: string, @Param('recordId') recordId: string, @Body() raw: unknown, @Req() request: FastifyRequest) {
+  async saveModuleRecord(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Param('moduleId') moduleId: string, @Param('recordId') recordId: string, @Body() raw: unknown, @Headers('if-match') ifMatch: string | undefined, @Req() request: FastifyRequest) {
     const body = asObject(raw, 'record');
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
@@ -866,28 +869,46 @@ export class CoreController {
     const bodyId = requiredString(body.id, 'Record ID', 160);
     if (bodyId !== recordId) throw new BadRequestException('The record ID in the URL and body must match.');
     if (typeof body.status !== 'string' || !body.status.trim()) throw new BadRequestException('Record status is required.');
-    const row = await this.prisma.moduleRecord.upsert({
-      where: { tenantId_branchId_moduleId_recordId: { tenantId: workspaceId, branchId, moduleId, recordId } },
-      create: { tenantId: workspaceId, branchId, moduleId, recordId, data: body as any },
-      update: { data: body as any, version: { increment: 1 } },
-    });
-    await this.audit(workspaceId, session.userId, 'module.record.saved', 'module_record', row.id, request.headers['x-request-id'] as string | undefined);
-    return toModuleRecord(row);
+    const expectedVersion = parseIfMatch(ifMatch);
+    const recordData = Object.fromEntries(Object.entries(body).filter(([key]) => key !== '_version'));
+    const saved = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.moduleRecord.findUnique({ where: { tenantId_branchId_moduleId_recordId: { tenantId: workspaceId, branchId, moduleId, recordId } } });
+      let row: any;
+      if (existing) {
+        if (expectedVersion === null) throw new ConflictException({ code: 'VERSION_REQUIRED', message: 'This record has changed since it was loaded. Refresh the register before saving.' });
+        if (existing.version !== expectedVersion) throw new ConflictException({ code: 'VERSION_CONFLICT', message: 'Another user changed this record. Refresh it and reapply your edits.' });
+        const updated = await tx.moduleRecord.updateMany({ where: { id: existing.id, version: expectedVersion }, data: { data: recordData as any, version: { increment: 1 } } });
+        if (updated.count !== 1) throw new ConflictException({ code: 'VERSION_CONFLICT', message: 'Another user changed this record. Refresh it and reapply your edits.' });
+        row = await tx.moduleRecord.findUniqueOrThrow({ where: { id: existing.id } });
+      } else {
+        if (expectedVersion !== null) throw new ConflictException({ code: 'VERSION_CONFLICT', message: 'This record no longer exists. Refresh the register before saving.' });
+        row = await tx.moduleRecord.create({ data: { tenantId: workspaceId, branchId, moduleId, recordId, data: recordData as any } });
+      }
+      await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'module.record.saved', resourceType: 'module_record', resourceId: row.id, requestId: request.headers['x-request-id'] as string | undefined, metadata: { moduleId, recordId, version: row.version } } });
+      return row;
+    }, { isolationLevel: 'Serializable' });
+    return toModuleRecord(saved);
   }
 
   @Patch('workspaces/:workspaceId/branches/:branchId/modules/:moduleId/records/:recordId/status')
   @UseGuards(CsrfGuard)
-  async updateModuleStatus(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Param('moduleId') moduleId: string, @Param('recordId') recordId: string, @Body() raw: unknown, @Req() request: FastifyRequest) {
+  async updateModuleStatus(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Param('moduleId') moduleId: string, @Param('recordId') recordId: string, @Body() raw: unknown, @Headers('if-match') ifMatch: string | undefined, @Req() request: FastifyRequest) {
     const body = asObject(raw);
     const status = requiredString(body.status, 'Status', 80);
+    const expectedVersion = parseIfMatch(ifMatch);
+    if (expectedVersion === null) throw new ConflictException({ code: 'VERSION_REQUIRED', message: 'Refresh this record before changing its status.' });
     const session = await this.sessionFor(request);
     await this.membershipFor(session.userId, workspaceId);
     await this.branchFor(workspaceId, branchId, session.userId);
-    const row = await this.prisma.moduleRecord.findUnique({ where: { tenantId_branchId_moduleId_recordId: { tenantId: workspaceId, branchId, moduleId, recordId } } });
-    if (!row) throw new NotFoundException('Record not found.');
-    const current = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
-    const updated = await this.prisma.moduleRecord.update({ where: { id: row.id }, data: { data: { ...current, status, updatedAt: new Date().toISOString() } as any, version: { increment: 1 } } });
-    await this.audit(workspaceId, session.userId, 'module.record.status_changed', 'module_record', row.id, request.headers['x-request-id'] as string | undefined);
+    await this.prisma.$transaction(async (tx) => {
+      const row = await tx.moduleRecord.findUnique({ where: { tenantId_branchId_moduleId_recordId: { tenantId: workspaceId, branchId, moduleId, recordId } } });
+      if (!row) throw new NotFoundException('Record not found.');
+      if (row.version !== expectedVersion) throw new ConflictException({ code: 'VERSION_CONFLICT', message: 'Another user changed this record. Refresh it before changing its status.' });
+      const current = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
+      const updated = await tx.moduleRecord.updateMany({ where: { id: row.id, version: expectedVersion }, data: { data: { ...current, status, updatedAt: new Date().toISOString() } as any, version: { increment: 1 } } });
+      if (updated.count !== 1) throw new ConflictException({ code: 'VERSION_CONFLICT', message: 'Another user changed this record. Refresh it before changing its status.' });
+      await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'module.record.status_changed', resourceType: 'module_record', resourceId: row.id, requestId: request.headers['x-request-id'] as string | undefined, metadata: { moduleId, recordId, status, fromVersion: expectedVersion, toVersion: expectedVersion + 1 } } });
+    }, { isolationLevel: 'Serializable' });
     const records = await this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId, moduleId }, orderBy: { updatedAt: 'desc' } });
     return records.map(toModuleRecord);
   }
@@ -913,7 +934,7 @@ export class CoreController {
       sale: toSale(sale),
       lines: sale.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, saleId: line.saleId, productId: line.productId, productNameSnapshot: line.productNameSnapshot, quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor })),
       returns: sale.returns.map((r: any) => ({ id: r.id, workspaceId: r.tenantId, branchId: r.branchId, saleId: r.saleId, returnNumber: r.returnNumber, totalMinor: r.totalMinor, reason: r.reason, refundRecorded: r.refundRecorded, createdAt: r.createdAt.toISOString() })),
-      returnLines: sale.returns.flatMap((r: any) => r.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, returnId: line.returnId, originalSaleLineId: line.originalSaleLineId, productId: line.productId, productNameSnapshot: line.productNameSnapshot, quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor }))),
+      returnLines: sale.returns.flatMap((r: any) => r.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, returnId: line.returnId, originalSaleLineId: line.originalSaleLineId, productId: line.productId, productNameSnapshot: line.productNameSnapshot, quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor, disposition: line.disposition }))),
       payments: sale.payments.map((p: any) => ({ id: p.id, workspaceId: p.tenantId, saleId: p.saleId, kind: p.kind, method: p.method, amountMinor: p.amountMinor, ...(p.reference ? { reference: p.reference } : {}), createdAt: p.createdAt.toISOString() })),
     };
   }
@@ -994,7 +1015,7 @@ export class CoreController {
           await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, productNameSnapshot: line.product.name, quantity: String(line.quantity), unitCostMinor: line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
           if (line.product.trackStock) await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: line.product.id, type: 'sale', quantityDelta: String(-line.quantity), unitCostMinor: line.product.costPriceMinor, reason: `Sale ${receiptNumber}`, sourceId: sale.id } });
         }
-        for (const payment of payments) await tx.salePayment.create({ data: { tenantId: workspaceId, saleId: sale.id, kind: 'receipt', method: payment.method, amountMinor: payment.amountMinor, reference: payment.reference } });
+        for (const payment of payments) await tx.salePayment.create({ data: { tenantId: workspaceId, saleId: sale.id, kind: 'receipt', method: payment.method, amountMinor: payment.amountMinor, reference: payment.reference, ledgerSource: 'sale_completed' } });
         const settlementTotals = new Map<string, number>();
         for (const payment of payments) {
           const accountKey = settlementAccountKey(payment.method);
@@ -1061,7 +1082,7 @@ export class CoreController {
         const alreadyPaid = priorPayments.reduce((sum: number, p: any) => sum + (p.kind === 'refund' ? -p.amountMinor : p.amountMinor), 0);
         const balance = sale.totalMinor - alreadyPaid;
         if (amountMinor > balance) throw new ConflictException('Payment exceeds the current outstanding balance.');
-        const payment = await tx.salePayment.create({ data: { tenantId: workspaceId, saleId, kind: 'receipt', method, amountMinor, reference } });
+        const payment = await tx.salePayment.create({ data: { tenantId: workspaceId, saleId, kind: 'receipt', method, amountMinor, reference, ledgerSource: 'sale_payment_received' } });
         await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'sale_payment_received', sourceId: payment.id, memo: `Payment received for ${sale.receiptNumber}`, lines: [
           { accountKey: settlementAccountKey(method), debitMinor: amountMinor, description: `Customer payment - ${method}` },
           { accountKey: 'accounts_receivable', creditMinor: amountMinor, description: 'Reduce customer balance due' },
@@ -1093,7 +1114,7 @@ export class CoreController {
     const recordRefund = body.recordRefund === true;
     const refundMethod = requiredString(body.refundMethod ?? 'other', 'Refund method', 40);
     if (!PAYMENT_METHODS.has(refundMethod)) throw new BadRequestException('Unsupported refund method.');
-    const requested = body.items.map((item) => { const row = asObject(item, 'return item'); return { saleLineId: requiredString(row.saleLineId, 'Sale line ID', 80), quantity: positiveQuantity(row.quantity) }; });
+    const requested = body.items.map((item) => { const row = asObject(item, 'return item'); const disposition = optionalString(row.disposition, 20) ?? 'restock'; if (!['restock', 'quarantine', 'scrap'].includes(disposition)) throw new BadRequestException('Return disposition must be restock, quarantine or scrap.'); return { saleLineId: requiredString(row.saleLineId, 'Sale line ID', 80), quantity: positiveQuantity(row.quantity), disposition }; });
     if (new Set(requested.map((item) => item.saleLineId)).size !== requested.length) {
       throw new BadRequestException('A sale line can appear only once in a return request. Combine quantities for the same line.');
     }
@@ -1131,7 +1152,7 @@ export class CoreController {
           if (previouslyReturned + item.quantity > Number(line.quantity)) throw new ConflictException('Return quantity exceeds the quantity originally sold minus prior returns.');
           const amount = Math.round(line.unitPriceMinor * item.quantity);
           totalMinor += amount;
-          resolved.push({ line, quantity: item.quantity, amount, trackStock: trackedProductIds.has(line.productId) });
+          resolved.push({ line, quantity: item.quantity, amount, disposition: item.disposition, trackStock: trackedProductIds.has(line.productId) });
         }
         const returnNumber = `LR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomBytes(4).toString('hex').toUpperCase()}`;
         if (recordRefund) {
@@ -1143,11 +1164,11 @@ export class CoreController {
         }
         const returned = await tx.saleReturn.create({ data: { tenantId: workspaceId, branchId, saleId, returnNumber, totalMinor, reason, refundRecorded: recordRefund } });
         for (const item of resolved) {
-          await tx.saleReturnLine.create({ data: { tenantId: workspaceId, returnId: returned.id, originalSaleLineId: item.line.id, productId: item.line.productId, productNameSnapshot: item.line.productNameSnapshot, quantity: String(item.quantity), unitPriceMinor: item.line.unitPriceMinor, lineTotalMinor: item.amount } });
-          if (item.trackStock) await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: item.line.productId, type: 'return', quantityDelta: String(item.quantity), unitCostMinor: item.line.unitCostMinor ?? 0, reason: `Return ${returnNumber}`, sourceId: returned.id } });
+          await tx.saleReturnLine.create({ data: { tenantId: workspaceId, returnId: returned.id, originalSaleLineId: item.line.id, productId: item.line.productId, productNameSnapshot: item.line.productNameSnapshot, quantity: String(item.quantity), unitPriceMinor: item.line.unitPriceMinor, lineTotalMinor: item.amount, disposition: item.disposition } });
+          if (item.trackStock && item.disposition === 'restock') await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: item.line.productId, type: 'return', quantityDelta: String(item.quantity), unitCostMinor: item.line.unitCostMinor ?? 0, reason: `Return ${returnNumber}`, sourceId: returned.id } });
         }
-        if (recordRefund) await tx.salePayment.create({ data: { tenantId: workspaceId, saleId, kind: 'refund', method: refundMethod, amountMinor: totalMinor, reference: returnNumber } });
-        const returnCostMinor = resolved.filter((item) => item.trackStock).reduce((sum, item) => sum + Math.round(Number(item.line.unitCostMinor ?? 0) * item.quantity), 0);
+        if (recordRefund) await tx.salePayment.create({ data: { tenantId: workspaceId, saleId, kind: 'refund', method: refundMethod, amountMinor: totalMinor, reference: returnNumber, ledgerSource: 'sale_return_recorded' } });
+        const returnCostMinor = resolved.filter((item) => item.trackStock && item.disposition === 'restock').reduce((sum, item) => sum + Math.round(Number(item.line.unitCostMinor ?? 0) * item.quantity), 0);
         if (totalMinor > 0 || returnCostMinor > 0) {
           const returnLines: Array<{ accountKey: string; debitMinor?: number; creditMinor?: number; description?: string }> = [];
           if (totalMinor > 0) returnLines.push({ accountKey: 'sales_returns', debitMinor: totalMinor, description: `Sales return - ${returnNumber}` }, { accountKey: recordRefund ? settlementAccountKey(refundMethod) : 'customer_credit_liability', creditMinor: totalMinor, description: recordRefund ? `Refund recorded - ${refundMethod}` : 'Customer credit balance' });
@@ -1906,14 +1927,14 @@ export class CoreController {
         if (!Number.isSafeInteger(openingInventoryValueMinor) || openingInventoryValueMinor > 2_000_000_000) throw new BadRequestException('Opening stock import value exceeds the supported amount range.');
         await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: product.id, type: 'opening', quantityDelta: String(item.quantity), unitCostMinor, reason: requiredString(item.reason, 'Reason', 500) } });
       }
-      if (openingInventoryValueMinor > 0) {
-        const openingSourceId = randomUUID();
+      const openingSourceId = openingInventoryValueMinor > 0 ? randomUUID() : undefined;
+      if (openingSourceId) {
         await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'opening_stock_import', sourceId: openingSourceId, memo: `Opening stock import (${items.length} items)`, lines: [
           { accountKey: 'inventory', debitMinor: openingInventoryValueMinor, description: 'Opening inventory value' },
           { accountKey: 'owner_equity', creditMinor: openingInventoryValueMinor, description: 'Opening stock balancing entry' },
         ] });
       }
-      await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'opening_stock.csv_imported', resourceType: 'stock_import', requestId: request.headers['x-request-id'] as string | undefined, metadata: { importedCount: items.length, branchId } } });
+      await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'opening_stock.csv_imported', resourceType: 'stock_import', resourceId: openingSourceId, requestId: request.headers['x-request-id'] as string | undefined, metadata: { importedCount: items.length, branchId, valueMinor: openingInventoryValueMinor } } });
       }, { isolationLevel: 'Serializable' });
     } catch (error) {
       if ((error as { code?: string }).code === 'P2034') throw new ConflictException({ code: 'OPENING_STOCK_CONCURRENCY_CONFLICT', message: 'Opening stock changed during import. Refresh the stock register and retry.' });

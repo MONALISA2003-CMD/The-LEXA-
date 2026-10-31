@@ -95,7 +95,7 @@ The test branch was validated using SQL directly through Neon MCP, not by `prism
 ## Apply and validate the overlay
 
 1. Back up your local repository checkout and confirm it matches the inspected main snapshot.
-2. Extract `LEXA_Workstreams_0_3_Deepened.zip` at the repository root, preserving directory paths.
+2. Extract `LEXA_Workstreams_0_3_Audit_Implementation_Overlay.zip` at the repository root, preserving directory paths. This refreshed overlay includes the prior deployment TypeScript fixes plus all changes in this audit increment.
 3. Review `git diff` locally. Do not overwrite unrelated changes made after the inspected snapshot.
 4. Backend checks:
 
@@ -135,3 +135,36 @@ The test branch was validated using SQL directly through Neon MCP, not by `prism
 - Backup/restore and migration rollback/recovery procedures are exercised in a non-production clone.
 
 **Status:** this is a deeper implementation overlay and isolated schema validation result—not a production deployment or a claim that every ERP module is complete.
+
+
+## Audit increment (2026-10-31)
+
+See `WORKSTREAMS_0_3_AUDIT_MATRIX.md` for the full requirement-by-requirement status. This increment adds optimistic version checks for generic module records, return disposition, exact OpenAPI checks, attachment-route cleanup, domain adapter checks, and a disposable-CI RLS design test. It does not claim that runtime RLS, recovery email provider configuration, invitations, missing stock master data, or the remaining finance subledgers are complete.
+
+
+## Audit increment (2026-10-31 — source reconciliation and integration hardening)
+
+- Added `sale_payments.ledger_source` and migration `20261030310000_ledger_source_reconciliation`. Legacy origins are backfilled only where AR allocation or an existing journal proves the source; ambiguous old payments remain NULL.
+- Added `GET /workspaces/:workspaceId/branches/:branchId/ledger/reports/source-reconciliation`, backed by branch-scoped source queries for the nine currently automated source workflows. It reports missing journals, non-posted journals, unbalanced posted journals, mismatched expected debit values and orphan journals.
+- Added the typed `apiGeneralLedger.sourceReconciliation` adapter and mounted the report in the General Ledger page. The report expressly states its nine-source scope and does not claim full monetary subledger reconciliation.
+- Updated `backend/scripts/verify-schema-integrity.mjs` to require `sale_payments.ledger_source` and its check constraint.
+- Expanded `backend/scripts/check-route-adapter-coverage.py` to verify 14 backend-backed frontend adapters. Generic module bulk replace/reset methods now fail locally instead of sending requests the server rejects.
+- RLS harness fixture seeding now occurs before FORCE RLS. The harness remains disposable-CI-only; it is not runtime RLS activation.
+
+### Checks run in this audit increment
+
+- `node --experimental-strip-types --test backend/test/*.test.mjs`: **12/12 passed** against the current TypeScript authorization source.
+- `python backend/scripts/check-openapi-coverage.py`: **115 controller operations across 93 routes**, exact match.
+- `python backend/scripts/check-route-adapter-coverage.py`: **14 adapters passed**.
+- `node backend/scripts/verify-ledger-posting-coverage.mjs`: **9 source workflows passed**.
+- TypeScript/TSX syntax transpilation: **128 files, 0 syntax diagnostics**.
+- OpenAPI and CI YAML, package manifests and Vercel JSON parsed successfully; Python compile and the one-command shell script syntax check passed.
+
+Full Nest build, frontend `tsc -b`/Vite build, Prisma validation/migration deployment and PostgreSQL RLS execution remain unrun in this container because dependencies and PostgreSQL tooling are unavailable. Do not treat syntax transpilation as a substitute for those checks.
+
+
+### Latest isolated Neon DDL check
+
+The additive SQL in `20261030310000_ledger_source_reconciliation` was applied to validation branch `br-polished-sound-bad926f2` in project `empty-mud-76816448` (branch name `codex-workstreams-0-3-clean-validation`). Neon confirmed that the new column exists, the check constraint is validated, the index exists, and there are no values outside the permitted source set. That branch is non-primary and non-default; its parent production branch was not changed. This was direct DDL execution, **not** Prisma migration-runner validation; CI still must prove migration history and `prisma migrate deploy` on a fresh PostgreSQL database.
+
+The exact nine-source reconciliation SELECT set was also run against the isolated Neon validation branch after applying the two preceding additive migrations (`sale_return_lines.disposition` and `sale_payments.ledger_source`). PostgreSQL accepted all nine query shapes and returned zero eligible source rows in that branch. The join between audit-event text resource IDs and UUID stock-movement IDs was corrected to compare text representations after a real-schema type check. This proves query parsing against the schema, not the presence of populated end-to-end business transactions.

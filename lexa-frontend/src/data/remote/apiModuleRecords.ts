@@ -46,22 +46,19 @@ export const apiModuleRecordService: ModuleRecordService = {
     return validateList(await apiClient.get<unknown>(collectionPath(scope, moduleId)), moduleId);
   },
   async save(scope, moduleId, record) {
-    await apiClient.put(`${collectionPath(scope, moduleId)}/${enc(record.id)}`, record);
+    const { _version, ...payload } = record;
+    await apiClient.put(`${collectionPath(scope, moduleId)}/${enc(record.id)}`, payload, _version ? { 'If-Match': _version } : undefined);
     await publishSavedRecord(scope, moduleId, record);
     return validateList(await apiClient.get<unknown>(collectionPath(scope, moduleId)), moduleId);
   },
-  async replace(scope, moduleId, records) {
-    await apiClient.put(collectionPath(scope, moduleId), { records });
-    await apiModuleGraph.recordEvent(scope, {
-      moduleId,
-      eventType: 'module.collection_replaced',
-      payload: { count: records.length },
-      dedupeKey: `collection.replaced:${scope.branchId}:${moduleId}:${new Date().toISOString()}`,
-    });
-    return validateList(await apiClient.get<unknown>(collectionPath(scope, moduleId)), moduleId);
+  async replace(_scope, moduleId, _records) {
+    throw new Error(`Bulk replacement is disabled for ${moduleId}. Save individual versioned records through the validated workflow instead.`);
   },
   async updateStatus(scope, moduleId, recordId, status) {
-    const rows = validateList(await apiClient.patch<unknown>(`${collectionPath(scope, moduleId)}/${enc(recordId)}/status`, { status }), moduleId);
+    const currentRows = validateList(await apiClient.get<unknown>(collectionPath(scope, moduleId)), moduleId);
+    const current = currentRows.find((row) => row.id === recordId);
+    if (!current?._version) throw new Error('This record has no server version. Refresh the register before changing its status.');
+    const rows = validateList(await apiClient.patch<unknown>(`${collectionPath(scope, moduleId)}/${enc(recordId)}/status`, { status }, { 'If-Match': current._version }), moduleId);
     const updated = rows.find((row) => row.id === recordId);
     await apiModuleGraph.recordEvent(scope, {
       moduleId,
@@ -72,15 +69,8 @@ export const apiModuleRecordService: ModuleRecordService = {
     });
     return rows;
   },
-  async reset(scope, moduleId) {
-    await apiClient.delete(collectionPath(scope, moduleId));
-    await apiModuleGraph.recordEvent(scope, {
-      moduleId,
-      eventType: 'module.collection_cleared',
-      payload: {},
-      dedupeKey: `collection.cleared:${scope.branchId}:${moduleId}:${new Date().toISOString()}`,
-    });
-    return [];
+  async reset(_scope, moduleId) {
+    throw new Error(`Bulk clearing is disabled for ${moduleId}. Use the module's authorised archive or correction workflow.`);
   },
   getPersistenceMode() { return 'server'; },
 };

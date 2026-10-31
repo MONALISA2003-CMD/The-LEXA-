@@ -34,4 +34,4 @@ These changes repair the four compiler diagnostics shown in the supplied logs; t
 
 ## Apply
 
-Extract `LEXA_Workstreams_0_3_Deployment_Build_Fixed.zip` at the root of the matching repository checkout. Review the local diff, then run the frontend and backend build commands. Do not apply migrations to production as part of this source repair; this ZIP contains the previously prepared Workstreams 0–3 overlay as well as these three build fixes.
+Extract `LEXA_Workstreams_0_3_Audit_Implementation_Overlay.zip` at the root of the matching repository checkout. This refreshed ZIP includes these build repairs and the subsequent Workstreams 0–3 audit changes. Review the local diff, then run the frontend and backend build commands. Do not apply migrations to production as part of this source repair; this ZIP contains the previously prepared Workstreams 0–3 overlay as well as these three build fixes.

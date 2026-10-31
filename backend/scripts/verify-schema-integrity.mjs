@@ -6,7 +6,7 @@ if (!connectionString) { console.error('DATABASE_URL is required for schema inte
 
 const client = new Client({ connectionString, connectionTimeoutMillis: 10_000, statement_timeout: 15_000 });
 const requiredTables = [
-  'tenants','users','memberships','branches','branch_memberships','products','sales','sale_lines','sale_payments','stock_movements',
+  'tenants','users','memberships','branches','branch_memberships','products','sales','sale_lines','sale_return_lines','sale_payments','stock_movements',
   'commerce_purchase_orders','commerce_goods_receipts','ar_customer_invoices','ar_customer_receipts','ap_supplier_invoices','ap_supplier_payments',
   'ledger_accounts','accounting_periods','ledger_journals','ledger_journal_lines','audit_events','idempotency_records',
 ];
@@ -18,9 +18,9 @@ try {
   const missing = requiredTables.filter((name) => !tableNames.has(name));
   if (missing.length) throw new Error(`Missing required tables: ${missing.join(', ')}`);
 
-  const columns = await client.query(`SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('sale_lines','stock_movements','memberships')`);
+  const columns = await client.query(`SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('sale_lines','sale_return_lines','sale_payments','stock_movements','memberships')`);
   const columnSet = new Set(columns.rows.map((row) => `${row.table_name}.${row.column_name}`));
-  for (const required of ['sale_lines.unit_cost_minor','stock_movements.unit_cost_minor','memberships.branch_scope_mode']) if (!columnSet.has(required)) throw new Error(`Missing required cost snapshot column: ${required}`);
+  for (const required of ['sale_lines.unit_cost_minor','sale_return_lines.disposition','sale_payments.ledger_source','stock_movements.unit_cost_minor','memberships.branch_scope_mode']) if (!columnSet.has(required)) throw new Error(`Missing required cost snapshot column: ${required}`);
 
   const triggers = await client.query(`SELECT tgname,tgenabled FROM pg_trigger WHERE NOT tgisinternal AND tgname IN ('ledger_journals_guard','ledger_journal_lines_guard','accounting_periods_guard')`);
   const enabled = new Set(triggers.rows.filter((row) => row.tgenabled !== 'D').map((row) => row.tgname));
@@ -58,7 +58,12 @@ try {
   const sourceKey = await client.query(`SELECT indexname FROM pg_indexes WHERE schemaname='public' AND tablename='ledger_journals' AND indexname='ledger_journals_source_key'`);
   if (!sourceKey.rowCount) throw new Error('Source uniqueness index for idempotent ledger postings is missing.');
 
-  console.log(`Schema integrity verified: ${requiredTables.length} required tables, cost snapshots, branch FKs, seeded ledger accounts, non-overlapping periods, integrity triggers and source uniqueness.`);
+  const dispositionCheck = await client.query(`SELECT 1 FROM pg_constraint WHERE conrelid='public.sale_return_lines'::regclass AND conname='sale_return_lines_disposition_check'`);
+  if (!dispositionCheck.rowCount) throw new Error('Return disposition validation constraint is missing.');
+  const ledgerSourceCheck = await client.query(`SELECT 1 FROM pg_constraint WHERE conrelid='public.sale_payments'::regclass AND conname='sale_payments_ledger_source_check'`);
+  if (!ledgerSourceCheck.rowCount) throw new Error('Sale payment ledger-source validation constraint is missing.');
+
+  console.log(`Schema integrity verified: ${requiredTables.length} required tables, cost and source snapshots, return disposition, branch FKs, seeded ledger accounts, non-overlapping periods, integrity triggers and source uniqueness.`);
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;

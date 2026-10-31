@@ -185,7 +185,7 @@ export const localSalesWorkflow: SalesWorkflow = {
         returnLines.push({
           id: createId('retline'), workspaceId: input.workspaceId, returnId,
           originalSaleLineId: saleLineId, productId: originalLine.productId,
-          productNameSnapshot: originalLine.productNameSnapshot, quantity,
+          productNameSnapshot: originalLine.productNameSnapshot, quantity, disposition: input.items.find((item) => item.saleLineId === saleLineId)?.disposition ?? 'restock',
           unitPriceMinor: originalLine.unitPriceMinor, lineTotalMinor: originalLine.unitPriceMinor * quantity,
         });
       }
@@ -206,7 +206,7 @@ export const localSalesWorkflow: SalesWorkflow = {
       for (const line of returnLines) {
         const product = await db.products.get(line.productId);
         if (!product || product.workspaceId !== input.workspaceId) throw new Error(`Product for returned line ${line.productNameSnapshot} could not be found.`);
-        if (product.trackStock) {
+        if (product.trackStock && line.disposition === 'restock') {
           stockMovements.push({
             id: createId('mov'), workspaceId: input.workspaceId, branchId: input.branchId,
             productId: line.productId, type: 'return', quantityDelta: line.quantity,
