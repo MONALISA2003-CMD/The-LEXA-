@@ -4,6 +4,8 @@
 
 **Base:** `MONALISA2003-CMD/The-LEXA-` main source snapshot inspected on 30 October 2026. Extract this overlay over the matching repository root; it changes only the listed files and adds migration/code files. Keep the existing `lexa-frontend/` application intact.
 
+**31 October deployment build repair:** The Vercel Team & Access TypeScript errors and the two Render General Ledger TypeScript errors reported after the original overlay are repaired in this ZIP. See `DEPLOYMENT_BUILD_REPAIRS_20261031.md` for the exact root causes and verification limits.
+
 ## What this increment adds
 
 ### Workstream 0 — build/release integrity

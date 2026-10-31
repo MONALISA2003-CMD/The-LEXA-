@@ -246,7 +246,7 @@ export class GeneralLedgerController {
     if (!key || key.length > 200) throw new BadRequestException('Idempotency-Key header is required to create a journal.');
     const requestHash = sha(JSON.stringify({ workspaceId, branchId, entryDate, memo, lines }));
     try {
-      let id = randomUUID();
+      let id: string = randomUUID();
       await this.prisma.$transaction(async (tx) => {
         const prior = await tx.$queryRaw<any[]>`SELECT id,request_hash FROM ledger_journals WHERE tenant_id=${workspaceId}::uuid AND idempotency_key=${key} LIMIT 1`;
         if (prior.length) {

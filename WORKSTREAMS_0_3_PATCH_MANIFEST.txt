@@ -7,6 +7,7 @@ Files in this overlay:
 .github/workflows/backend-ci.yml
 .github/workflows/frontend-ci.yml
 WORKSTREAMS_0_3_IMPLEMENTATION_NOTES.md
+DEPLOYMENT_BUILD_REPAIRS_20261031.md
 backend/package.json
 backend/prisma/migrations/20261030230000_branch_scoped_authorization/migration.sql
 backend/prisma/migrations/20261030240000_general_ledger_foundation/migration.sql

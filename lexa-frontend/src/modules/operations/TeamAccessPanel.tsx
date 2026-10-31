@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Building2, CircleAlert, LockKeyhole, RefreshCw, Save, ShieldCheck, Users } from 'lucide-react';
+import { CircleAlert, LockKeyhole, RefreshCw, Save, ShieldCheck, Users } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiTeamAccess, type TeamMember } from '../../data/remote/apiTeamAccess';
 import './team-access.css';
@@ -93,7 +93,16 @@ export default function TeamAccessPanel() {
             <div className="team-access-controls">
               <div className="team-access-control"><label htmlFor={`role-${member.userId}`}>Workspace role</label><div className="team-access-inline"><select id={`role-${member.userId}`} disabled={protectedOwner || member.status !== 'ACTIVE' || busy} value={roleValue} onChange={event => setRoleDrafts(current => ({ ...current, [member.userId]: event.target.value }))}>{ROLE_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><button type="button" className="team-access-save" disabled={!roleChanged || busy} onClick={() => void saveRole(member)}><Save size={14} /> Save role</button></div>{protectedOwner && <small>Workspace ownership cannot be changed here.</small>}</div>
               <div className="team-access-control"><div className="team-access-control-heading"><label>Branch access</label><span>{scope.allBranches ? 'All branches' : `${scope.branchIds.length} of ${branches.length} selected`}</span></div>
-                <label className="team-access-all"><input type="checkbox" checked={scope.allBranches} disabled={branchScopeLocked || member.status !== 'ACTIVE' || busy} onChange={event => setScopeDrafts(current => ({ ...current, [member.userId]: { allBranches: event.target.checked, branchIds: event.target.checked ? [] : (current[member.userId]?.branchIds.length ? current[member.userId].branchIds : branches.map(branch => branch.id)) } }))} /> Allow access to all workspace branches</label>
+                <label className="team-access-all"><input type="checkbox" checked={scope.allBranches} disabled={branchScopeLocked || member.status !== 'ACTIVE' || busy} onChange={event => setScopeDrafts(current => {
+                  const existingDraft = current[member.userId];
+                  return {
+                    ...current,
+                    [member.userId]: {
+                      allBranches: event.target.checked,
+                      branchIds: event.target.checked ? [] : (existingDraft?.branchIds.length ? existingDraft.branchIds : branches.map(branch => branch.id)),
+                    },
+                  };
+                })} /> Allow access to all workspace branches</label>
                 {!scope.allBranches && <div className="team-access-branch-grid">{branches.map(branch => <label key={branch.id}><input type="checkbox" checked={scope.branchIds.includes(branch.id)} disabled={branchScopeLocked || member.status !== 'ACTIVE' || busy} onChange={event => setScopeDrafts(current => { const prior = current[member.userId] ?? scope; return { ...current, [member.userId]: { allBranches: false, branchIds: event.target.checked ? [...prior.branchIds, branch.id] : prior.branchIds.filter(id => id !== branch.id) } }; })} /><span>{branch.name}</span><small>{branch.code}</small></label>)}</div>}
                 <div className="team-access-branch-footer"><span>{!scope.allBranches && scope.branchIds.length === 0 ? 'This member will not be able to access any branch.' : scope.allBranches ? 'Workspace-wide branch access.' : 'Only checked branches will be visible and accessible.'}</span><button type="button" className="team-access-save" disabled={!scopeChanged || busy} onClick={() => void saveBranches(member)}><Save size={14} /> Save branches</button></div>
               </div>

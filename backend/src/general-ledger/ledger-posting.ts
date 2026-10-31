@@ -98,11 +98,13 @@ export async function postLedgerJournal(tx: any, input: LedgerPostingInput): Pro
   if (debitTotal !== creditTotal) throw new Error('Ledger journal debits and credits do not balance.');
 
   const keys = [...new Set(lines.map((line) => line.accountKey))];
-  const accounts = await tx.$queryRaw<any[]>`
+  const accounts: Array<{ id: string; system_key: string }> = await tx.$queryRaw<Array<{ id: string; system_key: string }>>`
     SELECT id,system_key FROM ledger_accounts
     WHERE tenant_id=${tenantId}::uuid AND is_active=true AND system_key=ANY(${keys}::text[])
     FOR SHARE`;
-  const accountIds = new Map(accounts.map((account) => [String(account.system_key), String(account.id)]));
+  const accountIds = new Map<string, string>(
+    accounts.map((account) => [account.system_key, account.id]),
+  );
   const missing = keys.filter((key) => !accountIds.has(key));
   if (missing.length) throw new Error(`Required ledger account(s) are missing or inactive: ${missing.join(', ')}.`);
 
