@@ -782,6 +782,7 @@ model BankStatementLine {
   direction String
   externalId String? @map("external_id")
   reconciliationStatus String @default("unmatched") @map("reconciliation_status")
+  @@unique([tenantId, id])
   @@unique([tenantId, bankAccountId, externalId])
   @@index([tenantId, bankAccountId, reconciliationStatus, transactionDate])
   @@map("bank_statement_lines")
@@ -798,6 +799,7 @@ model BankReconciliation {
   status String @default("draft")
   completedByUserId String? @map("completed_by_user_id") @db.Uuid
   completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  @@unique([tenantId, id])
   @@index([tenantId, bankAccountId, statementDate])
   @@map("bank_reconciliations")
 }

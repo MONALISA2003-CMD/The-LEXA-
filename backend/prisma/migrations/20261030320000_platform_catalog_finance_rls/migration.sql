@@ -162,6 +162,7 @@ CREATE TABLE IF NOT EXISTS bank_statement_lines (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, bank_account_id uuid NOT NULL,
  transaction_date date NOT NULL, description text NOT NULL, reference text, amount_minor bigint NOT NULL CHECK(amount_minor<>0), direction text NOT NULL CHECK(direction IN ('credit','debit')),
  external_id text, reconciliation_status text NOT NULL DEFAULT 'unmatched' CHECK(reconciliation_status IN ('unmatched','matched','ignored')),
+ UNIQUE(tenant_id,id),
  FOREIGN KEY(tenant_id,bank_account_id) REFERENCES bank_accounts(tenant_id,id) ON DELETE CASCADE
 );
 CREATE UNIQUE INDEX IF NOT EXISTS bank_statement_lines_external_idx ON bank_statement_lines(tenant_id,bank_account_id,external_id) WHERE external_id IS NOT NULL;
@@ -169,6 +170,7 @@ CREATE TABLE IF NOT EXISTS bank_reconciliations (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, bank_account_id uuid NOT NULL,
  statement_date date NOT NULL, opening_balance_minor bigint NOT NULL, closing_balance_minor bigint NOT NULL, reconciled_balance_minor bigint NOT NULL DEFAULT 0,
  status text NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','in_progress','completed','voided')), completed_by_user_id uuid REFERENCES users(id) ON DELETE RESTRICT, completed_at timestamptz,
+ UNIQUE(tenant_id,id),
  FOREIGN KEY(tenant_id,bank_account_id) REFERENCES bank_accounts(tenant_id,id) ON DELETE RESTRICT
 );
 CREATE TABLE IF NOT EXISTS bank_reconciliation_matches (

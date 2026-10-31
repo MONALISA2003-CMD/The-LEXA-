@@ -300,6 +300,7 @@ CREATE TABLE IF NOT EXISTS quality_inspection_plan_checks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, plan_id uuid NOT NULL,
   check_code text NOT NULL, description text NOT NULL, check_type text NOT NULL DEFAULT 'boolean' CHECK(check_type IN ('boolean','numeric','text')),
   required boolean NOT NULL DEFAULT true, minimum_value numeric, maximum_value numeric, sequence integer NOT NULL DEFAULT 1,
+  UNIQUE(tenant_id,id),
   FOREIGN KEY(tenant_id,plan_id) REFERENCES quality_inspection_plans(tenant_id,id) ON DELETE CASCADE,
   UNIQUE(tenant_id,plan_id,check_code)
 );
