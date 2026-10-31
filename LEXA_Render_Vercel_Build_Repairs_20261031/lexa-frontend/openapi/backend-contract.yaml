@@ -1,0 +1,3568 @@
+openapi: 3.1.0
+info:
+  title: LEXA Frontend Backend Contract
+  version: 1.0.0
+  description: >-
+    Proposed versioned API contract expected by the LEXA frontend. This is a contract
+    for backend implementation, not evidence
+    that a backend is deployed. All workspace and branch operations must verify the
+    authenticated principal's permissions
+    server-side. Mutating business operations must be transactional and auditable.
+
+
+    The route inventory below is synchronized against the current NestJS controllers;
+    CI checks controller path/method coverage.
+    Paths are relative to the `/api/v1` base path.
+servers:
+- url: https://api.example.com/api/v1
+  description: Replace with the real backend origin; never use client-side 
+    secrets.
+security:
+- sessionCookie: []
+paths:
+  /health:
+    get:
+      operationId: getApiHealth
+      security: []
+      responses:
+        '200': {description: Service availability only; does not confirm 
+            database readiness or authenticated business access, content: {
+              application/json: {schema: {type: object, required: [status], 
+                  properties: {status: {type: string, enum: [ok, healthy]}, 
+                    version: {type: string}}}}}}
+  /auth/csrf:
+    get:
+      operationId: getCsrfToken
+      security: []
+      description: Return a short-lived CSRF token bound to the current 
+        browser/session context; do not cache it in persistent browser storage.
+      responses:
+        '200': {description: CSRF token, content: {application/json: {schema: {
+                  type: object, required: [token], properties: {token: {type: 
+                      string, minLength: 16}}}}}}
+  /auth/session:
+    get:
+      operationId: getAuthenticatedSession
+      responses:
+        '200': {description: Current session, content: {application/json: {
+                schema: {$ref: '#/components/schemas/Session'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /auth/login:
+    post:
+      operationId: signIn
+      security: []
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [email, password], properties: {email: {type: 
+                    string, format: email}, password: {type: string, minLength: 
+                    1, maxLength: 1024}}}}}}
+      responses:
+        '200': {description: Session cookie issued, headers: {Set-Cookie: {
+                schema: {type: string}, description: Secure HttpOnly SameSite 
+                session cookie; never expose its value in JSON}}, content: {
+              application/json: {schema: {$ref: '#/components/schemas/Session'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /auth/logout:
+    post:
+      operationId: signOut
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      responses:
+        '204': {description: Session invalidated and cookie expired}
+  /auth/recovery/status:
+    get:
+      operationId: getPasswordRecoveryStatus
+      security: []
+      responses:
+        '200': {description: Whether recovery email delivery is configured, content: {application/json: {schema: {type: object, required: [available], properties: {available: {type: boolean}}}}}}
+  /auth/password/forgot:
+    post:
+      operationId: requestPasswordReset
+      security: []
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [email], properties: {email: {type: string, 
+                    format: email}}}}}}
+      responses:
+        '202': {description: Generic accepted response that does not reveal 
+            whether an account exists}
+  /auth/password/reset:
+    post:
+      operationId: resetPassword
+      security: []
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [token, password], properties: {token: {type: 
+                    string, minLength: 16}, password: {type: string, minLength: 
+                    15, maxLength: 1024}}}}}}
+      responses:
+        '204': {description: Password reset token consumed and password changed}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /workspaces:
+    get:
+      operationId: listWorkspaces
+      responses:
+        '200': {description: Workspaces visible to the current user, content: {
+              application/json: {schema: {$ref: '#/components/schemas/WorkspaceList'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    post:
+      operationId: createWorkspace
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateWorkspace'}}}}
+      responses:
+        '201': {description: Workspace created, content: {application/json: {
+                schema: {$ref: '#/components/schemas/Workspace'}}}}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /workspaces/{workspaceId}:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: getWorkspace
+      responses:
+        '200': {description: Workspace, content: {application/json: {schema: {
+                  $ref: '#/components/schemas/Workspace'}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+    patch:
+      operationId: updateWorkspace
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/UpdateWorkspace'}}}}
+      responses:
+        '200': {description: Updated workspace, content: {application/json: {
+                schema: {$ref: '#/components/schemas/Workspace'}}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /workspaces/{workspaceId}/branches:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: listBranches
+      responses:
+        '200': {description: Branch list, content: {application/json: {schema: {
+                  $ref: '#/components/schemas/BranchList'}}}}
+    post:
+      operationId: createBranch
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateBranch'}}}}
+      responses:
+        '201': {description: Branch created, content: {application/json: {schema: {
+                $ref: '#/components/schemas/Branch'}}}}
+  /workspaces/{workspaceId}/products:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: listProducts
+      parameters:
+      - {in: query, name: search, schema: {type: string}}
+      - {in: query, name: activeOnly, schema: {type: boolean}}
+      responses:
+        '200': {description: Products, content: {application/json: {schema: {
+                  $ref: '#/components/schemas/ProductList'}}}}
+    post:
+      operationId: createProduct
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateProduct'}}}}
+      responses:
+        '201': {description: Product created, content: {application/json: {
+                schema: {$ref: '#/components/schemas/Product'}}}}
+  /workspaces/{workspaceId}/products/{productId}:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/productId']
+    patch:
+      operationId: updateProduct
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Product'}}}}
+      responses:
+        '200': {description: Product updated, content: {application/json: {
+                schema: {$ref: '#/components/schemas/Product'}}}}
+  /workspaces/{workspaceId}/categories:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: listCategories
+      responses:
+        '200': {description: Categories, content: {application/json: {schema: {
+                  type: array, items: {$ref: '#/components/schemas/Category'}}}}}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/movements:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: listInventoryMovements
+      parameters: [{in: query, name: limit, schema: {type: integer, minimum: 1, 
+              maximum: 1000}}]
+      responses:
+        '200': {description: Movements, content: {application/json: {schema: {
+                  type: array, items: {$ref: '#/components/schemas/StockMovement'}}}}}
+    post:
+      operationId: recordInventoryAdjustment
+      parameters: [$ref: '#/components/parameters/idempotencyKey', $ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/StockAdjustment'}}}}
+      responses:
+        '201': {description: Adjustment recorded, content: {application/json: {
+                schema: {$ref: '#/components/schemas/StockMovement'}}}}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/balances:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: getInventoryBalances
+      responses:
+        '200': {description: Product on-hand quantities, content: {
+              application/json: {schema: {type: object, additionalProperties: {
+                    type: number}}}}}
+  /workspaces/{workspaceId}/sales:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: listSales
+      parameters: [{in: query, name: limit, schema: {type: integer, minimum: 1, 
+              maximum: 1000}}]
+      responses:
+        '200': {description: Sales, content: {application/json: {schema: {type: 
+                  array, items: {$ref: '#/components/schemas/Sale'}}}}}
+  /workspaces/{workspaceId}/sales/{saleId}:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/saleId']
+    get:
+      operationId: getSale
+      responses:
+        '200': {description: Sale with lines, returns and payments: null, 
+            content: {application/json: {schema: {$ref: '#/components/schemas/SaleDetail'}}}}
+  /workspaces/{workspaceId}/branches/{branchId}/sales/complete:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId',
+      $ref: '#/components/parameters/idempotencyKey']
+    post:
+      operationId: completeSale
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: >-
+        In one database transaction validate permissions, product availability, prices
+        and totals; write sale,
+        sale lines, payment records and stock effects; return the canonical sale.
+        Never trust client-calculated totals.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CompleteSale'}}}}
+      responses:
+        '201': {description: Sale completed, content: {application/json: {schema: {
+                type: object, required: [sale], properties: {sale: {$ref: '#/components/schemas/Sale'}}}}}}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/sales/{saleId}/payments:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId',
+      $ref: '#/components/parameters/saleId', $ref: '#/components/parameters/idempotencyKey']
+    post:
+      operationId: receiveSalePayment
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReceivePayment'}}}}
+      responses:
+        '201': {description: Payment record and outstanding balance}
+  /workspaces/{workspaceId}/branches/{branchId}/sales/{saleId}/returns:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId',
+      $ref: '#/components/parameters/saleId', $ref: '#/components/parameters/idempotencyKey']
+    post:
+      operationId: recordSaleReturn
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RecordReturn'}}}}
+      responses:
+        '201': {description: Return and refund record}
+  /workspaces/{workspaceId}/branches/{branchId}/dashboard:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: getDashboard
+      responses:
+        '200': {description: Server-derived dashboard, content: {
+              application/json: {schema: {$ref: '#/components/schemas/Dashboard'}}}}
+  /workspaces/{workspaceId}/branches/{branchId}/modules/{moduleId}/records:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId',
+      $ref: '#/components/parameters/moduleId']
+    get:
+      operationId: listModuleRecords
+      responses:
+        '200': {description: Canonical records, content: {application/json: {
+                schema: {$ref: '#/components/schemas/RecordList'}}}}
+    put:
+      operationId: replaceModuleRecords
+      deprecated: true
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: Deprecated and blocked by the API guard. Use individual versioned record writes; bulk replacement has no collection-level ETag.
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [records], properties: {records: {type: array, 
+                    items: {$ref: '#/components/schemas/ModuleRecord'}}}}}}}
+      responses:
+        '200': {description: Replaced records, content: {application/json: {
+                schema: {$ref: '#/components/schemas/RecordList'}}}}
+        '409': {$ref: '#/components/responses/Conflict'}
+    delete:
+      operationId: deleteModuleRecords
+      deprecated: true
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: Deprecated and blocked by the API guard until an explicit collection ETag/confirmation contract exists.
+      responses:
+        '204': {description: Records deleted}
+  /workspaces/{workspaceId}/branches/{branchId}/modules/{moduleId}/records/{recordId}:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId',
+      $ref: '#/components/parameters/moduleId', $ref: '#/components/parameters/recordId']
+    put:
+      operationId: upsertModuleRecord
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/ifMatch']
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ModuleRecord'}}}}
+      responses:
+        '200': {description: Saved canonical record, content: {application/json: {
+              schema: {$ref: '#/components/schemas/ModuleRecord'}}}}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/modules/{moduleId}/records/{recordId}/status:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId',
+      $ref: '#/components/parameters/moduleId', $ref: '#/components/parameters/recordId']
+    patch:
+      operationId: changeModuleRecordStatus
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/ifMatchRequired']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [status], properties: {status: {type: string, 
+                    minLength: 1, maxLength: 80}}}}}}
+      responses:
+        '200': {description: Updated record list, content: {application/json: {
+                schema: {$ref: '#/components/schemas/RecordList'}}}}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/reports/modules:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: getModuleReport
+      parameters:
+      - {in: query, name: report, required: true, schema: {type: string}}
+      - {in: query, name: period, required: true, schema: {type: string}}
+      - {in: query, name: currency, required: true, schema: {type: string, 
+            pattern: '^[A-Z]{3}$'}}
+      responses:
+        '200': {description: Server-calculated report snapshot; not a substitute
+            for statutory/accounting certification, content: {application/json: {
+              schema: {$ref: '#/components/schemas/ModuleReport'}}}}
+  /workspaces/{workspaceId}/branches/{branchId}/business-tools/snapshot:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: getBusinessToolsSnapshot
+      description: Return workspace-scoped products, sales, returns, payments 
+        and stock movements from authoritative backend records.
+      responses:
+        '200': {description: Business tools source snapshot, content: {
+              application/json: {schema: {$ref: '#/components/schemas/BusinessToolsSnapshot'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /workspaces/{workspaceId}/business-tools/tax-profile:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: getBusinessTaxProfile
+      responses:
+        '200': {description: Server-maintained tax profile; thresholds are 
+            user-supplied, not inferred legal advice: null, content: {
+              application/json: {schema: {$ref: '#/components/schemas/TaxProfile'}}}}
+    put:
+      operationId: upsertBusinessTaxProfile
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TaxProfile'}}}}
+      responses:
+        '200': {description: Saved profile, content: {application/json: {schema: {
+                $ref: '#/components/schemas/TaxProfile'}}}}
+  /workspaces/{workspaceId}/branches/{branchId}/cash-ups:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: listCashUps
+      responses:
+        '200': {description: Cash-up records, content: {application/json: {
+                schema: {type: array, items: {$ref: '#/components/schemas/CashUp'}}}}}
+  /workspaces/{workspaceId}/branches/{branchId}/cash-ups/{cashUpDate}:
+    parameters:
+    - {$ref: '#/components/parameters/workspaceId'}
+    - {$ref: '#/components/parameters/branchId'}
+    - {in: path, name: cashUpDate, required: true, schema: {type: string, format: 
+          date}}
+    put:
+      operationId: upsertCashUp
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CashUp'}}}}
+      responses:
+        '200': {description: Saved cash-up, content: {application/json: {schema: {
+                $ref: '#/components/schemas/CashUp'}}}}
+  /workspaces/{workspaceId}/compliance-notes:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: listComplianceNotes
+      responses:
+        '200': {description: Internal document references, content: {
+              application/json: {schema: {type: array, items: {$ref: '#/components/schemas/ComplianceNote'}}}}}
+    post:
+      operationId: createComplianceNote
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ComplianceNoteInput'}}}}
+      responses:
+        '201': {description: Reference created, content: {application/json: {
+                schema: {$ref: '#/components/schemas/ComplianceNote'}}}}
+  /workspaces/{workspaceId}/imports/products-csv:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    post:
+      operationId: importProductsCsv
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [currency, csv], properties: {currency: {type: 
+                    string, pattern: '^[A-Z]{3}$'}, csv: {type: string, 
+                    minLength: 1}}}}}}
+      responses:
+        '200': {description: Import summary, content: {application/json: {schema: {
+                type: object, required: [importedCount], properties: {
+                    importedCount: {type: integer, minimum: 0}}}}}}
+  /workspaces/{workspaceId}/branches/{branchId}/imports/opening-stock-csv:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    post:
+      operationId: importOpeningStockCsv
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [csv], properties: {csv: {type: string, 
+                    minLength: 1}}}}}}
+      responses:
+        '200': {description: Import summary, content: {application/json: {schema: {
+                type: object, required: [importedCount], properties: {
+                    importedCount: {type: integer, minimum: 0}}}}}}
+  /workspaces/{workspaceId}/backup:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: exportWorkspaceBackup
+      responses:
+        '200': {description: Authorized versioned workspace backup, content: {
+              application/json: {schema: {type: object, required: [format, 
+                    version, createdAt, workspaceId, data], properties: {format: {
+                    type: string, const: lexa-workspace-backup}, version: {type: 
+                      integer}, createdAt: {type: string, format: date-time}, 
+                    workspaceId: {type: string}, data: {type: object, 
+                      additionalProperties: true}}}}}}
+  /workspaces/{workspaceId}/backup/restore:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    post:
+      operationId: restoreWorkspaceBackup
+      description: Require workspace-owner/admin permission, validate the 
+        complete backup, restore transactionally, and create an immutable audit 
+        entry before acknowledging completion.
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [backup], properties: {backup: {type: object, 
+                    additionalProperties: true}}}}}}
+      responses:
+        '200': {description: Restore result, content: {application/json: {schema: {
+                type: object, properties: {tablesRestored: {type: integer}, 
+                    recordsRestored: {type: integer}, accepted: {type: boolean}}}}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/search:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: searchWorkspaceRecords
+      description: Search authorized workspace records across supported modules.
+        Search by product name, SKU, barcode, receipt, customer, supplier, 
+        order/invoice reference and record title. Enforce workspace/branch and 
+        row-level permissions server-side.
+      parameters:
+      - {in: query, name: branchId, required: true, schema: {type: string}}
+      - {in: query, name: q, required: true, schema: {type: string, minLength: 2,
+          maxLength: 160}}
+      - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 50,
+          default: 20}}
+      responses:
+        '200': {description: Search results, content: {application/json: {schema: {
+                type: array, items: {$ref: '#/components/schemas/GlobalSearchResult'}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /workspaces/{workspaceId}/branches/{branchId}/analytics/overview:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: getOverviewAnalytics
+      description: Return verified, server-calculated overview KPIs and 
+        analytics. Omit unavailable metrics or mark sourceCoverage false; never 
+        fabricate chart values. Currency metrics use major currency units; core 
+        ledgers remain in minor units.
+      parameters:
+      - {in: query, name: period, required: true, schema: {type: string, enum: [
+              today, 7d, 30d, 90d, 12m]}}
+      - {in: query, name: compare, schema: {type: boolean, default: true}}
+      responses:
+        '200': {description: Dashboard metrics, trends: null, breakdowns: null, 
+            activity and exceptions: null, content: {application/json: {schema: {
+                type: object, required: [generatedAt, period, kpis, salesTrend, 
+                    salesByChannel, stockHealth, recentActivity, exceptions], 
+                  properties: {generatedAt: {type: string, format: date-time}, 
+                    period: {type: string}, comparisonPeriod: {type: string}, 
+                    kpis: {type: array, items: {type: object, required: [key, 
+                          label, value, unit], properties: {key: {type: string}, 
+                          label: {type: string}, value: {type: number}, unit: {
+                            type: string, enum: [currency, number, percent, 
+                              duration]}, changePercent: {type: number, nullable: 
+                            true}, previousValue: {type: number, nullable: true},
+                        trend: {type: string, enum: [up, down, flat]}, 
+                          description: {type: string}, href: {type: string}}}}, 
+                    salesTrend: {type: array, items: {type: object, required: [
+                          label, value], properties: {label: {type: string}, 
+                          value: {type: number}, comparisonValue: {type: number, 
+                            nullable: true}}}}, salesByChannel: {type: array, 
+                      items: {$ref: '#/components/schemas/AnalyticsBreakdown'}}, 
+                    stockHealth: {type: array, items: {$ref: '#/components/schemas/AnalyticsBreakdown'}},
+                  recentActivity: {type: array, items: {$ref: '#/components/schemas/ActivityEvent'}},
+                  exceptions: {type: array, items: {$ref: '#/components/schemas/OverviewException'}},
+                  sourceCoverage: {type: object, additionalProperties: {type: 
+                        boolean}}}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /workspaces/{workspaceId}/inbox/threads:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: listInboxThreads
+      parameters: [{in: query, name: branchId, required: true, schema: {type: 
+              string}}, {in: query, name: recordType, schema: {type: string}}, {
+            in: query, name: recordId, schema: {type: string}}]
+      responses:
+        '200': {description: Authorized message threads, content: {
+              application/json: {schema: {type: array, items: {$ref: '#/components/schemas/InboxThread'}}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      operationId: createInboxThread
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [branchId, title, kind, participantIds], 
+                properties: {branchId: {type: string}, title: {type: string, 
+                    minLength: 1, maxLength: 120}, kind: {type: string, enum: [
+                      direct, group, record]}, participantIds: {type: array, 
+                    minItems: 1, items: {type: string}}, recordType: {type: 
+                    string}, recordId: {type: string}}}}}}
+      responses:
+        '201': {description: Created thread, content: {application/json: {schema: {
+                $ref: '#/components/schemas/InboxThread'}}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /workspaces/{workspaceId}/inbox/threads/{threadId}/messages:
+    parameters: [$ref: '#/components/parameters/workspaceId', {in: path, name: 
+          threadId, required: true, schema: {type: string}}]
+    get:
+      operationId: listThreadMessages
+      responses:
+        '200': {description: Messages in an authorized thread, content: {
+              application/json: {schema: {type: array, items: {$ref: '#/components/schemas/InboxMessage'}}}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    post:
+      operationId: sendThreadMessage
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [body], properties: {body: {type: string, 
+                    minLength: 1, maxLength: 10000}}}}}}
+      responses:
+        '201': {description: Message accepted, content: {application/json: {
+                schema: {$ref: '#/components/schemas/InboxMessage'}}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /workspaces/{workspaceId}/inbox/threads/{threadId}/messages/{messageId}/reactions:
+    parameters: [$ref: '#/components/parameters/workspaceId', {in: path, name: 
+          threadId, required: true, schema: {type: string}}, {in: path, name: 
+          messageId, required: true, schema: {type: string}}]
+    post:
+      operationId: reactToInboxMessage
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [emoji], properties: {emoji: {type: string, 
+                    enum: ['👍', '✅', '👀']}}}}}}
+      responses:
+        '200':
+          description: Reaction toggled for the authenticated participant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reactions:
+                    type: array
+                    items: {$ref: '#/components/schemas/MessageReaction'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /workspaces/{workspaceId}/inbox/threads/{threadId}/read:
+    parameters: [$ref: '#/components/parameters/workspaceId', {in: path, name: 
+          threadId, required: true, schema: {type: string}}]
+    post:
+      operationId: markThreadRead
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      responses: {'204': {description: Thread marked read}, '403': {$ref: '#/components/responses/Forbidden'}}
+  /workspaces/{workspaceId}/tasks:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: listTasks
+      parameters: [{in: query, name: branchId, required: true, schema: {type: 
+              string}}, {in: query, name: status, schema: {type: string}}]
+      responses: {'200': {description: Tasks visible to this user, content: {
+              application/json: {schema: {type: array, items: {$ref: '#/components/schemas/InboxTask'}}}}}}
+    post:
+      operationId: createTask
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [branchId, title, priority], properties: {
+                  branchId: {type: string}, title: {type: string, minLength: 1, 
+                    maxLength: 200}, description: {type: string, maxLength: 3000},
+                priority: {type: string, enum: [low, normal, high, urgent]}, 
+                  dueAt: {type: string, format: date-time}, assigneeId: {type: 
+                    string}}}}}}
+      responses: {'201': {description: Task created, content: {application/json: {
+              schema: {$ref: '#/components/schemas/InboxTask'}}}}}
+  /workspaces/{workspaceId}/tasks/{taskId}:
+    parameters: [$ref: '#/components/parameters/workspaceId', {in: path, name: 
+          taskId, required: true, schema: {type: string}}]
+    patch:
+      operationId: updateTask
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [status], properties: {status: {type: string, 
+                    enum: [open, in_progress, blocked, done, cancelled]}}}}}}
+      responses: {'200': {description: Updated task, content: {application/json: {
+              schema: {$ref: '#/components/schemas/InboxTask'}}}}, '403': {$ref: '#/components/responses/Forbidden'}}
+  /workspaces/{workspaceId}/approvals:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: listApprovals
+      parameters: [{in: query, name: branchId, required: true, schema: {type: 
+              string}}, {in: query, name: status, schema: {type: string, enum: [
+                pending, approved, rejected]}}]
+      responses: {'200': {description: Approvals available to the current user, 
+            content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/InboxApproval'}}}}}}
+  /workspaces/{workspaceId}/approvals/{approvalId}/decision:
+    parameters: [$ref: '#/components/parameters/workspaceId', {in: path, name: 
+          approvalId, required: true, schema: {type: string}}]
+    post:
+      operationId: decideApproval
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [decision], properties: {decision: {type: 
+                    string, enum: [approve, reject]}, comment: {type: string, 
+                    maxLength: 2000}}}}}}
+      responses: {'200': {description: Decision recorded, content: {
+              application/json: {schema: {$ref: '#/components/schemas/InboxApproval'}}}},
+        '403': {$ref: '#/components/responses/Forbidden'}}
+  /workspaces/{workspaceId}/notifications:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: listNotifications
+      parameters: [{in: query, name: branchId, required: true, schema: {type: 
+              string}}, {in: query, name: limit, schema: {type: integer, minimum: 
+              1, maximum: 100}}]
+      responses: {'200': {description: Notifications visible to the current user,
+          content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/InboxNotification'}}}}}}
+  /workspaces/{workspaceId}/notifications/{notificationId}/read:
+    parameters: [$ref: '#/components/parameters/workspaceId', {in: path, name: 
+          notificationId, required: true, schema: {type: string}}]
+    post:
+      operationId: markNotificationRead
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      responses: {'204': {description: Notification marked read}, '403': {$ref: '#/components/responses/Forbidden'}}
+  /workspaces/{workspaceId}/notifications/read-all:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    post:
+      operationId: markAllNotificationsRead
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      responses: {'204': {description: All visible notifications marked read}, '403': {
+          $ref: '#/components/responses/Forbidden'}}
+  /workspaces/{workspaceId}/activity:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: listActivity
+      parameters: [{in: query, name: branchId, required: true, schema: {type: 
+              string}}, {in: query, name: limit, schema: {type: integer, minimum: 
+              1, maximum: 100}}]
+      responses: {'200': {description: Permission-filtered activity and audit 
+            events, content: {application/json: {schema: {type: array, items: {
+                    $ref: '#/components/schemas/ActivityEvent'}}}}}}
+  /workspaces/{workspaceId}/memberships/{userId}/branches:
+    parameters:
+    - {$ref: '#/components/parameters/workspaceId'}
+    - {in: path, name: userId, required: true, schema: {type: string, format: 
+          uuid}}
+    get:
+      operationId: getMemberBranchScope
+      responses:
+        '200': {description: Member branch grants, content: {application/json: {
+                schema: {type: object, required: [userId, role, status, 
+                    branchIds, allBranches], properties: {userId: {type: string},
+                  role: {type: string}, status: {type: string}, branchIds: {type: 
+                      array, items: {type: string, format: uuid}}, allBranches: {
+                    type: boolean}}}}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    put:
+      operationId: replaceMemberBranchScope
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - allBranches
+              properties:
+                allBranches:
+                  type: boolean
+                branchIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  maxItems: 500
+      responses:
+        '200': {description: Branch grants replaced}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+      summary: Replace a member branch allow-list or grant all branches
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/accounts:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: listLedgerAccounts
+      responses:
+        '200': {description: Tenant chart of accounts}
+    post:
+      operationId: createLedgerAccount
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [accountCode, accountName, accountType, 
+                  normalBalance], properties: {accountCode: {type: string, 
+                    maxLength: 24}, accountName: {type: string, maxLength: 120}, 
+                  accountType: {type: string, enum: [asset, liability, equity, 
+                      revenue, expense]}, normalBalance: {type: string, enum: [
+                      debit, credit]}}}}}}
+      responses:
+        '201': {description: Ledger account created}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/periods:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: listAccountingPeriods
+      responses:
+        '200': {description: Accounting periods}
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/periods/{periodId}/close:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId',
+      {in: path, name: periodId, required: true, schema: {type: string, format: 
+            uuid}}]
+    post:
+      operationId: closeAccountingPeriod
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      responses:
+        '201': {description: Accounting period closed}
+        '409': {$ref: '#/components/responses/Conflict'}
+      description: Workspace owners and administrators only. Closure is blocked 
+        while any draft journal remains in the period.
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/journals:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: listLedgerJournals
+      parameters:
+      - {in: query, name: from, schema: {type: string, format: date}}
+      - {in: query, name: to, schema: {type: string, format: date}}
+      responses:
+        '200': {description: Ledger journal register}
+    post:
+      operationId: createLedgerJournal
+      parameters: [$ref: '#/components/parameters/csrfToken', $ref: '#/components/parameters/idempotencyKey']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [entryDate, memo, lines], properties: {
+                  entryDate: {type: string, format: date}, memo: {type: string, 
+                    minLength: 1, maxLength: 500}, lines: {type: array, minItems: 
+                    2, maxItems: 100, items: {type: object, required: [accountId],
+                    properties: {accountId: {type: string, format: uuid}, 
+                        debitMinor: {type: integer, minimum: 0}, creditMinor: {
+                          type: integer, minimum: 0}, description: {type: string,
+                        maxLength: 300}}}}}}}}}
+      responses:
+        '201': {description: Draft journal created}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/journals/{journalId}/post:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId',
+      {in: path, name: journalId, required: true, schema: {type: string, format: 
+            uuid}}]
+    post:
+      operationId: postLedgerJournal
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      responses:
+        '201': {description: Posted balanced journal}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/journals/{journalId}/reverse:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId',
+      {in: path, name: journalId, required: true, schema: {type: string, format: 
+            uuid}}]
+    post:
+      operationId: reverseLedgerJournal
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {type: 
+                object, required: [reason], properties: {reason: {type: string, 
+                    minLength: 1, maxLength: 500}}}}}}
+      responses:
+        '201': {description: Posted reversal journal}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/reports/trial-balance:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: getLedgerTrialBalance
+      parameters: [{in: query, name: asOf, schema: {type: string, format: date}}]
+      responses:
+        '200': {description: Posted trial balance by account}
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/reports/source-reconciliation:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    get:
+      operationId: getLedgerSourceReconciliation
+      summary: Reconcile automated business source transactions with posted ledger journals
+      description: Compares the nine supported source workflows against journal source IDs, posting state, debit-credit balance and expected debit values; it also flags orphan source journals. It does not claim coverage for finance subledgers not yet implemented.
+      responses:
+        '200': {description: Branch source-to-ledger reconciliation results}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/accounts/{accountId}/activity:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId',
+      {in: path, name: accountId, required: true, schema: {type: string, format: 
+            uuid}}]
+    get:
+      operationId: getLedgerAccountActivity
+      responses:
+        '200': {description: Posted account activity}
+  /auth/bootstrap/status:
+    get:
+      operationId: GetAuthBootstrapStatus
+      summary: GET /auth/bootstrap/status
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters: []
+      responses:
+        '200':
+          description: Process is alive.
+      security: []
+  /auth/register:
+    post:
+      operationId: PostAuthRegister
+      summary: POST /auth/register
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+      security: []
+  /workspaces/{workspaceId}/members:
+    get:
+      operationId: GetWorkspacesWorkspaceIdMembers
+      summary: List workspace members and their role/branch scope
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Members visible to a workspace owner or administrator. 
+            Each member includes branchScopeMode, branchIds and allBranches.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /workspaces/{workspaceId}/memberships/{userId}/role:
+    put:
+      operationId: PutWorkspacesWorkspaceIdMembershipsUserIdRole
+      summary: Update a member role
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - role
+              properties:
+                role:
+                  type: string
+                  enum:
+                  - administrator
+                  - business_manager
+                  - manager
+                  - branch_manager
+                  - accountant
+                  - sales
+                  - sales_operator
+                  - cashier
+                  - inventory_operator
+                  - warehouse_operator
+                  - read_only
+                  - readonly
+                  - viewer
+                  - member
+  /health/live:
+    get:
+      servers: [{url: https://api.example.com}]
+      operationId: GetHealthLive
+      summary: Liveness probe (unprefixed)
+      description: Process liveness only. Does not prove database readiness. This route is excluded from the global /api/v1 prefix.
+      parameters: []
+      responses:
+        '200':
+          description: Database dependency is ready.
+      security: []
+  /health/ready:
+    get:
+      servers: [{url: https://api.example.com}]
+      operationId: GetHealthReady
+      summary: Readiness probe (unprefixed)
+      description: Executes SELECT 1 against PostgreSQL; returns 200 when ready and 503 when the database dependency is unavailable. This route is excluded from the global /api/v1 prefix and is the Render health-check path.
+      parameters: []
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+      security: []
+      responses:
+        '200': {description: Database is ready}
+        '503': {description: Database dependency unavailable}
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/sales-orders:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceSalesOrders
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/commerce/sales-orders
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceSalesOrders
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/commerce/sales-orders
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/sales-orders/{orderId}/confirm:
+    post:
+      operationId: 
+        PostWorkspacesWorkspaceIdBranchesBranchIdCommerceSalesOrdersOrderIdConfirm
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/commerce/sales-orders/{orderId}/confirm
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/sales-orders/{orderId}/fulfil:
+    post:
+      operationId: 
+        PostWorkspacesWorkspaceIdBranchesBranchIdCommerceSalesOrdersOrderIdFulfil
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/commerce/sales-orders/{orderId}/fulfil
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/purchase-orders:
+    get:
+      operationId: 
+        GetWorkspacesWorkspaceIdBranchesBranchIdCommercePurchaseOrders
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/commerce/purchase-orders
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+    post:
+      operationId: 
+        PostWorkspacesWorkspaceIdBranchesBranchIdCommercePurchaseOrders
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/commerce/purchase-orders
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/purchase-orders/{orderId}/order:
+    post:
+      operationId: 
+        PostWorkspacesWorkspaceIdBranchesBranchIdCommercePurchaseOrdersOrderIdOrder
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/commerce/purchase-orders/{orderId}/order
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/purchase-orders/{orderId}/receipts:
+    post:
+      operationId: 
+        PostWorkspacesWorkspaceIdBranchesBranchIdCommercePurchaseOrdersOrderIdReceipts
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/commerce/purchase-orders/{orderId}/receipts
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/deliveries:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceDeliveries
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/commerce/deliveries
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/deliveries/{deliveryId}/status:
+    patch:
+      operationId: 
+        PatchWorkspacesWorkspaceIdBranchesBranchIdCommerceDeliveriesDeliveryIdStatus
+      summary: PATCH 
+        /workspaces/{workspaceId}/branches/{branchId}/commerce/deliveries/{deliveryId}/status
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: deliveryId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/crm/leads/{leadRecordId}/convert:
+    post:
+      operationId: 
+        PostWorkspacesWorkspaceIdBranchesBranchIdCommerceCrmLeadsLeadRecordIdConvert
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/commerce/crm/leads/{leadRecordId}/convert
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: leadRecordId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/receivables/eligible-sales:
+    get:
+      operationId: 
+        GetWorkspacesWorkspaceIdBranchesBranchIdReceivablesEligibleSales
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/receivables/eligible-sales
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+  /workspaces/{workspaceId}/branches/{branchId}/receivables/invoices:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdReceivablesInvoices
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/receivables/invoices
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdReceivablesInvoices
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/receivables/invoices
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/receivables/invoices/{invoiceId}/issue:
+    post:
+      operationId: 
+        PostWorkspacesWorkspaceIdBranchesBranchIdReceivablesInvoicesInvoiceIdIssue
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/receivables/invoices/{invoiceId}/issue
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: invoiceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/receivables/invoices/{invoiceId}/void:
+    post:
+      operationId: 
+        PostWorkspacesWorkspaceIdBranchesBranchIdReceivablesInvoicesInvoiceIdVoid
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/receivables/invoices/{invoiceId}/void
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: invoiceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/receivables/receipts:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdReceivablesReceipts
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/receivables/receipts
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdReceivablesReceipts
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/receivables/receipts
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/receivables/summary:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdReceivablesSummary
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/receivables/summary
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+  /workspaces/{workspaceId}/branches/{branchId}/payables/purchase-orders:
+    get:
+      operationId: 
+        GetWorkspacesWorkspaceIdBranchesBranchIdPayablesPurchaseOrders
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/payables/purchase-orders
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+  /workspaces/{workspaceId}/branches/{branchId}/payables/invoices:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdPayablesInvoices
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/payables/invoices
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdPayablesInvoices
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/payables/invoices
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/payables/invoices/{invoiceId}/approve:
+    post:
+      operationId: 
+        PostWorkspacesWorkspaceIdBranchesBranchIdPayablesInvoicesInvoiceIdApprove
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/payables/invoices/{invoiceId}/approve
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: invoiceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/payables/invoices/{invoiceId}/void:
+    post:
+      operationId: 
+        PostWorkspacesWorkspaceIdBranchesBranchIdPayablesInvoicesInvoiceIdVoid
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/payables/invoices/{invoiceId}/void
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: invoiceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/payables/payments:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdPayablesPayments
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/payables/payments
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdPayablesPayments
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/payables/payments
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/payables/summary:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdPayablesSummary
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/payables/summary
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+  /workspaces/{workspaceId}/branches/{branchId}/payables/reconciliation:
+    get:
+      operationId: 
+        GetWorkspacesWorkspaceIdBranchesBranchIdPayablesReconciliation
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/payables/reconciliation
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+  /workspaces/{workspaceId}/branches/{branchId}/module-graph/catalog:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdModuleGraphCatalog
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/module-graph/catalog
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+  /workspaces/{workspaceId}/branches/{branchId}/module-graph/records/{moduleId}/{recordId}/links:
+    get:
+      operationId: 
+        GetWorkspacesWorkspaceIdBranchesBranchIdModuleGraphRecordsModuleIdRecordIdLinks
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/module-graph/records/{moduleId}/{recordId}/links
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: moduleId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: recordId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+  /workspaces/{workspaceId}/branches/{branchId}/module-graph/links:
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdModuleGraphLinks
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/module-graph/links
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/module-graph/links/{linkId}:
+    delete:
+      operationId: 
+        DeleteWorkspacesWorkspaceIdBranchesBranchIdModuleGraphLinksLinkId
+      summary: DELETE 
+        /workspaces/{workspaceId}/branches/{branchId}/module-graph/links/{linkId}
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: linkId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+  /workspaces/{workspaceId}/branches/{branchId}/module-graph/events:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdModuleGraphEvents
+      summary: GET 
+        /workspaces/{workspaceId}/branches/{branchId}/module-graph/events
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdModuleGraphEvents
+      summary: POST 
+        /workspaces/{workspaceId}/branches/{branchId}/module-graph/events
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+      responses:
+        '201':
+          description: Mutation completed; response shape is defined by the 
+            domain service.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+        description: Validated by the corresponding backend DTO/domain service.
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/reports/profit-and-loss:
+    get:
+      operationId: 
+        GetWorkspacesWorkspaceIdBranchesBranchIdLedgerReportsProfitAndLoss
+      summary: Get branch profit and loss for a date range
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/reports/balance-sheet:
+    get:
+      operationId: 
+        GetWorkspacesWorkspaceIdBranchesBranchIdLedgerReportsBalanceSheet
+      summary: Get branch balance sheet, including accumulated current and prior
+        earnings
+      description: Implemented route. The server validates tenant membership, 
+        branch scope, role permissions, input invariants and audit requirements.
+        Request and response fields are defined by the corresponding domain 
+        service.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful response; see the domain DTO returned by this 
+            operation.
+  /workspaces/{workspaceId}/branches/{branchId}/finance/bank-accounts:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/bank-accounts/{accountId}/statement-lines/import:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: accountId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/bank-reconciliations:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/bank-reconciliations/{reconciliationId}/complete:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: reconciliationId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/bank-reconciliations/{reconciliationId}/matches:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: reconciliationId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/cash-sessions:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/cash-sessions/{sessionId}/close:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: sessionId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/cash-sessions/{sessionId}/movements:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: sessionId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/cash-ups/{cashUpId}/post:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: cashUpId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/cost-centres:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceCost
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCost
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/credit-notes:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceCred
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/expense-categories:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/expenses:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceExpe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/expenses/{expenseId}/approve:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: expenseId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/fixed-assets:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceFixe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceFixe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/fixed-assets/{assetId}/depreciate:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceFixe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: assetId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/lots:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryLo
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/lots/{lotId}/serials:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryLo
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: lotId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/reservations:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidInventoryRe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryRe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/reservations/{reservationId}/release:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryRe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: reservationId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/warehouses:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidInventoryWa
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryWa
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/warehouses/{warehouseId}/bins:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidInventoryWa
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: warehouseId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryWa
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: warehouseId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/catalog/price-lists:
+    get:
+      operationId: getWorkspacesWorkspaceidCatalogPriceLists
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidCatalogPriceLists
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/catalog/price-lists/{priceListId}/items:
+    post:
+      operationId: postWorkspacesWorkspaceidCatalogPriceListsPricelisti
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: priceListId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/catalog/tax-codes:
+    get:
+      operationId: getWorkspacesWorkspaceidCatalogTaxCodes
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidCatalogTaxCodes
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/catalog/tax-rules:
+    post:
+      operationId: postWorkspacesWorkspaceidCatalogTaxRules
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/catalog/units:
+    get:
+      operationId: getWorkspacesWorkspaceidCatalogUnits
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidCatalogUnits
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/invitations:
+    get:
+      operationId: getWorkspacesWorkspaceidInvitations
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidInvitations
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/invitations/{invitationId}/accept:
+    post:
+      operationId: postWorkspacesWorkspaceidInvitationsInvitationidAcce
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: invitationId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/products/{productId}/variants:
+    get:
+      operationId: getWorkspacesWorkspaceidProductsProductidVariants
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: productId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidProductsProductidVariants
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: productId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: lexa_session
+      description: Secure, HttpOnly session cookie. Use SameSite=Lax for 
+        same-site deployments; when the frontend and API are cross-site, use 
+        SameSite=None; Secure. Avoid localStorage bearer tokens.
+  parameters:
+    workspaceId: {in: path, name: workspaceId, required: true, schema: {type: 
+          string, minLength: 1}}
+    branchId: {in: path, name: branchId, required: true, schema: {type: string, 
+          minLength: 1}}
+    productId: {in: path, name: productId, required: true, schema: {type: string,
+        minLength: 1}}
+    saleId: {in: path, name: saleId, required: true, schema: {type: string, 
+          minLength: 1}}
+    moduleId: {in: path, name: moduleId, required: true, schema: {type: string, 
+          pattern: '^[a-z0-9-]+$'}}
+    recordId: {in: path, name: recordId, required: true, schema: {type: string, 
+          minLength: 1}}
+    ifMatch: {in: header, name: If-Match, required: false, description: Required when updating an existing record; use its current _version. Stale versions are rejected with 409., schema: {type: string, pattern: '^[1-9][0-9]*$'}}
+    ifMatchRequired: {in: header, name: If-Match, required: true, description: Current record _version. Stale versions are rejected with 409., schema: {type: string, pattern: '^[1-9][0-9]*$'}}
+    idempotencyKey: {in: header, name: Idempotency-Key, required: true, schema: {
+        type: string, minLength: 8, maxLength: 160}}
+    csrfToken: {in: header, name: X-CSRF-Token, required: true, schema: {type: 
+          string, minLength: 16}}
+  responses:
+    Unauthorized: {description: Sign-in required, content: {application/json: {
+            schema: {$ref: '#/components/schemas/ApiErrorEnvelope'}}}}
+    Forbidden: {description: The user lacks access to this workspace, branch: 
+        null, record or operation: null, content: {application/json: {schema: {
+              $ref: '#/components/schemas/ApiErrorEnvelope'}}}}
+    NotFound: {description: Resource not found within the authenticated 
+        principal's scope, content: {application/json: {schema: {$ref: '#/components/schemas/ApiErrorEnvelope'}}}}
+    BadRequest: {description: Validation failure, content: {application/json: {
+            schema: {$ref: '#/components/schemas/ApiErrorEnvelope'}}}}
+    Conflict: {description: Business invariant or optimistic concurrency 
+        conflict, content: {application/json: {schema: {$ref: '#/components/schemas/ApiErrorEnvelope'}}}}
+  schemas:
+    GlobalSearchResult: {type: object, required: [id, type, label, href], 
+        properties: {id: {type: string}, type: {type: string}, label: {type: 
+            string}, description: {type: string}, href: {type: string}, 
+          reference: {type: string}}}
+    AnalyticsBreakdown: {type: object, required: [label, value], properties: {
+          label: {type: string}, value: {type: number, minimum: 0}, color: {type: 
+            string}}}
+    ActivityEvent: {type: object, required: [id, kind, summary, occurredAt], 
+        properties: {id: {type: string}, kind: {type: string}, summary: {type: 
+            string}, actorName: {type: string}, occurredAt: {type: string, 
+            format: date-time}, href: {type: string}}}
+    OverviewException: {type: object, required: [id, severity, title, detail], 
+        properties: {id: {type: string}, severity: {type: string, enum: [info, 
+              warning, critical]}, title: {type: string}, detail: {type: string},
+        href: {type: string}}}
+    InboxThread: {type: object, required: [id, title, kind, unreadCount], 
+        properties: {id: {type: string}, title: {type: string}, kind: {type: 
+            string, enum: [direct, group, record]}, lastMessage: {type: string}, 
+          lastMessageAt: {type: string, format: date-time}, unreadCount: {type: 
+            integer, minimum: 0}, participants: {type: array, items: {type: 
+              string}}, recordType: {type: string}, recordId: {type: string}, 
+          recordHref: {type: string}}}
+    MessageReaction: {type: object, required: [emoji, count], properties: {emoji: {
+          type: string}, count: {type: integer, minimum: 0}, reactedByMe: {type: 
+            boolean}}}
+    InboxMessage: {type: object, required: [id, threadId, body, senderId, 
+          senderName, sentAt], properties: {id: {type: string}, threadId: {type: 
+            string}, body: {type: string}, senderId: {type: string}, senderName: {
+          type: string}, sentAt: {type: string, format: date-time}, editedAt: {
+            type: string, format: date-time}, reactions: {type: array, items: {$ref: '#/components/schemas/MessageReaction'}}}}
+    InboxTask: {type: object, required: [id, title, status, priority], 
+        properties: {id: {type: string}, title: {type: string}, description: {
+            type: string}, status: {type: string, enum: [open, in_progress, 
+              blocked, done, cancelled]}, priority: {type: string, enum: [low, 
+              normal, high, urgent]}, dueAt: {type: string, format: date-time}, 
+          assigneeName: {type: string}, href: {type: string}}}
+    InboxApproval: {type: object, required: [id, title, requestedBy, requestedAt,
+        status], properties: {id: {type: string}, title: {type: string}, 
+          description: {type: string}, requestedBy: {type: string}, requestedAt: {
+          type: string, format: date-time}, status: {type: string, enum: [
+              pending, approved, rejected]}, href: {type: string}}}
+    InboxNotification: {type: object, required: [id, title, body, kind, 
+          createdAt], properties: {id: {type: string}, title: {type: string}, 
+          body: {type: string}, kind: {type: string}, createdAt: {type: string, 
+            format: date-time}, readAt: {type: string, format: date-time, 
+            nullable: true}, href: {type: string}}}
+    BusinessToolsSnapshot: {type: object, required: [products, sales, returns, 
+          payments, movements], properties: {products: {type: array, items: {
+              $ref: '#/components/schemas/Product'}}, sales: {type: array, items: {
+            $ref: '#/components/schemas/Sale'}}, returns: {type: array, items: {
+              type: object, additionalProperties: true}}, payments: {type: array,
+          items: {type: object, additionalProperties: true}}, movements: {type: 
+            array, items: {$ref: '#/components/schemas/StockMovement'}}}}
+    TaxProfile: {type: object, required: [tin, vatRegistered, sector, 
+          efrisOverride, vatThreshold, efrisTurnoverThreshold], properties: {tin: {
+          type: string}, vatRegistered: {type: boolean}, sector: {type: string}, 
+          efrisOverride: {type: string, enum: [auto, yes, no]}, vatThreshold: {
+            type: string, description: 'Optional user-verified value; do not prefill
+            assumed legal thresholds'}, efrisTurnoverThreshold: {type: string, 
+            description: 'Optional user-verified value; do not prefill assumed legal
+            thresholds'}, ruleSource: {type: string, description: 'Optional source/verification
+            note; do not create one automatically'}, ruleEffectiveFrom: {type: 
+            string, description: 'Optional effective date for a user-verified policy;
+            empty until verified'}}}
+    CashUp: {type: object, required: [workspaceId, branchId, date, 
+          openingFloatMinor, otherCashInMinor, otherCashOutMinor, 
+          expectedCashMinor, countedCashMinor, varianceMinor, reason, savedAt], 
+        properties: {workspaceId: {type: string}, branchId: {type: string}, date: {
+          type: string, format: date}, openingFloatMinor: {type: integer}, 
+          otherCashInMinor: {type: integer}, otherCashOutMinor: {type: integer}, 
+          expectedCashMinor: {type: integer}, countedCashMinor: {type: integer}, 
+          varianceMinor: {type: integer}, reason: {type: string}, savedAt: {type: 
+            string, format: date-time}}}
+    ComplianceNote: {type: object, required: [id, date, documentType, 
+          internalReference, fdn, status, notes], properties: {id: {type: string},
+        date: {type: string, format: date}, documentType: {type: string}, 
+          internalReference: {type: string}, fdn: {type: string}, status: {type: 
+            string}, notes: {type: string}}}
+    ComplianceNoteInput: {type: object, required: [date, documentType, 
+          internalReference, fdn, status, notes], properties: {date: {type: 
+            string, format: date}, documentType: {type: string}, 
+          internalReference: {type: string, minLength: 1, maxLength: 200}, fdn: {
+          type: string, maxLength: 200}, status: {type: string}, notes: {type: 
+            string, maxLength: 2000}}}
+    AttachmentMetadata: {type: object, required: [id, workspaceId, branchId, 
+          reference, kind, name, mimeType, size, capturedAt], properties: {id: {
+            type: string}, workspaceId: {type: string}, branchId: {type: string},
+        reference: {type: string}, kind: {type: string, enum: [product, receipt, 
+              other]}, name: {type: string}, mimeType: {type: string}, size: {
+            type: integer}, capturedAt: {type: string, format: date-time}}}
+    ApiErrorEnvelope:
+      type: object
+      required: [error, requestId]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: {type: string}
+            message: {type: string}
+            details: {type: object, additionalProperties: true}
+        requestId: {type: string}
+    Session: {type: object, required: [user, roles], properties: {user: {type: 
+            object, required: [id, email], properties: {id: {type: string}, 
+              email: {type: string, format: email}, displayName: {type: string}}},
+        roles: {type: array, items: {type: string}}}}
+    Workspace:
+      type: object
+      required: [id, businessName, businessType, timezone, currency, createdAt]
+      properties:
+        id: {type: string}
+        businessName: {type: string, minLength: 1, maxLength: 100}
+        businessType: {type: string}
+        timezone: {type: string}
+        currency: {type: string, pattern: '^[A-Z]{3}$'}
+        createdAt: {type: string, format: date-time}
+    WorkspaceList: {type: array, items: {$ref: '#/components/schemas/Workspace'}}
+    Branch: {type: object, required: [id, workspaceId, name], properties: {id: {
+            type: string}, workspaceId: {type: string}, name: {type: string}, 
+          address: {type: string}}}
+    BranchList: {type: array, items: {$ref: '#/components/schemas/Branch'}}
+    CreateWorkspace: {type: object, required: [businessName, businessType, 
+          timezone, currency, branchName], properties: {businessName: {type: 
+            string, minLength: 1, maxLength: 100}, businessType: {type: string}, 
+          timezone: {type: string}, currency: {type: string, pattern: '^[A-Z]{3}$'},
+        branchName: {type: string, minLength: 1, maxLength: 80}}}
+    UpdateWorkspace: {type: object, properties: {businessName: {type: string, 
+            minLength: 1, maxLength: 100}, businessType: {type: string}, 
+          timezone: {type: string}}}
+    CreateBranch: {type: object, required: [name], properties: {name: {type: 
+            string, minLength: 1, maxLength: 100}, address: {type: string}}}
+    Category: {type: object, required: [id, name], properties: {id: {type: 
+            string}, name: {type: string}}}
+    Product: {type: object, required: [id, workspaceId, name, sku, 
+          costPriceMinor, sellingPriceMinor, lowStockThreshold, trackStock, 
+          active, createdAt, updatedAt], properties: {id: {type: string}, 
+          workspaceId: {type: string}, name: {type: string}, sku: {type: string},
+        barcode: {type: string}, brand: {type: string}, unitOfMeasure: {type: 
+            string}, supplierSku: {type: string}, categoryId: {type: string}, 
+          costPriceMinor: {type: integer, minimum: 0}, sellingPriceMinor: {type: 
+            integer, minimum: 0}, lowStockThreshold: {type: integer, minimum: 0},
+        trackStock: {type: boolean}, active: {type: boolean}, createdAt: {type: 
+            string, format: date-time}, updatedAt: {type: string, format: 
+            date-time}}}
+    ProductList: {type: array, items: {$ref: '#/components/schemas/Product'}}
+    CreateProduct: {type: object, required: [workspaceId, name, sku, 
+          costPriceMinor, sellingPriceMinor, lowStockThreshold, trackStock], 
+        properties: {workspaceId: {type: string}, name: {type: string}, sku: {
+            type: string}, barcode: {type: string}, brand: {type: string}, 
+          unitOfMeasure: {type: string}, supplierSku: {type: string}, 
+          categoryName: {type: string}, costPriceMinor: {type: integer, minimum: 
+            0}, sellingPriceMinor: {type: integer, minimum: 0}, 
+          lowStockThreshold: {type: integer, minimum: 0}, trackStock: {type: 
+            boolean}}}
+    StockMovement: {type: object, required: [id, workspaceId, branchId, 
+          productId, quantityDelta, movementType, createdAt], properties: {id: {
+            type: string}, workspaceId: {type: string}, branchId: {type: string},
+        productId: {type: string}, quantityDelta: {type: number}, movementType: {
+          type: string}, createdAt: {type: string, format: date-time}, reason: {
+            type: string}}}
+    StockAdjustment: {type: object, required: [productId, quantityDelta, reason, 
+          movementType], properties: {productId: {type: string}, quantityDelta: {
+          type: number}, reason: {type: string, minLength: 3, maxLength: 500}, 
+          movementType: {type: string, enum: [opening, adjustment]}}}
+    Sale: {type: object, additionalProperties: true, required: [id, 
+          receiptNumber, workspaceId, branchId, totalMinor, status, createdAt], 
+        properties: {id: {type: string}, receiptNumber: {type: string}, 
+          workspaceId: {type: string}, branchId: {type: string}, customerName: {
+            type: string}, customerPhone: {type: string}, promisedPaymentDate: {
+            type: string, format: date}, totalMinor: {type: integer, minimum: 0},
+        status: {type: string, enum: [completed]}, createdAt: {type: string, 
+            format: date-time}}}
+    SaleDetail: {type: object, required: [sale, lines, returns, returnLines, 
+          payments], properties: {sale: {$ref: '#/components/schemas/Sale'}, 
+          lines: {type: array, items: {type: object, additionalProperties: true}},
+        returns: {type: array, items: {type: object, additionalProperties: true}},
+        returnLines: {type: array, items: {type: object, additionalProperties: 
+              true}}, payments: {type: array, items: {type: object, 
+              additionalProperties: true}}}}
+    CompleteSale: {type: object, required: [items, payments], properties: {items: {
+          type: array, minItems: 1, items: {type: object, required: [productId, 
+                quantity], properties: {productId: {type: string}, quantity: {
+                  type: number, exclusiveMinimum: 0}}}}, payments: {type: array, 
+            items: {type: object, required: [method, amountMinor], properties: {
+                method: {type: string}, amountMinor: {type: integer, minimum: 0}}}},
+        customerName: {type: string}, customerPhone: {type: string}, 
+          promisedPaymentDate: {type: string, format: date}}}
+    ReceivePayment: {type: object, required: [method, amountMinor], properties: {
+        method: {type: string}, amountMinor: {type: integer, minimum: 1}, 
+          reference: {type: string}}}
+    RecordReturn: {type: object, required: [items, reason, recordRefund, 
+          refundMethod], properties: {items: {type: array, minItems: 1, items: {
+              type: object, required: [saleLineId, quantity], properties: {saleLineId: {type: string}, quantity: {type: number, exclusiveMinimum: 0}, disposition: {type: string, enum: [restock, quarantine, scrap], default: restock}}}}, reason: {type: string, 
+            minLength: 3}, recordRefund: {type: boolean}, refundMethod: {type: [
+              string, 'null']}}}
+    ModuleRecord: {type: object, required: [id, updatedAt, status], properties: {
+        id: {type: string}, updatedAt: {type: string, format: date-time}, status: {
+          type: string}, _version: {type: string, pattern: '^[1-9][0-9]*$', readOnly: true}}, additionalProperties: true}
+    RecordList: {type: array, items: {$ref: '#/components/schemas/ModuleRecord'}}
+    ModuleReport: {type: object, required: [report, period, currency, 
+          generatedAt, entries, metrics, filteredRecordCounts], properties: {
+          report: {type: string}, period: {type: string}, currency: {type: 
+            string}, generatedAt: {type: string, format: date-time}, entries: {
+            type: array, items: {type: object, additionalProperties: true}}, 
+          metrics: {type: array, items: {type: object, additionalProperties: 
+              true}}, filteredRecordCounts: {type: object, additionalProperties: {
+            type: integer}}, sourceLabel: {type: string}, interpretationNote: {
+            type: string}}}
+    Dashboard: {type: object, required: [activeProductCount, lowStockCount, 
+          itemsInStock, grossSalesMinor, returnsMinor, netSalesMinor, 
+          recordedReceiptsMinor, recordedRefundsMinor, outstandingMinor, 
+          saleCount, recentSales, recentMovements, lowStockProducts], properties: {
+        activeProductCount: {type: integer}, lowStockCount: {type: integer}, 
+          itemsInStock: {type: number}, grossSalesMinor: {type: integer}, 
+          returnsMinor: {type: integer}, netSalesMinor: {type: integer}, 
+          recordedReceiptsMinor: {type: integer}, recordedRefundsMinor: {type: 
+            integer}, outstandingMinor: {type: integer}, saleCount: {type: 
+            integer}, recentSales: {type: array, items: {$ref: '#/components/schemas/Sale'}},
+        recentMovements: {type: array, items: {$ref: '#/components/schemas/StockMovement'}},
+        lowStockProducts: {type: array, items: {type: object, required: [product,
+              onHand], properties: {product: {$ref: '#/components/schemas/Product'},
+              onHand: {type: number}}}}}}

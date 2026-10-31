@@ -1,0 +1,8 @@
+backend/Dockerfile
+backend/src/core/core.controller.ts
+backend/src/main.ts
+backend/prisma/schema.prisma
+lexa-frontend/src/data/remote/apiClient.ts
+lexa-frontend/openapi/backend-contract.yaml
+AUTH_SETUP_GUIDE.md
+BUILD_REPAIR_NOTES_20261031.md
