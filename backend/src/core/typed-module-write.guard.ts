@@ -9,7 +9,8 @@ const WORKFLOW_OWNED_MODULES = new Set([
   'cash-sessions', 'cash-ups', 'bank-reconciliation', 'fixed-assets', 'assets',
   'tax-codes', 'tax-documents', 'cost-centres', 'cost-centers', 'chart-of-accounts',
   'accounting-periods', 'journals', 'payroll', 'employees', 'attendance', 'leave',
-  'timesheets', 'approvals', 'audit-log', 'supplier-invoices', 'customer-invoices',
+  'timesheets', 'approvals', 'audit-log', 'audit', 'supplier-invoices', 'customer-invoices',
+  'projects', 'project-tasks', 'project-costs', 'support', 'shifts',
 ]);
 @Injectable()
 export class TypedModuleWriteGuard implements CanActivate {
@@ -17,7 +18,7 @@ export class TypedModuleWriteGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     const params = request.params as Record<string, unknown> | undefined;
     const moduleId = typeof params?.moduleId === 'string' ? params.moduleId : undefined;
-    if (!moduleId || !['PUT', 'PATCH', 'DELETE'].includes(request.method.toUpperCase())) return true;
+    if (!moduleId || !['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method.toUpperCase())) return true;
 
     if (WORKFLOW_OWNED_MODULES.has(moduleId)) {
       throw new ConflictException({

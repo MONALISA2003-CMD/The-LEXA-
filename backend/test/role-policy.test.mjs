@@ -44,7 +44,7 @@ test('maps transactional endpoints to their protected capability', () => {
 });
 
 test('maps operational register writes by module family', () => {
-  assert.equal(permissionForRequest('PUT', '/api/v1/workspaces/w/branches/b/modules/payroll/records/r', { moduleId: 'payroll' }), 'people.write');
+  assert.equal(permissionForRequest('PUT', '/api/v1/workspaces/w/branches/b/modules/payroll/records/r', { moduleId: 'payroll' }), 'payroll.write');
   assert.equal(permissionForRequest('PUT', '/api/v1/workspaces/w/branches/b/modules/stock-counts/records/r', { moduleId: 'stock-counts' }), 'inventory.write');
   assert.equal(permissionForRequest('PUT', '/api/v1/workspaces/w/branches/b/modules/accounting/records/r', { moduleId: 'accounting' }), 'finance.write');
 });

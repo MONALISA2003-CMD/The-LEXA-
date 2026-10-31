@@ -4743,6 +4743,358 @@ paths:
         '403': {description: Permission denied}
         '404': {description: Stock count not found}
         '409': {description: Stock count is not in the submitted state}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/employees:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleEmployees_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleEmployees_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/employees/{employeeId}:
+    patch:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleEmployeesEmployeeid_patch
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/employees/{employeeId}/compensation:
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleEmployeesEmployeeidCompensation_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/shifts:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleShifts_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleShifts_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/shift-assignments:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleShiftAssignments_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleShiftAssignments_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/attendance:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleAttendance_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleAttendance_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/attendance/{attendanceId}/review:
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleAttendanceAttendanceidReview_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/leave:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleLeave_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleLeave_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/leave/{leaveId}/submit:
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleLeaveLeaveidSubmit_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/timesheets:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleTimesheets_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleTimesheets_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/timesheets/{timesheetId}/submit:
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleTimesheetsTimesheetidSubmit_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRuns_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRuns_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/calculate:
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidCalculate_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/lines:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidLines_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/deductions:
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidDeductions_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/submit:
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidSubmit_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/payment:
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidPayment_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6Projects_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6Projects_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects/{projectId}/tasks:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6ProjectsProjectidTasks_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6ProjectsProjectidTasks_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects/{projectId}/costs:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6ProjectsProjectidCosts_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6ProjectsProjectidCosts_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/support/cases:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6SupportCases_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+    post:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6SupportCases_post
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/support/cases/{caseId}:
+    patch:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6SupportCasesCaseid_patch
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/audit/events:
+    get:
+      operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6AuditEvents_get
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      responses:
+        '200': {description: Successful operation response}
+        '400': {description: Invalid request}
+        '403': {description: Permission denied}
+        '404': {description: Record not found}
+        '409': {description: Business rule conflict}
+
 components:
   securitySchemes:
     sessionCookie:

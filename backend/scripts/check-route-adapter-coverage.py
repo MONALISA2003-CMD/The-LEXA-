@@ -23,6 +23,7 @@ checks = {
     "Global search": ("lexa-frontend/src/data/remote/apiGlobalSearch.ts", "/search"),
     "Catalogue and inventory controls": ("lexa-frontend/src/data/remote/apiWorkstream03.ts", "/inventory/warehouses"),
     "Finance operations": ("lexa-frontend/src/data/remote/apiWorkstream03.ts", "/finance/cash-sessions"),
+    "People, projects and collaboration": ("lexa-frontend/src/data/remote/apiWorkstream6.ts", "/workstream6"),
 }
 errors = []
 for label, (relative, route_marker) in checks.items():

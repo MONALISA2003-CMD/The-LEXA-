@@ -28,6 +28,7 @@ import { getDocumentLineConfig, readDocumentLines, syncDocumentLines, validateDo
 import { journalTotals, readAssemblyComponents, readJournalLines, syncAssemblyComponents, syncJournalLines, validateAssemblyComponents, validateJournalLines } from './structuredEntries';
 import { AssemblyComponentsEditor, JournalLinesEditor } from './StructuredEntryEditors';
 import CommerceWorkflowPanel from './CommerceWorkflowPanel';
+import PeopleProjectsPage from '../people/PeopleProjectsPage';
 
 type ModuleSavedView = { id: string; name: string; search: string; statusFilter: string; dateFrom: string; dateTo: string; savedAt: string };
 
@@ -138,6 +139,7 @@ export default function OperationsWorkspacePage() {
   const module = getModuleDefinition(moduleId);
   if (!moduleId) return <ModuleDirectoryPage />;
   if (moduleId === 'reports') return <ReportsPage />;
+  if (['employees','shifts','attendance','leave','timesheets','payroll','projects','support','audit'].includes(moduleId)) return <PeopleProjectsPage moduleId={moduleId} />;
   if (!module) return <Navigate to="/modules" replace />;
   return <ModuleManager key={module.id + ':' + workspace.id + ':' + branch.id} module={module} />;
 }

@@ -15,10 +15,12 @@ import { InvitationsController } from './invitations/invitations.controller';
 import { CatalogInventoryController } from './commerce/catalog-inventory.controller';
 import { FinanceOperationsController } from './finance/finance-operations.controller';
 import { SupplyChainController } from './supply-chain/supply-chain.controller';
+import { PeopleProjectsController } from './people-projects/people-projects.controller';
+import { PeopleProjectsService } from './people-projects/people-projects.service';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, ReceivablesController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController, SupplyChainController],
-  providers: [CsrfGuard, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
+  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, ReceivablesController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController, SupplyChainController, PeopleProjectsController],
+  providers: [CsrfGuard, PeopleProjectsService, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
 })
 export class AppModule {}

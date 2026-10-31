@@ -1,0 +1,41 @@
+import { apiClient } from './apiClient';
+import type { AuditEvent, HrAttendance, HrEmployee, HrLeave, HrPayrollLine, HrPayrollRun, HrShift, HrShiftAssignment, HrTimesheet, Project, ProjectCost, ProjectTask, SupportCase } from '../contracts/workstream6';
+const enc = (value: string) => encodeURIComponent(value);
+const base = (workspaceId: string, branchId: string) => `/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/workstream6`;
+const key = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `lexa-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+export const apiWorkstream6 = {
+  employees: (w: string, b: string) => apiClient.get<HrEmployee[]>(`${base(w,b)}/people/employees`),
+  createEmployee: (w: string, b: string, input: Record<string, unknown>) => apiClient.post<HrEmployee>(`${base(w,b)}/people/employees`, input, key()),
+  updateEmployee: (w: string, b: string, id: string, input: Record<string, unknown>) => apiClient.patch<HrEmployee>(`${base(w,b)}/people/employees/${enc(id)}`, input),
+  setCompensation: (w: string, b: string, id: string, input: Record<string, unknown>) => apiClient.post(`${base(w,b)}/people/employees/${enc(id)}/compensation`, input, key()),
+  shifts: (w: string, b: string) => apiClient.get<HrShift[]>(`${base(w,b)}/people/shifts`),
+  createShift: (w: string, b: string, input: Record<string, unknown>) => apiClient.post<HrShift>(`${base(w,b)}/people/shifts`, input, key()),
+  shiftAssignments: (w: string, b: string, employeeId?: string) => apiClient.get<HrShiftAssignment[]>(`${base(w,b)}/people/shift-assignments`, { employeeId }),
+  createShiftAssignment: (w: string, b: string, input: Record<string, unknown>) => apiClient.post<HrShiftAssignment>(`${base(w,b)}/people/shift-assignments`, input, key()),
+  attendance: (w: string, b: string) => apiClient.get<HrAttendance[]>(`${base(w,b)}/people/attendance`),
+  recordAttendance: (w: string, b: string, input: Record<string, unknown>) => apiClient.post<HrAttendance>(`${base(w,b)}/people/attendance`, input, key()),
+  reviewAttendance: (w: string, b: string, id: string, note?: string) => apiClient.post(`${base(w,b)}/people/attendance/${enc(id)}/review`, { note }, key()),
+  leave: (w: string, b: string) => apiClient.get<HrLeave[]>(`${base(w,b)}/people/leave`),
+  createLeave: (w: string, b: string, input: Record<string, unknown>) => apiClient.post<HrLeave>(`${base(w,b)}/people/leave`, input, key()),
+  submitLeave: (w: string, b: string, id: string) => apiClient.post(`${base(w,b)}/people/leave/${enc(id)}/submit`, {}, key()),
+  timesheets: (w: string, b: string) => apiClient.get<HrTimesheet[]>(`${base(w,b)}/people/timesheets`),
+  createTimesheet: (w: string, b: string, input: Record<string, unknown>) => apiClient.post<HrTimesheet>(`${base(w,b)}/people/timesheets`, input, key()),
+  submitTimesheet: (w: string, b: string, id: string) => apiClient.post(`${base(w,b)}/people/timesheets/${enc(id)}/submit`, {}, key()),
+  payrollRuns: (w: string, b: string) => apiClient.get<HrPayrollRun[]>(`${base(w,b)}/people/payroll/runs`),
+  createPayrollRun: (w: string, b: string, input: Record<string, unknown>) => apiClient.post<HrPayrollRun>(`${base(w,b)}/people/payroll/runs`, input, key()),
+  calculatePayroll: (w: string, b: string, id: string) => apiClient.post(`${base(w,b)}/people/payroll/runs/${enc(id)}/calculate`, {}, key()),
+  payrollLines: (w: string, b: string, id: string) => apiClient.get<HrPayrollLine[]>(`${base(w,b)}/people/payroll/runs/${enc(id)}/lines`),
+  addPayrollDeduction: (w: string, b: string, id: string, input: Record<string, unknown>) => apiClient.post(`${base(w,b)}/people/payroll/runs/${enc(id)}/deductions`, input, key()),
+  submitPayroll: (w: string, b: string, id: string) => apiClient.post(`${base(w,b)}/people/payroll/runs/${enc(id)}/submit`, {}, key()),
+  recordPayrollPayment: (w: string, b: string, id: string, paymentReference: string, paidAt?: string) => apiClient.post(`${base(w,b)}/people/payroll/runs/${enc(id)}/payment`, { paymentReference, paidAt }, key()),
+  projects: (w: string, b: string) => apiClient.get<Project[]>(`${base(w,b)}/projects`),
+  createProject: (w: string, b: string, input: Record<string, unknown>) => apiClient.post<Project>(`${base(w,b)}/projects`, input, key()),
+  projectTasks: (w: string, b: string, projectId: string) => apiClient.get<ProjectTask[]>(`${base(w,b)}/projects/${enc(projectId)}/tasks`),
+  createProjectTask: (w: string, b: string, projectId: string, input: Record<string, unknown>) => apiClient.post<ProjectTask>(`${base(w,b)}/projects/${enc(projectId)}/tasks`, input, key()),
+  projectCosts: (w: string, b: string, projectId: string) => apiClient.get<ProjectCost[]>(`${base(w,b)}/projects/${enc(projectId)}/costs`),
+  addProjectCost: (w: string, b: string, projectId: string, input: Record<string, unknown>) => apiClient.post<ProjectCost>(`${base(w,b)}/projects/${enc(projectId)}/costs`, input, key()),
+  supportCases: (w: string, b: string) => apiClient.get<SupportCase[]>(`${base(w,b)}/support/cases`),
+  createSupportCase: (w: string, b: string, input: Record<string, unknown>) => apiClient.post<SupportCase>(`${base(w,b)}/support/cases`, input, key()),
+  updateSupportCase: (w: string, b: string, id: string, input: Record<string, unknown>) => apiClient.patch(`${base(w,b)}/support/cases/${enc(id)}`, input),
+  auditEvents: (w: string, b: string, query?: { limit?: number; before?: string; action?: string }) => apiClient.get<AuditEvent[]>(`${base(w,b)}/audit/events`, query),
+};

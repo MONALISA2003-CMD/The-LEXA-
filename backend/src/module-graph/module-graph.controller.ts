@@ -16,6 +16,7 @@ import {
 import type { FastifyRequest } from 'fastify';
 import { createHash, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { hasPermission, type Permission } from '../authorization/role-policy';
 import { assertBranchAccess } from '../authorization/branch-scope';
 import { CsrfGuard } from '../core/csrf.guard';
 
@@ -121,6 +122,27 @@ export class ModuleGraphController {
     if (!rows.length) throw new NotFoundException(`Module '${moduleId}' is not registered in LEXA.`);
   }
 
+  private permissionForModule(moduleId: string, write = false): Permission {
+    const map: Record<string, [Permission, Permission]> = {
+      employees: ['people.read','people.directory.write'], shifts: ['people.read','people.directory.write'],
+      attendance: ['people.private.read','people.write'], leave: ['people.private.read','people.write'], timesheets: ['people.private.read','people.write'],
+      payroll: ['payroll.read','payroll.write'], projects: ['projects.read','projects.write'],
+      'project-tasks': ['projects.read','projects.write'], 'project-costs': ['projects.read','projects.write'],
+      support: ['support.read','support.write'], audit: ['audit.read','audit.read'], 'audit-log': ['audit.read','audit.read'],
+    };
+    return map[moduleId]?.[write ? 1 : 0] ?? (write ? 'module.write' : 'module.read');
+  }
+
+  private assertModulePermission(role: string, moduleId: string, write = false): void {
+    const permission = this.permissionForModule(moduleId, write);
+    if (!hasPermission(role, permission)) throw new ForbiddenException({ code: 'MODULE_SCOPE_DENIED', message: `Your role cannot ${write ? 'change' : 'read'} ${moduleId} records.`, permission });
+  }
+
+  private async employeeIdForUser(workspaceId: string, branchId: string, userId: string): Promise<string | null> {
+    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM hr_employees WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND user_id=${userId}::uuid AND employment_status<>'terminated' LIMIT 1`;
+    return rows[0]?.id ?? null;
+  }
+
   private async assertRecord(workspaceId: string, branchId: string, moduleId: string, recordId: string): Promise<void> {
     const row = await this.prisma.moduleRecord.findUnique({
       where: { tenantId_branchId_moduleId_recordId: { tenantId: workspaceId, branchId, moduleId, recordId } },
@@ -176,11 +198,16 @@ export class ModuleGraphController {
     @Req() request: FastifyRequest,
   ): Promise<LinkRow[]> {
     const session = await this.sessionFor(request);
-    await this.membershipFor(session.userId, workspaceId);
+    const membership = await this.membershipFor(session.userId, workspaceId);
     await this.branchFor(workspaceId, branchId, session.userId);
     await this.assertModule(moduleId);
+    this.assertModulePermission(membership.role, moduleId);
     await this.assertRecord(workspaceId, branchId, moduleId, recordId);
-    return this.prisma.$queryRaw<LinkRow[]>`
+    if (membership.role.toLowerCase() === 'employee' && moduleId === 'employees') {
+      const own = await this.prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM hr_employees WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND id=${recordId}::uuid AND user_id=${session.userId}::uuid LIMIT 1`;
+      if (!own.length) throw new NotFoundException('Employee record not found.');
+    }
+    const rows = await this.prisma.$queryRaw<LinkRow[]>`
       SELECT l.id,
         CASE WHEN l.source_module_id = ${moduleId} AND l.source_record_id = ${recordId} THEN 'outgoing' ELSE 'incoming' END AS direction,
         CASE WHEN l.source_module_id = ${moduleId} AND l.source_record_id = ${recordId} THEN l.target_module_id ELSE l.source_module_id END AS "relatedModuleId",
@@ -195,6 +222,10 @@ export class ModuleGraphController {
         AND ((l.source_module_id = ${moduleId} AND l.source_record_id = ${recordId}) OR (l.target_module_id = ${moduleId} AND l.target_record_id = ${recordId}))
       ORDER BY l.created_at DESC LIMIT 100
     `;
+    const permitted = rows.filter((row) => hasPermission(membership.role, this.permissionForModule(row.relatedModuleId)));
+    if (membership.role.toLowerCase() !== 'employee') return permitted;
+    const employeeId = await this.employeeIdForUser(workspaceId, branchId, session.userId);
+    return permitted.filter((row) => row.relatedModuleId !== 'employees' || row.relatedRecordId === employeeId);
   }
 
   @Post('links')
@@ -207,7 +238,7 @@ export class ModuleGraphController {
   ) {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
-    await this.membershipFor(session.userId, workspaceId);
+    const membership = await this.membershipFor(session.userId, workspaceId);
     await this.branchFor(workspaceId, branchId, session.userId);
     const sourceModuleId = requiredString(body.sourceModuleId, 'Source module', 80);
     const sourceRecordId = requiredString(body.sourceRecordId, 'Source record', 160);
@@ -218,6 +249,8 @@ export class ModuleGraphController {
     if (!/^[a-z][a-z0-9_-]*$/.test(relationType)) throw new BadRequestException('Relationship type is invalid.');
     await this.assertModule(sourceModuleId);
     await this.assertModule(targetModuleId);
+    this.assertModulePermission(membership.role, sourceModuleId, true);
+    this.assertModulePermission(membership.role, targetModuleId, true);
     await this.assertRecord(workspaceId, branchId, sourceModuleId, sourceRecordId);
     await this.assertRecord(workspaceId, branchId, targetModuleId, targetRecordId);
 
@@ -256,14 +289,22 @@ export class ModuleGraphController {
     const membership = await this.membershipFor(session.userId, workspaceId);
     await this.branchFor(workspaceId, branchId, session.userId);
     await this.prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<Array<{ id: string; sourceModuleId: string; sourceRecordId: string; targetModuleId: string; targetRecordId: string }>>`
-        DELETE FROM module_record_links
+      const rows = await tx.$queryRaw<Array<{ id: string; sourceModuleId: string; sourceRecordId: string; targetModuleId: string; targetRecordId: string; createdByUserId: string }>>`
+        SELECT id, source_module_id AS "sourceModuleId", source_record_id AS "sourceRecordId",
+               target_module_id AS "targetModuleId", target_record_id AS "targetRecordId",
+               created_by_user_id AS "createdByUserId"
+        FROM module_record_links
         WHERE id = ${linkId}::uuid AND tenant_id = ${workspaceId}::uuid AND branch_id = ${branchId}::uuid
-          AND (created_by_user_id = ${session.userId}::uuid OR ${membership.role} IN ('owner', 'admin'))
-        RETURNING id, source_module_id AS "sourceModuleId", source_record_id AS "sourceRecordId", target_module_id AS "targetModuleId", target_record_id AS "targetRecordId"
+        FOR UPDATE
       `;
       const link = rows[0];
-      if (!link) throw new NotFoundException('Relationship not found.');
+      if (!link || (link.createdByUserId !== session.userId && !hasPermission(membership.role, 'workspace.manage'))) {
+        throw new NotFoundException('Relationship not found.');
+      }
+      this.assertModulePermission(membership.role, link.sourceModuleId, true);
+      this.assertModulePermission(membership.role, link.targetModuleId, true);
+      await tx.$executeRaw`DELETE FROM module_record_links
+        WHERE id=${link.id}::uuid AND tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid`;
       const payload = { linkId: link.id, sourceModuleId: link.sourceModuleId, sourceRecordId: link.sourceRecordId, targetModuleId: link.targetModuleId, targetRecordId: link.targetRecordId };
       await this.insertEvent(tx, { workspaceId, branchId, moduleId: link.sourceModuleId, recordId: link.sourceRecordId, eventType: 'record.unlinked', payload, actorUserId: session.userId });
       await this.insertEvent(tx, { workspaceId, branchId, moduleId: link.targetModuleId, recordId: link.targetRecordId, eventType: 'record.unlinked', payload, actorUserId: session.userId });
@@ -282,7 +323,7 @@ export class ModuleGraphController {
   ) {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
-    await this.membershipFor(session.userId, workspaceId);
+    const membership = await this.membershipFor(session.userId, workspaceId);
     await this.branchFor(workspaceId, branchId, session.userId);
     const moduleId = requiredString(body.moduleId, 'Module ID', 80);
     const recordId = optionalString(body.recordId, 'Record ID', 160);
@@ -293,6 +334,7 @@ export class ModuleGraphController {
     if (payloadText.length > 16_000) throw new BadRequestException('Event payload must be no larger than 16 KB.');
     const dedupeKey = optionalString(body.dedupeKey, 'Event deduplication key', 240);
     await this.assertModule(moduleId);
+    this.assertModulePermission(membership.role, moduleId, true);
     if (recordId) await this.assertRecord(workspaceId, branchId, moduleId, recordId);
     const eventId = await this.insertEvent(this.prisma, { workspaceId, branchId, moduleId, recordId, eventType, payload, actorUserId: session.userId, dedupeKey });
     return { accepted: true, eventId };
@@ -309,21 +351,26 @@ export class ModuleGraphController {
     @Req() request: FastifyRequest,
   ): Promise<EventRow[]> {
     const session = await this.sessionFor(request);
-    await this.membershipFor(session.userId, workspaceId);
+    const membership = await this.membershipFor(session.userId, workspaceId);
     await this.branchFor(workspaceId, branchId, session.userId);
-    if (moduleId) await this.assertModule(moduleId);
+    if (moduleId) { await this.assertModule(moduleId); this.assertModulePermission(membership.role, moduleId); }
+    const ownEmployeeId = membership.role.toLowerCase() === 'employee' ? await this.employeeIdForUser(workspaceId, branchId, session.userId) : null;
+    if (membership.role.toLowerCase() === 'employee' && !ownEmployeeId) return [];
+    if (membership.role.toLowerCase() === 'employee' && moduleId === 'employees' && !ownEmployeeId) return [];
     const parsedLimit = Math.min(100, Math.max(1, Number.parseInt(limit ?? '30', 10) || 30));
     const afterDate = after ? new Date(after) : null;
     if (afterDate && Number.isNaN(afterDate.getTime())) throw new BadRequestException('Event cursor is invalid.');
-    return this.prisma.$queryRaw<EventRow[]>`
+    const rows = await this.prisma.$queryRaw<EventRow[]>`
       SELECT id, module_id AS "moduleId", record_id AS "recordId", event_type AS "eventType", payload,
              outbox_status AS "outboxStatus", created_at AS "createdAt", actor_user_id AS "actorUserId"
       FROM module_domain_events
       WHERE tenant_id = ${workspaceId}::uuid AND branch_id = ${branchId}::uuid
         AND (${moduleId ?? null}::text IS NULL OR module_id = ${moduleId ?? null})
         AND (${recordId ?? null}::text IS NULL OR record_id = ${recordId ?? null})
+        AND (${ownEmployeeId}::uuid IS NULL OR module_id <> 'employees' OR record_id = ${ownEmployeeId})
         AND (${afterDate}::timestamptz IS NULL OR created_at < ${afterDate})
       ORDER BY created_at DESC LIMIT ${parsedLimit}
     `;
+    return moduleId ? rows : rows.filter((row) => hasPermission(membership.role, this.permissionForModule(row.moduleId)));
   }
 }

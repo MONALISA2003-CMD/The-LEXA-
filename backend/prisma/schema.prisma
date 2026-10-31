@@ -237,6 +237,7 @@ model LedgerJournalLine {
 model AuditEvent {
   id           String   @id @default(uuid()) @db.Uuid
   tenantId     String   @map("tenant_id") @db.Uuid
+  branchId     String?  @map("branch_id") @db.Uuid
   actorUserId  String?  @map("actor_user_id") @db.Uuid
   action       String
   resourceType String   @map("resource_type")
@@ -248,6 +249,7 @@ model AuditEvent {
   actor        User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
+  @@index([tenantId, branchId, createdAt])
   @@index([tenantId, resourceType, resourceId])
   @@index([actorUserId, createdAt])
   @@map("audit_events")
@@ -925,4 +927,316 @@ model TaxRule {
  @@unique([tenantId, code])
  @@index([tenantId, active, priority])
  @@map("tax_rules")
+}
+
+
+// Workstream 6 typed operational tables. Compensation and payroll are separate
+// models so API serializers can apply field-level authorization before returning data.
+model HrShift {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  code String
+  name String
+  startsAt DateTime @map("starts_at") @db.Time(6)
+  endsAt DateTime @map("ends_at") @db.Time(6)
+  breakMinutes Int @default(0) @map("break_minutes")
+  graceMinutes Int @default(0) @map("grace_minutes")
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  @@unique([tenantId, id])
+  @@unique([tenantId, branchId, id])
+  @@unique([tenantId, branchId, code])
+  @@map("hr_shifts")
+}
+
+model HrEmployeeShiftAssignment {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  shiftId String @map("shift_id") @db.Uuid
+  startsOn DateTime @map("starts_on") @db.Date
+  endsOn DateTime? @map("ends_on") @db.Date
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, employeeId, startsOn])
+  @@map("hr_employee_shift_assignments")
+}
+
+model HrEmployee {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  employeeNumber String @map("employee_number")
+  userId String? @map("user_id") @db.Uuid
+  fullName String @map("full_name")
+  preferredName String? @map("preferred_name")
+  workEmail String? @map("work_email")
+  phone String?
+  department String?
+  jobTitle String? @map("job_title")
+  managerEmployeeId String? @map("manager_employee_id") @db.Uuid
+  employmentType String @default("salaried") @map("employment_type")
+  employmentStatus String @default("active") @map("employment_status")
+  hireDate DateTime @map("hire_date") @db.Date
+  terminationDate DateTime? @map("termination_date") @db.Date
+  defaultShiftId String? @map("default_shift_id") @db.Uuid
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  @@unique([tenantId, id])
+  @@unique([tenantId, branchId, id])
+  @@unique([tenantId, branchId, employeeNumber])
+  @@map("hr_employees")
+}
+
+model HrEmployeeCompensation {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  payBasis String @map("pay_basis")
+  currency String @default("UGX") @db.Char(3)
+  payFrequency String @default("monthly") @map("pay_frequency")
+  basePayMinor BigInt @default(0) @map("base_pay_minor")
+  hourlyRateMinor BigInt @default(0) @map("hourly_rate_minor")
+  overtimeMultiplier Decimal @default(1.5) @map("overtime_multiplier") @db.Decimal(5, 2)
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  @@unique([tenantId, id])
+  @@unique([tenantId, employeeId, effectiveFrom])
+  @@map("hr_employee_compensation")
+}
+
+model HrAttendance {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  shiftId String? @map("shift_id") @db.Uuid
+  attendanceDate DateTime @map("attendance_date") @db.Date
+  clockIn DateTime? @map("clock_in") @db.Timestamptz(6)
+  clockOut DateTime? @map("clock_out") @db.Timestamptz(6)
+  workedMinutes Int @default(0) @map("worked_minutes")
+  lateMinutes Int @default(0) @map("late_minutes")
+  status String @default("present")
+  note String?
+  reviewedByUserId String? @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  @@unique([tenantId, id])
+  @@unique([tenantId, employeeId, attendanceDate])
+  @@map("hr_attendance")
+}
+
+model HrLeaveRequest {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  requestNumber String @map("request_number")
+  leaveType String @map("leave_type")
+  startsOn DateTime @map("starts_on") @db.Date
+  endsOn DateTime @map("ends_on") @db.Date
+  daysRequested Decimal @map("days_requested") @db.Decimal(7, 2)
+  paid Boolean @default(true)
+  reason String?
+  handoverNote String? @map("handover_note")
+  status String @default("draft")
+  requestedByUserId String @map("requested_by_user_id") @db.Uuid
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(6)
+  decidedByUserId String? @map("decided_by_user_id") @db.Uuid
+  decisionComment String? @map("decision_comment")
+  approvalRecordId String? @map("approval_record_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  @@unique([tenantId, id])
+  @@unique([tenantId, requestNumber])
+  @@map("hr_leave_requests")
+}
+
+model Project {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  projectCode String @map("project_code")
+  name String
+  description String?
+  customerRecordId String? @map("customer_record_id")
+  managerEmployeeId String? @map("manager_employee_id") @db.Uuid
+  startsOn DateTime? @map("starts_on") @db.Date
+  endsOn DateTime? @map("ends_on") @db.Date
+  budgetMinor BigInt @default(0) @map("budget_minor")
+  currency String @default("UGX") @db.Char(3)
+  status String @default("planning")
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  @@unique([tenantId, id])
+  @@unique([tenantId, branchId, id])
+  @@unique([tenantId, branchId, projectCode])
+  @@map("projects")
+}
+
+model ProjectTask {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  projectId String @map("project_id") @db.Uuid
+  taskCode String @map("task_code")
+  title String
+  description String?
+  assignedEmployeeId String? @map("assigned_employee_id") @db.Uuid
+  dueAt DateTime? @map("due_at") @db.Date
+  status String @default("open")
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  @@unique([tenantId, id])
+  @@unique([tenantId, branchId, id])
+  @@unique([tenantId, projectId, taskCode])
+  @@map("project_tasks")
+}
+
+model HrTimesheet {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  projectId String? @map("project_id") @db.Uuid
+  projectTaskId String? @map("project_task_id") @db.Uuid
+  timesheetNumber String @map("timesheet_number")
+  workDate DateTime @map("work_date") @db.Date
+  regularHours Decimal @default(0) @map("regular_hours") @db.Decimal(7, 2)
+  overtimeHours Decimal @default(0) @map("overtime_hours") @db.Decimal(7, 2)
+  billableHours Decimal @default(0) @map("billable_hours") @db.Decimal(7, 2)
+  notes String?
+  status String @default("draft")
+  submittedByUserId String @map("submitted_by_user_id") @db.Uuid
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(6)
+  decidedByUserId String? @map("decided_by_user_id") @db.Uuid
+  decisionComment String? @map("decision_comment")
+  approvalRecordId String? @map("approval_record_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  @@unique([tenantId, id])
+  @@unique([tenantId, timesheetNumber])
+  @@map("hr_timesheets")
+}
+
+model ProjectCostEntry {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  projectId String @map("project_id") @db.Uuid
+  sourceType String @map("source_type")
+  sourceId String @map("source_id")
+  category String
+  description String
+  costMinor BigInt @map("cost_minor")
+  currency String @default("UGX") @db.Char(3)
+  costDate DateTime @map("cost_date") @db.Date
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  @@unique([tenantId, id])
+  @@unique([tenantId, sourceType, sourceId])
+  @@map("project_cost_entries")
+}
+
+model HrPayrollRun {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  runNumber String @map("run_number")
+  periodStart DateTime @map("period_start") @db.Date
+  periodEnd DateTime @map("period_end") @db.Date
+  currency String @default("UGX") @db.Char(3)
+  status String @default("draft")
+  grossMinor BigInt @default(0) @map("gross_minor")
+  deductionsMinor BigInt @default(0) @map("deductions_minor")
+  netMinor BigInt @default(0) @map("net_minor")
+  calculatedByUserId String? @map("calculated_by_user_id") @db.Uuid
+  calculatedAt DateTime? @map("calculated_at") @db.Timestamptz(6)
+  submittedByUserId String? @map("submitted_by_user_id") @db.Uuid
+  approvalRecordId String? @map("approval_record_id")
+  approvedByUserId String? @map("approved_by_user_id") @db.Uuid
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(6)
+  paymentReference String? @map("payment_reference")
+  paidByUserId String? @map("paid_by_user_id") @db.Uuid
+  paidAt DateTime? @map("paid_at") @db.Timestamptz(6)
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  @@unique([tenantId, id])
+  @@unique([tenantId, branchId, id])
+  @@unique([tenantId, branchId, runNumber])
+  @@map("hr_payroll_runs")
+}
+
+model HrPayrollLine {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  payrollRunId String @map("payroll_run_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  payBasis String @map("pay_basis")
+  basePayMinor BigInt @default(0) @map("base_pay_minor")
+  regularHours Decimal @default(0) @map("regular_hours") @db.Decimal(9, 2)
+  overtimeHours Decimal @default(0) @map("overtime_hours") @db.Decimal(9, 2)
+  approvedPaidLeaveDays Decimal @default(0) @map("approved_paid_leave_days") @db.Decimal(7, 2)
+  approvedUnpaidLeaveDays Decimal @default(0) @map("approved_unpaid_leave_days") @db.Decimal(7, 2)
+  approvedAbsenceDays Decimal @default(0) @map("approved_absence_days") @db.Decimal(7, 2)
+  approvedPaidLeaveHours Decimal @default(0) @map("approved_paid_leave_hours") @db.Decimal(9, 2)
+  grossMinor BigInt @default(0) @map("gross_minor")
+  deductionsMinor BigInt @default(0) @map("deductions_minor")
+  netMinor BigInt @default(0) @map("net_minor")
+  calculationSnapshot Json @default("{}") @map("calculation_snapshot")
+  @@unique([tenantId, id])
+  @@unique([tenantId, branchId, id])
+  @@unique([tenantId, payrollRunId, employeeId])
+  @@map("hr_payroll_lines")
+}
+
+model HrPayrollDeduction {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  payrollLineId String @map("payroll_line_id") @db.Uuid
+  category String
+  description String
+  amountMinor BigInt @map("amount_minor")
+  reference String?
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  @@map("hr_payroll_deductions")
+}
+
+model SupportCase {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  caseNumber String @map("case_number")
+  customerRecordId String? @map("customer_record_id")
+  taskRecordId String? @map("task_record_id")
+  assignedEmployeeId String? @map("assigned_employee_id") @db.Uuid
+  openedByUserId String @map("opened_by_user_id") @db.Uuid
+  subject String
+  description String?
+  channel String @default("other")
+  category String @default("other")
+  priority String @default("normal")
+  status String @default("new")
+  responseDueAt DateTime? @map("response_due_at") @db.Timestamptz(6)
+  resolution String?
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(6)
+  closedAt DateTime? @map("closed_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  @@unique([tenantId, id])
+  @@unique([tenantId, branchId, caseNumber])
+  @@map("support_cases")
 }

@@ -12,6 +12,7 @@ import { postLedgerJournal, settlementAccountKey } from '../general-ledger/ledge
 import { assertBranchAccess } from '../authorization/branch-scope';
 import { CsrfGuard } from './csrf.guard';
 import { sendTransactionalEmail } from '../notifications/email-delivery';
+import { PeopleProjectsService } from '../people-projects/people-projects.service';
 
 const scrypt = promisify(scryptCallback);
 const SESSION_SECONDS = 60 * 60 * 24 * 7;
@@ -253,7 +254,7 @@ function toModuleRecord(row: any) {
 
 @Controller()
 export class CoreController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly peopleProjects: PeopleProjectsService) {}
 
   private setCsrfCookie(reply: FastifyReply, token: string): void {
     reply.header('Set-Cookie', `lexa_csrf=${encodeURIComponent(token)}; Path=/; Secure; SameSite=None; Max-Age=3600`);
@@ -1604,7 +1605,7 @@ export class CoreController {
   @Get('workspaces/:workspaceId/search')
   async globalSearch(@Param('workspaceId') workspaceId: string, @Query('branchId') branchId: string | undefined, @Query('q') query: string | undefined, @Query('limit') limit: string | undefined, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
-    await this.membershipFor(session.userId, workspaceId);
+    const membership = await this.membershipFor(session.userId, workspaceId);
     const text = (query ?? '').trim();
     if (text.length < 2) return [];
     if (text.length > 160) throw new BadRequestException('Search text is too long.');
@@ -1620,7 +1621,18 @@ export class CoreController {
     for (const product of products) results.push({ id: product.id, type: 'product', label: product.name, description: `SKU ${product.sku}${product.barcode ? ` · Barcode ${product.barcode}` : ''}`, href: `/products?search=${encodeURIComponent(product.sku)}`, reference: product.sku });
     for (const sale of sales) results.push({ id: sale.id, type: 'sale', label: sale.receiptNumber, description: sale.customerName ?? 'Sale record', href: `/sales/${sale.id}`, reference: sale.receiptNumber });
     const normalizedQuery = text.toLocaleLowerCase();
+    const moduleReadPermission: Record<string, Parameters<typeof hasPermission>[1]> = {
+      employees: 'people.read', shifts: 'people.read', attendance: 'people.private.read', leave: 'people.private.read', timesheets: 'people.private.read',
+      payroll: 'payroll.read', projects: 'projects.read', 'project-tasks': 'projects.read', 'project-costs': 'projects.read', support: 'support.read',
+      audit: 'audit.read', 'audit-log': 'audit.read',
+    };
     for (const row of rows) {
+      const required = moduleReadPermission[row.moduleId];
+      if (required && !hasPermission(membership.role, required)) continue;
+      if (membership.role.toLowerCase() === 'employee' && row.moduleId === 'employees') {
+        const own = await this.prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM hr_employees WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND id=${row.recordId}::uuid AND user_id=${session.userId}::uuid LIMIT 1`;
+        if (!own.length) continue;
+      }
       const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
       const candidate = Object.entries(data).find(([key, value]) => !['password', 'token', 'secret'].some((s) => key.toLowerCase().includes(s)) && typeof value === 'string' && value.toLocaleLowerCase().includes(normalizedQuery));
       if (!candidate) continue;
@@ -1839,11 +1851,62 @@ export class CoreController {
   @Get('workspaces/:workspaceId/approvals')
   async listApprovals(@Param('workspaceId') workspaceId: string, @Query('branchId') branchId: string | undefined, @Query('status') status: string | undefined, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
-    await this.membershipFor(session.userId, workspaceId);
+    const membership = await this.membershipFor(session.userId, workspaceId);
     if (!branchId) throw new BadRequestException('A branch ID is required to list approvals.');
     await this.branchFor(workspaceId, branchId, session.userId);
     const rows = await this.prisma.moduleRecord.findMany({ where: { tenantId: workspaceId, branchId, moduleId: 'approvals' }, orderBy: { createdAt: 'desc' }, take: 1000 });
-    return rows.flatMap((row) => { const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {}; return status && data.status !== status ? [] : [{ ...data, id: row.recordId }]; });
+    const canReadPayroll = hasPermission(membership.role, 'payroll.read');
+    const canReadPrivatePeople = hasPermission(membership.role, 'people.private.read');
+    const canReadProjectTimesheets = hasPermission(membership.role, 'projects.read');
+    const projectManagerRole = normalizeRole(membership.role) === 'project_manager';
+    let visibleProjectTimesheetIds = new Set<string>();
+    if (projectManagerRole && !canReadPrivatePeople) {
+      const employeeRows = await this.prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM hr_employees WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid
+          AND user_id=${session.userId}::uuid AND employment_status='active' LIMIT 1
+      `;
+      const employeeId = employeeRows[0]?.id;
+      if (employeeId) {
+        const visibleRows = await this.prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT t.id FROM hr_timesheets t
+          JOIN projects p ON p.tenant_id=t.tenant_id AND p.branch_id=t.branch_id AND p.id=t.project_id
+          WHERE t.tenant_id=${workspaceId}::uuid AND t.branch_id=${branchId}::uuid
+            AND (p.manager_employee_id=${employeeId}::uuid OR EXISTS (
+              SELECT 1 FROM project_tasks pt WHERE pt.tenant_id=t.tenant_id AND pt.branch_id=t.branch_id
+                AND pt.project_id=p.id AND pt.id=t.project_task_id AND pt.assigned_employee_id=${employeeId}::uuid
+            ))
+        `;
+        visibleProjectTimesheetIds = new Set(visibleRows.map((item) => item.id));
+      }
+    }
+    return rows.flatMap((row) => {
+      const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
+      if (status && data.status !== status) return [];
+      if (projectManagerRole && data.ownerModule === 'timesheets'
+        && !visibleProjectTimesheetIds.has(String(data.ownerRecordId ?? ''))) return [];
+      if (!hasPermission(membership.role, 'approval.decide') && data.requestedBy !== session.userId) return [];
+      // Inbox remains shared, but sensitive payroll totals are never exposed to approvers
+      // who do not have payroll-read permission.
+      const safeData = {
+        title: typeof data.title === 'string' ? data.title : 'Approval request',
+        description: data.ownerModule === 'payroll' && !canReadPayroll
+          ? 'A payroll run is awaiting an authorized decision.'
+          : data.ownerModule === 'leave' && !canReadPrivatePeople
+            ? 'An employee leave request is awaiting an authorized decision.'
+            : data.ownerModule === 'timesheets' && !canReadPrivatePeople && !canReadProjectTimesheets
+              ? 'An employee timesheet is awaiting an authorized decision.'
+              : typeof data.description === 'string' ? data.description : '',
+        requestedBy: typeof data.requestedBy === 'string' ? data.requestedBy : '',
+        requestedAt: typeof data.requestedAt === 'string' ? data.requestedAt : row.createdAt.toISOString(),
+        status: typeof data.status === 'string' ? data.status : 'pending',
+        href: typeof data.href === 'string' ? data.href : '/inbox?tab=approvals',
+        ownerModule: typeof data.ownerModule === 'string' ? data.ownerModule : '',
+        ownerRecordId: typeof data.ownerRecordId === 'string' ? data.ownerRecordId : '',
+        ...((canReadPrivatePeople || canReadProjectTimesheets || data.requestedBy === session.userId) && typeof data.decisionComment === 'string' ? { decisionComment: data.decisionComment } : {}),
+        ...(typeof data.decidedAt === 'string' ? { decidedAt: data.decidedAt } : {}),
+      };
+      return [{ ...safeData, id: row.recordId }];
+    });
   }
 
   @Post('workspaces/:workspaceId/approvals/:approvalId/decision')
@@ -1855,15 +1918,23 @@ export class CoreController {
     if (!hasPermission(membership.role, 'approval.decide')) throw new ForbiddenException('You do not have permission to decide approvals.');
     const decision = requiredString(body.decision, 'Decision', 20);
     if (!['approve', 'reject'].includes(decision)) throw new BadRequestException('Decision must be approve or reject.');
-    const row = await this.prisma.moduleRecord.findFirst({ where: { tenantId: workspaceId, moduleId: 'approvals', recordId: approvalId } });
+    const row = await this.prisma.moduleRecord.findFirst({ where: { tenantId: workspaceId, moduleId: 'approvals', recordId: approvalId }, select: { branchId: true } });
     if (!row) throw new NotFoundException('Approval not found.');
     await this.branchFor(workspaceId, row.branchId, session.userId);
-    const data = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
-    if (data.status !== 'pending') throw new ConflictException('This approval has already been decided.');
-    const updated = { ...data, status: decision === 'approve' ? 'approved' : 'rejected', decisionComment: optionalString(body.comment, 1000) ?? '', decidedBy: session.userId, decidedAt: new Date().toISOString() };
-    await this.prisma.moduleRecord.update({ where: { id: row.id }, data: { data: updated as any, version: { increment: 1 } } });
-    await this.audit(workspaceId, session.userId, 'approval.decided', 'approval', approvalId, request.headers['x-request-id'] as string | undefined);
-    return { ...updated, id: approvalId };
+    const approvalData = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
+    const ownerModule = typeof approvalData.ownerModule === 'string' ? approvalData.ownerModule : '';
+    if (ownerModule === 'leave' && !hasPermission(membership.role, 'people.write')) throw new ForbiddenException('Your role cannot approve leave requests.');
+    if (ownerModule === 'timesheets' && !hasPermission(membership.role, 'people.write') && !hasPermission(membership.role, 'projects.write')) throw new ForbiddenException('Your role cannot approve timesheets.');
+    if (ownerModule === 'payroll' && !hasPermission(membership.role, 'payroll.write')) throw new ForbiddenException('Your role cannot approve payroll runs.');
+    if (!['leave','timesheets','payroll'].includes(ownerModule)) throw new ForbiddenException('This approval type has no authorized owning-module decision handler.');
+    return this.peopleProjects.decideSharedApproval({
+      tenantId: workspaceId,
+      approvalId,
+      actorUserId: session.userId,
+      actorRole: normalizeRole(membership.role),
+      decision: decision as 'approve' | 'reject',
+      comment: optionalString(body.comment, 1000),
+    });
   }
 
   @Get('workspaces/:workspaceId/notifications')
