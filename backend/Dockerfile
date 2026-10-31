@@ -4,8 +4,8 @@ RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-c
 COPY backend/package.json ./package.json
 RUN npm install
 COPY backend/ ./
-# Apply the security patch in the image build without relying on GitHub write permissions.
-RUN node scripts/apply-auth-security-patch.mjs
+# Authentication and account-security controls are versioned source files.
+# Do not rewrite source during the Docker build; CI compiles the exact reviewed files.
 # This placeholder is build-only and is not copied into the runtime image.
 ENV DATABASE_URL=postgresql://build:build@127.0.0.1:5432/lexa?schema=public
 RUN npx prisma generate

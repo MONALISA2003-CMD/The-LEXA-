@@ -178,8 +178,8 @@ export function createApiClient(options: ApiClientOptions) {
     post: <T>(path: string, body?: unknown, idempotencyKey?: string) => request<T>(path, { method: 'POST', body, idempotencyKey }),
     postForm: <T>(path: string, formData: FormData, idempotencyKey?: string) => request<T>(path, { method: 'POST', formData, idempotencyKey }),
     download: (path: string) => request<Blob>(path, { method: 'GET', responseType: 'blob', headers: { Accept: 'application/octet-stream, application/pdf, image/*' } }),
-    put: <T>(path: string, body?: unknown, headers?: HeadersInit) => request<T>(path, { method: 'PUT', body, headers }),
-    patch: <T>(path: string, body?: unknown, headers?: HeadersInit) => request<T>(path, { method: 'PATCH', body, headers }),
+    put: <T>(path: string, body?: unknown, headers?: HeadersInit) => request<T>(path, { method: 'PUT', body, ...(headers !== undefined ? { headers } : {}) }),
+    patch: <T>(path: string, body?: unknown, headers?: HeadersInit) => request<T>(path, { method: 'PATCH', body, ...(headers !== undefined ? { headers } : {}) }),
     delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
     baseUrl,
   };
