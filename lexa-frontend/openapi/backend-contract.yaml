@@ -2250,6 +2250,1053 @@ paths:
         '200':
           description: Successful response; see the domain DTO returned by this 
             operation.
+  /workspaces/{workspaceId}/branches/{branchId}/finance/bank-accounts:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/bank-accounts/{accountId}/statement-lines/import:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: accountId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/bank-reconciliations:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/bank-reconciliations/{reconciliationId}/complete:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: reconciliationId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/bank-reconciliations/{reconciliationId}/matches:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: reconciliationId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/cash-sessions:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/cash-sessions/{sessionId}/close:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: sessionId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/cash-sessions/{sessionId}/movements:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: sessionId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/cash-ups/{cashUpId}/post:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: cashUpId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/cost-centres:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceCost
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCost
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/credit-notes:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceCred
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/expense-categories:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/expenses:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceExpe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/expenses/{expenseId}/approve:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: expenseId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/fixed-assets:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceFixe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceFixe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/fixed-assets/{assetId}/depreciate:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceFixe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: assetId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/lots:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryLo
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/lots/{lotId}/serials:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryLo
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: lotId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/reservations:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidInventoryRe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryRe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/reservations/{reservationId}/release:
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryRe
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: reservationId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/warehouses:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidInventoryWa
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryWa
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/warehouses/{warehouseId}/bins:
+    get:
+      operationId: getWorkspacesWorkspaceidBranchesBranchidInventoryWa
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: warehouseId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryWa
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: warehouseId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/catalog/price-lists:
+    get:
+      operationId: getWorkspacesWorkspaceidCatalogPriceLists
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidCatalogPriceLists
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/catalog/price-lists/{priceListId}/items:
+    post:
+      operationId: postWorkspacesWorkspaceidCatalogPriceListsPricelisti
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: priceListId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/catalog/tax-codes:
+    get:
+      operationId: getWorkspacesWorkspaceidCatalogTaxCodes
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidCatalogTaxCodes
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/catalog/tax-rules:
+    post:
+      operationId: postWorkspacesWorkspaceidCatalogTaxRules
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/catalog/units:
+    get:
+      operationId: getWorkspacesWorkspaceidCatalogUnits
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidCatalogUnits
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/invitations:
+    get:
+      operationId: getWorkspacesWorkspaceidInvitations
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidInvitations
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/invitations/{invitationId}/accept:
+    post:
+      operationId: postWorkspacesWorkspaceidInvitationsInvitationidAcce
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: invitationId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/products/{productId}/variants:
+    get:
+      operationId: getWorkspacesWorkspaceidProductsProductidVariants
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: productId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
+    post:
+      operationId: postWorkspacesWorkspaceidProductsProductidVariants
+      tags: [Workstream 0-3]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: productId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Operation succeeded}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Conflict or stale state}
+        '500': {description: Unexpected server error}
 components:
   securitySchemes:
     sessionCookie:

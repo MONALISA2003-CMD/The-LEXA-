@@ -26,6 +26,8 @@ const DEFAULT_ACCOUNTS: Array<[string, string, string, string, string]> = [
   ['1100', 'Accounts receivable control', 'asset', 'debit', 'accounts_receivable'],
   ['1200', 'Inventory control', 'asset', 'debit', 'inventory'],
   ['1300', 'Input tax recoverable', 'asset', 'debit', 'input_tax'],
+  ['1400', 'Fixed asset cost', 'asset', 'debit', 'fixed_asset_cost'],
+  ['1490', 'Accumulated depreciation', 'asset', 'credit', 'accumulated_depreciation'],
   ['2000', 'Accounts payable control', 'liability', 'credit', 'accounts_payable'],
   ['2050', 'Goods received not invoiced', 'liability', 'credit', 'goods_received_not_invoiced'],
   ['2100', 'Tax payable', 'liability', 'credit', 'tax_payable'],
@@ -39,6 +41,7 @@ const DEFAULT_ACCOUNTS: Array<[string, string, string, string, string]> = [
   ['5100', 'Purchase price variance', 'expense', 'debit', 'purchase_price_variance'],
   ['5200', 'Inventory shrinkage and write-offs', 'expense', 'debit', 'inventory_shrinkage'],
   ['6000', 'Operating expenses', 'expense', 'debit', 'operating_expenses'],
+  ['6100', 'Depreciation expense', 'expense', 'debit', 'depreciation_expense'],
 ];
 
 function kampalaDate(): string {

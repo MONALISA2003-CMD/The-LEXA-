@@ -4,7 +4,7 @@ export type Permission =
   | 'sales.read' | 'sales.write' | 'sales.return'
   | 'inventory.read' | 'inventory.write'
   | 'procurement.read' | 'procurement.write' | 'procurement.receive'
-  | 'finance.read' | 'finance.write'
+  | 'finance.read' | 'finance.write' | 'cash.manage'
   | 'crm.read' | 'crm.write'
   | 'people.read' | 'people.write'
   | 'manufacturing.read' | 'manufacturing.write'
@@ -36,7 +36,7 @@ const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
   business_manager: ['finance.write', ...ALL_READS, ...OPERATIONAL_WRITES],
   manager: ['finance.write', ...ALL_READS, ...OPERATIONAL_WRITES],
   branch_manager: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'procurement.read', 'finance.read', 'crm.read', 'people.read', 'manufacturing.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'module.read', ...OPERATIONAL_WRITES],
-  cashier: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write'],
+  cashier: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'cash.manage'],
   sales: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'crm.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'sales.return', 'crm.write'],
   sales_operator: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'crm.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'crm.write'],
   inventory_operator: ['workspace.read', 'catalog.read', 'inventory.read', 'procurement.read', 'manufacturing.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'catalog.write', 'inventory.write', 'procurement.receive', 'fulfilment.write', 'manufacturing.write', 'module.write'],
@@ -64,6 +64,8 @@ export function canAccessBranch(role: string, scopeMode: string, isAssigned: boo
 export function hasPermission(role: string, permission: Permission): boolean {
   const normalized = normalizeRole(role);
   const permissions = ROLE_PERMISSIONS[normalized];
+  // Cash register operations are separately permissioned from general ledger posting.
+  if (permission === 'cash.manage') return ['owner','owner_administrator','administrator','admin','business_manager','manager','branch_manager','accountant','cashier'].includes(normalized);
   // Unknown role names fail closed; never infer write access from membership alone.
   return permissions?.includes(permission) ?? false;
 }
@@ -76,7 +78,7 @@ export function permissionForRequest(method: string, pathname: string, params: R
   const moduleId = typeof params.moduleId === 'string' ? params.moduleId : undefined;
   const choose = (read: Permission, mutation: Permission): Permission => write ? mutation : read;
 
-  if (/\/workspaces\/[^/]+\/members(?:$|\?)|\/memberships\/[^/]+\/(?:branches|role)(?:$|\?)/.test(path)) return 'workspace.manage';
+  if (/\/workspaces\/[^/]+\/members(?:$|\?)|\/memberships\/[^/]+\/(?:branches|role)(?:$|\?)|\/workspaces\/[^/]+\/invitations(?:$|\/)/.test(path)) return 'workspace.manage';
   if (/\/workspaces\/[^/]+$/.test(path) || /\/workspaces\/[^/]+\/branches$/.test(path)) return write ? 'workspace.manage' : 'workspace.read';
   if (/\/products(?:\/|$)|\/categories(?:\/|$)/.test(path)) return choose('catalog.read', 'catalog.write');
   if (/\/inventory\/(?:movements|balances)(?:\/|$)/.test(path)) return choose('inventory.read', 'inventory.write');
@@ -87,7 +89,10 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/commerce\/purchase-orders\/[^/]+\/receipts$/.test(path)) return choose('procurement.read', 'procurement.receive');
   if (/\/commerce\/purchase-orders(?:\/|$)/.test(path)) return choose('procurement.read', 'procurement.write');
   if (/\/commerce\/crm\//.test(path)) return choose('crm.read', 'crm.write');
-  if (/\/ledger(?:\/|$)|\/receivables(?:\/|$)|\/payables(?:\/|$)|\/business-tools\/tax-profile$|\/cash-ups(?:\/|$)/.test(path)) return choose('finance.read', 'finance.write');
+  if (/\/branches\/[^/]+\/finance\/cash-sessions(?:\/|$)|\/branches\/[^/]+\/finance\/cash-ups(?:\/|$)/.test(path)) return choose('finance.read', 'cash.manage');
+  if (/\/ledger(?:\/|$)|\/receivables(?:\/|$)|\/payables(?:\/|$)|\/finance(?:\/|$)|\/business-tools\/tax-profile$|\/cash-ups(?:\/|$)/.test(path)) return choose('finance.read', 'finance.write');
+  if (/\/catalog(?:\/|$)|\/tax-codes(?:\/|$)|\/price-lists(?:\/|$)/.test(path)) return choose('catalog.read', 'catalog.write');
+  if (/\/warehouses(?:\/|$)|\/lots(?:\/|$)|\/reservations(?:\/|$)|\/variants(?:\/|$)/.test(path)) return choose('inventory.read', 'inventory.write');
   if (/\/business-tools\/(?:snapshot|tax-profile)$|\/branches\/[^/]+\/(?:dashboard|analytics|reports)(?:\/|$)/.test(path)) return choose('reports.read', 'finance.write');
   if (/\/approvals(?:\/|$)/.test(path)) return choose('collaboration.read', 'approval.decide');
   if (/\/inbox\/|\/tasks(?:\/|$)|\/notifications(?:\/|$)|\/activity(?:\/|$)/.test(path)) return choose('collaboration.read', 'collaboration.write');

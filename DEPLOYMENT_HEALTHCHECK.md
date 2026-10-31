@@ -1,13 +1,24 @@
-# Render / Vercel deployment health and pinning checklist
+# Render / Vercel health and release gate
+
+## Application health routes
+
+- `GET /health/live` is process liveness; it should not depend on database availability.
+- `GET /health/ready` is readiness; it performs a database query and returns HTTP 503 if the database is unavailable.
+- Nest excludes both from the global `/api/v1` prefix. Vercel rewrites the two `/api/v1/health/*` convenience paths directly to the unprefixed Render health routes; the normal `/api/v1/*` API proxy follows them.
 
 ## Render API service
 
-Set the existing Render web service's **Health Check Path** to exactly `/health/ready` (not `/api/v1/health/ready`). Nest's global `/api/v1` prefix is explicitly excluded for `/health/live` and `/health/ready`. `/health/live` is a process liveness check; `/health/ready` executes `SELECT 1` and returns HTTP 503 if PostgreSQL is unavailable. Confirm the setting in the Render dashboard and wait for the deployment's health status to become Live. A source ZIP cannot prove or mutate that remote dashboard setting.
+Set the existing Render API service health check to exactly `/health/ready`. On 31 October the queried `lexa-backend-api-live` service still had an empty health path. The API service also needs `DATABASE_RUNTIME_ROLE=lexa_app_runtime` after migration `20261030320000_platform_catalog_finance_rls` has been applied successfully to that database.
 
-## Vercel frontend
+## Email delivery
 
-Vercel should use the existing `lexa-frontend/` project root and its existing `npm run build` command. The deployment log supplied for this audit shows Vercel ran 22 test files / 96 tests successfully and failed only at `tsc -b` on `TeamAccessPanel.tsx` at that commit. After applying this overlay, rerun the Vercel build and capture the resulting successful deployment ID.
+Set Render secrets/configuration `RESEND_API_KEY`, `RESEND_FROM_EMAIL` (verified sender domain), and `FRONTEND_PUBLIC_URL`. Verify one real recovery email and one invitation email. The application deliberately returns a clear service-unavailable error while email delivery is unconfigured; it does not silently mark mail as delivered.
 
-## Commit pinning
+## Common commit pinning
 
-The provided Render log identifies source commit `ec68f0163be1e0945f8b6da2cbb4413caa015667`. The project archive supplied for local work has no `.git` metadata; therefore it cannot independently confirm branch HEAD or prove Vercel and Render use the same commit. Pin both services to the same reviewed full SHA in their dashboards/repository settings and retain the resulting deployment IDs. Do not treat this note as proof that either remote service has been changed.
+Provider metadata observed on 31 October showed:
+
+- `1e6ed1b9589b775e033976dc71ce6c9c8f1174d8`: Render build failed; Vercel deployment in error.
+- `51bd9fbaeb1ad5830aecbf055491239e4ce85f45`: Render live; Vercel ready, but this commit predates the ZIP implementation.
+
+The ZIP has not been pushed or deployed. After applying and reviewing it, deploy Render and Vercel from one identical full SHA and capture both successful deployment IDs. This document is not evidence that remote provider settings or deployments have changed.

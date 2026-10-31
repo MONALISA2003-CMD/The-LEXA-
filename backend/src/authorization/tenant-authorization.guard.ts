@@ -35,6 +35,9 @@ export class TenantAuthorizationGuard implements CanActivate {
     });
     if (!session) throw new UnauthorizedException({ code: 'SESSION_EXPIRED', message: 'Your session has expired. Sign in again.' });
 
+    // RLS context is request-local and every Prisma operation is executed in a
+    // transaction with SET LOCAL; there is no connection-pool tenant leakage.
+    this.prisma.enterTenantContext(workspaceId, session.userId);
     const membership = await this.prisma.membership.findUnique({
       where: { tenantId_userId: { tenantId: workspaceId, userId: session.userId } },
       select: { role: true, status: true },

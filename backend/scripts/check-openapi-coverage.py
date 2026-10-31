@@ -13,6 +13,9 @@ CONTROLLERS = [
     ROOT / 'backend/src/payables/payables.controller.ts',
     ROOT / 'backend/src/module-graph/module-graph.controller.ts',
     ROOT / 'backend/src/general-ledger/general-ledger.controller.ts',
+    ROOT / 'backend/src/invitations/invitations.controller.ts',
+    ROOT / 'backend/src/commerce/catalog-inventory.controller.ts',
+    ROOT / 'backend/src/finance/finance-operations.controller.ts',
 ]
 CONTRACT = ROOT / 'lexa-frontend/openapi/backend-contract.yaml'
 ROUTE_RE = re.compile(r"@(Get|Post|Put|Patch|Delete)\((?:(?:'([^']*)')|(?:\"([^\"]*)\"))?\)")

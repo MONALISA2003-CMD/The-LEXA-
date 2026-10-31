@@ -19,7 +19,8 @@
     "db:verify": "node scripts/verify-schema-integrity.mjs",
     "contract:check": "python scripts/check-openapi-coverage.py && python scripts/check-route-adapter-coverage.py",
     "ledger:coverage": "node scripts/verify-ledger-posting-coverage.mjs",
-    "adapter:check": "python scripts/check-route-adapter-coverage.py"
+    "adapter:check": "python scripts/check-route-adapter-coverage.py",
+    "test:tenant-http": "node scripts/test-tenant-idor.mjs"
   },
   "dependencies": {
     "@fastify/helmet": "^13.2.0",

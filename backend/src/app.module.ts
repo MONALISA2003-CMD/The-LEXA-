@@ -11,10 +11,13 @@ import { ReceivablesController } from './receivables/receivables.controller';
 import { PayablesController } from './payables/payables.controller';
 import { TenantAuthorizationGuard } from './authorization/tenant-authorization.guard';
 import { GeneralLedgerController } from './general-ledger/general-ledger.controller';
+import { InvitationsController } from './invitations/invitations.controller';
+import { CatalogInventoryController } from './commerce/catalog-inventory.controller';
+import { FinanceOperationsController } from './finance/finance-operations.controller';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, ReceivablesController, PayablesController, GeneralLedgerController],
+  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, ReceivablesController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController],
   providers: [CsrfGuard, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
 })
 export class AppModule {}

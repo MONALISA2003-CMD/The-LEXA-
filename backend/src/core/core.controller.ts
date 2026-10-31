@@ -11,6 +11,7 @@ import { hasPermission, isWorkspaceAdministrator, normalizeRole } from '../autho
 import { postLedgerJournal, settlementAccountKey } from '../general-ledger/ledger-posting';
 import { assertBranchAccess } from '../authorization/branch-scope';
 import { CsrfGuard } from './csrf.guard';
+import { sendTransactionalEmail } from '../notifications/email-delivery';
 
 const scrypt = promisify(scryptCallback);
 const SESSION_SECONDS = 60 * 60 * 24 * 7;
@@ -113,6 +114,10 @@ function toProduct(product: any) {
     ...(product.barcode ? { barcode: product.barcode } : {}),
     ...(product.brand ? { brand: product.brand } : {}),
     ...(product.unitOfMeasure ? { unitOfMeasure: product.unitOfMeasure } : {}),
+    ...(product.unitOfMeasureId ? { unitOfMeasureId: product.unitOfMeasureId } : {}),
+    ...(product.defaultTaxCodeId ? { defaultTaxCodeId: product.defaultTaxCodeId } : {}),
+    trackLot: product.trackLot === true,
+    trackSerial: product.trackSerial === true,
     ...(product.supplierSku ? { supplierSku: product.supplierSku } : {}),
     ...(product.categoryId ? { categoryId: product.categoryId } : {}),
     costPriceMinor: product.costPriceMinor,
@@ -289,8 +294,15 @@ export class CoreController {
   private async sessionFor(request: FastifyRequest): Promise<any> {
     const token = cookieValue(request, 'lexa_session');
     if (!token) throw new UnauthorizedException({ code: 'AUTH_REQUIRED', message: 'Sign in to continue.' });
-    const session = await this.prisma.session.findFirst({
+    const sessionIdentity = await this.prisma.session.findFirst({
       where: { tokenHash: sha256(token), expiresAt: { gt: new Date() } },
+      select: { id: true, userId: true },
+    });
+    if (!sessionIdentity) throw new UnauthorizedException({ code: 'SESSION_EXPIRED', message: 'Your session has expired. Sign in again.' });
+    const currentContext = this.prisma.currentTenantContext();
+    this.prisma.enterTenantContext(currentContext?.tenantId, sessionIdentity.userId);
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionIdentity.id },
       include: { user: { include: { memberships: { where: { status: 'ACTIVE' }, include: { tenant: true } } } } },
     });
     if (!session) throw new UnauthorizedException({ code: 'SESSION_EXPIRED', message: 'Your session has expired. Sign in again.' });
@@ -298,6 +310,9 @@ export class CoreController {
   }
 
   private async membershipFor(userId: string, tenantId: string): Promise<any> {
+    // Every workspace-scoped request must set the RLS tenant before any
+    // subsequent read/write. Membership SELECT is also user-scoped by policy.
+    this.prisma.enterTenantContext(tenantId, userId);
     const membership = await this.prisma.membership.findUnique({
       where: { tenantId_userId: { tenantId, userId } },
       include: { tenant: true },
@@ -400,6 +415,7 @@ export class CoreController {
       throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect.' });
     }
     await this.createSession(user.id, reply);
+    this.prisma.enterTenantContext(undefined, user.id);
     const memberships = await this.prisma.membership.findMany({ where: { userId: user.id, status: 'ACTIVE' } });
     return { user: { id: user.id, email: user.email, displayName: user.displayName ?? undefined }, roles: [...new Set(memberships.map((m) => m.role))] };
   }
@@ -431,18 +447,23 @@ export class CoreController {
   async forgotPassword(@Body() raw: unknown): Promise<{ accepted: true }> {
     const body = asObject(raw);
     const email = requiredString(body.email, 'Email', 254).toLowerCase();
-    const deliveryUrl = process.env.PASSWORD_RESET_DELIVERY_URL;
     const frontendUrl = process.env.FRONTEND_PUBLIC_URL ?? 'https://lexareview.vercel.app';
-    if (!deliveryUrl) throw new ServiceUnavailableException({ code: 'PASSWORD_RESET_DELIVERY_NOT_CONFIGURED', message: 'Password recovery delivery is not configured yet. Contact the administrator.' });
+    if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) throw new ServiceUnavailableException({ code: 'PASSWORD_RESET_DELIVERY_NOT_CONFIGURED', message: 'Configure RESEND_API_KEY and RESEND_FROM_EMAIL before enabling password recovery.' });
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (user) {
+      this.prisma.enterTenantContext(undefined, user.id);
       const rawToken = randomBytes(32).toString('base64url');
       const tokenHash = sha256(rawToken);
       await this.prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + RESET_SECONDS * 1000) } });
       const resetUrl = `${frontendUrl.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(rawToken)}`;
       try {
-        const response = await fetch(deliveryUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: user.email, displayName: user.displayName, resetUrl, expiresInMinutes: RESET_SECONDS / 60 }) });
-        if (!response.ok) throw new Error(`Delivery returned ${response.status}`);
+        await sendTransactionalEmail({
+          to: user.email,
+          subject: 'Reset your LEXA password',
+          text: `Hello${user.displayName ? ` ${user.displayName}` : ''}, use the secure link below to reset your LEXA password. This link expires in 30 minutes.`,
+          actionUrl: resetUrl,
+          actionLabel: 'Reset password',
+        });
       } catch {
         await this.prisma.passwordResetToken.deleteMany({ where: { tokenHash } });
         throw new ServiceUnavailableException({ code: 'PASSWORD_RESET_DELIVERY_FAILED', message: 'Recovery instructions could not be delivered. Contact the administrator.' });
@@ -460,6 +481,7 @@ export class CoreController {
     const passwordHash = await this.passwordHash(requiredString(body.password, 'Password', 1024));
     const row = await this.prisma.passwordResetToken.findFirst({ where: { tokenHash: sha256(token), consumedAt: null, expiresAt: { gt: new Date() } } });
     if (!row) throw new BadRequestException({ code: 'RESET_TOKEN_INVALID', message: 'This recovery link is expired or invalid. Request a new one.' });
+    this.prisma.enterTenantContext(undefined, row.userId);
     await this.prisma.$transaction(async (tx) => {
       const updated = await tx.passwordResetToken.updateMany({ where: { id: row.id, consumedAt: null, expiresAt: { gt: new Date() } }, data: { consumedAt: new Date() } });
       if (updated.count !== 1) throw new BadRequestException('This recovery link has already been used.');
@@ -488,6 +510,7 @@ export class CoreController {
     if (!/^[A-Z]{3}$/.test(currency)) throw new BadRequestException('Currency must be a three-letter ISO currency code.');
     const tenant = await this.prisma.$transaction(async (tx) => {
       const created = await tx.tenant.create({ data: { name: businessName, slug: `${slugify(businessName)}-${randomBytes(3).toString('hex')}`, businessType, currency, timezone } });
+      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${created.id}, true), set_config('app.user_id', ${session.userId}, true)`;
       await tx.membership.create({ data: { tenantId: created.id, userId: session.userId, role: 'owner', status: 'ACTIVE' } });
       await tx.branch.create({ data: { tenantId: created.id, code: 'MAIN', name: branchName, timezone, currency } });
       await tx.auditEvent.create({ data: { tenantId: created.id, actorUserId: session.userId, action: 'workspace.created', resourceType: 'workspace', resourceId: created.id, requestId: request.headers['x-request-id'] as string | undefined } });
@@ -670,16 +693,31 @@ export class CoreController {
     if (categoryName) {
       const category = await this.prisma.category.upsert({ where: { tenantId_name: { tenantId: workspaceId, name: categoryName } }, create: { tenantId: workspaceId, name: categoryName }, update: {} });
       categoryId = category.id;
+    } else if (body.categoryId !== undefined) {
+      categoryId = requiredString(body.categoryId, 'Category ID', 80);
+      if (!await this.prisma.category.findFirst({ where: { id: categoryId, tenantId: workspaceId } })) throw new BadRequestException('Category must belong to this workspace.');
     }
+    const unitOfMeasureId = body.unitOfMeasureId ? requiredString(body.unitOfMeasureId, 'Unit of measure ID', 80) : undefined;
+    if (unitOfMeasureId && !await this.prisma.unitOfMeasure.findFirst({ where: { id: unitOfMeasureId, tenantId: workspaceId, active: true } })) throw new BadRequestException('Unit of measure must belong to this workspace.');
+    const defaultTaxCodeId = body.defaultTaxCodeId ? requiredString(body.defaultTaxCodeId, 'Default tax code ID', 80) : undefined;
+    if (defaultTaxCodeId && !await this.prisma.taxCode.findFirst({ where: { id: defaultTaxCodeId, tenantId: workspaceId, active: true } })) throw new BadRequestException('Tax code must belong to this workspace.');
+    const trackStock = body.trackStock !== false;
+    const trackLot = body.trackLot === true;
+    const trackSerial = body.trackSerial === true;
+    if (trackLot && !trackStock) throw new BadRequestException('Lot tracking requires stock tracking.');
+    if (trackSerial && !trackLot) throw new BadRequestException('Serial tracking requires lot tracking.');
     try {
-      const product = await this.prisma.product.create({ data: {
-        tenantId: workspaceId, name, sku, categoryId,
-        barcode: optionalString(body.barcode, 100), brand: optionalString(body.brand, 100),
-        unitOfMeasure: optionalString(body.unitOfMeasure, 40), supplierSku: optionalString(body.supplierSku, 100),
-        costPriceMinor, sellingPriceMinor, lowStockThreshold: String(lowStockThreshold),
-        trackStock: body.trackStock !== false, active: true,
-      } });
-      await this.audit(workspaceId, session.userId, 'product.created', 'product', product.id, request.headers['x-request-id'] as string | undefined);
+      const product = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.product.create({ data: {
+          tenantId: workspaceId, name, sku, categoryId, unitOfMeasureId, defaultTaxCodeId, trackLot, trackSerial,
+          barcode: optionalString(body.barcode, 100), brand: optionalString(body.brand, 100),
+          unitOfMeasure: optionalString(body.unitOfMeasure, 40), supplierSku: optionalString(body.supplierSku, 100),
+          costPriceMinor, sellingPriceMinor, lowStockThreshold: String(lowStockThreshold),
+          trackStock, active: true,
+        } });
+        await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'product.created', resourceType: 'product', resourceId: created.id, requestId: request.headers['x-request-id'] as string | undefined } });
+        return created;
+      }, { isolationLevel: 'Serializable' });
       return toProduct(product);
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') throw new ConflictException('This SKU already exists in the workspace.');
@@ -700,23 +738,40 @@ export class CoreController {
       const categoryName = optionalString(body.categoryName, 100);
       if (!categoryName) categoryId = null;
       else categoryId = (await this.prisma.category.upsert({ where: { tenantId_name: { tenantId: workspaceId, name: categoryName } }, create: { tenantId: workspaceId, name: categoryName }, update: {} })).id;
-    } else if (body.categoryId !== undefined) categoryId = optionalString(body.categoryId, 100) ?? null;
+    } else if (body.categoryId !== undefined) {
+      categoryId = optionalString(body.categoryId, 100) ?? null;
+      if (categoryId && !await this.prisma.category.findFirst({ where: { id: categoryId, tenantId: workspaceId } })) throw new BadRequestException('Category must belong to this workspace.');
+    }
+    const unitOfMeasureId = body.unitOfMeasureId === undefined ? existing.unitOfMeasureId : optionalString(body.unitOfMeasureId, 80) ?? null;
+    if (unitOfMeasureId && !await this.prisma.unitOfMeasure.findFirst({ where: { id: unitOfMeasureId, tenantId: workspaceId, active: true } })) throw new BadRequestException('Unit of measure must belong to this workspace.');
+    const defaultTaxCodeId = body.defaultTaxCodeId === undefined ? existing.defaultTaxCodeId : optionalString(body.defaultTaxCodeId, 80) ?? null;
+    if (defaultTaxCodeId && !await this.prisma.taxCode.findFirst({ where: { id: defaultTaxCodeId, tenantId: workspaceId, active: true } })) throw new BadRequestException('Tax code must belong to this workspace.');
+    const trackStock = body.trackStock === undefined ? existing.trackStock : body.trackStock === true;
+    const trackLot = body.trackLot === undefined ? existing.trackLot : body.trackLot === true;
+    const trackSerial = body.trackSerial === undefined ? existing.trackSerial : body.trackSerial === true;
+    if (trackLot && !trackStock) throw new BadRequestException('Lot tracking requires stock tracking.');
+    if (trackSerial && !trackLot) throw new BadRequestException('Serial tracking requires lot tracking.');
     try {
-      const product = await this.prisma.product.update({ where: { id: existing.id }, data: {
-        name: body.name === undefined ? existing.name : requiredString(body.name, 'Product name', 150),
-        sku: body.sku === undefined ? existing.sku : requiredString(body.sku, 'SKU', 100),
-        barcode: body.barcode === undefined ? existing.barcode : optionalString(body.barcode, 100) ?? null,
-        brand: body.brand === undefined ? existing.brand : optionalString(body.brand, 100) ?? null,
-        unitOfMeasure: body.unitOfMeasure === undefined ? existing.unitOfMeasure : optionalString(body.unitOfMeasure, 40) ?? null,
-        supplierSku: body.supplierSku === undefined ? existing.supplierSku : optionalString(body.supplierSku, 100) ?? null,
-        categoryId,
-        costPriceMinor: body.costPriceMinor === undefined ? existing.costPriceMinor : moneyMinor(body.costPriceMinor, 'Cost price'),
-        sellingPriceMinor: body.sellingPriceMinor === undefined ? existing.sellingPriceMinor : moneyMinor(body.sellingPriceMinor, 'Selling price'),
-        lowStockThreshold: body.lowStockThreshold === undefined ? existing.lowStockThreshold : String(Number(body.lowStockThreshold)),
-        trackStock: body.trackStock === undefined ? existing.trackStock : body.trackStock === true,
-        active: body.active === undefined ? existing.active : body.active === true,
-      } });
-      await this.audit(workspaceId, session.userId, 'product.updated', 'product', product.id, request.headers['x-request-id'] as string | undefined);
+      if (body.lowStockThreshold !== undefined && (!Number.isFinite(Number(body.lowStockThreshold)) || Number(body.lowStockThreshold) < 0)) throw new BadRequestException('Low-stock threshold must be zero or greater.');
+      const product = await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.product.update({ where: { id: existing.id }, data: {
+          unitOfMeasureId, defaultTaxCodeId, trackLot, trackSerial,
+          name: body.name === undefined ? existing.name : requiredString(body.name, 'Product name', 150),
+          sku: body.sku === undefined ? existing.sku : requiredString(body.sku, 'SKU', 100),
+          barcode: body.barcode === undefined ? existing.barcode : optionalString(body.barcode, 100) ?? null,
+          brand: body.brand === undefined ? existing.brand : optionalString(body.brand, 100) ?? null,
+          unitOfMeasure: body.unitOfMeasure === undefined ? existing.unitOfMeasure : optionalString(body.unitOfMeasure, 40) ?? null,
+          supplierSku: body.supplierSku === undefined ? existing.supplierSku : optionalString(body.supplierSku, 100) ?? null,
+          categoryId,
+          costPriceMinor: body.costPriceMinor === undefined ? existing.costPriceMinor : moneyMinor(body.costPriceMinor, 'Cost price'),
+          sellingPriceMinor: body.sellingPriceMinor === undefined ? existing.sellingPriceMinor : moneyMinor(body.sellingPriceMinor, 'Selling price'),
+          lowStockThreshold: body.lowStockThreshold === undefined ? existing.lowStockThreshold : String(Number(body.lowStockThreshold)),
+          trackStock,
+          active: body.active === undefined ? existing.active : body.active === true,
+        } });
+        await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'product.updated', resourceType: 'product', resourceId: updated.id, requestId: request.headers['x-request-id'] as string | undefined } });
+        return updated;
+      }, { isolationLevel: 'Serializable' });
       return toProduct(product);
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') throw new ConflictException('This SKU already exists in the workspace.');
@@ -949,7 +1004,7 @@ export class CoreController {
     if (!Array.isArray(body.items) || !body.items.length || body.items.length > 200) throw new BadRequestException('A sale must contain between 1 and 200 items.');
     const items = body.items.map((item) => {
       const row = asObject(item, 'sale item');
-      return { productId: requiredString(row.productId, 'Product ID', 80), quantity: positiveQuantity(row.quantity) };
+      return { productId: requiredString(row.productId, 'Product ID', 80), quantity: positiveQuantity(row.quantity), variantId: row.variantId === undefined || row.variantId === null || row.variantId === '' ? undefined : requiredString(row.variantId, 'Variant ID', 80), priceListId: row.priceListId === undefined || row.priceListId === null || row.priceListId === '' ? undefined : requiredString(row.priceListId, 'Price list ID', 80), lotId: row.lotId === undefined || row.lotId === null || row.lotId === '' ? undefined : requiredString(row.lotId, 'Lot ID', 80), serialIds: Array.isArray(row.serialIds) ? row.serialIds.map((value: unknown) => requiredString(value, 'Serial ID', 80)) : [] };
     });
     const promisedPaymentDateValue = optionalString(body.promisedPaymentDate, 20);
     if (promisedPaymentDateValue) {
@@ -984,22 +1039,58 @@ export class CoreController {
         await tx.$queryRaw`SELECT id FROM products WHERE tenant_id = ${workspaceId}::uuid AND id = ANY(${productIds}::uuid[]) ORDER BY id FOR UPDATE`;
         const createdLines: any[] = [];
         const requestedStock = new Map<string, number>();
-        for (const item of items) requestedStock.set(item.productId, (requestedStock.get(item.productId) ?? 0) + item.quantity);
+        const stockKey = (productId: string, variantId?: string) => `${productId}:${variantId ?? 'base'}`;
+        for (const item of items) { const k=stockKey(item.productId,item.variantId); requestedStock.set(k,(requestedStock.get(k)??0)+item.quantity); }
         let totalMinor = 0;
         const stockValidatedProducts = new Set<string>();
         for (const item of items) {
           const product = await tx.product.findFirst({ where: { id: item.productId, tenantId: workspaceId, active: true } });
           if (!product) throw new NotFoundException('One of the selected products is unavailable.');
-          const lineTotalMinor = Math.round(product.sellingPriceMinor * item.quantity);
-          if (!Number.isSafeInteger(lineTotalMinor) || lineTotalMinor < 0) throw new BadRequestException('A product total is outside the supported range.');
-          if (product.trackStock && !stockValidatedProducts.has(product.id)) {
-            const rows = await tx.stockMovement.findMany({ where: { tenantId: workspaceId, branchId, productId: product.id }, select: { quantityDelta: true } });
-            const balance = rows.reduce((sum: number, r: any) => sum + Number(r.quantityDelta), 0);
-            const requestedQuantity = requestedStock.get(product.id) ?? item.quantity;
-            if (balance < requestedQuantity) throw new ConflictException({ code: 'INSUFFICIENT_STOCK', message: `${product.name} does not have enough stock to complete this sale.` });
-            stockValidatedProducts.add(product.id);
+          const variant = item.variantId ? await tx.productVariant.findFirst({ where: { id: item.variantId, tenantId: workspaceId, productId: product.id, active: true } }) : null;
+          if (item.variantId && !variant) throw new NotFoundException('The selected product variant is unavailable.');
+          let unitPriceMinor = variant?.sellingPriceMinor ?? product.sellingPriceMinor;
+          let taxCodeId: string | null = product.defaultTaxCodeId ?? null;
+          if (item.priceListId) {
+            const priceList = await tx.priceList.findFirst({ where: { id: item.priceListId, tenantId: workspaceId, active: true, OR: [{ startsAt: null }, { startsAt: { lte: new Date() } }], AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }] }] } });
+            if (!priceList) throw new NotFoundException('The selected price list is inactive or outside its effective dates.');
+            const priceListItem = (variant ? await tx.priceListItem.findFirst({ where: { tenantId: workspaceId, priceListId: priceList.id, productId: product.id, variantId: variant.id } }) : null) ?? await tx.priceListItem.findFirst({ where: { tenantId: workspaceId, priceListId: priceList.id, productId: product.id, variantId: null } });
+            if (priceListItem) { unitPriceMinor = priceListItem.unitPriceMinor; taxCodeId = priceListItem.taxCodeId ?? taxCodeId; }
           }
-          createdLines.push({ product, quantity: item.quantity, unitPriceMinor: product.sellingPriceMinor, lineTotalMinor });
+          const taxRule = await tx.taxRule.findFirst({ where: { tenantId: workspaceId, active: true, effectiveFrom: { lte: new Date() }, AND: [{ OR: [{ effectiveTo: null }, { effectiveTo: { gte: new Date() } }] }], OR: [{ appliesTo: 'all' }, { appliesTo: 'product', productId: product.id }, ...(product.categoryId ? [{ appliesTo: 'category', categoryId: product.categoryId }] : [])] }, orderBy: { priority: 'asc' } });
+          if (taxRule) taxCodeId = taxRule.taxCodeId;
+          const taxCode = taxCodeId ? await tx.taxCode.findFirst({ where: { id: taxCodeId, tenantId: workspaceId, active: true, effectiveFrom: { lte: new Date() }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: new Date() } }] } }) : null;
+          const rawAmount = Math.round(unitPriceMinor * item.quantity);
+          if (!Number.isSafeInteger(rawAmount) || rawAmount < 0) throw new BadRequestException('A product total is outside the supported range.');
+          const rate = taxCode?.calculation === 'exempt' ? 0 : (taxCode?.rateBasisPoints ?? 0);
+          const taxMinor = taxCode?.calculation === 'inclusive' && rate > 0 ? Math.round(rawAmount * rate / (10_000 + rate)) : Math.round(rawAmount * rate / 10_000);
+          const lineTotalMinor = taxCode?.calculation === 'inclusive' ? rawAmount : rawAmount + taxMinor;
+          const netMinor = lineTotalMinor - taxMinor;
+          if (!Number.isSafeInteger(lineTotalMinor) || lineTotalMinor < 0 || !Number.isSafeInteger(taxMinor)) throw new BadRequestException('A product total is outside the supported range.');
+          let lot: any = null;
+          if (product.trackLot) {
+            if (!item.lotId) throw new BadRequestException(`${product.name} requires a selected inventory lot.`);
+            const lockedLots = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM inventory_lots WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND id=${item.lotId}::uuid FOR UPDATE`;
+            if (!lockedLots.length) throw new NotFoundException('Selected inventory lot was not found in this branch.');
+            lot = await tx.inventoryLot.findFirst({ where: { id: item.lotId, tenantId: workspaceId, branchId, productId: product.id, variantId: variant?.id ?? null, status: 'available', OR: [{ expiryDate: null }, { expiryDate: { gte: new Date() } }] } });
+            if (!lot || Number(lot.quantityOnHand)-Number(lot.quantityReserved) < item.quantity) throw new ConflictException({ code:'INSUFFICIENT_LOT_STOCK', message:`${product.name} does not have enough unreserved stock in the selected lot.` });
+          } else if (item.lotId) {
+            throw new BadRequestException(`${product.name} is not configured for lot tracking.`);
+          }
+          let serialIds: string[] = [];
+          if (product.trackSerial) {
+            if (!lot || !Number.isInteger(item.quantity) || item.serialIds.length !== item.quantity || new Set(item.serialIds).size !== item.serialIds.length) throw new BadRequestException(`${product.name} requires one unique available serial number per unit.`);
+            const serialRows = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM inventory_serials WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND lot_id=${lot.id}::uuid AND product_id=${product.id}::uuid AND status='available' AND id=ANY(${item.serialIds}::uuid[]) ORDER BY id FOR UPDATE`;
+            if (serialRows.length !== item.quantity) throw new ConflictException('One or more selected serial numbers are unavailable or do not belong to this lot.');
+            serialIds = item.serialIds;
+          } else if (item.serialIds.length) throw new BadRequestException(`${product.name} is not configured for serial tracking.`);
+          if (product.trackStock && !product.trackLot && !stockValidatedProducts.has(stockKey(product.id,variant?.id))) {
+            const rows = await tx.stockMovement.findMany({ where: { tenantId: workspaceId, branchId, productId: product.id, variantId: variant?.id ?? null }, select: { quantityDelta: true } });
+            const balance = rows.reduce((sum: number, r: any) => sum + Number(r.quantityDelta), 0);
+            const requestedQuantity = requestedStock.get(stockKey(product.id,variant?.id)) ?? item.quantity;
+            if (balance < requestedQuantity) throw new ConflictException({ code: 'INSUFFICIENT_STOCK', message: `${product.name} does not have enough stock to complete this sale.` });
+            stockValidatedProducts.add(stockKey(product.id,variant?.id));
+          }
+          createdLines.push({ product, variant, lot, serialIds, quantity: item.quantity, unitPriceMinor, lineTotalMinor, netMinor, taxMinor, taxCodeId: taxCode?.id ?? null, taxRateBasisPoints: taxCode?.rateBasisPoints ?? 0, priceListId: item.priceListId ?? null });
           totalMinor += lineTotalMinor;
           if (!Number.isSafeInteger(totalMinor) || totalMinor > 2_000_000_000) throw new BadRequestException('Sale total exceeds the supported amount.');
         }
@@ -1012,10 +1103,25 @@ export class CoreController {
           totalMinor, status: 'completed',
         } });
         for (const line of createdLines) {
-          await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, productNameSnapshot: line.product.name, quantity: String(line.quantity), unitCostMinor: line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
-          if (line.product.trackStock) await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: line.product.id, type: 'sale', quantityDelta: String(-line.quantity), unitCostMinor: line.product.costPriceMinor, reason: `Sale ${receiptNumber}`, sourceId: sale.id } });
+          await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, variantId: line.variant?.id ?? null, unitOfMeasureId: line.product.unitOfMeasureId ?? null, taxCodeId: line.taxCodeId, taxRateBasisPoints: line.taxRateBasisPoints, taxMinor: line.taxMinor, priceListId: line.priceListId, lotId: line.lot?.id ?? null, serialIds: line.serialIds, productNameSnapshot: line.product.name, quantity: String(line.quantity), unitCostMinor: line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
+          if (line.product.trackStock) {
+            if (line.lot) {
+              const updatedLot = await tx.inventoryLot.updateMany({ where: { id: line.lot.id, tenantId: workspaceId, branchId, quantityOnHand: { gte: line.quantity + Number(line.lot.quantityReserved) } }, data: { quantityOnHand: { decrement: line.quantity }, status: Number(line.lot.quantityOnHand)-line.quantity<=0?'depleted':'available' } });
+              if (updatedLot.count !== 1) throw new ConflictException('Lot stock changed during checkout; retry the sale.');
+            }
+            if (line.serialIds.length) { const serialUpdate=await tx.inventorySerial.updateMany({ where: { tenantId: workspaceId, branchId, id: { in: line.serialIds }, status: 'available' }, data: { status: 'sold' } }); if(serialUpdate.count!==line.serialIds.length) throw new ConflictException('A selected serial number was sold by another user.'); }
+            if (line.serialIds.length) {
+              for (const serialId of line.serialIds) await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: line.product.id, variantId: line.variant?.id ?? null, warehouseId: line.lot?.warehouseId ?? null, binId: line.lot?.binId ?? null, lotId: line.lot?.id ?? null, serialId, type: 'sale', quantityDelta: '-1', unitCostMinor: line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, reason: `Sale ${receiptNumber}`, sourceId: sale.id } });
+            } else {
+              await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: line.product.id, variantId: line.variant?.id ?? null, warehouseId: line.lot?.warehouseId ?? null, binId: line.lot?.binId ?? null, lotId: line.lot?.id ?? null, type: 'sale', quantityDelta: String(-line.quantity), unitCostMinor: line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, reason: `Sale ${receiptNumber}`, sourceId: sale.id } });
+            }
+          }
         }
-        for (const payment of payments) await tx.salePayment.create({ data: { tenantId: workspaceId, saleId: sale.id, kind: 'receipt', method: payment.method, amountMinor: payment.amountMinor, reference: payment.reference, ledgerSource: 'sale_completed' } });
+        for (const payment of payments) {
+          const activeCashSession = payment.method === 'cash' ? await tx.cashSession.findFirst({ where: { tenantId: workspaceId, branchId, openedByUserId: session.userId, status: 'open' }, select: { id: true } }) : null;
+          const savedPayment = await tx.salePayment.create({ data: { tenantId: workspaceId, saleId: sale.id, kind: 'receipt', method: payment.method, amountMinor: payment.amountMinor, reference: payment.reference, ledgerSource: 'sale_completed', cashSessionId: activeCashSession?.id ?? null } });
+          if (activeCashSession) await tx.cashMovement.create({ data: { tenantId: workspaceId, branchId, cashSessionId: activeCashSession.id, direction: 'in', category: 'pos_sale_receipt', amountMinor: BigInt(payment.amountMinor), referenceType: 'sale_payment', referenceId: savedPayment.id, idempotencyKey: `sale-payment:${savedPayment.id}`, createdByUserId: session.userId } });
+        }
         const settlementTotals = new Map<string, number>();
         for (const payment of payments) {
           const accountKey = settlementAccountKey(payment.method);
@@ -1025,8 +1131,11 @@ export class CoreController {
         for (const [accountKey, amount] of settlementTotals) if (amount > 0) postingLines.push({ accountKey, debitMinor: amount, description: `Sale receipt - ${accountKey}` });
         const outstandingMinor = totalMinor - paidMinor;
         if (outstandingMinor > 0) postingLines.push({ accountKey: 'accounts_receivable', debitMinor: outstandingMinor, description: 'Customer balance due' });
-        if (totalMinor > 0) postingLines.push({ accountKey: 'sales_revenue', creditMinor: totalMinor, description: `Revenue - ${receiptNumber}` });
-        const costOfGoodsMinor = createdLines.filter((line) => line.product.trackStock).reduce((sum, line) => sum + Math.round(line.product.costPriceMinor * line.quantity), 0);
+        const netSalesMinor = createdLines.reduce((sum, line) => sum + line.netMinor, 0);
+        const salesTaxMinor = createdLines.reduce((sum, line) => sum + line.taxMinor, 0);
+        if (netSalesMinor > 0) postingLines.push({ accountKey: 'sales_revenue', creditMinor: netSalesMinor, description: `Net revenue - ${receiptNumber}` });
+        if (salesTaxMinor > 0) postingLines.push({ accountKey: 'tax_payable', creditMinor: salesTaxMinor, description: `Output tax - ${receiptNumber}` });
+        const costOfGoodsMinor = createdLines.filter((line) => line.product.trackStock).reduce((sum, line) => sum + Math.round((line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor) * line.quantity), 0);
         if (costOfGoodsMinor > 0) {
           postingLines.push({ accountKey: 'cost_of_goods_sold', debitMinor: costOfGoodsMinor, description: `Cost of goods sold - ${receiptNumber}` });
           postingLines.push({ accountKey: 'inventory', creditMinor: costOfGoodsMinor, description: `Inventory relieved - ${receiptNumber}` });
@@ -1082,7 +1191,9 @@ export class CoreController {
         const alreadyPaid = priorPayments.reduce((sum: number, p: any) => sum + (p.kind === 'refund' ? -p.amountMinor : p.amountMinor), 0);
         const balance = sale.totalMinor - alreadyPaid;
         if (amountMinor > balance) throw new ConflictException('Payment exceeds the current outstanding balance.');
-        const payment = await tx.salePayment.create({ data: { tenantId: workspaceId, saleId, kind: 'receipt', method, amountMinor, reference, ledgerSource: 'sale_payment_received' } });
+        const activeCashSession = method === 'cash' ? await tx.cashSession.findFirst({ where: { tenantId: workspaceId, branchId, openedByUserId: session.userId, status: 'open' }, select: { id: true } }) : null;
+        const payment = await tx.salePayment.create({ data: { tenantId: workspaceId, saleId, kind: 'receipt', method, amountMinor, reference, ledgerSource: 'sale_payment_received', cashSessionId: activeCashSession?.id ?? null } });
+        if (activeCashSession) await tx.cashMovement.create({ data: { tenantId: workspaceId, branchId, cashSessionId: activeCashSession.id, direction: 'in', category: 'pos_sale_receipt', amountMinor: BigInt(amountMinor), referenceType: 'sale_payment', referenceId: payment.id, idempotencyKey: `sale-payment:${payment.id}`, createdByUserId: session.userId } });
         await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'sale_payment_received', sourceId: payment.id, memo: `Payment received for ${sale.receiptNumber}`, lines: [
           { accountKey: settlementAccountKey(method), debitMinor: amountMinor, description: `Customer payment - ${method}` },
           { accountKey: 'accounts_receivable', creditMinor: amountMinor, description: 'Reduce customer balance due' },
@@ -1150,9 +1261,14 @@ export class CoreController {
           if (!line) throw new BadRequestException('A return item does not belong to this sale.');
           const previouslyReturned = oldReturns.flatMap((r: any) => r.lines).filter((l: any) => l.originalSaleLineId === line.id).reduce((sum: number, l: any) => sum + Number(l.quantity), 0);
           if (previouslyReturned + item.quantity > Number(line.quantity)) throw new ConflictException('Return quantity exceeds the quantity originally sold minus prior returns.');
-          const amount = Math.round(line.unitPriceMinor * item.quantity);
+          const amount = Math.round(Number(line.lineTotalMinor) * item.quantity / Math.max(Number(line.quantity), 0.001));
+          const lineTax = Math.max(0, Math.round(Number((line as any).taxMinor ?? 0) * item.quantity / Math.max(Number(line.quantity), 0.001)));
+          const previouslyReturnedSerials = oldReturns.flatMap((r:any)=>r.lines).filter((l:any)=>l.originalSaleLineId===line.id).flatMap((l:any)=>l.serialIds??[]);
+          const availableSerials = ((line as any).serialIds??[]).filter((serialId:string)=>!previouslyReturnedSerials.includes(serialId));
+          if ((line as any).serialIds?.length && (!Number.isInteger(item.quantity) || availableSerials.length < item.quantity)) throw new ConflictException('Returned serial quantity exceeds the serials still assigned to this sale.');
+          const returnedSerialIds = availableSerials.slice(0,Math.ceil(item.quantity));
           totalMinor += amount;
-          resolved.push({ line, quantity: item.quantity, amount, disposition: item.disposition, trackStock: trackedProductIds.has(line.productId) });
+          resolved.push({ line, quantity: item.quantity, amount, taxAmount: lineTax, disposition: item.disposition, serialIds:returnedSerialIds, trackStock: trackedProductIds.has(line.productId) });
         }
         const returnNumber = `LR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomBytes(4).toString('hex').toUpperCase()}`;
         if (recordRefund) {
@@ -1164,23 +1280,58 @@ export class CoreController {
         }
         const returned = await tx.saleReturn.create({ data: { tenantId: workspaceId, branchId, saleId, returnNumber, totalMinor, reason, refundRecorded: recordRefund } });
         for (const item of resolved) {
-          await tx.saleReturnLine.create({ data: { tenantId: workspaceId, returnId: returned.id, originalSaleLineId: item.line.id, productId: item.line.productId, productNameSnapshot: item.line.productNameSnapshot, quantity: String(item.quantity), unitPriceMinor: item.line.unitPriceMinor, lineTotalMinor: item.amount, disposition: item.disposition } });
-          if (item.trackStock && item.disposition === 'restock') await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: item.line.productId, type: 'return', quantityDelta: String(item.quantity), unitCostMinor: item.line.unitCostMinor ?? 0, reason: `Return ${returnNumber}`, sourceId: returned.id } });
+          await tx.saleReturnLine.create({ data: { tenantId: workspaceId, returnId: returned.id, originalSaleLineId: item.line.id, productId: item.line.productId, productNameSnapshot: item.line.productNameSnapshot, quantity: String(item.quantity), unitPriceMinor: item.line.unitPriceMinor, lineTotalMinor: item.amount, disposition: item.disposition, serialIds: item.serialIds } });
+          if (item.trackStock && item.disposition === 'restock') {
+            if ((item.line as any).lotId) await tx.inventoryLot.update({ where:{id:(item.line as any).lotId}, data:{quantityOnHand:{increment:item.quantity},status:'available'} });
+            if (item.serialIds.length) await tx.inventorySerial.updateMany({ where:{tenantId:workspaceId,branchId,id:{in:item.serialIds},status:'sold'}, data:{status:'available'} });
+            if (item.serialIds.length) {
+              for (const serialId of item.serialIds) await tx.stockMovement.create({data:{tenantId:workspaceId,branchId,productId:item.line.productId,variantId:(item.line as any).variantId??null,lotId:(item.line as any).lotId??null,serialId,type:'return',quantityDelta:'1',unitCostMinor:item.line.unitCostMinor??0,reason:`Return ${returnNumber}`,sourceId:returned.id}});
+            } else await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: item.line.productId, type: 'return', quantityDelta: String(item.quantity), variantId: (item.line as any).variantId ?? null, lotId:(item.line as any).lotId??null, unitCostMinor: item.line.unitCostMinor ?? 0, reason: `Return ${returnNumber}`, sourceId: returned.id } });
+          } else if (item.serialIds.length && item.disposition !== 'restock') {
+            await tx.inventorySerial.updateMany({where:{tenantId:workspaceId,branchId,id:{in:item.serialIds},status:'sold'},data:{status:item.disposition==='quarantine'?'quarantined':'scrapped'}});
+            if(item.disposition==='quarantine'&&(item.line as any).lotId) await tx.inventoryLot.update({where:{id:(item.line as any).lotId},data:{quantityQuarantined:{increment:item.quantity}}});
+          } else if (item.disposition==='quarantine'&&(item.line as any).lotId) await tx.inventoryLot.update({where:{id:(item.line as any).lotId},data:{quantityQuarantined:{increment:item.quantity}}});
         }
-        if (recordRefund) await tx.salePayment.create({ data: { tenantId: workspaceId, saleId, kind: 'refund', method: refundMethod, amountMinor: totalMinor, reference: returnNumber, ledgerSource: 'sale_return_recorded' } });
+        if (recordRefund) {
+          const activeCashSession = refundMethod === 'cash' ? await tx.cashSession.findFirst({ where: { tenantId: workspaceId, branchId, openedByUserId: session.userId, status: 'open' }, select: { id: true } }) : null;
+          const refundPayment = await tx.salePayment.create({ data: { tenantId: workspaceId, saleId, kind: 'refund', method: refundMethod, amountMinor: totalMinor, reference: returnNumber, ledgerSource: 'sale_return_recorded', cashSessionId: activeCashSession?.id ?? null } });
+          if (activeCashSession) await tx.cashMovement.create({ data: { tenantId: workspaceId, branchId, cashSessionId: activeCashSession.id, direction: 'out', category: 'pos_sale_refund', amountMinor: BigInt(totalMinor), referenceType: 'sale_payment', referenceId: refundPayment.id, idempotencyKey: `sale-payment:${refundPayment.id}`, createdByUserId: session.userId } });
+        }
         const returnCostMinor = resolved.filter((item) => item.trackStock && item.disposition === 'restock').reduce((sum, item) => sum + Math.round(Number(item.line.unitCostMinor ?? 0) * item.quantity), 0);
+        let returnJournalId: string | null = null;
         if (totalMinor > 0 || returnCostMinor > 0) {
           const returnLines: Array<{ accountKey: string; debitMinor?: number; creditMinor?: number; description?: string }> = [];
-          if (totalMinor > 0) returnLines.push({ accountKey: 'sales_returns', debitMinor: totalMinor, description: `Sales return - ${returnNumber}` }, { accountKey: recordRefund ? settlementAccountKey(refundMethod) : 'customer_credit_liability', creditMinor: totalMinor, description: recordRefund ? `Refund recorded - ${refundMethod}` : 'Customer credit balance' });
+          const returnedTaxMinor = resolved.reduce((sum, item) => sum + item.taxAmount, 0);
+          const returnedNetMinor = totalMinor - returnedTaxMinor;
+          if (returnedNetMinor > 0) returnLines.push({ accountKey: 'sales_returns', debitMinor: returnedNetMinor, description: `Sales return - ${returnNumber}` });
+          if (returnedTaxMinor > 0) returnLines.push({ accountKey: 'tax_payable', debitMinor: returnedTaxMinor, description: `Output tax reversed - ${returnNumber}` });
+          if (totalMinor > 0) returnLines.push({ accountKey: recordRefund ? settlementAccountKey(refundMethod) : 'customer_credit_liability', creditMinor: totalMinor, description: recordRefund ? `Refund recorded - ${refundMethod}` : 'Customer credit balance' });
 
           if (returnCostMinor > 0) {
             returnLines.push({ accountKey: 'inventory', debitMinor: returnCostMinor, description: `Returned goods restored - ${returnNumber}` });
             returnLines.push({ accountKey: 'cost_of_goods_sold', creditMinor: returnCostMinor, description: `Reverse cost of goods sold - ${returnNumber}` });
           }
-          await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'sale_return_recorded', sourceId: returned.id, memo: `Sales return ${returnNumber}`, lines: returnLines });
+          returnJournalId = await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'sale_return_recorded', sourceId: returned.id, memo: `Sales return ${returnNumber}`, lines: returnLines });
         }
+        const creditTaxMinor = resolved.reduce((sum, item) => sum + item.taxAmount, 0);
+        const creditSubtotalMinor = totalMinor - creditTaxMinor;
+        const creditNote = await tx.creditNote.create({ data: {
+          tenantId: workspaceId, branchId, saleId, returnId: returned.id,
+          creditNoteNumber: `CN-${returnNumber.replace(/^LR-/, '')}`,
+          customerId: (sale as any).customerId ?? null,
+          subtotalMinor: creditSubtotalMinor, taxMinor: creditTaxMinor, totalMinor,
+          reason, status: 'issued', ledgerJournalId: returnJournalId,
+          idempotencyKey: `sale-return:${returned.id}`, issuedAt: new Date(),
+        } });
+        await tx.creditNoteLine.createMany({ data: resolved.map((item) => ({
+          tenantId: workspaceId, creditNoteId: creditNote.id, productId: item.line.productId,
+          description: String(item.line.productNameSnapshot), quantity: String(item.quantity),
+          unitPriceMinor: Number(item.line.unitPriceMinor), taxCodeId: (item.line as any).taxCodeId ?? null,
+          taxMinor: item.taxAmount, totalMinor: item.amount,
+        })) });
+        await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'finance.credit_note.issued', resourceType: 'credit_note', resourceId: creditNote.id, metadata: { saleReturnId: returned.id, totalMinor, journalId: returnJournalId } } });
         await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'sale.return.recorded', resourceType: 'sale_return', resourceId: returned.id, requestId: request.headers['x-request-id'] as string | undefined } });
-        const response = { returnRecord: { id: returned.id, workspaceId, branchId, saleId, returnNumber, totalMinor, reason, refundRecorded: recordRefund, createdAt: returned.createdAt.toISOString() } };
+        const response = { returnRecord: { id: returned.id, workspaceId, branchId, saleId, returnNumber, totalMinor, creditNoteId: creditNote.id, reason, refundRecorded: recordRefund, createdAt: returned.createdAt.toISOString() } };
         await tx.idempotencyRecord.update({ where: { tenantId_key: { tenantId: workspaceId, key } }, data: { status: 'COMPLETED', responseStatus: 201, responseBody: response as any } });
         return response;
       }, { isolationLevel: 'Serializable' });

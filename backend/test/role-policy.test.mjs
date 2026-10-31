@@ -25,6 +25,9 @@ test('cashier can make sales but cannot post finance or adjust stock', () => {
   assert.equal(hasPermission('cashier', 'sales.return'), false);
   assert.equal(hasPermission('cashier', 'finance.write'), false);
   assert.equal(hasPermission('cashier', 'inventory.write'), false);
+  assert.equal(hasPermission('cashier', 'cash.manage'), true);
+  assert.equal(hasPermission('cashier', 'finance.write'), false);
+  assert.equal(permissionForRequest('POST', '/api/v1/workspaces/w/branches/b/finance/cash-sessions'), 'cash.manage');
 });
 
 test('unknown roles fail closed for writes', () => {

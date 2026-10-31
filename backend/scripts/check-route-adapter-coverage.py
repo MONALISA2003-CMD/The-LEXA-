@@ -21,6 +21,8 @@ checks = {
     "Collaboration": ("lexa-frontend/src/data/remote/apiCollaboration.ts", "/inbox/"),
     "Dashboard and analytics": ("lexa-frontend/src/data/remote/apiDashboard.ts", "/analytics/overview"),
     "Global search": ("lexa-frontend/src/data/remote/apiGlobalSearch.ts", "/search"),
+    "Catalogue and inventory controls": ("lexa-frontend/src/data/remote/apiWorkstream03.ts", "/inventory/warehouses"),
+    "Finance operations": ("lexa-frontend/src/data/remote/apiWorkstream03.ts", "/finance/cash-sessions"),
 }
 errors = []
 for label, (relative, route_marker) in checks.items():

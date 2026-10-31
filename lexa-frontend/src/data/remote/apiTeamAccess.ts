@@ -29,4 +29,7 @@ export const apiTeamAccess = {
   async updateBranchScope(workspaceId: string, userId: string, input: { allBranches: boolean; branchIds: string[] }) {
     return apiClient.put(`${base(workspaceId)}/memberships/${enc(userId)}/branches`, input);
   },
+  async invitations(workspaceId: string) { return list<Record<string, unknown>>(await apiClient.get(`${base(workspaceId)}/invitations`), 'invitations'); },
+  async invite(workspaceId: string, input: { email: string; role: string; allBranches: boolean; branchIds: string[] }) { return apiClient.post(`${base(workspaceId)}/invitations`, input, crypto.randomUUID()); },
+  async acceptInvitation(workspaceId: string, invitationId: string, token: string) { return apiClient.post(`${base(workspaceId)}/invitations/${enc(invitationId)}/accept`, { token }, crypto.randomUUID()); },
 };
