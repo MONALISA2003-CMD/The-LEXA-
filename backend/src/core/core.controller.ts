@@ -1724,7 +1724,7 @@ export class CoreController {
         const users = Array.isArray(rawUsers) ? rawUsers.filter((value): value is string => typeof value === 'string') : [];
         return { emoji, count: users.length, reactedByMe: users.includes(session.userId) };
       });
-      return [{ id: row.recordId, threadId, body: String(data.body ?? ''), senderId: String(data.senderId ?? ''), senderName: String(data.senderName ?? 'Workspace member'), sentAt: String(data.sentAt ?? row.createdAt.toISOString()), ...(typeof data.editedAt === 'string' ? { editedAt: data.editedAt } : {}), reactions }];
+      return [{ id: row.recordId, threadId, body: String(data.body ?? ''), senderId: String(data.senderId ?? ''), senderName: String(data.senderName ?? 'Workspace member'), sentAt: String(data.sentAt ?? row.createdAt.toISOString()), attachmentIds: Array.isArray(data.attachmentIds) ? data.attachmentIds.filter((x): x is string => typeof x === 'string') : [], ...(typeof data.editedAt === 'string' ? { editedAt: data.editedAt } : {}), reactions }];
     });
   }
 
@@ -1739,17 +1739,23 @@ export class CoreController {
     const threadData = thread.data && typeof thread.data === 'object' && !Array.isArray(thread.data) ? thread.data as Record<string, unknown> : {};
     if (!Array.isArray(threadData.participants) || !threadData.participants.includes(session.userId)) throw new NotFoundException('Conversation not found.');
     await this.branchFor(workspaceId, thread.branchId, session.userId);
-    if (Array.isArray(body.attachmentIds) && body.attachmentIds.length) throw new ServiceUnavailableException({ code: 'ATTACHMENTS_NOT_CONFIGURED', message: 'File attachments are not configured on this backend yet. Send the message without attachments.' });
-    const content = requiredString(body.body, 'Message', 10000);
+    const attachmentIds = Array.isArray(body.attachmentIds) ? [...new Set(body.attachmentIds.map((value) => requiredString(value, 'Attachment ID', 80)))] : [];
+    if (attachmentIds.length > 10) throw new BadRequestException('A message can include at most 10 attachments.');
+    if (attachmentIds.length) {
+      const attachments = await this.prisma.$queryRaw<Array<{id:string;status:string;uploaded_by_user_id:string}>>`SELECT id::text,status,uploaded_by_user_id::text FROM platform_attachments WHERE tenant_id=${workspaceId}::uuid AND branch_id=${thread.branchId}::uuid AND conversation_id=${threadId}::uuid AND id = ANY(${attachmentIds}::uuid[])`;
+      if (attachments.length !== attachmentIds.length || attachments.some((file) => !['pending_scan','clean'].includes(file.status))) throw new BadRequestException('One or more attachments are unavailable or not associated with this conversation.');
+    }
+    const content = typeof body.body === 'string' ? body.body.trim().slice(0,10000) : '';
+    if (!content && attachmentIds.length === 0) throw new BadRequestException('A message or at least one attachment is required.');
     const user = await this.prisma.user.findUnique({ where: { id: session.userId }, select: { displayName: true, email: true } });
     const id = randomUUID();
     const sentAt = new Date().toISOString();
-    const data = { id, threadId, body: content, senderId: session.userId, senderName: user?.displayName || user?.email || 'Workspace member', sentAt, reactionUsers: {} };
+    const data = { id, threadId, body: content, senderId: session.userId, senderName: user?.displayName || user?.email || 'Workspace member', sentAt, attachmentIds, reactionUsers: {} };
     const message = await this.prisma.moduleRecord.create({ data: { tenantId: workspaceId, branchId: thread.branchId, moduleId: 'inbox-messages', recordId: id, data: data as any } });
     const currentThreadData = thread.data && typeof thread.data === 'object' && !Array.isArray(thread.data) ? thread.data as Record<string, unknown> : {};
     await this.prisma.moduleRecord.update({ where: { id: thread.id }, data: { data: { ...currentThreadData, updatedAt: sentAt } as any, version: { increment: 1 } } });
     await this.audit(workspaceId, session.userId, 'inbox.message.sent', 'inbox_message', id, request.headers['x-request-id'] as string | undefined);
-    return { id: message.recordId, threadId, body: content, senderId: session.userId, senderName: data.senderName, sentAt, reactions: [] };
+    return { id: message.recordId, threadId, body: content, senderId: session.userId, senderName: data.senderName, sentAt, attachmentIds, reactions: [] };
   }
 
   @Post('workspaces/:workspaceId/inbox/threads/:threadId/messages/:messageId/reactions')

@@ -1,0 +1,50 @@
+services:
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: ["lexa-redis:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    expose: ["3310"]
+    volumes: ["lexa-clamav:/var/lib/clamav"]
+    healthcheck:
+      test: ["CMD-SHELL", "echo PING | nc -w 3 127.0.0.1 3310 | grep -q PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 20
+  api:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    environment:
+      PORT: 10000
+      REDIS_URL: redis://redis:6379
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+      PLATFORM_RESTORE_ENABLED: "false"
+    ports: ["10000:10000"]
+    depends_on:
+      redis: { condition: service_healthy }
+      clamav: { condition: service_healthy }
+  worker:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    command: ["node", "dist/src/platform/worker.js"]
+    environment:
+      REDIS_URL: redis://redis:6379
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+      PLATFORM_RESTORE_ENABLED: "false"
+    depends_on:
+      redis: { condition: service_healthy }
+      clamav: { condition: service_healthy }
+volumes:
+  lexa-redis:
+  lexa-clamav:

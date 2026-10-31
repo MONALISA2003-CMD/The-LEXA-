@@ -10,3 +10,7 @@ test('download is clean-only and limited to uploader or workspace admin',()=>{as
 test('tenant and branch references are database constrained',()=>{assert.match(migration,/FOREIGN KEY\(tenant_id,branch_id\) REFERENCES branches\(tenant_id,id\)/);});
 test('scanner fails closed and verifies SHA-256 before marking clean',()=>{assert.match(worker,/clamdScan\(bytes\)/);assert.match(worker,/status='clean'/);assert.match(worker,/status='quarantined'/);assert.match(worker,/createHash\('sha256'\)/);});
 test('outbox unknown events are not acknowledged as processed',()=>{assert.match(worker,/No registered idempotent handler/);});
+
+test('attachment completion is bound to the authenticated uploader',()=>{assert.match(controller,/const actor=await this\.actor\(req,w,b\).*uploaded_by_user_id!==actor\.userId/);assert.doesNotMatch(controller,/uploaded_by_user_id!==a\.userId/);});
+test('attachment listing and download require scoped access',()=>{assert.match(controller,/@Get\('attachments'\)/);assert.match(controller,/td\.participants\.includes\(actor\.userId\)/);assert.match(controller,/status!=='clean'/);});
+test('R2 upload returns required signed headers and download is short-lived',()=>{assert.match(controller,/requiredHeaders:\{'Content-Type':type,'x-amz-meta-lexa-sha256':hash\.toLowerCase\(\)\}/);assert.match(controller,/expiresIn:60/);});
