@@ -14,6 +14,7 @@ import { GeneralLedgerController } from './general-ledger/general-ledger.control
 import { InvitationsController } from './invitations/invitations.controller';
 import { CatalogInventoryController } from './commerce/catalog-inventory.controller';
 import { FinanceOperationsController } from './finance/finance-operations.controller';
+import { PlatformController } from './platform/platform.controller';
 import { SupplyChainController } from './supply-chain/supply-chain.controller';
 import { PeopleProjectsController } from './people-projects/people-projects.controller';
 import { PeopleProjectsService } from './people-projects/people-projects.service';

@@ -25,7 +25,6 @@ const DEFAULT_ACCOUNTS: Array<[string, string, string, string, string]> = [
   ['1030', 'Other payment clearing', 'asset', 'debit', 'other_clearing'],
   ['1100', 'Accounts receivable control', 'asset', 'debit', 'accounts_receivable'],
   ['1200', 'Inventory control', 'asset', 'debit', 'inventory'],
-  ['1250', 'Work in progress inventory', 'asset', 'debit', 'work_in_progress'],
   ['1300', 'Input tax recoverable', 'asset', 'debit', 'input_tax'],
   ['1400', 'Fixed asset cost', 'asset', 'debit', 'fixed_asset_cost'],
   ['1490', 'Accumulated depreciation', 'asset', 'credit', 'accumulated_depreciation'],
@@ -41,7 +40,6 @@ const DEFAULT_ACCOUNTS: Array<[string, string, string, string, string]> = [
   ['5000', 'Cost of goods sold', 'expense', 'debit', 'cost_of_goods_sold'],
   ['5100', 'Purchase price variance', 'expense', 'debit', 'purchase_price_variance'],
   ['5200', 'Inventory shrinkage and write-offs', 'expense', 'debit', 'inventory_shrinkage'],
-  ['5300', 'Supplier returns and debit notes', 'expense', 'debit', 'supplier_returns'],
   ['6000', 'Operating expenses', 'expense', 'debit', 'operating_expenses'],
   ['6100', 'Depreciation expense', 'expense', 'debit', 'depreciation_expense'],
 ];

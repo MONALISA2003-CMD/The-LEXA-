@@ -20,7 +20,8 @@
     "contract:check": "python scripts/check-openapi-coverage.py && python scripts/check-route-adapter-coverage.py",
     "ledger:coverage": "node scripts/verify-ledger-posting-coverage.mjs",
     "adapter:check": "python scripts/check-route-adapter-coverage.py",
-    "test:tenant-http": "node scripts/test-tenant-idor.mjs"
+    "test:tenant-http": "node scripts/test-tenant-idor.mjs",
+    "start:worker": "node dist/src/platform/worker.js"
   },
   "dependencies": {
     "@fastify/helmet": "^13.2.0",
@@ -35,7 +36,15 @@
     "pg": "^8.16.3",
     "prisma": "^7.10.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "@aws-sdk/client-s3": "^3.850.0",
+    "@aws-sdk/s3-request-presigner": "^3.850.0",
+    "bullmq": "^5.58.5",
+    "ioredis": "^5.7.0",
+    "@sentry/node": "^9.37.0",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.203.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.203.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",
