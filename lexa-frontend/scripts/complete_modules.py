@@ -283,10 +283,10 @@ export interface ReceivePaymentResult {
     # Split-tender fields on checkout; unpaid value remains calculated as customer credit.
     if "type PaymentLineDraft =" not in checkout:
         checkout = replace_once(checkout, "export default function CheckoutPage() {",
-            "type PaymentLineDraft = { id: string; method: PaymentMethod; amount: string; reference: string };\n\nexport default function CheckoutPage() {",
+            "type PaymentLineDraft = { id: string; method: PaymentMethod; amount: string; reference: string; methodLabel: string; notes: string };\n\nexport default function CheckoutPage() {",
             "checkout split payment line type")
     old_state = "  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');\n  const [paymentAmount, setPaymentAmount] = useState('0');\n  const [paymentReference, setPaymentReference] = useState('');"
-    new_state = "  const [paymentLines, setPaymentLines] = useState<PaymentLineDraft[]>([{ id: 'payment-line-initial', method: 'cash', amount: '0', reference: '' }]);\n  const [customerPhone, setCustomerPhone] = useState('');\n  const [promisedPaymentDate, setPromisedPaymentDate] = useState('');"
+    new_state = "  const [paymentLines, setPaymentLines] = useState<PaymentLineDraft[]>([{ id: 'payment-line-initial', method: 'cash', amount: '0', reference: '', methodLabel: '', notes: '' }]);\n  const [customerPhone, setCustomerPhone] = useState('');\n  const [promisedPaymentDate, setPromisedPaymentDate] = useState('');"
     if "const [paymentLines, setPaymentLines]" not in checkout:
         checkout = replace_once(checkout, old_state, new_state, "checkout split-payment state")
     payment_effect = "  useEffect(() => { setPaymentAmount(String(totalMinor / factor)); }, [totalMinor, factor]);"
@@ -297,7 +297,7 @@ export interface ReceivePaymentResult {
     reset_effect = "  useEffect(() => { setCart({}); setCustomerName(''); setPaymentReference(''); }, [workspace.id, branch.id]);"
     if reset_effect in checkout:
         checkout = replace_once(checkout, reset_effect,
-            "  useEffect(() => { setCart({}); setCustomerName(''); setCustomerPhone(''); setPromisedPaymentDate(''); setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '' }]); }, [workspace.id, branch.id]);",
+            "  useEffect(() => { setCart({}); setCustomerName(''); setCustomerPhone(''); setPromisedPaymentDate(''); setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '', methodLabel: '', notes: '' }]); }, [workspace.id, branch.id]);",
             "checkout reset on workspace change")
     if "const paymentAllocatedMinor = paymentLines.reduce" not in checkout:
         checkout = replace_once(checkout, "  const factor = minorUnitFactor(workspace.currency);",
@@ -308,7 +308,7 @@ export interface ReceivePaymentResult {
         methods = r'''  function addPaymentLine() {
     const currentTotal = paymentLines.reduce((sum, line) => { try { return sum + parseMajorAmount(line.amount || '0', workspace.currency); } catch { return sum; } }, 0);
     const remaining = Math.max(0, totalMinor - currentTotal);
-    setPaymentLines((current) => [...current, { id: 'payment-line-' + Date.now() + '-' + current.length, method: 'mtn_momo', amount: String(remaining / factor), reference: '' }]);
+    setPaymentLines((current) => [...current, { id: 'payment-line-' + Date.now() + '-' + current.length, method: 'mtn_momo', amount: String(remaining / factor), reference: '', methodLabel: '', notes: '' }]);
   }
 
   function updatePaymentLine(lineId: string, changes: Partial<PaymentLineDraft>) {
@@ -367,7 +367,7 @@ export interface ReceivePaymentResult {
         client.invalidateQueries({ queryKey: ['dashboard', workspace.id, branch.id] }),
       ]);
       setCart({}); setCustomerName(''); setCustomerPhone(''); setPromisedPaymentDate('');
-      setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '' }]);
+      setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '', methodLabel: '', notes: '' }]);
       toast.success('Sale recorded', { description: `Receipt ${result.sale.receiptNumber} saved locally${creditMinor > 0 ? '; customer credit remains outstanding.' : '.'}` });
       navigate(`/sales/${result.sale.id}`);
     } catch (error) {
@@ -738,6 +738,20 @@ def main() -> None:
     types, workflow_contracts, sales_workflow, checkout, sale_detail, reports_data = apply_core_credit_workflow(
         types, workflow_contracts, sales_workflow, checkout, sale_detail, reports_data
     )
+
+    def keep_first_declaration(source: str, marker: str) -> str:
+        seen = False
+        kept = []
+        for line in source.splitlines(keepends=True):
+            if marker in line:
+                if seen:
+                    continue
+                seen = True
+            kept.append(line)
+        return ''.join(kept)
+
+    sale_detail = keep_first_declaration(sale_detail, 'const todayInWorkspace =')
+    sale_detail = keep_first_declaration(sale_detail, 'const isOverdue =')
 
     # Validate all required transformations before writing any file.
     if "definition.title" in tools:

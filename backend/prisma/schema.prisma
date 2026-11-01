@@ -426,6 +426,14 @@ model SaleLine {
   taxCodeId           String?  @map("tax_code_id") @db.Uuid
   taxRateBasisPoints  Int      @default(0) @map("tax_rate_basis_points")
   taxMinor            Int      @default(0) @map("tax_minor")
+  taxableMinor        Int      @default(0) @map("taxable_minor")
+  taxReferenceDocumentVersion Int? @map("tax_reference_document_version")
+  taxCodeSnapshot     String?  @map("tax_code_snapshot")
+  taxDescriptionSnapshot String? @map("tax_description_snapshot")
+  taxRuleVersionId    String?  @map("tax_rule_version_id") @db.Uuid
+  taxCalculationMethod String? @map("tax_calculation_method")
+  taxRoundingMethod   String?  @map("tax_rounding_method")
+  taxReferenceDocumentVersionId String? @map("tax_reference_document_version_id") @db.Uuid
   priceListId         String?  @map("price_list_id") @db.Uuid
   lotId               String?  @map("lot_id") @db.Uuid
   serialIds           String[] @default([]) @map("serial_ids") @db.Uuid
@@ -575,6 +583,8 @@ model TaxCode {
   effectiveFrom DateTime @map("effective_from") @db.Date
   effectiveTo DateTime? @map("effective_to") @db.Date
   active Boolean @default(true)
+  ruleVersions TaxCodeRuleVersion[]
+  @@unique([tenantId, id])
   @@unique([tenantId, code])
   @@map("tax_codes")
 }
@@ -923,6 +933,65 @@ model CostCentreAllocation {
 }
 
 
+
+model TaxReferenceDocument {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  title String
+  issuingAuthority String @map("issuing_authority")
+  jurisdiction String
+  documentType String @map("document_type")
+  publicationDate DateTime? @map("publication_date") @db.Date
+  effectiveFrom DateTime? @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  sourceUrl String? @map("source_url")
+  sourceDetails String? @map("source_details")
+  originalAttachmentId String? @map("original_attachment_id") @db.Uuid
+  documentSha256 String @map("document_sha256")
+  version Int @default(1)
+  supersedesId String? @map("supersedes_id") @db.Uuid
+  status String @default("draft")
+  uploadedByUserId String @map("uploaded_by_user_id") @db.Uuid
+  reviewerUserId String? @map("reviewer_user_id") @db.Uuid
+  approverUserId String? @map("approver_user_id") @db.Uuid
+  reviewNotes String? @map("review_notes")
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  supersedes TaxReferenceDocument? @relation("TaxReferenceSupersedes", fields: [tenantId,supersedesId], references: [tenantId,id])
+  supersededBy TaxReferenceDocument[] @relation("TaxReferenceSupersedes")
+  @@unique([tenantId,id])
+  @@index([tenantId,jurisdiction,status,effectiveFrom])
+  @@map("tax_reference_documents")
+}
+
+model TaxCodeRuleVersion {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  taxCodeId String @map("tax_code_id") @db.Uuid
+  version Int
+  codeSnapshot String @map("code_snapshot")
+  descriptionSnapshot String @map("description_snapshot")
+  treatment String
+  rateBasisPoints Int @map("rate_basis_points")
+  calculationMethod String @map("calculation_method")
+  taxableBaseRule String @default("line_net") @map("taxable_base_rule")
+  roundingMethod String @default("half_up") @map("rounding_method")
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  status String @default("draft")
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  reviewerUserId String? @map("reviewer_user_id") @db.Uuid
+  approverUserId String? @map("approver_user_id") @db.Uuid
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+  reviewNotes String? @map("review_notes")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  taxCode TaxCode @relation(fields: [tenantId,taxCodeId], references: [tenantId,id])
+  @@unique([tenantId,id])
+  @@unique([tenantId,taxCodeId,version])
+  @@index([tenantId,taxCodeId,status,effectiveFrom,effectiveTo])
+  @@map("tax_code_rule_versions")
+}
 
 model TaxRule {
  id String @id @default(uuid()) @db.Uuid

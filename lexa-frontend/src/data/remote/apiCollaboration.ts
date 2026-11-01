@@ -20,7 +20,7 @@ export const apiCollaboration = {
     await apiClient.post(`/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/platform/attachments/${enc(signed.attachmentId)}/complete`,{},crypto.randomUUID());
     return signed.attachmentId;
   },
-  async attachments(workspaceId:string,branchId:string) { return list<{id:string;original_name:string;mime_type:string;size_bytes:number;status:string;created_at:string}>(await apiClient.get(`/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/platform/attachments`), 'attachment'); },
+  async attachments(workspaceId:string,branchId:string) { return list<{id:string;original_name:string;display_name?:string;mime_type:string;size_bytes:number;status:string;created_at:string}>(await apiClient.get(`/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/platform/attachments`), 'attachment'); },
   async attachmentDownloadUrl(workspaceId:string,branchId:string,attachmentId:string) { return apiClient.get<{downloadUrl:string}>(`/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/platform/attachments/${enc(attachmentId)}/download-url`); },
   async reactToMessage(workspaceId: string, threadId: string, messageId: string, emoji: string) { return apiClient.post<{ reactions: InboxMessage['reactions'] }>(`/workspaces/${enc(workspaceId)}/inbox/threads/${enc(threadId)}/messages/${enc(messageId)}/reactions`, { emoji }, crypto.randomUUID()); },
   async markThreadRead(workspaceId: string, threadId: string) { return apiClient.post<void>(`/workspaces/${enc(workspaceId)}/inbox/threads/${enc(threadId)}/read`, {}, crypto.randomUUID()); },

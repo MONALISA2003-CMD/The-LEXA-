@@ -60,3 +60,21 @@ ALTER TABLE module_domain_events ADD COLUMN IF NOT EXISTS processed_at timestamp
 CREATE INDEX IF NOT EXISTS module_domain_events_worker_idx ON module_domain_events(outbox_status,created_at) WHERE outbox_status IN ('pending','failed');
 ALTER TABLE platform_attachments ADD CONSTRAINT platform_attachments_tenant_branch_fkey FOREIGN KEY(tenant_id,branch_id) REFERENCES branches(tenant_id,id) ON DELETE CASCADE;
 ALTER TABLE platform_jobs ADD CONSTRAINT platform_jobs_tenant_branch_fkey FOREIGN KEY(tenant_id,branch_id) REFERENCES branches(tenant_id,id) ON DELETE CASCADE;
+
+ALTER TABLE platform_attachments ADD CONSTRAINT platform_attachments_tenant_id_key UNIQUE(tenant_id,id);
+ALTER TABLE platform_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_attachments FORCE ROW LEVEL SECURITY;
+CREATE POLICY platform_attachments_tenant_scope ON platform_attachments USING (tenant_id::text=NULLIF(current_setting('app.tenant_id',true),'')) WITH CHECK (tenant_id::text=NULLIF(current_setting('app.tenant_id',true),''));
+ALTER TABLE platform_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_jobs FORCE ROW LEVEL SECURITY;
+CREATE POLICY platform_jobs_tenant_scope ON platform_jobs USING (tenant_id::text=NULLIF(current_setting('app.tenant_id',true),'')) WITH CHECK (tenant_id::text=NULLIF(current_setting('app.tenant_id',true),''));
+ALTER TABLE platform_provider_connections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_provider_connections FORCE ROW LEVEL SECURITY;
+CREATE POLICY platform_provider_connections_tenant_scope ON platform_provider_connections USING (tenant_id::text=NULLIF(current_setting('app.tenant_id',true),'')) WITH CHECK (tenant_id::text=NULLIF(current_setting('app.tenant_id',true),''));
+ALTER TABLE platform_provider_operations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_provider_operations FORCE ROW LEVEL SECURITY;
+CREATE POLICY platform_provider_operations_tenant_scope ON platform_provider_operations USING (tenant_id::text=NULLIF(current_setting('app.tenant_id',true),'')) WITH CHECK (tenant_id::text=NULLIF(current_setting('app.tenant_id',true),''));
+ALTER TABLE platform_webhook_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_webhook_events FORCE ROW LEVEL SECURITY;
+CREATE POLICY platform_webhook_events_tenant_scope ON platform_webhook_events USING (tenant_id::text=NULLIF(current_setting('app.tenant_id',true),'')) WITH CHECK (tenant_id::text=NULLIF(current_setting('app.tenant_id',true),''));
+GRANT SELECT,INSERT,UPDATE,DELETE ON platform_attachments,platform_jobs,platform_provider_connections,platform_provider_operations,platform_webhook_events,platform_import_rows TO lexa_app_runtime;

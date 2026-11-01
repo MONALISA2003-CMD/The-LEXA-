@@ -22,6 +22,8 @@ services:
     build:
       context: ../..
       dockerfile: backend/Dockerfile
+    env_file:
+      - ../../backend/.env
     environment:
       PORT: 10000
       REDIS_URL: redis://redis:6379
@@ -34,9 +36,10 @@ services:
       clamav: { condition: service_healthy }
   worker:
     build:
-      context: ../..
-      dockerfile: backend/Dockerfile
-    command: ["node", "dist/src/platform/worker.js"]
+      context: ../../backend
+      dockerfile: Dockerfile.worker
+    env_file:
+      - ../../backend/.env
     environment:
       REDIS_URL: redis://redis:6379
       CLAMAV_HOST: clamav

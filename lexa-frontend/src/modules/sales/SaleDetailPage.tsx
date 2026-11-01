@@ -50,7 +50,10 @@ export default function SaleDetailPage() {
   const receiptTotal = (detail?.payments ?? []).filter((payment) => payment.kind === 'receipt').reduce((sum, payment) => sum + payment.amountMinor, 0);
   const refundTotal = (detail?.payments ?? []).filter((payment) => payment.kind === 'refund').reduce((sum, payment) => sum + payment.amountMinor, 0);
   const returnTotal = (detail?.returns ?? []).reduce((sum, item) => sum + item.totalMinor, 0);
-  const outstanding = Math.max(0, (detail?.sale.totalMinor ?? 0) - returnTotal - receiptTotal + refundTotal);
+  const outstanding = Math.max(0, (detail?.sale.totalMinor ?? 0) - returnTotal - receiptTotal);
+  const todayInWorkspace = new Intl.DateTimeFormat('en-CA', { timeZone: workspace.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const isOverdue = Boolean(outstanding > 0 && detail?.sale.promisedPaymentDate && detail.sale.promisedPaymentDate < todayInWorkspace);
+  useEffect(() => { if (outstanding > 0) setReceiveAmount(String(outstanding / minorUnitFactor(workspace.currency))); }, [outstanding, workspace.currency, saleId]);
   const refundableReceipts = (() => {
     const payments = detail?.payments ?? [];
     const unallocatedRefunds = payments.filter((payment) => payment.kind === 'refund' && !payment.reversalOfPaymentId).reduce((sum, payment) => sum + payment.amountMinor, 0);
@@ -63,8 +66,6 @@ export default function SaleDetailPage() {
       return { payment, remainingMinor: Math.max(0, afterLinked - legacyApplied) };
     }).filter((item) => item.remainingMinor > 0);
   })();
-  const todayInWorkspace = new Intl.DateTimeFormat('en-CA', { timeZone: workspace.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-  const isOverdue = Boolean(outstanding > 0 && detail?.sale.promisedPaymentDate && detail.sale.promisedPaymentDate < todayInWorkspace);
   useEffect(() => { if (outstanding > 0) setReceiveAmount(String(outstanding / minorUnitFactor(workspace.currency))); }, [outstanding, workspace.currency, saleId]);
   const isCorrectBranch = Boolean(detail && detail.sale.branchId === branch.id);
   const sourceBranchName = branches.find((item) => item.id === detail?.sale.branchId)?.name ?? 'Original sale branch';

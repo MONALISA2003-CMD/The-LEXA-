@@ -53,7 +53,7 @@ export default function CheckoutPage() {
   const creditDueMinor = totalMinor - paymentAllocatedMinor;
 
   useEffect(() => { setPaymentLines((current) => current.length === 1 && current[0] ? [{ ...current[0], amount: String(totalMinor / factor) }] : current); }, [totalMinor, factor]);
-  useEffect(() => { setCart({}); setCustomerName(''); setCustomerPhone(''); setPromisedPaymentDate(''); setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '' }]); }, [workspace.id, branch.id]);
+  useEffect(() => { setCart({}); setCustomerName(''); setCustomerPhone(''); setPromisedPaymentDate(''); setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '', methodLabel: '', notes: '' }]); }, [workspace.id, branch.id]);
 
 
   async function handleScannedProduct(code: string) {
@@ -156,7 +156,7 @@ export default function CheckoutPage() {
         client.invalidateQueries({ queryKey: ['dashboard', workspace.id, branch.id] }),
       ]);
       setCart({}); setCustomerName(''); setCustomerPhone(''); setPromisedPaymentDate('');
-      setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '' }]);
+      setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '', methodLabel: '', notes: '' }]);
       toast.success('Sale recorded', { description: `Receipt ${result.sale.receiptNumber} ${dataProviderMode === 'api' ? 'saved to the LEXA backend' : 'saved on this device'}${creditMinor > 0 ? '; customer credit remains outstanding.' : '.'}` });
       navigate(`/sales/${result.sale.id}`);
     } catch (error) {

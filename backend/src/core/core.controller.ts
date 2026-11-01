@@ -1082,11 +1082,24 @@ export class CoreController {
           const taxRule = await tx.taxRule.findFirst({ where: { tenantId: workspaceId, active: true, effectiveFrom: { lte: new Date() }, AND: [{ OR: [{ effectiveTo: null }, { effectiveTo: { gte: new Date() } }] }], OR: [{ appliesTo: 'all' }, { appliesTo: 'product', productId: product.id }, ...(product.categoryId ? [{ appliesTo: 'category', categoryId: product.categoryId }] : [])] }, orderBy: { priority: 'asc' } });
           if (taxRule) taxCodeId = taxRule.taxCodeId;
           const taxCode = taxCodeId ? await tx.taxCode.findFirst({ where: { id: taxCodeId, tenantId: workspaceId, active: true, effectiveFrom: { lte: new Date() }, OR: [{ effectiveTo: null }, { effectiveTo: { gte: new Date() } }] } }) : null;
+          const approvedTax = taxCode ? await tx.$queryRaw<Array<{id:string;version:number;rate_basis_points:number;calculation_method:string;rounding_method:string;treatment:string;description_snapshot:string;reference_document_id:string;reference_document_version:number}>>`
+            SELECT v.id::text,v.version,v.rate_basis_points,v.calculation_method,v.rounding_method,v.treatment,v.description_snapshot,d.id::text AS reference_document_id,d.version AS reference_document_version
+            FROM tax_code_rule_versions v
+            JOIN tax_rule_reference_links l ON l.tenant_id=v.tenant_id AND l.rule_version_id=v.id
+            JOIN tax_reference_documents d ON d.tenant_id=l.tenant_id AND d.id=l.reference_document_id AND d.status='approved'
+            WHERE v.tenant_id=${workspaceId}::uuid AND v.tax_code_id=${taxCode.id}::uuid AND v.status='approved'
+              AND v.effective_from<=CURRENT_DATE AND (v.effective_to IS NULL OR v.effective_to>=CURRENT_DATE)
+            ORDER BY v.version DESC LIMIT 1` : [];
+          const approvedRule = approvedTax[0];
+          if (taxCode && !approvedRule) throw new BadRequestException(`Tax code ${taxCode.code} has no approved effective rule linked to an approved reference document. Tax configuration must be reviewed before checkout.`);
           const rawAmount = Math.round(unitPriceMinor * item.quantity);
           if (!Number.isSafeInteger(rawAmount) || rawAmount < 0) throw new BadRequestException('A product total is outside the supported range.');
-          const rate = taxCode?.calculation === 'exempt' ? 0 : (taxCode?.rateBasisPoints ?? 0);
-          const taxMinor = taxCode?.calculation === 'inclusive' && rate > 0 ? Math.round(rawAmount * rate / (10_000 + rate)) : Math.round(rawAmount * rate / 10_000);
-          const lineTotalMinor = taxCode?.calculation === 'inclusive' ? rawAmount : rawAmount + taxMinor;
+          const calculation = approvedRule?.calculation_method ?? taxCode?.calculation ?? 'exclusive';
+          const treatment = (approvedRule as any)?.treatment ?? '';
+          const rate = ['exempt','zero_rated','outside_scope'].includes(treatment) || calculation === 'exempt' || taxCode?.calculation === 'exempt' ? 0 : (approvedRule?.rate_basis_points ?? taxCode?.rateBasisPoints ?? 0);
+          const rounding = (value:number) => { if(approvedRule?.rounding_method==='floor')return Math.floor(value); if(approvedRule?.rounding_method==='ceiling')return Math.ceil(value); if(approvedRule?.rounding_method==='half_even'){const floor=Math.floor(value),fraction=value-floor;return fraction===0.5?(floor%2===0?floor:floor+1):Math.round(value);} return Math.round(value); };
+          const taxMinor = calculation === 'inclusive' && rate > 0 ? rounding(rawAmount * rate / (10_000 + rate)) : rounding(rawAmount * rate / 10_000);
+          const lineTotalMinor = calculation === 'inclusive' ? rawAmount : rawAmount + taxMinor;
           const netMinor = lineTotalMinor - taxMinor;
           if (!Number.isSafeInteger(lineTotalMinor) || lineTotalMinor < 0 || !Number.isSafeInteger(taxMinor)) throw new BadRequestException('A product total is outside the supported range.');
           let lot: any = null;
@@ -1113,7 +1126,7 @@ export class CoreController {
             if (balance < requestedQuantity) throw new ConflictException({ code: 'INSUFFICIENT_STOCK', message: `${product.name} does not have enough stock to complete this sale.` });
             stockValidatedProducts.add(stockKey(product.id,variant?.id));
           }
-          createdLines.push({ product, variant, lot, serialIds, quantity: item.quantity, unitPriceMinor, lineTotalMinor, netMinor, taxMinor, taxCodeId: taxCode?.id ?? null, taxRateBasisPoints: taxCode?.rateBasisPoints ?? 0, priceListId: item.priceListId ?? null });
+          createdLines.push({ product, variant, lot, serialIds, quantity: item.quantity, unitPriceMinor, lineTotalMinor, netMinor, taxMinor, taxCodeId: taxCode?.id ?? null, taxRateBasisPoints: approvedRule?.rate_basis_points ?? taxCode?.rateBasisPoints ?? 0, taxCodeSnapshot: taxCode?.code ?? null, taxDescriptionSnapshot: approvedRule?.description_snapshot ?? taxCode?.name ?? null, taxRuleVersionId: approvedRule?.id ?? null, taxCalculationMethod: calculation, taxRoundingMethod: approvedRule?.rounding_method ?? 'half_up', taxReferenceDocumentVersionId: approvedRule?.reference_document_id ?? null, taxReferenceDocumentVersion: approvedRule?.reference_document_version ?? null, priceListId: item.priceListId ?? null });
           totalMinor += lineTotalMinor;
           if (!Number.isSafeInteger(totalMinor) || totalMinor > 2_000_000_000) throw new BadRequestException('Sale total exceeds the supported amount.');
         }
@@ -1129,7 +1142,7 @@ export class CoreController {
           totalMinor, status: 'completed',
         } });
         for (const line of createdLines) {
-          await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, variantId: line.variant?.id ?? null, unitOfMeasureId: line.product.unitOfMeasureId ?? null, taxCodeId: line.taxCodeId, taxRateBasisPoints: line.taxRateBasisPoints, taxMinor: line.taxMinor, priceListId: line.priceListId, lotId: line.lot?.id ?? null, serialIds: line.serialIds, productNameSnapshot: line.product.name, quantity: String(line.quantity), unitCostMinor: line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
+          await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, variantId: line.variant?.id ?? null, unitOfMeasureId: line.product.unitOfMeasureId ?? null, taxCodeId: line.taxCodeId, taxRateBasisPoints: line.taxRateBasisPoints, taxMinor: line.taxMinor, taxableMinor: line.netMinor, taxCodeSnapshot: line.taxCodeSnapshot, taxDescriptionSnapshot: line.taxDescriptionSnapshot, taxRuleVersionId: line.taxRuleVersionId, taxCalculationMethod: line.taxCalculationMethod, taxRoundingMethod: line.taxRoundingMethod, taxReferenceDocumentVersionId: line.taxReferenceDocumentVersionId, taxReferenceDocumentVersion: line.taxReferenceDocumentVersion, priceListId: line.priceListId, lotId: line.lot?.id ?? null, serialIds: line.serialIds, productNameSnapshot: line.product.name, quantity: String(line.quantity), unitCostMinor: line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
           if (line.product.trackStock) {
             if (line.lot) {
               const updatedLot = await tx.inventoryLot.updateMany({ where: { id: line.lot.id, tenantId: workspaceId, branchId, quantityOnHand: { gte: line.quantity + Number(line.lot.quantityReserved) } }, data: { quantityOnHand: { decrement: line.quantity }, status: Number(line.lot.quantityOnHand)-line.quantity<=0?'depleted':'available' } });
@@ -1821,7 +1834,7 @@ export class CoreController {
     if (attachmentIds.length > 10) throw new BadRequestException('A message can include at most 10 attachments.');
     if (attachmentIds.length) {
       const attachments = await this.prisma.$queryRaw<Array<{id:string;status:string;uploaded_by_user_id:string}>>`SELECT id::text,status,uploaded_by_user_id::text FROM platform_attachments WHERE tenant_id=${workspaceId}::uuid AND branch_id=${thread.branchId}::uuid AND conversation_id=${threadId}::uuid AND id = ANY(${attachmentIds}::uuid[])`;
-      if (attachments.length !== attachmentIds.length || attachments.some((file) => !['pending_scan','clean'].includes(file.status))) throw new BadRequestException('One or more attachments are unavailable or not associated with this conversation.');
+      if (attachments.length !== attachmentIds.length || attachments.some((file) => !['pending_scan','clean'].includes(file.status) || file.uploaded_by_user_id !== session.userId)) throw new BadRequestException('One or more attachments are unavailable, not associated with this conversation, or were uploaded by another user.');
     }
     const content = typeof body.body === 'string' ? body.body.trim().slice(0,10000) : '';
     if (!content && attachmentIds.length === 0) throw new BadRequestException('A message or at least one attachment is required.');
@@ -2334,7 +2347,7 @@ export class CoreController {
     if (saleIds.size !== sales.length) throw new BadRequestException('Backup contains duplicate sale IDs.');
     const saleLines = rawSaleLines.map((r) => {
       if (r.tenantId !== workspaceId || !saleIds.has(String(r.saleId)) || !productIds.has(String(r.productId))) throw new BadRequestException('Backup sale line references missing business records.');
-      return { id: backupUuid(r.id, 'saleLine.id'), tenantId: workspaceId, saleId: String(r.saleId), productId: String(r.productId), productNameSnapshot: requiredString(r.productNameSnapshot, 'saleLine.productNameSnapshot', 180), quantity: String(positiveQuantity(r.quantity)), unitPriceMinor: moneyMinor(r.unitPriceMinor, 'saleLine.unitPriceMinor'), lineTotalMinor: moneyMinor(r.lineTotalMinor, 'saleLine.lineTotalMinor') };
+      return { id: backupUuid(r.id, 'saleLine.id'), tenantId: workspaceId, saleId: String(r.saleId), productId: String(r.productId), productNameSnapshot: requiredString(r.productNameSnapshot, 'saleLine.productNameSnapshot', 180), quantity: String(positiveQuantity(r.quantity)), unitPriceMinor: moneyMinor(r.unitPriceMinor, 'saleLine.unitPriceMinor'), lineTotalMinor: moneyMinor(r.lineTotalMinor, 'saleLine.lineTotalMinor'), taxRateBasisPoints: Number.isInteger(r.taxRateBasisPoints)?Number(r.taxRateBasisPoints):0, taxMinor: moneyMinor(r.taxMinor??0,'saleLine.taxMinor'), taxableMinor: moneyMinor(r.taxableMinor??Math.max(0,Number(r.lineTotalMinor)-Number(r.taxMinor??0)),'saleLine.taxableMinor'), taxCodeSnapshot: optionalString(r.taxCodeSnapshot,80)??null, taxDescriptionSnapshot: optionalString(r.taxDescriptionSnapshot,180)??null, taxCalculationMethod: ['inclusive','exclusive'].includes(String(r.taxCalculationMethod))?String(r.taxCalculationMethod):null, taxRoundingMethod: ['half_up','half_even','floor','ceiling'].includes(String(r.taxRoundingMethod))?String(r.taxRoundingMethod):null, taxReferenceDocumentVersion: Number.isInteger(r.taxReferenceDocumentVersion)?Number(r.taxReferenceDocumentVersion):null };
     });
     const saleLineIds = new Set(saleLines.map((r) => r.id));
     if (saleLineIds.size !== saleLines.length) throw new BadRequestException('Backup contains duplicate sale-line IDs.');

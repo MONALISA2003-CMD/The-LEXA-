@@ -5562,6 +5562,128 @@ paths:
             schema:
               type: object
               additionalProperties: true
+  /workspaces/{workspaceId}/branches/{branchId}/platform/attachments/upload-url:
+    post:
+      operationId: initiatePrivateAttachmentUpload
+      summary: Initiate a short-lived private R2 attachment upload
+      responses: {'201': {description: Upload URL and required conditional headers}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/attachments/{attachmentId}/complete:
+    post:
+      operationId: completePrivateAttachmentUpload
+      summary: Verify object checksum, size and detected MIME before scan
+      responses: {'201': {description: Attachment queued for malware scanning}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/attachments:
+    get:
+      operationId: listAccessibleAttachments
+      summary: List attachments visible to the authenticated record participant
+      responses: {'200': {description: Scoped attachment metadata}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/attachments/{attachmentId}/download-url:
+    get:
+      operationId: issueCleanAttachmentDownload
+      summary: Issue a short-lived download URL for a clean authorised attachment
+      responses: {'200': {description: Short-lived signed download URL}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}:
+    get:
+      operationId: getPlatformJobStatus
+      summary: Get a tenant-scoped platform job
+      responses: {'200': {description: Job status}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/export:
+    post:
+      operationId: createPlatformExportJob
+      summary: Create an idempotent export job
+      responses: {'201': {description: Export job created}}
+  /workspaces/{workspaceId}/branches/{branchId}/tax/references:
+    get:
+      operationId: listTaxReferenceDocuments
+      responses: {'200': {description: Tenant tax reference library}}
+    post:
+      operationId: createTaxReferenceDocument
+      responses: {'201': {description: Tax reference draft created}}
+  /workspaces/{workspaceId}/branches/{branchId}/tax/references/{id}/submit:
+    post:
+      operationId: submitTaxReferenceForReview
+      responses: {'201': {description: Tax reference submitted for independent review}}
+  /workspaces/{workspaceId}/branches/{branchId}/tax/references/{id}/approve:
+    post:
+      operationId: approveTaxReferenceDocument
+      responses: {'201': {description: Tax reference approved by a second authorised user}}
+  /workspaces/{workspaceId}/branches/{branchId}/tax/codes:
+    get:
+      operationId: listTaxCodesAndRuleVersions
+      responses: {'200': {description: Tax codes and current rule version states}}
+  /workspaces/{workspaceId}/branches/{branchId}/tax/codes/{codeId}/versions:
+    post:
+      operationId: createTaxCodeRuleVersion
+      responses: {'201': {description: Draft tax rule version created}}
+  /workspaces/{workspaceId}/branches/{branchId}/tax/codes/{codeId}/versions/{versionId}/submit:
+    post:
+      operationId: submitTaxRuleForReview
+      responses: {'201': {description: Tax rule submitted for independent review}}
+  /workspaces/{workspaceId}/branches/{branchId}/tax/codes/{codeId}/versions/{versionId}/approve:
+    post:
+      operationId: approveTaxRuleVersion
+      responses: {'201': {description: Tax rule approved by a second authorised user}}
+  /workspaces/{workspaceId}/branches/{branchId}/tax/preview:
+    post:
+      operationId: previewTaxCalculation
+      responses: {'201': {description: Preview only; does not publish or file tax}}
+  /workspaces/{workspaceId}/branches/{branchId}/tax/summary:
+    get:
+      operationId: getTaxSnapshotSummary
+      responses: {'200': {description: Tax summary from historical sale-line snapshots}}
+
+  /workspaces/{workspaceId}/branches/{branchId}/platform/imports/templates:
+    get:
+      operationId: getPlatformImportTemplates
+      responses: {'200': {description: Versioned CSV import templates}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs:
+    get:
+      operationId: listPlatformJobs
+      responses: {'200': {description: Tenant and branch scoped platform jobs}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/import:
+    post:
+      operationId: createPlatformImport
+      responses: {'201': {description: Create staged import job}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/backup:
+    post:
+      operationId: createEncryptedBackup
+      responses: {'201': {description: Create encrypted backup job}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/restore-dry-run:
+    post:
+      operationId: createRestoreDryRun
+      responses: {'201': {description: Create isolated restore dry run}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/import-rows:
+    get:
+      operationId: getImportPreviewRows
+      responses: {'200': {description: Import row preview and validation actions}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/errors.csv:
+    get:
+      operationId: downloadImportErrorsCsv
+      responses: {'200': {description: Formula-safe CSV validation errors}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/download-url:
+    get:
+      operationId: getPlatformJobDownloadUrls
+      responses: {'200': {description: Short-lived private export or backup URLs}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/approve:
+    post:
+      operationId: approveImportPreview
+      responses: {'200': {description: Approve exact import preview hash}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/cancel:
+    post:
+      operationId: cancelPlatformJob
+      responses: {'200': {description: Cancel or request checkpoint cancellation}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/retry:
+    post:
+      operationId: retryPlatformJob
+      responses: {'200': {description: Audited retry}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/events/dead-letter:
+    get:
+      operationId: listDeadLetterEvents
+      responses: {'200': {description: Dead-letter event list}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/events/{eventId}/replay:
+    post:
+      operationId: replayDeadLetterEvent
+      responses: {'200': {description: Audited event replay}}
 components:
   securitySchemes:
     sessionCookie:

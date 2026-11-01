@@ -252,7 +252,7 @@ export class CommerceController {
         VALUES (${fulfilmentId}::uuid,${workspaceId}::uuid,${branchId}::uuid,${orderId}::uuid,${sale.id}::uuid,${fulfilmentNumber},'dispatched',${actor.userId}::uuid)`;
       for(const item of fulfilLines){
         const lineTotal=Math.round(item.product.sellingPriceMinor*item.qty);
-        const saleLine=await tx.saleLine.create({data:{tenantId:workspaceId,saleId:sale.id,productId:item.product.id,productNameSnapshot:item.product.name,quantity:String(item.qty),unitPriceMinor:item.product.sellingPriceMinor,lineTotalMinor:lineTotal,unitCostMinor:item.product.costPriceMinor}});
+        const saleLine=await tx.saleLine.create({data:{tenantId:workspaceId,saleId:sale.id,productId:item.product.id,productNameSnapshot:item.product.name,quantity:String(item.qty),unitPriceMinor:item.product.sellingPriceMinor,lineTotalMinor:lineTotal,taxableMinor:lineTotal,unitCostMinor:item.product.costPriceMinor}});
         item.saleLineId=saleLine.id;
         if(item.product.trackStock){
           await tx.stockMovement.create({data:{tenantId:workspaceId,branchId,productId:item.product.id,type:'sale',quantityDelta:String(-item.qty),reason:`Fulfilment ${fulfilmentNumber}`,sourceId:fulfilmentId}});

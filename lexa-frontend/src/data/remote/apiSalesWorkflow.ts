@@ -1,21 +1,7 @@
-import type { SalesWorkflow, ReceivePaymentInput } from '../contracts/workflows';
+import type { SalesWorkflow, ReceivePaymentInput, SalePaymentReport } from '../contracts/workflows';
 import type { CompleteSaleInput, RecordReturnInput, Sale, SaleReturn, PaymentRecord } from '../../domain/shared/types';
 import { apiClient } from './apiClient';
 
-export interface SalePaymentReport {
-  currency: string; timezone: string; from?: string | null; to?: string | null;
-  activity: {
-    salesCount: number; grossSalesMinor: number; returnsCount: number; returnsMinor: number; netSalesMinor: number;
-    receiptsMinor: number; refundsMinor: number;
-    methodBreakdown: Array<{ kind: string; methodCategory: string; methodLabel?: string | null; recordedByName: string; count: number; amountMinor: number }>;
-  };
-  credit: {
-    outstandingMinor: number; creditSalesCount: number; overdueMinor: number; overdueCount: number; notDueMinor: number; notDueCount: number;
-    noDueDateMinor: number; noDueDateCount: number; asOf: string;
-    sales: Array<{ id: string; receiptNumber: string; customerName?: string | null; customerPhone?: string | null; promisedPaymentDate?: string | null; outstandingMinor: number; ageing: string }>;
-  };
-  assurance: string;
-}
 
 const enc = (value: string) => encodeURIComponent(value);
 function unwrap<T>(value: unknown, label: string): T {
