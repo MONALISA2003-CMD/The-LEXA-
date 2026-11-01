@@ -1,5 +1,5 @@
 import './observability';
-import rawBody from '@fastify/raw-body';
+import rawBody from 'fastify-raw-body';
 import 'reflect-metadata';
 import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -8,12 +8,22 @@ import helmet from '@fastify/helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
+  const webhookBodyLimitBytes = 1024 * 1024;
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ logger: true }),
+    new FastifyAdapter({ logger: true, bodyLimit: webhookBodyLimitBytes }),
   );
 
-  await app.register(rawBody, { field: 'rawBody', global: true, encoding: false, runFirst: true, limit: 1024 * 1024 });
+  // Only the Resend webhook needs an unparsed body for Svix signature verification.
+  // Avoid duplicating every API request body in memory. The Fastify bodyLimit
+  // applies the same 1 MiB bound to the raw-body reader and JSON parser.
+  await app.register(rawBody, {
+    field: 'rawBody',
+    global: false,
+    routes: ['/api/v1/webhooks/resend'],
+    encoding: false,
+    runFirst: true,
+  });
   await app.register(helmet);
   const allowedOrigins = (process.env.FRONTEND_ORIGINS ?? 'http://localhost:5173,https://lexareview.vercel.app')
     .split(',')

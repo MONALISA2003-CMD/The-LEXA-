@@ -51,15 +51,25 @@ describe('local transaction workflow', () => {
     const { workspace, branch, product } = await setupStock(5);
     const { sale } = await localSalesWorkflow.completeSale({
       workspaceId: workspace.id, branchId: branch.id,
-      items: [{ productId: product.id, quantity: 2 }],
+      items: [{ productId: product.id, quantity: 3 }],
       payments: [{ method: 'cash', amountMinor: 12000 }],
       customerName: 'Test customer', customerPhone: '0700000000',
       promisedPaymentDate: '2099-12-31',
     });
+    const saleLine = (await db.saleLines.where('[workspaceId+saleId]').equals([workspace.id, sale.id]).toArray())[0];
+    if (!saleLine) throw new Error('Sale line was not saved.');
+    await localSalesWorkflow.recordReturn({
+      workspaceId: workspace.id, branchId: branch.id, saleId: sale.id,
+      items: [{ saleLineId: saleLine.id, quantity: 1 }],
+      reason: 'Report regression test', recordRefund: false, refundMethod: 'cash',
+    });
 
     const report = await localSalesWorkflow.getPaymentReport({ workspaceId: workspace.id, branchId: branch.id });
     expect(report.activity.salesCount).toBe(1);
-    expect(report.activity.grossSalesMinor).toBe(24000);
+    expect(report.activity.grossSalesMinor).toBe(36000);
+    expect(report.activity.returnsCount).toBe(1);
+    expect(report.activity.returnsMinor).toBe(12000);
+    expect(report.activity.netSalesMinor).toBe(24000);
     expect(report.activity.receiptsMinor).toBe(12000);
     expect(report.credit.outstandingMinor).toBe(12000);
     expect(report.credit.notDueCount).toBe(1);

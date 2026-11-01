@@ -13,7 +13,7 @@ export class ResendWebhookController {
   async receive(@Req() request: FastifyRequest) {
     const secret = process.env.RESEND_WEBHOOK_SECRET;
     if (!secret) throw new UnauthorizedException('Resend webhook is not configured.');
-    const rawBody = (request as any).rawBody;
+    const rawBody = request.rawBody;
     if (!Buffer.isBuffer(rawBody) || rawBody.length > 1024 * 1024) throw new BadRequestException('Webhook body is missing or exceeds the allowed size.');
     const id = headerValue(request.headers['svix-id'] as any);
     const timestamp = headerValue(request.headers['svix-timestamp'] as any);

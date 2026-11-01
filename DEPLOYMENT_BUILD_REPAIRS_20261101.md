@@ -1,35 +1,62 @@
 # LEXA deployment build repair record — 1 November 2026
 
-## Vercel `lexa_review`
+## Newly surfaced failures — commit `72e82ddbe73150d85a4be2d371df9afb6de82fb4`
 
-Deployment `dpl_AUiD1EnwcYJLNss9p7zPfcpbLvYJ`, commit `e8cff2f10fe7bf785f83fbb3026aef608b6f5218`, failed in `buildStep` with `lint_or_type_error`. The Vercel log shows `npm install` completed and the frontend test run passed **22 files / 97 tests**. The failure occurred at `tsc -b` with:
+### Vercel `lexa_review`
 
-- `SalesWorkflow.getPaymentReport` missing from the local workflow implementation.
-- `setPreviewRows` declared but not used.
-- `setReviewNotes` declared but not used.
+The Vercel log shows that `npm install` and all four prebuild steps completed, but `npm test` stopped the build before `tsc -b` or `vite build`. One new regression test failed because `localSalesWorkflow.getPaymentReport()` queried `returns` by the Dexie compound key `[workspaceId+branchId]`, while the v1 `returns` store only declared `[workspaceId+saleId]`.
 
-The source handoff now implements `getPaymentReport`, loads the authenticated preview-row endpoint when an import preview is selected, and binds reviewer notes to an editable, bounded textarea. It also fixes the palette prebuild's independent `/operations` route-coverage failure.
+**Repair:** `lexa-frontend/src/data/local/database.ts` now retains the complete v1 schema and adds a v2 schema migration that creates `[workspaceId+branchId]` on `returns`. Existing return rows are retained while IndexedDB builds the additional index during normal Dexie upgrade. A new migration regression test constructs a v1 database with a stored return, opens it through the current schema, and verifies that the return remains queryable through the new compound index. The payment-report test now records a real partial return and checks gross sales, returns, net sales, receipts and remaining credit.
 
-## Render `lexa-backend-api-live`
+### Render `lexa-backend-api-live`
 
-Latest failed deploy `dep-dbjibr2qphnc73e1vqfg`, commit `e8cff2f10fe7bf785f83fbb3026aef608b6f5218`, failed in Docker step `RUN npm run build` / `nest build`. The latest backend log identified:
+The Render log stopped at `RUN npm install` because `backend/package.json` requested `@fastify/raw-body@^5.0.0`, which returns npm 404. The actual Fastify raw-body plugin is published as `fastify-raw-body`; its v5.0.0 release explicitly supports Fastify v5.
 
-- `sha` referenced without declaration in the import preview path.
-- `before` property not represented in the inferred mapped-row type.
-- ZIP-only branch compared a narrowed `zip` literal to `csv`.
-- Restore validation inferred `unknown[]` where `string[]` was required.
-- Two implicit-`any` callback parameters in download URL construction.
+**Repair:** the backend dependency is now `fastify-raw-body@^5.0.0`; `backend/src/main.ts` and the webhook controller import/use that package. Raw-body capture is limited to `/api/v1/webhooks/resend` rather than duplicating request bodies on every API route. The 1 MiB maximum is set as Fastify's `bodyLimit`, which is the option the raw-body plugin reads from the route configuration; the unsupported `limit` plugin option was removed. The controller uses the package's `FastifyRequest.rawBody` type augmentation and still rejects a missing or oversized buffer before signature verification. A backend contract test now guards the package name, Fastify 5 route scope, body limit and typed access against regression.
 
-The source handoff uses the existing SHA-256 `hash` helper, enriches the mapped-row type with the optional before snapshot, stores JSONL ZIP members with a static `.jsonl` name, uses explicit `string` sets for restore schema validation, and types download URL callback parameters. The recurring accounting period mismatch is also corrected to the schema's `startsOn` field.
+## Earlier Vercel errors — deployment `dpl_AUiD1EnwcYJLNss9p7zPfcpbLvYJ`
 
-## Additional latent issues caught while repairing
+The earlier Vercel log showed 97 tests passing before `tsc -b` failed on three issues:
 
-- `validateMappedRows` returned a widened `string` action due to a conditional literal expression; it now assigns a `MappedImportRow['action']` discriminator before returning.
-- The restore dependency graph now handles optional `Map.get` results before mutating sets.
-- The palette script's explicit route allowlist now includes `/operations`; its validation now passes.
+- `SalesWorkflow.getPaymentReport` was missing from the local workflow implementation.
+- `setPreviewRows` was declared but unused.
+- `setReviewNotes` was declared but unused.
 
-## Verification limits
+Those issues remain repaired: the local payment/credit report is implemented, the import preview loads rows through the authenticated preview-row endpoint, and reviewer notes are editable and passed to the independent reviewer API. The palette prebuild's `/operations` route-coverage error is also fixed.
 
-Passed: backend 74/74 tests; 175 TypeScript/TSX transpilation syntax checks; isolated strict typecheck of `platform-jobs.ts` and its imported local modules using minimal external API stubs; backup inventory; OpenAPI, adapter and ledger coverage checks; frontend prebuild scripts.
+## Earlier Render TypeScript errors — deployment `dep-dbjibr2qphnc73e1vqfg`
 
-Not verified: full Nest build, full frontend TypeScript/Vite build, rerun of frontend Vitest after the additional report test, Playwright, hosted Vercel build after these changes or hosted Render build after these changes. The workspace has no dependency directories and outbound DNS cannot resolve npm registry hosts. Do not mark the hosted deployment green until Vercel and Render finish new successful builds.
+The earlier Nest build identified these source errors, which remain repaired:
+
+- An undeclared `sha` reference in import preview now uses the existing SHA-256 `hash` helper.
+- The mapped import row explicitly includes its optional `before` snapshot.
+- A ZIP-only branch no longer compares a narrowed `'zip'` value to `'csv'`; JSONL archive members receive a static `.jsonl` name.
+- Restore validation uses explicit `string` sets/arrays.
+- Download URL callback parameters have explicit types.
+- The restore dependency graph guards optional `Map.get` values before mutating sets.
+- `validateMappedRows` preserves the discriminated action union instead of widening to `string`.
+- The accounting period query uses Prisma's `startsOn` field, not the nonexistent `startDate` field.
+
+## Verification evidence and limits
+
+Passed in this runtime:
+
+- Backend test suite: **75 passed / 0 failed**.
+- Frontend TypeScript/TSX syntax transpilation: **126 files / 0 syntax errors**.
+- Backend TypeScript syntax transpilation: **50 files / 0 syntax errors**.
+- Backup inventory: **154 table decisions / 137 discovered schema and migration references covered**.
+- OpenAPI coverage: **296 operations / 235 routes exact match**.
+- Route-to-adapter coverage: **17/17**.
+- Ledger workflow coverage: **9/9**.
+- Frontend auth, module-completion, palette/route-coverage and build-origin prebuild scripts executed successfully.
+- Static checks confirm that no `@fastify/raw-body` dependency or obsolete raw-body `limit` option remains.
+
+Not verified in this runtime:
+
+- The new Vitest database-upgrade and revised sales-report tests were not executed locally because `vitest`, `dexie` and `fake-indexeddb` are not installed in this workspace.
+- Full frontend `npm test`, `tsc -b` and `vite build` were not run.
+- Full backend dependency installation and Nest build were not run. The npm metadata probe timed out because this runtime cannot resolve/reach the npm registry; the earlier failed install log identifies the invalid package name as the direct Render cause.
+- `verify-schema-integrity.mjs` could not run because `pg` is not installed.
+- No live Vercel or Render redeploy, Playwright/E2E test, database migration against staging/production, Resend delivery/webhook, worker/Redis/ClamAV/R2, telemetry export or restore drill was performed.
+
+The supplied hosted logs are for commit `72e82dd...` and are the source evidence for the two newest fixes. The earlier hosted logs are for commit `e8cff2f...`. This archive contains the source repairs, but it is **not yet a verified green hosted build**. The next required confirmation is a Vercel build completing `npm test`, `tsc -b` and `vite build`, and a Render build completing npm install, Prisma generation and `nest build`.

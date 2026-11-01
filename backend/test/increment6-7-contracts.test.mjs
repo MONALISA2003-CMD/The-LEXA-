@@ -129,3 +129,21 @@ test('automatic recurring invoices remain administrator-controlled and cancelled
   assert.match(source, /cancelled or completed schedule cannot be retried/);
   assert.match(source, /Maximum occurrences must be greater than the number already generated/);
 });
+
+test('Resend raw-body capture uses the Fastify 5 plugin and only the prefixed webhook route', async () => {
+  const [packageText, main, controller] = await Promise.all([
+    readFile(new URL('../package.json', import.meta.url), 'utf8'),
+    readFile(new URL('../src/main.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../src/notifications/resend-webhook.controller.ts', import.meta.url), 'utf8'),
+  ]);
+  const manifest = JSON.parse(packageText);
+  assert.equal(manifest.dependencies['fastify-raw-body'], '^5.0.0');
+  assert.equal(manifest.dependencies['@fastify/raw-body'], undefined);
+  assert.match(main, /import rawBody from 'fastify-raw-body'/);
+  assert.match(main, /routes:\s*\['\/api\/v1\/webhooks\/resend'\]/);
+  assert.match(main, /bodyLimit:\s*webhookBodyLimitBytes/);
+  assert.doesNotMatch(main, /global:\s*true/);
+  assert.doesNotMatch(main, /limit:\s*1024\s*\*\s*1024/);
+  assert.match(controller, /request\.rawBody/);
+  assert.doesNotMatch(controller, /\(request as any\)\.rawBody/);
+});
