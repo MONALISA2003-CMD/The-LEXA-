@@ -3,6 +3,8 @@ export type ModuleAccentKey = 'navy' | 'blue' | 'cyan' | 'emerald' | 'gold' | 'o
 const forPaths = (accent: ModuleAccentKey, paths: string[]) => Object.fromEntries(paths.map((path) => [path, accent])) as Record<string, ModuleAccentKey>;
 export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
   ...forPaths('navy', ['/', '/workspace', '/modules', '/modules/', '/settings', '/inbox', '/operations', '/modules/projects', '/modules/team', '/modules/audit']),
+  ...forPaths('blue', ['/intelligence']),
+  ...forPaths('gold', ['/reports']),
   ...forPaths('cyan', ['/business-tools']),
   ...forPaths('blue', ['/checkout', '/sales', '/modules/sales-orders', '/modules/sales-invoices', '/modules/quotations', '/modules/price-lists', '/modules/sales-returns', '/modules/cash-sessions']),
   ...forPaths('emerald', ['/modules/leads', '/modules/opportunities', '/modules/contacts', '/modules/campaigns', '/modules/sales-teams', '/modules/customers', '/modules/employees', '/modules/attendance', '/modules/payroll', '/modules/leave', '/modules/timesheets', '/modules/support']),

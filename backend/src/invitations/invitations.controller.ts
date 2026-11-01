@@ -44,6 +44,18 @@ export class InvitationsController {
   if(prior) { if(prior.requestHash!==requestHash) throw new ConflictException('This idempotency key was used for different invitation data.'); if(prior.status==='PENDING') return {invitation:{id:prior.id,email:prior.email,role:prior.role,status:prior.status},sent:false}; throw new ConflictException('This invitation request has already completed.'); }
   const rawToken=randomBytes(32).toString('base64url'), invitationId=randomUUID();
   const invite=await this.prisma.$transaction(async tx=>{
+   const plans=await tx.$queryRaw<Array<{max_users:number}>>`SELECT p.max_users FROM tenant_subscriptions s JOIN saas_plans p ON p.plan_key=s.plan_key WHERE s.tenant_id=${workspaceId}::uuid AND s.status IN ('trialing','active') FOR UPDATE OF s`;
+   const plan=plans[0]; if(!plan) throw new ForbiddenException({code:'SUBSCRIPTION_INACTIVE',message:'An active workspace plan is required to invite team members.'});
+   const seats=await tx.$queryRaw<Array<{active_users:number;pending_invites:number}>>`
+    SELECT
+      (SELECT count(*)::int FROM memberships m WHERE m.tenant_id=${workspaceId}::uuid AND m.status='ACTIVE') AS active_users,
+      (SELECT count(DISTINCT lower(i.email))::int FROM workspace_invitations i
+        WHERE i.tenant_id=${workspaceId}::uuid AND i.status='PENDING' AND i.expires_at>now()
+          AND NOT EXISTS(SELECT 1 FROM memberships m JOIN users u ON u.id=m.user_id
+            WHERE m.tenant_id=i.tenant_id AND m.status='ACTIVE' AND lower(u.email)=lower(i.email))) AS pending_invites`;
+   const existing=await tx.$queryRaw<Array<{already_member:boolean}>>`SELECT EXISTS(SELECT 1 FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant_id=${workspaceId}::uuid AND m.status='ACTIVE' AND lower(u.email)=${email}) AS already_member`;
+   const reserved=Number(seats[0]?.active_users??0)+Number(seats[0]?.pending_invites??0);
+   if(!existing[0]?.already_member && reserved>=Number(plan.max_users)) throw new ForbiddenException({code:'PLAN_USER_LIMIT_REACHED',message:'Your current plan has no unassigned team seats. Remove an unused seat or review the workspace plan before inviting another person.'});
    if(!allBranches&&branchIds.length) { const allowed=await tx.branch.findMany({where:{tenantId:workspaceId,id:{in:branchIds}},select:{id:true}}); if(allowed.length!==branchIds.length) throw new BadRequestException('One or more selected branches do not belong to this workspace.'); }
    const created=await tx.workspaceInvitation.create({data:{id:invitationId,tenantId:workspaceId,email,role,branchScopeMode:allBranches?'all':'restricted',branchIds:allBranches?[]:branchIds,tokenHash:sha(rawToken),idempotencyKey:key,requestHash,status:'PENDING',expiresAt:new Date(Date.now()+7*86400_000),invitedByUserId:actorId}});
    await tx.auditEvent.create({data:{tenantId:workspaceId,actorUserId:actorId,action:'workspace.invitation.created',resourceType:'workspace_invitation',resourceId:created.id,metadata:{email,role,branchScopeMode:created.branchScopeMode,branchCount:created.branchIds.length}}}); return created;

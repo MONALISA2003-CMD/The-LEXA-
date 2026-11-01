@@ -26,10 +26,11 @@ import { RecurringInvoicesController } from './receivables/recurring-invoices.co
 import { OperationsController } from './operations/operations.controller';
 import { SentryExceptionInterceptor } from './observability-interceptor';
 import { CorrelationInterceptor } from './correlation-interceptor';
+import { Workstream8Controller } from './workstream8/workstream8.controller';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, DeliveryWorkflowController, ReceivablesController, RecurringInvoicesController, NotificationCentreController, ResendWebhookController, OperationsController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController, SupplyChainController, PeopleProjectsController, PlatformController, TaxReferenceController],
+  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, DeliveryWorkflowController, ReceivablesController, RecurringInvoicesController, NotificationCentreController, ResendWebhookController, OperationsController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController, SupplyChainController, PeopleProjectsController, PlatformController, TaxReferenceController, Workstream8Controller],
   providers: [CsrfGuard, PeopleProjectsService, { provide: APP_INTERCEPTOR, useClass: CorrelationInterceptor }, { provide: APP_INTERCEPTOR, useClass: SentryExceptionInterceptor }, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
 })
 export class AppModule {}

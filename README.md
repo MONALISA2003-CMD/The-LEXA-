@@ -8,3 +8,8 @@ This package contains the canonical application source for the current LEXA work
 - Verification results: `VALIDATION_RESULTS_20261101.txt`
 
 The archive includes the Dexie v2 compound-index migration, the corrected `fastify-raw-body` package, the reported Vercel exact-optional TypeScript repairs, and the Render Fastify/Nest duplicate JSON-parser startup repair. The latest supplied Vercel log passed 99/99 tests before type-checking; the latest Render log passed install, Prisma generation and Nest compilation before runtime startup. The newest fixes have not yet been redeployed, so hosted green status is not claimed. See `DEPLOYMENT_BUILD_REPAIRS_20261101.md` for incident chronology, upstream root-cause research, security warnings, migration status and remaining release gates.
+
+
+## Workstream 8 — Reporting, SaaS controls & Intelligence
+
+The first Workstream 8 implementation slice is documented in [WORKSTREAM8_IMPLEMENTATION_20261101.md](WORKSTREAM8_IMPLEMENTATION_20261101.md). It adds source-ledger reporting, tenant plan/feature/usage controls, and optional private Python + LiteLLM intelligence services. Provider keys are entered in Render; no provider credentials belong in Git. Read the intelligence service [deployment and data policy notes](services/intelligence/README.md) before enabling either provider pool. The migration is additive and must be applied only after the backend release; no Workstream 7 migration should be rolled back.

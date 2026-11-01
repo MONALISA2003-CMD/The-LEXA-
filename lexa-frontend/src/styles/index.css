@@ -87,6 +87,7 @@ a { color: inherit; text-decoration: none; }
 /* Shared pages and controls */
 .page-stack { display: flex; flex-direction: column; gap: 22px; }
 .page-heading-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; }
+.page-heading-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .page-heading-row h2 { margin: 7px 0 5px; font-size: 27px; line-height: 1.14; letter-spacing: -.055em; color: #16263f; font-weight: 780; }
 .page-heading-row p { margin: 0; max-width: 700px; color: #73839a; font-size: 12px; line-height: 1.6; }
 .soft-badge { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid #dfe9f5; background: #fff; border-radius: 20px; color: #65788f; font-size: 9px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
@@ -565,6 +566,7 @@ a { color: inherit; text-decoration: none; }
   .app-footer { padding: 12px 14px 15px; align-items: flex-start; flex-direction: column; gap: 4px; font-size: 8px; }
   .page-stack { gap: 17px; }
   .page-heading-row { align-items: flex-start; }
+  .page-heading-actions { justify-content: flex-start; }
   .page-heading-row h2 { font-size: 23px; }
   .page-heading-row p { max-width: 370px; font-size: 10px; }
   .page-heading-row > .button, .page-heading-row > .action-group { margin-top: 8px; }

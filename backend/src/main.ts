@@ -9,9 +9,10 @@ import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
   const webhookBodyLimitBytes = 1024 * 1024;
+  const apiBodyLimitBytes = 8 * 1024 * 1024;
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ logger: true, bodyLimit: webhookBodyLimitBytes }),
+    new FastifyAdapter({ logger: true, bodyLimit: apiBodyLimitBytes }),
   );
 
   // Capture a UTF-8 copy only for the Resend webhook. Do not use encoding:false:
@@ -25,6 +26,15 @@ async function bootstrap(): Promise<void> {
     routes: ['/api/v1/webhooks/resend'],
     encoding: 'utf8',
     runFirst: true,
+  });
+  // Fastify's raw-body reader and JSON parser both honour request.routeOptions.bodyLimit.
+  // Keep ordinary JSON routes and the webhook at 1 MiB; only the internally
+  // authenticated document extractor accepts a 5 MiB file plus base64 JSON overhead.
+  app.getHttpAdapter().getInstance().addHook('onRoute', (routeOptions) => {
+    const routePath = routeOptions.path;
+    routeOptions.bodyLimit = routePath === '/api/v1/workspaces/:workspaceId/branches/:branchId/intelligence/extract'
+      ? apiBodyLimitBytes
+      : webhookBodyLimitBytes;
   });
   await app.register(helmet);
   const allowedOrigins = (process.env.FRONTEND_ORIGINS ?? 'http://localhost:5173,https://lexareview.vercel.app')

@@ -4,7 +4,7 @@ import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-route
 import {
   Activity, ArrowDownUp, Banknote, Bell, BookOpen, Building2, BarChart3, ChevronDown, Target, Boxes, Plug,
   CircleHelp, ClipboardList, Command, CreditCard, FileText, LayoutDashboard, Menu, MessageCircle,
-  Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X, Moon, Sun,
+  Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X, Moon, Sun, Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { workspaces as workspaceRepository } from '../../data/repositories';
@@ -32,6 +32,10 @@ const navSections = [
   ] },
   { title: 'INBOX & WORK', items: [
     { to: '/inbox', label: 'Inbox & collaboration', icon: MessageCircle },
+  ] },
+  { title: 'REPORTS & INSIGHTS', items: [
+    { to: '/reports', label: 'Authoritative reports', icon: BarChart3 },
+    { to: '/intelligence', label: 'LEXA Intelligence', icon: Sparkles },
   ] },
   { title: 'CRM & GROWTH', items: [
     { to: '/modules/leads', label: 'Leads & prospects', icon: Users },
@@ -91,7 +95,7 @@ const navSections = [
   ] },
   { title: 'INTEGRATION & CONTROL', items: [
     { to: '/modules/integrations', label: 'Integration status', icon: Plug },
-    { to: '/modules/reports', label: 'Reports & analytics', icon: BarChart3 },
+    { to: '/reports', label: 'Authoritative reports', icon: BarChart3 },
     { to: '/modules/team', label: 'Team & access', icon: Users },
     { to: '/business-tools', label: 'Business tools', icon: Settings },
     { to: '/modules/audit', label: 'Activity & audit log', icon: Activity },
@@ -164,6 +168,8 @@ export default function AppShell() {
       { to: '/inventory', label: 'Stock', icon: Package },
       { to: '/modules/customers', label: 'Money owed', icon: Users },
       { to: '/business-tools', label: 'Business tools', icon: Settings },
+      { to: '/reports', label: 'Reports', icon: BarChart3 },
+      { to: '/intelligence', label: 'LEXA Intelligence', icon: Sparkles },
       { to: '/settings', label: 'Settings', icon: Settings },
     ] },
   ];

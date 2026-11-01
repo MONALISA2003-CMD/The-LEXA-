@@ -1,0 +1,90 @@
+# Workstream 8 add-on services. These do not replace the existing LEXA API service.
+# Provider secrets are prompted for in Render (sync:false); no provider key is
+# stored in source control. Start with only the keys you have obtained.
+envVarGroups:
+  - name: lexa-ai-provider-keys
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_FREE_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: HF_TOKEN
+        sync: false
+
+services:
+  - type: pserv
+    name: lexa-litellm
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: services/intelligence/litellm/Dockerfile
+    dockerContext: .
+    envVars:
+      - fromGroup: lexa-ai-provider-keys
+      - key: LITELLM_MASTER_KEY
+        generateValue: true
+      - key: LEXA_AI_HF_ENABLED
+        value: "false"
+
+  - type: pserv
+    name: lexa-intelligence
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: services/intelligence/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: LEXA_INTELLIGENCE_INTERNAL_TOKEN
+        generateValue: true
+      - key: LITELLM_BASE_URL
+        fromService:
+          type: pserv
+          name: lexa-litellm
+          property: hostport
+      - key: LITELLM_API_KEY
+        fromService:
+          type: pserv
+          name: lexa-litellm
+          envVarKey: LITELLM_MASTER_KEY
+      - key: LITELLM_PUBLIC_HELP_API_KEY
+        fromService:
+          type: pserv
+          name: lexa-litellm
+          envVarKey: LITELLM_MASTER_KEY
+      - key: LEXA_AI_BUSINESS_CONFIGURED
+        value: "false"
+      - key: LEXA_AI_PUBLIC_HELP_CONFIGURED
+        value: "false"
+
+  # Adopt the existing free LEXA API service by its current Render name and
+  # wire the private intelligence service without exposing its internal token.
+  - type: web
+    name: lexa-backend-api-live
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: LEXA_INTELLIGENCE_ENABLED
+        value: "true"
+      - key: LEXA_INTELLIGENCE_BASE_URL
+        fromService:
+          type: pserv
+          name: lexa-intelligence
+          property: hostport
+      - key: LEXA_INTELLIGENCE_INTERNAL_TOKEN
+        fromService:
+          type: pserv
+          name: lexa-intelligence
+          envVarKey: LEXA_INTELLIGENCE_INTERNAL_TOKEN
+      - key: LEXA_AI_BUSINESS_MODEL_ALIAS
+        value: lexa-business-paid

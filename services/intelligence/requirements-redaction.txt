@@ -1,0 +1,6 @@
+-r requirements.txt
+# Optional local PII detection/redaction profile.
+presidio-analyzer>=2.2,<3
+presidio-anonymizer>=2.2,<3
+phonenumbers>=8.13,<10
+spacy>=3.8,<4

@@ -14,6 +14,8 @@ export const router = createBrowserRouter([
     path: '/', Component: AppShell, ErrorBoundary: RouteErrorBoundary,
     children: [
       { index: true, lazy: async () => ({ Component: (await import('../modules/dashboard/DashboardPage')).default }) },
+      { path: 'intelligence', lazy: async () => ({ Component: (await import('../modules/intelligence/IntelligencePage')).default }) },
+      { path: 'reports', lazy: async () => ({ Component: (await import('../modules/reports/AuthoritativeReportsPage')).default }) },
       { path: 'workspace', lazy: async () => ({ Component: (await import('../modules/workspace/WorkspacePage')).default }) },
       { path: 'products', lazy: async () => ({ Component: (await import('../modules/products/ProductsPage')).default }) },
       { path: 'inventory', lazy: async () => ({ Component: (await import('../modules/inventory/InventoryPage')).default }) },

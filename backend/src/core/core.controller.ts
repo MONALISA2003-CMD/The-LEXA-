@@ -581,7 +581,17 @@ export class CoreController {
     const name = requiredString(body.name, 'Branch name', 80);
     const address = optionalString(body.address, 250);
     const code = `${slugify(name).replace(/-/g, '').toUpperCase().slice(0, 8)}${randomBytes(2).toString('hex').toUpperCase()}`;
-    const branch = await this.prisma.branch.create({ data: { tenantId: workspaceId, name, code, address, timezone: membership.tenant.timezone, currency: membership.tenant.currency } });
+    const branch = await this.prisma.$transaction(async (tx: any) => {
+      const plans = await tx.$queryRaw<Array<{ max_branches: number }>>`
+        SELECT p.max_branches FROM tenant_subscriptions s JOIN saas_plans p ON p.plan_key=s.plan_key
+        WHERE s.tenant_id=${workspaceId}::uuid AND s.status IN ('trialing','active') FOR UPDATE OF s`;
+      const plan = plans[0];
+      if (!plan) throw new ForbiddenException({ code: 'SUBSCRIPTION_INACTIVE', message: 'An active workspace plan is required to create a branch.' });
+      const counts = await tx.$queryRaw<Array<{ branch_count: number }>>`
+        SELECT count(*)::int AS branch_count FROM branches WHERE tenant_id=${workspaceId}::uuid`;
+      if (Number(counts[0]?.branch_count ?? 0) >= Number(plan.max_branches)) throw new ForbiddenException({ code: 'PLAN_BRANCH_LIMIT_REACHED', message: 'Your current plan has reached its branch limit. Review the workspace plan before adding another branch.' });
+      return tx.branch.create({ data: { tenantId: workspaceId, name, code, address, timezone: membership.tenant.timezone, currency: membership.tenant.currency } });
+    }, { isolationLevel: 'Serializable' });
     await this.audit(workspaceId, session.userId, 'branch.created', 'branch', branch.id, request.headers['x-request-id'] as string | undefined);
     return toBranch(branch);
   }

@@ -155,7 +155,9 @@ test('Resend raw-body capture uses the Fastify 5 plugin and only the prefixed we
   assert.equal(manifest.dependencies['@fastify/raw-body'], undefined);
   assert.match(main, /import rawBody from 'fastify-raw-body'/);
   assert.match(main, /routes:\s*\['\/api\/v1\/webhooks\/resend'\]/);
-  assert.match(main, /bodyLimit:\s*webhookBodyLimitBytes/);
+  assert.match(main, /apiBodyLimitBytes/);
+  assert.match(main, /const routePath = routeOptions\.path/);
+  assert.match(main, /routeOptions.bodyLimit = routePath === .*intelligence\/extract/);
   assert.match(main, /encoding:\s*['"]utf8['"]/);
   assert.doesNotMatch(main, /^\s*encoding:\s*false\s*,/m);
   assert.doesNotMatch(main, /global:\s*true/);

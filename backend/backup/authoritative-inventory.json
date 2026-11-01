@@ -6,6 +6,12 @@
     "rationale": "Accounting period state"
   },
   {
+    "table": "ai_usage_events",
+    "disposition": "authoritative",
+    "domain": "intelligence",
+    "rationale": "Tenant-scoped AI request, provider, policy and usage audit metadata; excludes prompts and responses"
+  },
+  {
     "table": "ap_supplier_invoice_lines",
     "disposition": "authoritative",
     "domain": "payables",
@@ -792,6 +798,18 @@
     "rationale": "Authoritative recurring invoice schedule configuration and customer/line snapshots"
   },
   {
+    "table": "saas_plan_features",
+    "disposition": "authoritative",
+    "domain": "saas",
+    "rationale": "Plan feature entitlement definitions required to restore SaaS policy"
+  },
+  {
+    "table": "saas_plans",
+    "disposition": "authoritative",
+    "domain": "saas",
+    "rationale": "Plan limits, usage budgets and active plan catalogue"
+  },
+  {
     "table": "sale_lines",
     "disposition": "authoritative",
     "domain": "sales",
@@ -892,6 +910,30 @@
     "disposition": "authoritative",
     "domain": "tax",
     "rationale": "Approved tax rule state"
+  },
+  {
+    "table": "tenant_feature_overrides",
+    "disposition": "authoritative",
+    "domain": "saas",
+    "rationale": "Tenant feature flag overrides and administrator reasons"
+  },
+  {
+    "table": "tenant_subscriptions",
+    "disposition": "authoritative",
+    "domain": "saas",
+    "rationale": "Tenant plan assignment, status and billing-period state"
+  },
+  {
+    "table": "tenant_support_access_audit",
+    "disposition": "authoritative",
+    "domain": "security",
+    "rationale": "Support diagnostics access trail and tenant-scoped support evidence"
+  },
+  {
+    "table": "tenant_usage_counters",
+    "disposition": "authoritative",
+    "domain": "saas",
+    "rationale": "Atomic per-tenant feature and AI request/budget metering counters"
   },
   {
     "table": "tenants",

@@ -9,7 +9,7 @@ export type Permission =
   | 'people.read' | 'people.write' | 'people.private.read' | 'people.directory.write'
   | 'manufacturing.read' | 'manufacturing.write'
   | 'fulfilment.read' | 'fulfilment.write'
-  | 'reports.read'
+  | 'reports.read' | 'intelligence.read' | 'intelligence.run' | 'saas.read' | 'saas.manage'
   | 'collaboration.read' | 'collaboration.write'
   | 'approval.decide'
   | 'people.compensation.read' | 'people.compensation.write'
@@ -23,7 +23,7 @@ const READ_PERMISSIONS: Permission[] = [
   'workspace.read', 'catalog.read', 'sales.read', 'inventory.read',
   'procurement.read', 'finance.read', 'crm.read', 'people.read',
   'manufacturing.read', 'fulfilment.read', 'reports.read',
-  'collaboration.read', 'module.read',
+  'collaboration.read', 'module.read', 'intelligence.read', 'saas.read',
 ];
 const OPERATIONAL_WRITES: Permission[] = [
   'catalog.write', 'sales.write', 'sales.return', 'inventory.write',
@@ -32,22 +32,22 @@ const OPERATIONAL_WRITES: Permission[] = [
   'approval.decide', 'module.write',
 ];
 const ALL_READS: Permission[] = READ_PERMISSIONS;
-const OWNER_EXTRA: Permission[] = ['people.private.read','people.directory.write','people.compensation.read','people.compensation.write','payroll.read','payroll.write','projects.read','projects.write','support.read','support.write','audit.read'];
+const OWNER_EXTRA: Permission[] = ['saas.manage','people.private.read','people.directory.write','people.compensation.read','people.compensation.write','payroll.read','payroll.write','projects.read','projects.write','support.read','support.write','audit.read'];
 
 const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
-  owner: ['workspace.manage', 'finance.write', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
-  owner_administrator: ['workspace.manage', 'finance.write', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
-  administrator: ['workspace.manage', 'finance.write', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
-  admin: ['workspace.manage', 'finance.write', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
-  business_manager: ['finance.write', ...ALL_READS, ...OPERATIONAL_WRITES, 'projects.read','projects.write','support.read','support.write'],
-  manager: ['finance.write', ...ALL_READS, ...OPERATIONAL_WRITES, 'projects.read','projects.write','support.read','support.write'],
-  branch_manager: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'procurement.read', 'finance.read', 'crm.read', 'people.read', 'manufacturing.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'module.read', ...OPERATIONAL_WRITES],
+  owner: ['workspace.manage', 'finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
+  owner_administrator: ['workspace.manage', 'finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
+  administrator: ['workspace.manage', 'finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
+  admin: ['workspace.manage', 'finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
+  business_manager: ['finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, 'projects.read','projects.write','support.read','support.write'],
+  manager: ['finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, 'projects.read','projects.write','support.read','support.write'],
+  branch_manager: ['intelligence.read', 'intelligence.run', 'saas.read', 'workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'procurement.read', 'finance.read', 'crm.read', 'people.read', 'manufacturing.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'module.read', ...OPERATIONAL_WRITES],
   cashier: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'cash.manage', 'support.read'],
   sales: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'crm.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'sales.return', 'crm.write', 'support.read', 'support.write'],
   sales_operator: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'crm.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'crm.write', 'support.read', 'support.write'],
   inventory_operator: ['workspace.read', 'catalog.read', 'inventory.read', 'procurement.read', 'manufacturing.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'catalog.write', 'inventory.write', 'procurement.receive', 'fulfilment.write', 'manufacturing.write', 'module.write'],
   warehouse_operator: ['workspace.read', 'catalog.read', 'inventory.read', 'procurement.read', 'manufacturing.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'inventory.write', 'procurement.receive', 'fulfilment.write', 'manufacturing.write'],
-  accountant: ['workspace.read', 'catalog.read', 'sales.read', 'fulfilment.read', 'procurement.read', 'finance.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'finance.write', 'procurement.write', 'approval.decide', 'module.write'],
+  accountant: ['intelligence.read', 'intelligence.run', 'saas.read', 'workspace.read', 'catalog.read', 'sales.read', 'fulfilment.read', 'procurement.read', 'finance.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'finance.write', 'procurement.write', 'approval.decide', 'module.write'],
   read_only: [...ALL_READS],
   readonly: [...ALL_READS],
   viewer: [...ALL_READS],
@@ -93,6 +93,13 @@ export function permissionForRequest(method: string, pathname: string, params: R
 
   if (/\/workspaces\/[^/]+\/members(?:$|\?)|\/memberships\/[^/]+\/(?:branches|role)(?:$|\?)|\/workspaces\/[^/]+\/invitations(?:$|\/)/.test(path)) return 'workspace.manage';
   if (/\/recurring-invoices(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
+  if (/\/intelligence\/status$/.test(path)) return 'intelligence.read';
+  if (/\/intelligence\/(?:help|explain|extract)$/.test(path)) return 'intelligence.run';
+  if (/\/reports\/authoritative$/.test(path)) return 'reports.read';
+  if (/\/saas\/entitlements$|\/saas\/usage$/.test(path)) return 'saas.read';
+  if (/\/saas\/support-diagnostics$/.test(path)) return 'support.read';
+  if (/\/saas\/plans$/.test(path)) return 'saas.read';
+  if (/\/saas\/(?:features|feature-overrides)(?:\/|$)/.test(path)) return 'saas.manage';
   if (/\/operations(?:\/|$)/.test(path)) return choose('workspace.read', 'module.write');
   if (/\/workspaces\/[^/]+$/.test(path) || /\/workspaces\/[^/]+\/branches$/.test(path)) return write ? 'workspace.manage' : 'workspace.read';
   if (/\/products(?:\/|$)|\/categories(?:\/|$)/.test(path)) return choose('catalog.read', 'catalog.write');
