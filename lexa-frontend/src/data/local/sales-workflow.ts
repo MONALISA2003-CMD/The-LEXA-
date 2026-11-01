@@ -3,9 +3,42 @@ import { createDocumentNumber, createId, nowIso } from '../../domain/shared/ids'
 import { calculateSaleTotal, normalizeSaleItems, remainingReturnableQuantity, validatePaymentAllocations } from '../../domain/sales/rules';
 import { stockOnHand } from '../../domain/inventory/stock';
 import type { CompleteSaleInput, PaymentRecord, Product, RecordReturnInput, ReturnLine, Sale, SaleLine, SaleReturn, StockMovement } from '../../domain/shared/types';
-import type { ReceivePaymentInput, SalesWorkflow } from '../contracts/workflows';
+import type { ReceivePaymentInput, SalesWorkflow, SalePaymentReport } from '../contracts/workflows';
 
 export const localSalesWorkflow: SalesWorkflow = {
+  async getPaymentReport(input: { workspaceId: string; branchId: string; from?: string; to?: string }): Promise<SalePaymentReport> {
+    const [workspace, branchSales, branchReturns, allPayments] = await Promise.all([
+      db.workspaces.get(input.workspaceId),
+      db.sales.where('[workspaceId+branchId]').equals([input.workspaceId, input.branchId]).toArray(),
+      db.returns.where('[workspaceId+branchId]').equals([input.workspaceId, input.branchId]).toArray(),
+      db.payments.where('workspaceId').equals(input.workspaceId).toArray(),
+    ]);
+    const from = input.from || null; const to = input.to || null;
+    const includedSales = branchSales.filter((sale) => (!from || sale.createdAt.slice(0,10) >= from) && (!to || sale.createdAt.slice(0,10) <= to));
+    const saleIds = new Set(includedSales.map((sale) => sale.id));
+    const payments = allPayments.filter((payment) => saleIds.has(payment.saleId));
+    const returns = branchReturns.filter((item) => saleIds.has(item.saleId));
+    const receiptsMinor = payments.filter((payment) => payment.kind === 'receipt').reduce((sum,payment) => sum + payment.amountMinor,0);
+    const refundsMinor = payments.filter((payment) => payment.kind === 'refund').reduce((sum,payment) => sum + payment.amountMinor,0);
+    const returnsMinor = returns.reduce((sum,item) => sum + item.totalMinor,0);
+    const today = new Intl.DateTimeFormat('en-CA',{timeZone:workspace?.timezone||'Africa/Kampala'}).format(new Date());
+    const balances = includedSales.map((sale) => {
+      const salePayments = payments.filter((payment) => payment.saleId === sale.id);
+      const saleReturns = returns.filter((item) => item.saleId === sale.id);
+      const outstandingMinor = Math.max(0,sale.totalMinor-saleReturns.reduce((n,item)=>n+item.totalMinor,0)-salePayments.filter(p=>p.kind==='receipt').reduce((n,p)=>n+p.amountMinor,0)+salePayments.filter(p=>p.kind==='refund').reduce((n,p)=>n+p.amountMinor,0));
+      return {sale,outstandingMinor};
+    }).filter((item)=>item.outstandingMinor>0);
+    const methodMap = new Map<string,{kind:string;methodCategory:string;methodLabel:string|null;recordedByName:string;count:number;amountMinor:number}>();
+    for (const payment of payments) {
+      const methodCategory = payment.methodCategory || payment.method; const methodLabel = payment.methodLabel || null; const recordedByName=payment.recordedByName || 'Local user';
+      const key=[payment.kind,methodCategory,methodLabel||'',recordedByName].join('|'); const current=methodMap.get(key) || {kind:payment.kind,methodCategory,methodLabel,recordedByName,count:0,amountMinor:0};
+      current.count++; current.amountMinor+=payment.amountMinor; methodMap.set(key,current);
+    }
+    const overdue = balances.filter(({sale})=>Boolean(sale.promisedPaymentDate && sale.promisedPaymentDate < today));
+    const notDue = balances.filter(({sale})=>Boolean(sale.promisedPaymentDate && sale.promisedPaymentDate >= today));
+    const noDueDate = balances.filter(({sale})=>!sale.promisedPaymentDate);
+    return {currency:workspace?.currency||'UGX',timezone:workspace?.timezone||'Africa/Kampala',from,to,activity:{salesCount:includedSales.length,grossSalesMinor:includedSales.reduce((n,sale)=>n+sale.totalMinor,0),returnsCount:returns.length,returnsMinor,netSalesMinor:includedSales.reduce((n,sale)=>n+sale.totalMinor,0)-returnsMinor,receiptsMinor,refundsMinor,methodBreakdown:[...methodMap.values()]},credit:{outstandingMinor:balances.reduce((n,item)=>n+item.outstandingMinor,0),creditSalesCount:balances.length,overdueMinor:overdue.reduce((n,item)=>n+item.outstandingMinor,0),overdueCount:overdue.length,notDueMinor:notDue.reduce((n,item)=>n+item.outstandingMinor,0),notDueCount:notDue.length,noDueDateMinor:noDueDate.reduce((n,item)=>n+item.outstandingMinor,0),noDueDateCount:noDueDate.length,asOf:today,sales:balances.map(({sale,outstandingMinor})=>({id:sale.id,receiptNumber:sale.receiptNumber,customerName:sale.customerName||null,customerPhone:sale.customerPhone||null,promisedPaymentDate:sale.promisedPaymentDate||null,outstandingMinor,ageing:sale.promisedPaymentDate&&sale.promisedPaymentDate<today?'overdue':sale.promisedPaymentDate?'not_due':'no_due_date'}))},assurance:'Local-only recorded activity. This is not a provider-verified payment report.'};
+  },
   async completeSale(input: CompleteSaleInput) {
     const items = normalizeSaleItems(input.items);
     const timestamp = nowIso();

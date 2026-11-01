@@ -29,8 +29,14 @@ export const apiCollaboration = {
   async updateTask(workspaceId: string, taskId: string, status: InboxTask['status']) { return apiClient.patch<InboxTask>(`/workspaces/${enc(workspaceId)}/tasks/${enc(taskId)}`, { status }); },
   async approvals(workspaceId: string, branchId: string) { return list<InboxApproval>(await apiClient.get(`/workspaces/${enc(workspaceId)}/approvals`, { branchId, status: 'pending' }), 'approval'); },
   async decideApproval(workspaceId: string, approvalId: string, decision: 'approve' | 'reject', comment?: string) { return apiClient.post<InboxApproval>(`/workspaces/${enc(workspaceId)}/approvals/${enc(approvalId)}/decision`, { decision, comment }, crypto.randomUUID()); },
-  async notifications(workspaceId: string, branchId: string) { return list<InboxNotification>(await apiClient.get(`/workspaces/${enc(workspaceId)}/notifications`, { branchId, limit: 100 }), 'notification'); },
-  async markNotificationRead(workspaceId: string, notificationId: string) { return apiClient.post<void>(`/workspaces/${enc(workspaceId)}/notifications/${enc(notificationId)}/read`, {}, crypto.randomUUID()); },
-  async markAllNotificationsRead(workspaceId: string) { return apiClient.post<void>(`/workspaces/${enc(workspaceId)}/notifications/read-all`, {}, crypto.randomUUID()); },
+  async notificationPage(workspaceId: string, branchId: string, filters: { limit?: number; cursor?: string; type?: string; unread?: boolean; from?: string; to?: string } = {}) {
+    return apiClient.get<{ items: InboxNotification[]; nextCursor: string | null; unreadCount: number }>(`/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/notifications`, { limit: filters.limit ?? 50, cursor: filters.cursor, type: filters.type, unread: filters.unread, from: filters.from, to: filters.to });
+  },
+  async notifications(workspaceId: string, branchId: string) { return (await this.notificationPage(workspaceId, branchId, { limit: 1 })).items; },
+  async notificationSummary(workspaceId: string, branchId: string) { const result = await this.notificationPage(workspaceId, branchId, { limit: 1 }); return { unreadCount: result.unreadCount }; },
+  async markNotificationRead(workspaceId: string, branchId: string, notificationId: string) { return apiClient.post<void>(`/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/notifications/${enc(notificationId)}/read`, {}, crypto.randomUUID()); },
+  async markAllNotificationsRead(workspaceId: string, branchId: string) { return apiClient.post<void>(`/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/notifications/read-all`, {}, crypto.randomUUID()); },
+  async notificationPreferences(workspaceId: string, branchId: string) { return apiClient.get<{ catalogue: string[]; preferences: Array<{ eventType: string; channel: 'in_app' | 'email'; enabled: boolean }> }>(`/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/notifications/preferences`); },
+  async updateNotificationPreferences(workspaceId: string, branchId: string, preferences: Array<{ eventType: string; channel: 'in_app' | 'email'; enabled: boolean }>) { return apiClient.put<{ preferences: Array<{ eventType: string; channel: string; enabled: boolean }> }>(`/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/notifications/preferences`, { preferences }); },
   async activity(workspaceId: string, branchId: string) { return list<ActivityEvent>(await apiClient.get(`/workspaces/${enc(workspaceId)}/activity`, { branchId, limit: 100 }), 'activity'); },
 };

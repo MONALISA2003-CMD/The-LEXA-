@@ -47,6 +47,26 @@ describe('local transaction workflow', () => {
     expect(stockOnHand(movements)).toBe(3);
   });
 
+  it('builds a workspace-local payment and credit report from recorded sales, returns and receipts', async () => {
+    const { workspace, branch, product } = await setupStock(5);
+    const { sale } = await localSalesWorkflow.completeSale({
+      workspaceId: workspace.id, branchId: branch.id,
+      items: [{ productId: product.id, quantity: 2 }],
+      payments: [{ method: 'cash', amountMinor: 12000 }],
+      customerName: 'Test customer', customerPhone: '0700000000',
+      promisedPaymentDate: '2099-12-31',
+    });
+
+    const report = await localSalesWorkflow.getPaymentReport({ workspaceId: workspace.id, branchId: branch.id });
+    expect(report.activity.salesCount).toBe(1);
+    expect(report.activity.grossSalesMinor).toBe(24000);
+    expect(report.activity.receiptsMinor).toBe(12000);
+    expect(report.credit.outstandingMinor).toBe(12000);
+    expect(report.credit.notDueCount).toBe(1);
+    expect(report.credit.sales[0]?.id).toBe(sale.id);
+    expect(report.assurance).toMatch(/Local-only/);
+  });
+
   it('leaves the database unchanged when stock validation rejects the sale', async () => {
     const { workspace, branch, product } = await setupStock(1);
     await expect(localSalesWorkflow.completeSale({

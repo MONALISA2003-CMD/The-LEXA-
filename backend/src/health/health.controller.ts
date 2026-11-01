@@ -37,11 +37,18 @@ export class HealthController {
   }
 
   @Get('ready')
-  async ready(): Promise<{ status: string; dependencies: { database: string } }> {
+  async ready(): Promise<{ status: string; dependencies: { database: string; sentry: string; otel: string } }> {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
-      return { status: 'ready', dependencies: { database: 'ok' } };
-    } catch {
+      const enforceObservability = process.env.NODE_ENV === 'production' && process.env.OBSERVABILITY_REQUIRED_IN_PRODUCTION === 'true';
+      const sentry = process.env.SENTRY_DSN ? 'configured' : 'missing';
+      const otel = process.env.OTEL_EXPORTER_OTLP_ENDPOINT ? 'configured' : 'missing';
+      if (enforceObservability && (sentry === 'missing' || otel === 'missing')) {
+        throw new ServiceUnavailableException('Required production observability configuration is missing.');
+      }
+      return { status: 'ready', dependencies: { database: 'ok', sentry, otel } };
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) throw error;
       throw new ServiceUnavailableException('Service is not ready');
     }
   }

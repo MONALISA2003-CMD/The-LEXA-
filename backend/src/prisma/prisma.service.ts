@@ -2,6 +2,7 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
+import { currentCorrelationId } from '../request-correlation';
 
 type TenantDbContext = { tenantId?: string; userId?: string; sessionTokenHash?: string; resetTokenHash?: string };
 const tenantDbContext = new AsyncLocalStorage<TenantDbContext>();
@@ -39,7 +40,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         set_config('app.tenant_id', ${current.tenantId ?? ''}, true),
         set_config('app.user_id', ${current.userId ?? ''}, true),
         set_config('app.session_token_hash', ${current.sessionTokenHash ?? ''}, true),
-        set_config('app.reset_token_hash', ${current.resetTokenHash ?? ''}, true)`;
+        set_config('app.reset_token_hash', ${current.resetTokenHash ?? ''}, true),
+        set_config('app.correlation_id', ${currentCorrelationId() ?? ''}, true)`;
     };
     const runInTenantTransaction = async (operation: (tx: any) => Promise<any>) => {
       return base.$transaction(async (tx: any) => {

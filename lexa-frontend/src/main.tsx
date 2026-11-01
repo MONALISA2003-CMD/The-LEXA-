@@ -7,6 +7,7 @@ import './styles/index.css';
 import './styles/phase-two.css';
 import './styles/lexa-brand.css';
 import './styles/backend-status.css';
+import './styles/auth.css'; // LEXA_AUTH_SECURITY_UI_PATCH:auth-css-v1
 import './styles/module-graph.css';
 
 createRoot(document.getElementById('root')!).render(

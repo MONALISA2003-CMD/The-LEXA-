@@ -110,6 +110,8 @@ function lexaPayablesIntegration(): Plugin {
 export default defineConfig({
   plugins: [lexaReceivablesIntegration(), lexaPayablesIntegration(), react(), tailwindcss()],
   test: {
+    // Playwright E2E specs are run separately through npm run test:e2e.
+    include: ['src/**/*.test.{ts,tsx}'],
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     clearMocks: true,

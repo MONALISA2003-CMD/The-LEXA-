@@ -1,3 +1,5 @@
+import './observability';
+import rawBody from '@fastify/raw-body';
 import 'reflect-metadata';
 import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -11,6 +13,7 @@ async function bootstrap(): Promise<void> {
     new FastifyAdapter({ logger: true }),
   );
 
+  await app.register(rawBody, { field: 'rawBody', global: true, encoding: false, runFirst: true, limit: 1024 * 1024 });
   await app.register(helmet);
   const allowedOrigins = (process.env.FRONTEND_ORIGINS ?? 'http://localhost:5173,https://lexareview.vercel.app')
     .split(',')

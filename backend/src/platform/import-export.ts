@@ -20,14 +20,16 @@ export function parseCsv(input:string, delimiter?:string){
 }
 export const sha256=(s:string|Buffer)=>createHash('sha256').update(s).digest('hex');
 export const rowKey=(jobId:string,line:number)=>sha256(`${jobId}:${line}`).slice(0,48);
-export function validateMappedRows(type:ImportType, rows:{line:number;values:Record<string,string>}[], mapping:Record<string,string>, defaults:Record<string,string>={}){
+export interface MappedImportRow { line:number; values:Record<string,string>; after:Record<string,string>; errors:string[]; action:'invalid'|'create'|'update'|'skip'; before?:Record<string,unknown>; }
+export function validateMappedRows(type:ImportType, rows:{line:number;values:Record<string,string>}[], mapping:Record<string,string>, defaults:Record<string,string>={}):MappedImportRow[]{
  const template=IMPORT_TEMPLATES[type];if(!template)throw new Error('Unsupported importer.');
  const mapped=rows.map(r=>{const value:Record<string,string>={...defaults};for(const [source,target] of Object.entries(mapping)){if(r.values[source]!==undefined)value[target]=r.values[source];}const errors:string[]=[];for(const field of template.required)if(!String(value[field]??'').trim())errors.push(`Missing required field: ${field}`);
   for(const f of ['cost_price_minor','selling_price_minor','rate_basis_points'])if(value[f]!==undefined&&value[f]!==''&&(!/^\d+$/.test(value[f])||Number(value[f])<0))errors.push(`${f} must be a non-negative integer.`);
   if(value.low_stock_threshold!==undefined&&value.low_stock_threshold!==''&&(!/^\d+(?:\.\d{1,3})?$/.test(value.low_stock_threshold)||Number(value.low_stock_threshold)<0))errors.push('low_stock_threshold must be a non-negative quantity with at most 3 decimals.');
   for(const f of ['active','track_stock'])if(value[f]!==undefined&&!['true','false','1','0','yes','no'].includes(value[f].toLowerCase()))errors.push(`${f} must be true/false.`);
   if(type==='product_variants'&&value.attributes_json){try{const parsed=JSON.parse(value.attributes_json);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))errors.push('attributes_json must be a JSON object.');}catch{errors.push('attributes_json must contain valid JSON.');}}
-  return {...r,after:value,errors,action:errors.length?'invalid':'create'};});
+  const action: MappedImportRow['action'] = errors.length ? 'invalid' : 'create';
+  return {...r,after:value,errors,action,before:undefined as Record<string,unknown>|undefined};});
  const seen=new Set<string>();for(const r of mapped){const key=String(r.after.sku??r.after.code??r.after.customer_code??r.after.supplier_code??r.after.name??'').toLowerCase();if(key&&seen.has(key)){r.errors.push('Duplicate stable identifier within file.');r.action='invalid';}if(key)seen.add(key);}
  return mapped;
 }

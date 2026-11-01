@@ -5652,6 +5652,21 @@ paths:
     post:
       operationId: createRestoreDryRun
       responses: {'201': {description: Create isolated restore dry run}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/restore:
+    post:
+      operationId: requestApprovedIsolatedRestore
+      summary: Request an isolated restore with an independent second-person approval
+      responses: {'201': {description: Restore queued for separate approval; production targets are denied}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/restore-approve:
+    post:
+      operationId: approveIsolatedRestore
+      summary: Independently approve an isolated restore
+      responses: {'200': {description: Approved restore queued for the restore worker}}
+  /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/restore-release:
+    post:
+      operationId: releaseRecoveredWorkspace
+      summary: Release a restored workspace after recovery owner review
+      responses: {'200': {description: Outbound and recurring processing released after sign-off}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/import-rows:
     get:
       operationId: getImportPreviewRows

@@ -156,7 +156,7 @@ export function createApiClient(options: ApiClientOptions) {
         const message = parsed.message ?? (typeof payload === 'string' && payload.trim() ? payload : `LEXA API request failed (${response.status}).`);
         throw new ApiRequestError(message, { status: response.status, code: parsed.code, requestId: parsed.requestId ?? id, details: parsed.details });
       }
-      if (unsafe && (path.endsWith('/auth/login') || path.endsWith('/auth/logout') || path.endsWith('/auth/password/reset'))) cachedCsrfToken = null;
+      if (unsafe && (path.endsWith('/auth/login') || path.endsWith('/auth/logout') || path.endsWith('/auth/password/reset') || path.endsWith('/auth/password/change'))) cachedCsrfToken = null; // LEXA_AUTH_SECURITY_UI_PATCH:csrf-refresh-v1
       if (requestOptions.responseType === 'blob') return await response.blob() as T;
       return unwrapEnvelope<T>(payload);
     } catch (error) {

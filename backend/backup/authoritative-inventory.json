@@ -1,57 +1,57 @@
 [
   {
-    "table": "tenants",
+    "table": "accounting_periods",
     "disposition": "authoritative",
-    "domain": "tenant",
-    "rationale": "Workspace root and business settings"
+    "domain": "ledger",
+    "rationale": "Accounting period state"
   },
   {
-    "table": "branches",
+    "table": "ap_supplier_invoice_lines",
     "disposition": "authoritative",
-    "domain": "tenant",
-    "rationale": "Branch and location structure"
+    "domain": "payables",
+    "rationale": "Supplier invoice lines"
   },
   {
-    "table": "users",
+    "table": "ap_supplier_invoices",
     "disposition": "authoritative",
-    "domain": "identity",
-    "rationale": "Identity references only; never restore credentials or sessions"
+    "domain": "payables",
+    "rationale": "Supplier invoices"
   },
   {
-    "table": "memberships",
+    "table": "ap_supplier_payment_allocations",
     "disposition": "authoritative",
-    "domain": "identity",
-    "rationale": "Tenant membership and role mapping; require relinking and review"
+    "domain": "payables",
+    "rationale": "Supplier payment allocations"
   },
   {
-    "table": "branch_memberships",
+    "table": "ap_supplier_payments",
     "disposition": "authoritative",
-    "domain": "identity",
-    "rationale": "Branch access map; require privilege review"
+    "domain": "payables",
+    "rationale": "Supplier payments"
   },
   {
-    "table": "workspace_invitations",
-    "disposition": "excluded",
-    "domain": "identity",
-    "rationale": "Pending invitations and tokens must be reissued"
+    "table": "ar_customer_invoice_lines",
+    "disposition": "authoritative",
+    "domain": "receivables",
+    "rationale": "Customer invoice lines"
   },
   {
-    "table": "sessions",
-    "disposition": "excluded",
-    "domain": "identity",
-    "rationale": "Live sessions are never restored"
+    "table": "ar_customer_invoices",
+    "disposition": "authoritative",
+    "domain": "receivables",
+    "rationale": "Customer invoices"
   },
   {
-    "table": "password_reset_tokens",
-    "disposition": "excluded",
-    "domain": "identity",
-    "rationale": "Reset tokens are never restored"
+    "table": "ar_customer_receipt_allocations",
+    "disposition": "authoritative",
+    "domain": "receivables",
+    "rationale": "Receipt allocations"
   },
   {
-    "table": "auth_rate_limits",
-    "disposition": "excluded",
-    "domain": "security",
-    "rationale": "Ephemeral security counters reinitialize"
+    "table": "ar_customer_receipts",
+    "disposition": "authoritative",
+    "domain": "receivables",
+    "rationale": "Customer receipts"
   },
   {
     "table": "audit_events",
@@ -60,322 +60,76 @@
     "rationale": "Required audit attribution and evidence"
   },
   {
-    "table": "module_definitions",
-    "disposition": "reconstructed",
-    "domain": "platform",
-    "rationale": "Reinstalled from versioned application catalog"
-  },
-  {
-    "table": "module_records",
-    "disposition": "authoritative",
-    "domain": "collaboration",
-    "rationale": "Business module records"
-  },
-  {
-    "table": "module_record_links",
-    "disposition": "authoritative",
-    "domain": "collaboration",
-    "rationale": "Module relationships"
-  },
-  {
-    "table": "module_domain_events",
-    "disposition": "authoritative",
-    "domain": "platform",
-    "rationale": "Durable business event history; transient queues excluded"
-  },
-  {
-    "table": "idempotency_records",
-    "disposition": "authoritative",
-    "domain": "platform",
-    "rationale": "Business request deduplication evidence"
-  },
-  {
-    "table": "platform_attachments",
-    "disposition": "authoritative",
-    "domain": "documents",
-    "rationale": "Metadata and object manifest; objects restored privately and rescanned"
-  },
-  {
-    "table": "platform_jobs",
-    "disposition": "authoritative",
-    "domain": "platform",
-    "rationale": "Durable job and recovery metadata; reset active leases"
-  },
-  {
-    "table": "platform_import_rows",
-    "disposition": "authoritative",
-    "domain": "imports",
-    "rationale": "Import preview and reconciliation history"
-  },
-  {
-    "table": "platform_job_attempts",
-    "disposition": "authoritative",
-    "domain": "platform",
-    "rationale": "Execution attempt history"
-  },
-  {
-    "table": "platform_job_replays",
-    "disposition": "authoritative",
-    "domain": "platform",
-    "rationale": "Replay audit trail"
-  },
-  {
-    "table": "platform_backup_inventory",
-    "disposition": "reconstructed",
-    "domain": "backup",
-    "rationale": "Versioned inventory ships with application"
-  },
-  {
-    "table": "platform_restore_approvals",
-    "disposition": "authoritative",
-    "domain": "backup",
-    "rationale": "Recovery approval evidence"
-  },
-  {
-    "table": "platform_import_templates",
-    "disposition": "reconstructed",
-    "domain": "imports",
-    "rationale": "Versioned templates ship with application"
-  },
-  {
-    "table": "platform_worker_heartbeats",
-    "disposition": "excluded",
-    "domain": "platform",
-    "rationale": "Transient worker liveness rebuilt after restart"
-  },
-  {
-    "table": "platform_provider_connections",
+    "table": "auth_rate_limits",
     "disposition": "excluded",
     "domain": "security",
-    "rationale": "Provider credentials never backed up; reconnect manually"
+    "rationale": "Ephemeral security counters reinitialize"
   },
   {
-    "table": "platform_provider_operations",
+    "table": "bank_accounts",
     "disposition": "authoritative",
-    "domain": "integrations",
-    "rationale": "Provider operation audit, no credentials"
+    "domain": "banking",
+    "rationale": "Bank metadata only; exclude credentials"
   },
   {
-    "table": "platform_webhook_events",
+    "table": "bank_reconciliation_matches",
     "disposition": "authoritative",
-    "domain": "integrations",
-    "rationale": "Webhook deduplication and processing evidence"
+    "domain": "banking",
+    "rationale": "Reconciliation matching"
   },
   {
-    "table": "products",
+    "table": "bank_reconciliations",
     "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "Product master"
+    "domain": "banking",
+    "rationale": "Manual reconciliation state"
+  },
+  {
+    "table": "bank_statement_lines",
+    "disposition": "authoritative",
+    "domain": "banking",
+    "rationale": "Imported bank statement data"
+  },
+  {
+    "table": "branch_memberships",
+    "disposition": "authoritative",
+    "domain": "identity",
+    "rationale": "Branch access map; require privilege review"
+  },
+  {
+    "table": "branches",
+    "disposition": "authoritative",
+    "domain": "tenant",
+    "rationale": "Branch and location structure"
+  },
+  {
+    "table": "business_notifications",
+    "disposition": "authoritative",
+    "domain": "notifications",
+    "rationale": "Recipient-scoped in-app notification records and safe source event links"
+  },
+  {
+    "table": "cash_movements",
+    "disposition": "authoritative",
+    "domain": "cash",
+    "rationale": "Cash movement records"
+  },
+  {
+    "table": "cash_sessions",
+    "disposition": "authoritative",
+    "domain": "cash",
+    "rationale": "Cash session records"
+  },
+  {
+    "table": "cash_ups",
+    "disposition": "authoritative",
+    "domain": "cash",
+    "rationale": "Cash-up records"
   },
   {
     "table": "categories",
     "disposition": "authoritative",
     "domain": "catalog",
     "rationale": "Category master"
-  },
-  {
-    "table": "product_variants",
-    "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "Variant master"
-  },
-  {
-    "table": "unit_of_measures",
-    "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "Unit definitions"
-  },
-  {
-    "table": "price_lists",
-    "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "Pricing rules"
-  },
-  {
-    "table": "price_list_items",
-    "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "Pricing rows"
-  },
-  {
-    "table": "tax_codes",
-    "disposition": "authoritative",
-    "domain": "tax",
-    "rationale": "Tax code configuration"
-  },
-  {
-    "table": "tax_rules",
-    "disposition": "authoritative",
-    "domain": "tax",
-    "rationale": "Approved tax rule state"
-  },
-  {
-    "table": "tax_code_rule_versions",
-    "disposition": "authoritative",
-    "domain": "tax",
-    "rationale": "Immutable effective-dated rule versions"
-  },
-  {
-    "table": "tax_reference_documents",
-    "disposition": "authoritative",
-    "domain": "tax",
-    "rationale": "Tax reference metadata; document object references"
-  },
-  {
-    "table": "tax_rule_reference_links",
-    "disposition": "authoritative",
-    "domain": "tax",
-    "rationale": "Rule-to-reference relationships"
-  },
-  {
-    "table": "warehouses",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Warehouse master"
-  },
-  {
-    "table": "storage_bins",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Bin master"
-  },
-  {
-    "table": "stock_movements",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Source stock movement ledger"
-  },
-  {
-    "table": "stock_reservations",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Stock reservation state"
-  },
-  {
-    "table": "inventory_lots",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Lot and expiry tracking"
-  },
-  {
-    "table": "inventory_serials",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Serial tracking"
-  },
-  {
-    "table": "inventory_packages",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Package state"
-  },
-  {
-    "table": "inventory_package_lines",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Package contents"
-  },
-  {
-    "table": "inventory_picklists",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Picklist state"
-  },
-  {
-    "table": "inventory_picklist_lines",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Picklist lines"
-  },
-  {
-    "table": "inventory_replenishment_policies",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Replenishment policy"
-  },
-  {
-    "table": "inventory_stock_counts",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Stock count source records"
-  },
-  {
-    "table": "inventory_stock_count_lines",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Stock count lines"
-  },
-  {
-    "table": "inventory_transfers",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Stock transfer source records"
-  },
-  {
-    "table": "inventory_transfer_lines",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Stock transfer lines"
-  },
-  {
-    "table": "sales",
-    "disposition": "authoritative",
-    "domain": "sales",
-    "rationale": "Sales transactions"
-  },
-  {
-    "table": "sale_lines",
-    "disposition": "authoritative",
-    "domain": "sales",
-    "rationale": "Sales lines and tax snapshots"
-  },
-  {
-    "table": "sale_payments",
-    "disposition": "authoritative",
-    "domain": "sales",
-    "rationale": "Receipts, reversals and payment attribution"
-  },
-  {
-    "table": "sale_returns",
-    "disposition": "authoritative",
-    "domain": "sales",
-    "rationale": "Return transactions"
-  },
-  {
-    "table": "sale_return_lines",
-    "disposition": "authoritative",
-    "domain": "sales",
-    "rationale": "Return lines"
-  },
-  {
-    "table": "commerce_sales_orders",
-    "disposition": "authoritative",
-    "domain": "commerce",
-    "rationale": "Sales orders"
-  },
-  {
-    "table": "commerce_sales_order_lines",
-    "disposition": "authoritative",
-    "domain": "commerce",
-    "rationale": "Sales order lines"
-  },
-  {
-    "table": "commerce_fulfilments",
-    "disposition": "authoritative",
-    "domain": "commerce",
-    "rationale": "Fulfilment records"
-  },
-  {
-    "table": "commerce_fulfilment_lines",
-    "disposition": "authoritative",
-    "domain": "commerce",
-    "rationale": "Fulfilment line history"
-  },
-  {
-    "table": "commerce_stock_reservations",
-    "disposition": "authoritative",
-    "domain": "commerce",
-    "rationale": "Commerce reservations"
   },
   {
     "table": "commerce_deliveries",
@@ -390,16 +144,10 @@
     "rationale": "Delivery agent directory"
   },
   {
-    "table": "commerce_delivery_items",
+    "table": "commerce_delivery_collection_lines",
     "disposition": "authoritative",
     "domain": "delivery",
-    "rationale": "Delivery line snapshots"
-  },
-  {
-    "table": "commerce_delivery_events",
-    "disposition": "authoritative",
-    "domain": "delivery",
-    "rationale": "Append-only delivery events"
+    "rationale": "Collection allocations"
   },
   {
     "table": "commerce_delivery_collection_reports",
@@ -408,16 +156,16 @@
     "rationale": "Collection reports"
   },
   {
-    "table": "commerce_delivery_collection_lines",
+    "table": "commerce_delivery_events",
     "disposition": "authoritative",
     "domain": "delivery",
-    "rationale": "Collection allocations"
+    "rationale": "Append-only delivery events"
   },
   {
-    "table": "commerce_delivery_remittances",
+    "table": "commerce_delivery_items",
     "disposition": "authoritative",
     "domain": "delivery",
-    "rationale": "Remittance evidence"
+    "rationale": "Delivery line snapshots"
   },
   {
     "table": "commerce_delivery_remittance_allocations",
@@ -426,22 +174,22 @@
     "rationale": "Remittance allocations"
   },
   {
-    "table": "commerce_purchase_orders",
+    "table": "commerce_delivery_remittances",
     "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "Purchase orders"
+    "domain": "delivery",
+    "rationale": "Remittance evidence"
   },
   {
-    "table": "commerce_purchase_order_lines",
+    "table": "commerce_fulfilment_lines",
     "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "Purchase order lines"
+    "domain": "commerce",
+    "rationale": "Fulfilment line history"
   },
   {
-    "table": "commerce_goods_receipts",
+    "table": "commerce_fulfilments",
     "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "Goods receipt records"
+    "domain": "commerce",
+    "rationale": "Fulfilment records"
   },
   {
     "table": "commerce_goods_receipt_lines",
@@ -450,382 +198,46 @@
     "rationale": "Goods receipt lines"
   },
   {
-    "table": "procurement_suppliers",
+    "table": "commerce_goods_receipts",
     "disposition": "authoritative",
     "domain": "procurement",
-    "rationale": "Supplier master"
+    "rationale": "Goods receipt records"
   },
   {
-    "table": "procurement_purchase_requests",
+    "table": "commerce_purchase_order_lines",
     "disposition": "authoritative",
     "domain": "procurement",
-    "rationale": "Purchase requests"
+    "rationale": "Purchase order lines"
   },
   {
-    "table": "procurement_purchase_request_lines",
+    "table": "commerce_purchase_orders",
     "disposition": "authoritative",
     "domain": "procurement",
-    "rationale": "Purchase request lines"
+    "rationale": "Purchase orders"
   },
   {
-    "table": "procurement_rfqs",
+    "table": "commerce_sales_order_lines",
     "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "RFQs"
+    "domain": "commerce",
+    "rationale": "Sales order lines"
   },
   {
-    "table": "procurement_rfq_lines",
+    "table": "commerce_sales_orders",
     "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "RFQ lines"
+    "domain": "commerce",
+    "rationale": "Sales orders"
   },
   {
-    "table": "procurement_rfq_suppliers",
+    "table": "commerce_stock_reservations",
     "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "RFQ supplier invitations"
+    "domain": "commerce",
+    "rationale": "Commerce reservations"
   },
   {
-    "table": "procurement_awards",
-    "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "Procurement awards"
-  },
-  {
-    "table": "procurement_approvals",
-    "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "Procurement approvals"
-  },
-  {
-    "table": "procurement_approval_rules",
-    "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "Approval rules"
-  },
-  {
-    "table": "procurement_supplier_notes",
-    "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "Supplier notes"
-  },
-  {
-    "table": "procurement_supplier_returns",
-    "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "Supplier returns"
-  },
-  {
-    "table": "procurement_supplier_return_lines",
-    "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "Supplier return lines"
-  },
-  {
-    "table": "supplier_quotations",
-    "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "Supplier quotations"
-  },
-  {
-    "table": "supplier_quotation_lines",
-    "disposition": "authoritative",
-    "domain": "procurement",
-    "rationale": "Supplier quotation lines"
-  },
-  {
-    "table": "ap_supplier_invoices",
-    "disposition": "authoritative",
-    "domain": "payables",
-    "rationale": "Supplier invoices"
-  },
-  {
-    "table": "ap_supplier_invoice_lines",
-    "disposition": "authoritative",
-    "domain": "payables",
-    "rationale": "Supplier invoice lines"
-  },
-  {
-    "table": "ap_supplier_payments",
-    "disposition": "authoritative",
-    "domain": "payables",
-    "rationale": "Supplier payments"
-  },
-  {
-    "table": "ap_supplier_payment_allocations",
-    "disposition": "authoritative",
-    "domain": "payables",
-    "rationale": "Supplier payment allocations"
-  },
-  {
-    "table": "ar_customer_invoices",
-    "disposition": "authoritative",
-    "domain": "receivables",
-    "rationale": "Customer invoices"
-  },
-  {
-    "table": "ar_customer_invoice_lines",
-    "disposition": "authoritative",
-    "domain": "receivables",
-    "rationale": "Customer invoice lines"
-  },
-  {
-    "table": "ar_customer_receipts",
-    "disposition": "authoritative",
-    "domain": "receivables",
-    "rationale": "Customer receipts"
-  },
-  {
-    "table": "ar_customer_receipt_allocations",
-    "disposition": "authoritative",
-    "domain": "receivables",
-    "rationale": "Receipt allocations"
-  },
-  {
-    "table": "credit_notes",
-    "disposition": "authoritative",
-    "domain": "receivables",
-    "rationale": "Credit notes"
-  },
-  {
-    "table": "credit_note_lines",
-    "disposition": "authoritative",
-    "domain": "receivables",
-    "rationale": "Credit note lines"
-  },
-  {
-    "table": "ledger_accounts",
-    "disposition": "authoritative",
-    "domain": "ledger",
-    "rationale": "Chart of accounts"
-  },
-  {
-    "table": "ledger_journals",
-    "disposition": "authoritative",
-    "domain": "ledger",
-    "rationale": "Journal headers"
-  },
-  {
-    "table": "ledger_journal_lines",
-    "disposition": "authoritative",
-    "domain": "ledger",
-    "rationale": "Journal lines"
-  },
-  {
-    "table": "accounting_periods",
-    "disposition": "authoritative",
-    "domain": "ledger",
-    "rationale": "Accounting period state"
-  },
-  {
-    "table": "cash_sessions",
-    "disposition": "authoritative",
-    "domain": "cash",
-    "rationale": "Cash session records"
-  },
-  {
-    "table": "cash_movements",
-    "disposition": "authoritative",
-    "domain": "cash",
-    "rationale": "Cash movement records"
-  },
-  {
-    "table": "cash_ups",
-    "disposition": "authoritative",
-    "domain": "cash",
-    "rationale": "Cash-up records"
-  },
-  {
-    "table": "bank_accounts",
-    "disposition": "authoritative",
-    "domain": "banking",
-    "rationale": "Bank metadata only; exclude credentials"
-  },
-  {
-    "table": "bank_reconciliations",
-    "disposition": "authoritative",
-    "domain": "banking",
-    "rationale": "Manual reconciliation state"
-  },
-  {
-    "table": "bank_reconciliation_matches",
-    "disposition": "authoritative",
-    "domain": "banking",
-    "rationale": "Reconciliation matching"
-  },
-  {
-    "table": "bank_statement_lines",
-    "disposition": "authoritative",
-    "domain": "banking",
-    "rationale": "Imported bank statement data"
-  },
-  {
-    "table": "expenses",
+    "table": "cost_centre_allocations",
     "disposition": "authoritative",
     "domain": "finance",
-    "rationale": "Expense records"
-  },
-  {
-    "table": "expense_categories",
-    "disposition": "authoritative",
-    "domain": "finance",
-    "rationale": "Expense categories"
-  },
-  {
-    "table": "fixed_assets",
-    "disposition": "authoritative",
-    "domain": "finance",
-    "rationale": "Fixed asset register"
-  },
-  {
-    "table": "fixed_asset_depreciations",
-    "disposition": "authoritative",
-    "domain": "finance",
-    "rationale": "Depreciation schedule and postings"
-  },
-  {
-    "table": "hr_employees",
-    "disposition": "authoritative",
-    "domain": "people",
-    "rationale": "Employee records subject to retention/access policy"
-  },
-  {
-    "table": "hr_employee_compensation",
-    "disposition": "authoritative",
-    "domain": "people",
-    "rationale": "Compensation data restricted by role"
-  },
-  {
-    "table": "hr_attendance",
-    "disposition": "authoritative",
-    "domain": "people",
-    "rationale": "Attendance records"
-  },
-  {
-    "table": "hr_leave_requests",
-    "disposition": "authoritative",
-    "domain": "people",
-    "rationale": "Leave records"
-  },
-  {
-    "table": "hr_shifts",
-    "disposition": "authoritative",
-    "domain": "people",
-    "rationale": "Shift definitions"
-  },
-  {
-    "table": "hr_employee_shift_assignments",
-    "disposition": "authoritative",
-    "domain": "people",
-    "rationale": "Shift assignments"
-  },
-  {
-    "table": "hr_timesheets",
-    "disposition": "authoritative",
-    "domain": "people",
-    "rationale": "Timesheets"
-  },
-  {
-    "table": "hr_payroll_runs",
-    "disposition": "authoritative",
-    "domain": "people",
-    "rationale": "Payroll runs; restricted"
-  },
-  {
-    "table": "hr_payroll_lines",
-    "disposition": "authoritative",
-    "domain": "people",
-    "rationale": "Payroll lines; restricted"
-  },
-  {
-    "table": "hr_payroll_deductions",
-    "disposition": "authoritative",
-    "domain": "people",
-    "rationale": "Payroll deductions; restricted"
-  },
-  {
-    "table": "projects",
-    "disposition": "authoritative",
-    "domain": "projects",
-    "rationale": "Project records"
-  },
-  {
-    "table": "project_tasks",
-    "disposition": "authoritative",
-    "domain": "projects",
-    "rationale": "Project tasks"
-  },
-  {
-    "table": "project_cost_entries",
-    "disposition": "authoritative",
-    "domain": "projects",
-    "rationale": "Project costs"
-  },
-  {
-    "table": "manufacturing_boms",
-    "disposition": "authoritative",
-    "domain": "manufacturing",
-    "rationale": "BOM headers"
-  },
-  {
-    "table": "manufacturing_bom_lines",
-    "disposition": "authoritative",
-    "domain": "manufacturing",
-    "rationale": "BOM components"
-  },
-  {
-    "table": "manufacturing_work_orders",
-    "disposition": "authoritative",
-    "domain": "manufacturing",
-    "rationale": "Work orders"
-  },
-  {
-    "table": "manufacturing_work_order_materials",
-    "disposition": "authoritative",
-    "domain": "manufacturing",
-    "rationale": "Work order material consumption"
-  },
-  {
-    "table": "manufacturing_job_cards",
-    "disposition": "authoritative",
-    "domain": "manufacturing",
-    "rationale": "Job cards"
-  },
-  {
-    "table": "manufacturing_job_card_steps",
-    "disposition": "authoritative",
-    "domain": "manufacturing",
-    "rationale": "Job card steps"
-  },
-  {
-    "table": "quality_inspection_plans",
-    "disposition": "authoritative",
-    "domain": "quality",
-    "rationale": "Inspection plans"
-  },
-  {
-    "table": "quality_inspection_plan_checks",
-    "disposition": "authoritative",
-    "domain": "quality",
-    "rationale": "Inspection plan checks"
-  },
-  {
-    "table": "quality_inspections",
-    "disposition": "authoritative",
-    "domain": "quality",
-    "rationale": "Inspection records"
-  },
-  {
-    "table": "quality_inspection_results",
-    "disposition": "authoritative",
-    "domain": "quality",
-    "rationale": "Inspection results"
-  },
-  {
-    "table": "support_cases",
-    "disposition": "authoritative",
-    "domain": "support",
-    "rationale": "Support case history"
+    "rationale": "Cost allocation rows"
   },
   {
     "table": "cost_centres",
@@ -834,10 +246,316 @@
     "rationale": "Cost centre master"
   },
   {
-    "table": "cost_centre_allocations",
+    "table": "credit_note_lines",
+    "disposition": "authoritative",
+    "domain": "receivables",
+    "rationale": "Credit note lines"
+  },
+  {
+    "table": "credit_notes",
+    "disposition": "authoritative",
+    "domain": "receivables",
+    "rationale": "Credit notes"
+  },
+  {
+    "table": "expense_categories",
     "disposition": "authoritative",
     "domain": "finance",
-    "rationale": "Cost allocation rows"
+    "rationale": "Expense categories"
+  },
+  {
+    "table": "expenses",
+    "disposition": "authoritative",
+    "domain": "finance",
+    "rationale": "Expense records"
+  },
+  {
+    "table": "fixed_asset_depreciations",
+    "disposition": "authoritative",
+    "domain": "finance",
+    "rationale": "Depreciation schedule and postings"
+  },
+  {
+    "table": "fixed_assets",
+    "disposition": "authoritative",
+    "domain": "finance",
+    "rationale": "Fixed asset register"
+  },
+  {
+    "table": "hr_attendance",
+    "disposition": "authoritative",
+    "domain": "people",
+    "rationale": "Attendance records"
+  },
+  {
+    "table": "hr_employee_compensation",
+    "disposition": "authoritative",
+    "domain": "people",
+    "rationale": "Compensation data restricted by role"
+  },
+  {
+    "table": "hr_employee_shift_assignments",
+    "disposition": "authoritative",
+    "domain": "people",
+    "rationale": "Shift assignments"
+  },
+  {
+    "table": "hr_employees",
+    "disposition": "authoritative",
+    "domain": "people",
+    "rationale": "Employee records subject to retention/access policy"
+  },
+  {
+    "table": "hr_leave_requests",
+    "disposition": "authoritative",
+    "domain": "people",
+    "rationale": "Leave records"
+  },
+  {
+    "table": "hr_payroll_deductions",
+    "disposition": "authoritative",
+    "domain": "people",
+    "rationale": "Payroll deductions; restricted"
+  },
+  {
+    "table": "hr_payroll_lines",
+    "disposition": "authoritative",
+    "domain": "people",
+    "rationale": "Payroll lines; restricted"
+  },
+  {
+    "table": "hr_payroll_runs",
+    "disposition": "authoritative",
+    "domain": "people",
+    "rationale": "Payroll runs; restricted"
+  },
+  {
+    "table": "hr_shifts",
+    "disposition": "authoritative",
+    "domain": "people",
+    "rationale": "Shift definitions"
+  },
+  {
+    "table": "hr_timesheets",
+    "disposition": "authoritative",
+    "domain": "people",
+    "rationale": "Timesheets"
+  },
+  {
+    "table": "idempotency_records",
+    "disposition": "authoritative",
+    "domain": "platform",
+    "rationale": "Business request deduplication evidence"
+  },
+  {
+    "table": "inventory_lots",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Lot and expiry tracking"
+  },
+  {
+    "table": "inventory_package_lines",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Package contents"
+  },
+  {
+    "table": "inventory_packages",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Package state"
+  },
+  {
+    "table": "inventory_picklist_lines",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Picklist lines"
+  },
+  {
+    "table": "inventory_picklists",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Picklist state"
+  },
+  {
+    "table": "inventory_replenishment_policies",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Replenishment policy"
+  },
+  {
+    "table": "inventory_serials",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Serial tracking"
+  },
+  {
+    "table": "inventory_stock_count_lines",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Stock count lines"
+  },
+  {
+    "table": "inventory_stock_counts",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Stock count source records"
+  },
+  {
+    "table": "inventory_transfer_lines",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Stock transfer lines"
+  },
+  {
+    "table": "inventory_transfers",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Stock transfer source records"
+  },
+  {
+    "table": "ledger_accounts",
+    "disposition": "authoritative",
+    "domain": "ledger",
+    "rationale": "Chart of accounts"
+  },
+  {
+    "table": "ledger_journal_lines",
+    "disposition": "authoritative",
+    "domain": "ledger",
+    "rationale": "Journal lines"
+  },
+  {
+    "table": "ledger_journals",
+    "disposition": "authoritative",
+    "domain": "ledger",
+    "rationale": "Journal headers"
+  },
+  {
+    "table": "manufacturing_bom_lines",
+    "disposition": "authoritative",
+    "domain": "manufacturing",
+    "rationale": "BOM components"
+  },
+  {
+    "table": "manufacturing_boms",
+    "disposition": "authoritative",
+    "domain": "manufacturing",
+    "rationale": "BOM headers"
+  },
+  {
+    "table": "manufacturing_job_card_steps",
+    "disposition": "authoritative",
+    "domain": "manufacturing",
+    "rationale": "Job card steps"
+  },
+  {
+    "table": "manufacturing_job_cards",
+    "disposition": "authoritative",
+    "domain": "manufacturing",
+    "rationale": "Job cards"
+  },
+  {
+    "table": "manufacturing_work_order_materials",
+    "disposition": "authoritative",
+    "domain": "manufacturing",
+    "rationale": "Work order material consumption"
+  },
+  {
+    "table": "manufacturing_work_orders",
+    "disposition": "authoritative",
+    "domain": "manufacturing",
+    "rationale": "Work orders"
+  },
+  {
+    "table": "memberships",
+    "disposition": "authoritative",
+    "domain": "identity",
+    "rationale": "Tenant membership and role mapping; require relinking and review"
+  },
+  {
+    "table": "module_definitions",
+    "disposition": "reconstructed",
+    "domain": "platform",
+    "rationale": "Reinstalled from versioned application catalog"
+  },
+  {
+    "table": "module_domain_events",
+    "disposition": "authoritative",
+    "domain": "platform",
+    "rationale": "Durable business event history; transient queues excluded"
+  },
+  {
+    "table": "module_record_links",
+    "disposition": "authoritative",
+    "domain": "collaboration",
+    "rationale": "Module relationships"
+  },
+  {
+    "table": "module_records",
+    "disposition": "authoritative",
+    "domain": "collaboration",
+    "rationale": "Business module records"
+  },
+  {
+    "table": "notification_email_deliveries",
+    "disposition": "authoritative",
+    "domain": "notifications",
+    "rationale": "Transactional email delivery attempts and bounded retry/provider state"
+  },
+  {
+    "table": "notification_email_suppressions",
+    "disposition": "authoritative",
+    "domain": "notifications",
+    "rationale": "Hashed bounce and complaint suppression controls; no raw recipient address"
+  },
+  {
+    "table": "notification_email_webhook_events",
+    "disposition": "excluded",
+    "domain": "operations",
+    "rationale": "Excluded: provider event dedupe evidence is minimal and delivery state is separately authoritative"
+  },
+  {
+    "table": "notification_email_webhook_routes",
+    "disposition": "authoritative",
+    "domain": "notifications",
+    "rationale": "Provider message-to-delivery routing needed to reconcile signed delivery callbacks"
+  },
+  {
+    "table": "notification_preferences",
+    "disposition": "authoritative",
+    "domain": "notifications",
+    "rationale": "Per-user event and channel delivery preferences"
+  },
+  {
+    "table": "password_reset_tokens",
+    "disposition": "excluded",
+    "domain": "identity",
+    "rationale": "Reset tokens are never restored"
+  },
+  {
+    "table": "platform_alert_incidents",
+    "disposition": "authoritative",
+    "domain": "operations",
+    "rationale": "Grouped operational incident evidence and acknowledgement state"
+  },
+  {
+    "table": "platform_alert_rules",
+    "disposition": "authoritative",
+    "domain": "operations",
+    "rationale": "Tenant-scoped operational alert thresholds and runbook ownership"
+  },
+  {
+    "table": "platform_attachments",
+    "disposition": "authoritative",
+    "domain": "documents",
+    "rationale": "Metadata and object manifest; objects restored privately and rescanned"
+  },
+  {
+    "table": "platform_backup_inventory",
+    "disposition": "reconstructed",
+    "domain": "backup",
+    "rationale": "Versioned inventory ships with application"
   },
   {
     "table": "platform_event_attempts",
@@ -856,5 +574,353 @@
     "disposition": "authoritative",
     "domain": "platform",
     "rationale": "Dead-letter event replay audit trail"
+  },
+  {
+    "table": "platform_import_rows",
+    "disposition": "authoritative",
+    "domain": "imports",
+    "rationale": "Import preview and reconciliation history"
+  },
+  {
+    "table": "platform_import_templates",
+    "disposition": "reconstructed",
+    "domain": "imports",
+    "rationale": "Versioned templates ship with application"
+  },
+  {
+    "table": "platform_job_attempts",
+    "disposition": "authoritative",
+    "domain": "platform",
+    "rationale": "Execution attempt history"
+  },
+  {
+    "table": "platform_job_replays",
+    "disposition": "authoritative",
+    "domain": "platform",
+    "rationale": "Replay audit trail"
+  },
+  {
+    "table": "platform_jobs",
+    "disposition": "authoritative",
+    "domain": "platform",
+    "rationale": "Durable job and recovery metadata; reset active leases"
+  },
+  {
+    "table": "platform_provider_connections",
+    "disposition": "excluded",
+    "domain": "security",
+    "rationale": "Provider credentials never backed up; reconnect manually"
+  },
+  {
+    "table": "platform_provider_operations",
+    "disposition": "authoritative",
+    "domain": "integrations",
+    "rationale": "Provider operation audit, no credentials"
+  },
+  {
+    "table": "platform_restore_approvals",
+    "disposition": "authoritative",
+    "domain": "backup",
+    "rationale": "Recovery approval evidence"
+  },
+  {
+    "table": "platform_runtime_controls",
+    "disposition": "authoritative",
+    "domain": "platform",
+    "rationale": "Recovery pause/release state is durable business control state and must be restored paused."
+  },
+  {
+    "table": "platform_webhook_events",
+    "disposition": "authoritative",
+    "domain": "integrations",
+    "rationale": "Webhook deduplication and processing evidence"
+  },
+  {
+    "table": "platform_worker_heartbeats",
+    "disposition": "excluded",
+    "domain": "platform",
+    "rationale": "Transient worker liveness rebuilt after restart"
+  },
+  {
+    "table": "price_list_items",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Pricing rows"
+  },
+  {
+    "table": "price_lists",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Pricing rules"
+  },
+  {
+    "table": "procurement_approval_rules",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "Approval rules"
+  },
+  {
+    "table": "procurement_approvals",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "Procurement approvals"
+  },
+  {
+    "table": "procurement_awards",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "Procurement awards"
+  },
+  {
+    "table": "procurement_purchase_request_lines",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "Purchase request lines"
+  },
+  {
+    "table": "procurement_purchase_requests",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "Purchase requests"
+  },
+  {
+    "table": "procurement_rfq_lines",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "RFQ lines"
+  },
+  {
+    "table": "procurement_rfq_suppliers",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "RFQ supplier invitations"
+  },
+  {
+    "table": "procurement_rfqs",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "RFQs"
+  },
+  {
+    "table": "procurement_supplier_notes",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "Supplier notes"
+  },
+  {
+    "table": "procurement_supplier_return_lines",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "Supplier return lines"
+  },
+  {
+    "table": "procurement_supplier_returns",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "Supplier returns"
+  },
+  {
+    "table": "procurement_suppliers",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "Supplier master"
+  },
+  {
+    "table": "product_variants",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Variant master"
+  },
+  {
+    "table": "products",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Product master"
+  },
+  {
+    "table": "project_cost_entries",
+    "disposition": "authoritative",
+    "domain": "projects",
+    "rationale": "Project costs"
+  },
+  {
+    "table": "project_tasks",
+    "disposition": "authoritative",
+    "domain": "projects",
+    "rationale": "Project tasks"
+  },
+  {
+    "table": "projects",
+    "disposition": "authoritative",
+    "domain": "projects",
+    "rationale": "Project records"
+  },
+  {
+    "table": "quality_inspection_plan_checks",
+    "disposition": "authoritative",
+    "domain": "quality",
+    "rationale": "Inspection plan checks"
+  },
+  {
+    "table": "quality_inspection_plans",
+    "disposition": "authoritative",
+    "domain": "quality",
+    "rationale": "Inspection plans"
+  },
+  {
+    "table": "quality_inspection_results",
+    "disposition": "authoritative",
+    "domain": "quality",
+    "rationale": "Inspection results"
+  },
+  {
+    "table": "quality_inspections",
+    "disposition": "authoritative",
+    "domain": "quality",
+    "rationale": "Inspection records"
+  },
+  {
+    "table": "recurring_invoice_occurrences",
+    "disposition": "authoritative",
+    "domain": "receivables",
+    "rationale": "Unique generated/failed recurring invoice occurrence history and invoice link"
+  },
+  {
+    "table": "recurring_invoice_schedules",
+    "disposition": "authoritative",
+    "domain": "receivables",
+    "rationale": "Authoritative recurring invoice schedule configuration and customer/line snapshots"
+  },
+  {
+    "table": "sale_lines",
+    "disposition": "authoritative",
+    "domain": "sales",
+    "rationale": "Sales lines and tax snapshots"
+  },
+  {
+    "table": "sale_payments",
+    "disposition": "authoritative",
+    "domain": "sales",
+    "rationale": "Receipts, reversals and payment attribution"
+  },
+  {
+    "table": "sale_return_lines",
+    "disposition": "authoritative",
+    "domain": "sales",
+    "rationale": "Return lines"
+  },
+  {
+    "table": "sale_returns",
+    "disposition": "authoritative",
+    "domain": "sales",
+    "rationale": "Return transactions"
+  },
+  {
+    "table": "sales",
+    "disposition": "authoritative",
+    "domain": "sales",
+    "rationale": "Sales transactions"
+  },
+  {
+    "table": "sessions",
+    "disposition": "excluded",
+    "domain": "identity",
+    "rationale": "Live sessions are never restored"
+  },
+  {
+    "table": "stock_movements",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Source stock movement ledger"
+  },
+  {
+    "table": "stock_reservations",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Stock reservation state"
+  },
+  {
+    "table": "storage_bins",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Bin master"
+  },
+  {
+    "table": "supplier_quotation_lines",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "Supplier quotation lines"
+  },
+  {
+    "table": "supplier_quotations",
+    "disposition": "authoritative",
+    "domain": "procurement",
+    "rationale": "Supplier quotations"
+  },
+  {
+    "table": "support_cases",
+    "disposition": "authoritative",
+    "domain": "support",
+    "rationale": "Support case history"
+  },
+  {
+    "table": "tax_code_rule_versions",
+    "disposition": "authoritative",
+    "domain": "tax",
+    "rationale": "Immutable effective-dated rule versions"
+  },
+  {
+    "table": "tax_codes",
+    "disposition": "authoritative",
+    "domain": "tax",
+    "rationale": "Tax code configuration"
+  },
+  {
+    "table": "tax_reference_documents",
+    "disposition": "authoritative",
+    "domain": "tax",
+    "rationale": "Tax reference metadata; document object references"
+  },
+  {
+    "table": "tax_rule_reference_links",
+    "disposition": "authoritative",
+    "domain": "tax",
+    "rationale": "Rule-to-reference relationships"
+  },
+  {
+    "table": "tax_rules",
+    "disposition": "authoritative",
+    "domain": "tax",
+    "rationale": "Approved tax rule state"
+  },
+  {
+    "table": "tenants",
+    "disposition": "authoritative",
+    "domain": "tenant",
+    "rationale": "Workspace root and business settings"
+  },
+  {
+    "table": "unit_of_measures",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Unit definitions"
+  },
+  {
+    "table": "users",
+    "disposition": "authoritative",
+    "domain": "identity",
+    "rationale": "Identity references only; never restore credentials or sessions"
+  },
+  {
+    "table": "warehouses",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Warehouse master"
+  },
+  {
+    "table": "workspace_invitations",
+    "disposition": "excluded",
+    "domain": "identity",
+    "rationale": "Pending invitations and tokens must be reissued"
   }
 ]

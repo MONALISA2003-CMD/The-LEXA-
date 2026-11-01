@@ -4,6 +4,15 @@ import { spawn } from 'node:child_process';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required for the disposable tenant HTTP test.');
+const expectedBranchId = process.env.LEXA_TEST_BRANCH_ID;
+const expectedHost = process.env.LEXA_TEST_ALLOWED_DB_HOST;
+const actualHost = new URL(databaseUrl).hostname;
+if (expectedBranchId !== 'br-wandering-paper-ba5lkq5l') {
+  throw new Error('Refusing HTTP fixtures: set LEXA_TEST_BRANCH_ID to the dedicated validation branch br-wandering-paper-ba5lkq5l. Production and other branches are forbidden.');
+}
+if (expectedHost !== 'ep-small-feather-balf5unj-pooler.c-8.eu-central-1.aws.neon.tech' || actualHost !== expectedHost) {
+  throw new Error('Refusing HTTP fixtures: DATABASE_URL host does not match the verified disposable Neon validation branch.');
+}
 const port = Number(process.env.LEXA_TEST_PORT ?? 11837);
 const base = `http://127.0.0.1:${port}`;
 const ids = {
@@ -34,7 +43,7 @@ async function seed() {
     await db.query(`INSERT INTO products(id,tenant_id,name,sku,cost_price_minor,selling_price_minor,low_stock_threshold,track_stock,active,created_at,updated_at)
       VALUES($1,$2,'HTTP Product A','HTTP-SKU-A',100,500,0,true,true,now(),now()) ON CONFLICT(id) DO NOTHING`, [ids.productA,ids.tenantA]);
     await db.query(`INSERT INTO stock_movements(id,tenant_id,branch_id,product_id,type,quantity_delta,reason,unit_cost_minor,created_at)
-      VALUES($1,$2,$3,$4,'opening',5,'HTTP integration fixture',100,now()) ON CONFLICT(id) DO NOTHING`, [randomUUID(),ids.tenantA,ids.branchA,ids.productA]);
+      SELECT 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad',$1,$2,$3,'opening',5,'HTTP integration fixture',100,now() WHERE NOT EXISTS (SELECT 1 FROM stock_movements WHERE tenant_id=$1 AND branch_id=$2 AND product_id=$3 AND reason='HTTP integration fixture')`, [ids.tenantA,ids.branchA,ids.productA]);
 
     await db.query("SELECT set_config('app.tenant_id',$1,true)", [ids.tenantB]);
     await db.query(`INSERT INTO memberships(tenant_id,user_id,role,status,branch_scope_mode,created_at,updated_at)
@@ -44,7 +53,7 @@ async function seed() {
     await db.query(`INSERT INTO products(id,tenant_id,name,sku,cost_price_minor,selling_price_minor,low_stock_threshold,track_stock,active,created_at,updated_at)
       VALUES($1,$2,'HTTP Product B','HTTP-SKU-B',100,500,0,true,true,now(),now()) ON CONFLICT(id) DO NOTHING`, [ids.productB,ids.tenantB]);
     await db.query(`INSERT INTO stock_movements(id,tenant_id,branch_id,product_id,type,quantity_delta,reason,unit_cost_minor,created_at)
-      VALUES($1,$2,$3,$4,'opening',5,'HTTP integration fixture',100,now()) ON CONFLICT(id) DO NOTHING`, [randomUUID(),ids.tenantB,ids.branchB,ids.productB]);
+      SELECT 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbad',$1,$2,$3,'opening',5,'HTTP integration fixture',100,now() WHERE NOT EXISTS (SELECT 1 FROM stock_movements WHERE tenant_id=$1 AND branch_id=$2 AND product_id=$3 AND reason='HTTP integration fixture')`, [ids.tenantB,ids.branchB,ids.productB]);
 
     await db.query("SELECT set_config('app.user_id',$1,true)", [ids.userA]);
     await db.query(`INSERT INTO sessions(id,user_id,tenant_id,token_hash,expires_at,created_at) VALUES($1,$2,$3,$4,now()+interval '1 hour',now()) ON CONFLICT(token_hash) DO NOTHING`, [randomUUID(),ids.userA,ids.tenantA,sha(tokenA)]);
@@ -116,9 +125,33 @@ try {
     assert(credits.status===200,`Credit note list failed in ${tenantId}: ${credits.status}`);
     const creditRows=Array.isArray(credits.payload)?credits.payload:credits.payload?.data;
     assert(Array.isArray(creditRows)&&creditRows.length>0,`No credit note was issued for the return in ${tenantId}.`);
+
+    // Exercise POS -> dispatchable lines -> rider assignment -> full delivery lifecycle.
+    const agent=await request(`/workspaces/${tenantId}/branches/${branchId}/commerce/delivery-agents`,token,csrf,'POST',{displayName:'LEXA CI Rider',agentType:'independent_rider',phone:'+256700000001'});
+    assert(agent.status===201||agent.status===200,`Delivery agent creation failed in ${tenantId}: ${agent.status} ${JSON.stringify(agent.payload)}`);
+    const secondSale=await request(`/workspaces/${tenantId}/branches/${branchId}/sales/complete`,token,csrf,'POST',{customerName:'CI Delivery Recipient',customerPhone:'+256700000002',items:[{productId,quantity:1}],payments:[{method:'cash',amountMinor:500}]});
+    assert(secondSale.status===201||secondSale.status===200,`Delivery sale creation failed in ${tenantId}: ${secondSale.status} ${JSON.stringify(secondSale.payload)}`);
+    const secondSaleObj=secondSale.payload?.sale??secondSale.payload?.data?.sale;
+    assert(secondSaleObj?.id,`Delivery sale response did not include a sale ID in ${tenantId}.`);
+    const dispatchable=await request(`/workspaces/${tenantId}/branches/${branchId}/commerce/sales/${secondSaleObj.id}/dispatchable-lines`,token,csrf);
+    assert(dispatchable.status===200,`Dispatchable sale lines failed in ${tenantId}: ${dispatchable.status} ${JSON.stringify(dispatchable.payload)}`);
+    const dispatchLines=dispatchable.payload?.lines??dispatchable.payload?.data?.lines??[];
+    const dispatchLine=dispatchLines.find(line=>line.dispatchableQuantity>=1);
+    assert(dispatchLine?.saleLineId,`No dispatchable sale line returned in ${tenantId}.`);
+    const dispatch=await request(`/workspaces/${tenantId}/branches/${branchId}/commerce/dispatches`,token,csrf,'POST',{saleId:secondSaleObj.id,items:[{saleLineId:dispatchLine.saleLineId,quantity:1}],deliveryMethod:'independent_rider',deliveryAgentId:agent.payload?.id??agent.payload?.data?.id,recipientName:'CI Recipient',recipientPhone:'+256700000002',deliveryAddress:'Test address',expectedCollectionMinor:0});
+    assert(dispatch.status===201||dispatch.status===200,`Dispatch creation failed in ${tenantId}: ${dispatch.status} ${JSON.stringify(dispatch.payload)}`);
+    const dispatchObj=dispatch.payload?.delivery??dispatch.payload?.data?.delivery??dispatch.payload?.data??dispatch.payload;
+    assert(dispatchObj?.id,`Dispatch response did not include a delivery ID in ${tenantId}.`);
+    for(const [status,extra] of [['assigned',{}],['picked_up',{}],['in_transit',{}],['delivered',{recipientName:'CI Recipient'}]]){
+      const transition=await request(`/workspaces/${tenantId}/branches/${branchId}/commerce/dispatches/${dispatchObj.id}/events`,token,csrf,'POST',{status,...extra,location:'CI staging'});
+      assert(transition.status===200||transition.status===201,`Delivery transition ${status} failed in ${tenantId}: ${transition.status} ${JSON.stringify(transition.payload)}`);
+    }
+    const finalDispatch=await request(`/workspaces/${tenantId}/branches/${branchId}/commerce/dispatches/${dispatchObj.id}`,token,csrf);
+    const finalDelivery=finalDispatch.payload?.delivery??finalDispatch.payload?.data?.delivery??finalDispatch.payload?.data;
+    assert(finalDispatch.status===200&&finalDelivery?.status==='delivered',`Delivery did not reach delivered in ${tenantId}: ${finalDispatch.status} ${JSON.stringify(finalDispatch.payload)}`);
   }
 
-  console.log('Tenant HTTP/IDOR integration passed: two tenants, two users, own-record reads, cross-tenant list/direct-ID/branch denial, and per-tenant sale/payment/return/credit-note round trips.');
+  console.log('Tenant HTTP/IDOR integration passed: two tenants, own-record reads, cross-tenant list/direct-ID/branch denial, POS sale/payment/return/credit-note round trips, rider creation, dispatch reservation, and delivery lifecycle to confirmed receipt.');
 } finally {
   if (child) { child.kill('SIGTERM'); await new Promise(resolve=>setTimeout(resolve,500)); if (!child.killed) child.kill('SIGKILL'); }
   try { await db.end(); } catch {}

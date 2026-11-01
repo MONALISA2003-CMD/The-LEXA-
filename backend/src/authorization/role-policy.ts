@@ -92,6 +92,8 @@ export function permissionForRequest(method: string, pathname: string, params: R
   const choose = (read: Permission, mutation: Permission): Permission => write ? mutation : read;
 
   if (/\/workspaces\/[^/]+\/members(?:$|\?)|\/memberships\/[^/]+\/(?:branches|role)(?:$|\?)|\/workspaces\/[^/]+\/invitations(?:$|\/)/.test(path)) return 'workspace.manage';
+  if (/\/recurring-invoices(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
+  if (/\/operations(?:\/|$)/.test(path)) return choose('workspace.read', 'module.write');
   if (/\/workspaces\/[^/]+$/.test(path) || /\/workspaces\/[^/]+\/branches$/.test(path)) return write ? 'workspace.manage' : 'workspace.read';
   if (/\/products(?:\/|$)|\/categories(?:\/|$)/.test(path)) return choose('catalog.read', 'catalog.write');
   if (/\/inventory\/(?:movements|balances)(?:\/|$)/.test(path)) return choose('inventory.read', 'inventory.write');
@@ -99,7 +101,7 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/sales(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
   if (/\/commerce\/payment-report$/.test(path)) return 'sales.read';
   if (/\/platform\/attachments(?:\/|$)/.test(path)) return choose('collaboration.read','collaboration.write');
-  if (/\/platform\/jobs\/(?:backup|restore-dry-run)(?:$|\/)/.test(path) || /\/platform\/events\/(?:dead-letter|[^/]+\/replay)$/.test(path)) return 'workspace.manage';
+  if (/\/platform\/jobs\/(?:backup|restore-dry-run|restore)$/.test(path) || /\/platform\/jobs\/[^/]+\/restore-(?:approve|release)$/.test(path) || /\/platform\/events\/(?:dead-letter|[^/]+\/replay)$/.test(path)) return 'workspace.manage';
   if (/\/platform\/jobs\/export$/.test(path)) return 'reports.read';
   if (/\/platform\/jobs\/(?:import|[^/]+\/(?:approve|cancel|retry))$/.test(path)) return choose('catalog.read','catalog.write');
   if (/\/platform\/jobs(?:$|\/)/.test(path) || /\/platform\/imports\/templates$/.test(path)) return choose('reports.read','catalog.write');

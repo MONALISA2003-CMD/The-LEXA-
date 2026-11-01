@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { CoreController } from './core/core.controller';
@@ -20,10 +20,16 @@ import { TaxReferenceController } from './platform/tax-reference.controller';
 import { SupplyChainController } from './supply-chain/supply-chain.controller';
 import { PeopleProjectsController } from './people-projects/people-projects.controller';
 import { PeopleProjectsService } from './people-projects/people-projects.service';
+import { NotificationCentreController } from './notifications/notification-centre.controller';
+import { ResendWebhookController } from './notifications/resend-webhook.controller';
+import { RecurringInvoicesController } from './receivables/recurring-invoices.controller';
+import { OperationsController } from './operations/operations.controller';
+import { SentryExceptionInterceptor } from './observability-interceptor';
+import { CorrelationInterceptor } from './correlation-interceptor';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, DeliveryWorkflowController, ReceivablesController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController, SupplyChainController, PeopleProjectsController, PlatformController, TaxReferenceController],
-  providers: [CsrfGuard, PeopleProjectsService, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
+  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, DeliveryWorkflowController, ReceivablesController, RecurringInvoicesController, NotificationCentreController, ResendWebhookController, OperationsController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController, SupplyChainController, PeopleProjectsController, PlatformController, TaxReferenceController],
+  providers: [CsrfGuard, PeopleProjectsService, { provide: APP_INTERCEPTOR, useClass: CorrelationInterceptor }, { provide: APP_INTERCEPTOR, useClass: SentryExceptionInterceptor }, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
 })
 export class AppModule {}

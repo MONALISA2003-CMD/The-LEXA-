@@ -1,0 +1,23 @@
+LEXA validation evidence — 2026-11-01 deployment repair
+
+Backend unit tests: 74 passed, 0 failed.
+TypeScript/TSX syntax transpilation: 175 files, 0 syntax errors.
+Backend platform-jobs strict isolated typecheck (minimal external API stubs): passed.
+Backup inventory: 154 decisions, 137 discovered references covered.
+OpenAPI coverage: 296 operations across 235 routes, exact match.
+Route-to-adapter coverage: 17/17.
+Ledger workflow coverage: 9/9.
+Frontend prebuild scripts: authentication UI, module completion, palette/route coverage, and Vitest discovery fixes all executed successfully after adding /operations accent.
+
+Not run / blocked in this runtime:
+- Full frontend npm test: attempted, but `vitest` is not installed locally (`sh: vitest: not found`). The current frontend adds a payment-report test; it has not been rerun here. The supplied Vercel log for the previous source passed 22 files / 97 tests before `tsc -b` failed.
+- Full frontend `tsc -b && vite build`: not run because the frontend dependencies are unavailable.
+- Full backend `npm run build` / Nest build: not run because backend dependencies are unavailable.
+- npm dependency installation: not completed; registry DNS lookup for `registry.npmjs.org` fails in this runtime and no usable npm cache is present.
+- Playwright, live HTTP/database E2E, staging migration apply/upgrade/fresh-install test, live Resend delivery/webhook, hosted worker/Redis/ClamAV/R2 checks, Sentry/OTel exporter verification, and actual staging restore drill.
+
+Hosted logs inspected:
+- Vercel latest failure: `lexa_review`, commit `e8cff2f10fe7bf785f83fbb3026aef608b6f5218`, 97 previous-source tests passed; `tsc -b` then failed on three TypeScript issues now repaired in this source.
+- Render latest failure: `lexa-backend-api-live`, commit `e8cff2f10fe7bf785f83fbb3026aef608b6f5218`, Nest build stopped on seven TypeScript issues now repaired in this source; the earlier accounting period `startDate` mismatch is also corrected to `startsOn`.
+
+Source repairs are included in this root-level ZIP. This is a build-repaired handoff, not a verified green hosted deployment. A successful dependency-backed build on Vercel and Render remains the final confirmation gate.

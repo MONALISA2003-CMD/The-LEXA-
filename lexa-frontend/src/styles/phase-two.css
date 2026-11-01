@@ -239,3 +239,50 @@
   .document-lines-heading { align-items: center; }
   .document-lines-heading p { max-width: 230px; }
 }
+
+/* Increment 6/7 notification and operations surfaces */
+.inbox-notification-filters,.inbox-panel-actions,.inbox-pagination,.recurring-schedule-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.inbox-notification-filters{padding:12px 0;border-bottom:1px solid var(--border,#e4e8ef);margin-bottom:12px}
+.inbox-notification-filters label,.recurring-form label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted,#667085)}
+.inbox-notification-filters input:not([type=checkbox]),.inbox-notification-filters select,.recurring-form input,.recurring-form select{min-height:36px;border:1px solid var(--border,#d9e0ea);border-radius:8px;padding:7px 10px;background:var(--surface,#fff);color:var(--text,#1d2939)}
+.inbox-notification-filters .inbox-notification-unread-filter{flex-direction:row;align-items:center;margin-top:18px}
+.inbox-notification-preferences{padding:14px;border:1px solid var(--border,#e4e8ef);border-radius:10px;margin-bottom:12px;background:var(--surface-subtle,#f8fafc)}
+.inbox-notification-preference-row{display:grid;grid-template-columns:minmax(180px,1fr) 100px 100px;gap:12px;padding:8px 0;border-bottom:1px solid var(--border,#e4e8ef)}
+.inbox-notification-preference-row label{display:flex;align-items:center;gap:6px}
+.inbox-pagination{justify-content:flex-end;padding-top:14px}
+.recurring-form-card{padding:20px}
+.recurring-form{display:flex;flex-direction:column;gap:18px}
+.recurring-form .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.recurring-lines-heading,.recurring-form-footer,.section-card-heading,.recurring-schedule-main,.recurring-schedule-title,.recurring-occurrence-row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.recurring-line-editor{display:grid;grid-template-columns:minmax(180px,2fr) repeat(4,minmax(110px,1fr)) auto;gap:10px;align-items:end;padding:12px;border:1px solid var(--border,#e4e8ef);border-radius:10px}
+.recurring-warning{display:flex;flex-direction:column;gap:4px;padding:12px;border:1px solid #e6c98d;border-radius:9px;background:#fff9eb;color:#7a4c0b}
+.recurring-schedule-list,.recurring-occurrence-list{display:flex;flex-direction:column;gap:10px}
+.recurring-schedule-card{border:1px solid var(--border,#e4e8ef);border-radius:12px;padding:15px;background:var(--surface,#fff)}
+.recurring-schedule-card.is-selected{border-color:var(--accent,#6b8dbb)}
+.recurring-schedule-main>div:first-child{display:flex;flex-direction:column;gap:5px;min-width:0}
+.recurring-schedule-title{justify-content:flex-start;flex-wrap:wrap}
+.recurring-schedule-main p,.recurring-schedule-main small{margin:0;color:var(--muted,#667085)}
+.recurring-schedule-actions{justify-content:flex-end}
+.status-pill{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;background:#eef2f6;color:#475467;font-size:11px;text-transform:capitalize}
+.status-active,.status-generated{background:#e9f5ee;color:#216e43}.status-needs_attention,.status-failed{background:#fff1e8;color:#a24713}.status-cancelled,.status-completed{background:#f2f4f7;color:#667085}
+.recurring-history-panel{border-top:1px solid var(--border,#e4e8ef);margin-top:14px;padding-top:12px}
+.recurring-occurrence-row{padding:9px 0;border-bottom:1px solid var(--border,#e4e8ef)}
+.recurring-occurrence-row>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.recurring-occurrence-row small{color:var(--muted,#667085)}
+.recurring-error{color:#a33b32!important}
+.recurring-form-footer{justify-content:flex-end;padding-top:10px;border-top:1px solid var(--border,#e4e8ef)}
+@media(max-width:760px){.recurring-line-editor{grid-template-columns:1fr 1fr}.recurring-line-editor label:first-child{grid-column:1/-1}.recurring-schedule-main{align-items:flex-start;flex-direction:column}.recurring-schedule-actions{justify-content:flex-start}.inbox-notification-preference-row{grid-template-columns:1fr 80px 80px}}
+.operations-metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px}
+.operations-metric{padding:15px;display:flex;flex-direction:column;gap:7px}
+.operations-metric-top{display:flex;align-items:center;justify-content:space-between;color:var(--muted,#667085);font-size:12px}
+.operations-metric>strong{font-size:24px;line-height:1.2;color:var(--text,#1d2939);overflow-wrap:anywhere}
+.operations-metric>small{font-size:11px;color:var(--muted,#667085)}
+.operations-alert-list{display:flex;flex-direction:column}
+.operations-alert-row{display:flex;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--border,#e4e8ef)}
+.operations-alert-row>div:first-child{display:flex;flex-direction:column;gap:5px;min-width:0}
+.operations-alert-row p,.operations-alert-row small{margin:0;color:var(--muted,#667085)}
+.operations-alert-heading,.operations-alert-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.operations-alert-actions{align-self:center}
+@media(max-width:760px){.operations-alert-row{flex-direction:column}.operations-alert-actions{align-self:flex-start}}
+
+.operations-rule-list{display:grid;gap:10px}.operations-rule{border:1px solid var(--line,#dce3ec);border-radius:12px;padding:12px 14px}.operations-rule summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;list-style:none}.operations-rule summary::-webkit-details-marker{display:none}.operations-rule summary small{margin-left:auto;color:var(--muted,#687386)}.operations-rule-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line,#dce3ec)}.operations-rule-form label{display:grid;gap:5px;font-size:12px;color:var(--muted,#687386)}.operations-rule-form input:not([type=checkbox]),.operations-rule-form select,.operations-rule-form textarea{width:100%;min-width:0;border:1px solid var(--line,#dce3ec);border-radius:8px;padding:9px;background:var(--surface,#fff);color:var(--text,#182334);font:inherit}.operations-rule-form textarea{font-family:ui-monospace,monospace}.operations-rule-enabled{display:flex!important;align-items:center;gap:8px}.operations-rule-form button{justify-self:start}@media(max-width:700px){.operations-rule-form{grid-template-columns:1fr}}

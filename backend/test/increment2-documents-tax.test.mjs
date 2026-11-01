@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 const platform=readFileSync(new URL('../src/platform/platform.controller.ts',import.meta.url),'utf8');
 const tax=readFileSync(new URL('../src/platform/tax-reference.controller.ts',import.meta.url),'utf8');
 const worker=readFileSync(new URL('../src/platform/worker.ts',import.meta.url),'utf8');
+const clamav=readFileSync(new URL('../src/platform/clamav.ts',import.meta.url),'utf8');
 const core=readFileSync(new URL('../src/core/core.controller.ts',import.meta.url),'utf8');
 const migration=readFileSync(new URL('../prisma/migrations/20261101103000_increment2_private_documents_tax/migration.sql',import.meta.url),'utf8');
 test('upload is create-once, short-lived and verifies actual object bytes',()=>{
@@ -15,7 +16,7 @@ test('attachment downloads re-authorise record participation and are clean-only'
  assert.match(core,/file\.uploaded_by_user_id !== session\.userId/);
 });
 test('scanner moves clean objects and fails closed for infected, unavailable or timeout cases',()=>{
- assert.match(worker,/clamdScan\(bytes\)/);assert.match(worker,/new CopyObjectCommand/);assert.match(worker,/new DeleteObjectCommand/);assert.match(worker,/InfectedFileError/);assert.match(worker,/'scan_failed'/);assert.match(worker,/'quarantined'/);
+ assert.match(worker,/scanWithClamAV\(bytes\)/);assert.match(clamav,/zINSTREAM/);assert.match(clamav,/FOUND/);assert.match(clamav,/timeout/);assert.match(worker,/new CopyObjectCommand/);assert.match(worker,/new DeleteObjectCommand/);assert.match(worker,/InfectedFileError/);assert.match(worker,/'scan_failed'/);assert.match(worker,/'quarantined'/);
 });
 test('tax documents and rules are versioned, tenant-scoped and independently approved',()=>{
  assert.match(migration,/CREATE TABLE tax_reference_documents/);assert.match(migration,/CREATE TABLE tax_code_rule_versions/);assert.match(migration,/CREATE TABLE tax_rule_reference_links/);assert.match(migration,/ALTER TABLE sale_lines[\s\S]*tax_rule_version_id/);

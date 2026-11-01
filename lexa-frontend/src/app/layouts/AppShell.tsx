@@ -95,6 +95,7 @@ const navSections = [
     { to: '/modules/team', label: 'Team & access', icon: Users },
     { to: '/business-tools', label: 'Business tools', icon: Settings },
     { to: '/modules/audit', label: 'Activity & audit log', icon: Activity },
+    { to: '/operations', label: 'Operations Centre', icon: Activity },
   ] },
 ];
 
@@ -125,13 +126,13 @@ export default function AppShell() {
   const [resolvedBranchWorkspaceId, setResolvedBranchWorkspaceId] = useState<string | null>(null);
   const notificationSummaryQuery = useQuery({
     queryKey: ['notifications-summary', workspace?.id, branch?.id],
-    queryFn: () => { if (!workspace || !branch) throw new Error('Choose a workspace and branch first.'); return apiCollaboration.notifications(workspace.id, branch.id); },
+    queryFn: () => { if (!workspace || !branch) throw new Error('Choose a workspace and branch first.'); return apiCollaboration.notificationSummary(workspace.id, branch.id); },
     enabled: isApiProvider && Boolean(workspace?.id && branch?.id),
     staleTime: 20_000,
     refetchInterval: isApiProvider && workspace && branch ? 60_000 : false,
     retry: false,
   });
-  const unreadNotificationCount = (notificationSummaryQuery.data ?? []).filter((item) => !item.readAt).length;
+  const unreadNotificationCount = notificationSummaryQuery.data?.unreadCount ?? 0;
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [uiMode, setUiMode] = useState<'simple' | 'advanced'>(() => {
     try { return readPreference('lexa.ui.mode') === 'advanced' ? 'advanced' : 'simple'; }
