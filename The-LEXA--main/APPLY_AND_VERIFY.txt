@@ -1,0 +1,8 @@
+LEXA deployment blocker fixes
+
+Apply these two files at the repository root on main. They are copied from the supplied repair bundle.
+
+1. backend/Dockerfile: removes the obsolete RUN node scripts/apply-auth-security-patch.mjs build step.
+2. lexa-frontend/src/data/remote/apiClient.ts: omits the optional headers property when undefined in PUT/PATCH helpers, satisfying exactOptionalPropertyTypes.
+
+Commit both files to main. Render auto-deploys on commit; Vercel should build the same commit. Then verify build logs and runtime health.

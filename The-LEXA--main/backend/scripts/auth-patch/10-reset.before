@@ -1,0 +1,16 @@
+  @Post('auth/password/reset')
+  @UseGuards(CsrfGuard)
+  @HttpCode(204)
+  async resetPassword(@Body() raw: unknown): Promise<void> {
+    const body = asObject(raw);
+    const token = requiredString(body.token, 'Recovery token', 500);
+    const passwordHash = await this.passwordHash(requiredString(body.password, 'Password', 1024));
+    const row = await this.prisma.passwordResetToken.findFirst({ where: { tokenHash: sha256(token), consumedAt: null, expiresAt: { gt: new Date() } } });
+    if (!row) throw new BadRequestException({ code: 'RESET_TOKEN_INVALID', message: 'This recovery link is expired or invalid. Request a new one.' });
+    await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.passwordResetToken.updateMany({ where: { id: row.id, consumedAt: null, expiresAt: { gt: new Date() } }, data: { consumedAt: new Date() } });
+      if (updated.count !== 1) throw new BadRequestException('This recovery link has already been used.');
+      await tx.user.update({ where: { id: row.userId }, data: { passwordHash } });
+      await tx.session.deleteMany({ where: { userId: row.userId } });
+    });
+  }

@@ -1,0 +1,14 @@
+FILE_MANIFEST.txt
+IMPLEMENTATION_STATUS.md
+README_INCREMENT_5.md
+apply-increment-5.sh
+backend/prisma/migrations/20261030220000_general_ledger/migration.sql
+backend/src/app.module.ts
+backend/src/general-ledger/general-ledger.controller.ts
+lexa-frontend/src/app/router.tsx
+lexa-frontend/src/data/remote/apiGeneralLedger.ts
+lexa-frontend/src/modules/operations/GeneralLedgerPage.tsx
+lexa-frontend/src/modules/operations/general-ledger.css
+patches/module-catalog-accounting.patch
+patches/schema-stock-movement.patch
+verify-increment-5.sh

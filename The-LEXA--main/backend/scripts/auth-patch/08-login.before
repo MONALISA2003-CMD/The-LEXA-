@@ -1,0 +1,14 @@
+  @Post('auth/login')
+  @UseGuards(CsrfGuard)
+  async login(@Body() raw: unknown, @Res({ passthrough: true }) reply: FastifyReply) {
+    const body = asObject(raw);
+    const email = requiredString(body.email, 'Email', 254).toLowerCase();
+    const password = requiredString(body.password, 'Password', 1024);
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || !(await this.passwordMatches(password, user.passwordHash))) {
+      throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect.' });
+    }
+    await this.createSession(user.id, reply);
+    const memberships = await this.prisma.membership.findMany({ where: { userId: user.id, status: 'ACTIVE' } });
+    return { user: { id: user.id, email: user.email, displayName: user.displayName ?? undefined }, roles: [...new Set(memberships.map((m) => m.role))] };
+  }

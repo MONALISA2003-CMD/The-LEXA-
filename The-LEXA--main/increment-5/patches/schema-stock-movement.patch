@@ -1,0 +1,9 @@
+diff --git a/backend/prisma/schema.prisma b/backend/prisma/schema.prisma
+--- a/backend/prisma/schema.prisma
++++ b/backend/prisma/schema.prisma
+@@ -246,4 +246,5 @@ model StockMovement {
+   productId    String            @map("product_id") @db.Uuid
+   type         StockMovementType
+   quantityDelta Decimal          @map("quantity_delta") @db.Decimal(12, 3)
++  costTotalMinor BigInt           @default(0) @map("cost_total_minor")
+   reason       String
