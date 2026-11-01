@@ -1,0 +1,92 @@
+name: LEXA Backend and Intelligence CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "lexa-frontend/**"
+      - "services/intelligence/**"
+      - "render.yaml"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - "lexa-frontend/**"
+      - "services/intelligence/**"
+      - "render.yaml"
+      - ".github/workflows/backend-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Validate and build NestJS API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/lexa?schema=public
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Validate Prisma schema
+        run: npx prisma validate
+      - name: Generate Prisma Client
+        run: npx prisma generate
+      - name: Run backend regression tests
+        run: npm test
+      - name: Check backup inventory
+        run: npm run backup:inventory-check
+      - name: Check API contracts and route adapters
+        run: npm run contract:check
+      - name: Check ledger posting coverage
+        run: npm run ledger:coverage
+      - name: Build backend
+        run: npm run build
+
+  intelligence:
+    name: Validate optional Python intelligence service
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install lightweight service requirements
+        run: python -m pip install -r services/intelligence/requirements.txt PyYAML
+      - name: Compile Python sources
+        run: python -m compileall -q services/intelligence/app services/intelligence/litellm
+      - name: Run intelligence tests
+        run: python -m unittest discover -s services/intelligence/tests -v
+      - name: Validate Render and LiteLLM configuration
+        run: python -c "import yaml; [yaml.safe_load(open(p, encoding='utf-8')) for p in ('render.yaml', 'services/intelligence/litellm/config.yaml')]"
+
+  frontend:
+    name: Test and build LEXA frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lexa-frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type check and run the Vercel-equivalent production build
+        run: npm run build

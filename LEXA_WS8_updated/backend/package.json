@@ -1,0 +1,61 @@
+{
+  "name": "@lexa/backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LEXA multi-tenant ERP API \u2014 foundation scaffold",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "build": "npm run backup:inventory-check && nest build",
+    "start": "node dist/src/main.js",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/src/main.js",
+    "db:generate": "prisma generate",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:validate": "prisma validate",
+    "test": "node --experimental-strip-types --test test/*.test.mjs",
+    "db:migrate:status": "prisma migrate status",
+    "db:verify": "node scripts/verify-schema-integrity.mjs",
+    "contract:check": "python scripts/check-openapi-coverage.py && python scripts/check-route-adapter-coverage.py",
+    "ledger:coverage": "node scripts/verify-ledger-posting-coverage.mjs",
+    "adapter:check": "python scripts/check-route-adapter-coverage.py",
+    "test:tenant-http": "node scripts/test-tenant-idor.mjs",
+    "start:worker": "node dist/src/platform/worker.js",
+    "backup:inventory-check": "node scripts/check-backup-inventory.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.850.0",
+    "@aws-sdk/s3-request-presigner": "^3.850.0",
+    "@fastify/helmet": "^13.2.0",
+    "@nestjs/common": "^11.2.5",
+    "@nestjs/core": "^11.2.5",
+    "@nestjs/platform-fastify": "^11.2.5",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.67.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.203.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.203.0",
+    "@opentelemetry/resources": "^2.0.1",
+    "@opentelemetry/sdk-metrics": "^2.0.1",
+    "@opentelemetry/sdk-node": "^0.203.0",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "@sentry/node": "^9.37.0",
+    "bullmq": "^5.58.5",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "dotenv": "^16.6.1",
+    "fastify-raw-body": "^5.0.0",
+    "ioredis": "^5.7.0",
+    "pg": "^8.16.3",
+    "prisma": "^7.10.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.10",
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.15.5",
+    "typescript": "^5.9.3"
+  }
+}

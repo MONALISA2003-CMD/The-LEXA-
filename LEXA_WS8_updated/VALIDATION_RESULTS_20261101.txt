@@ -1,0 +1,35 @@
+LEXA validation evidence — 2026-11-01 deeper deployment repair
+
+Backend unit tests: 76 passed, 0 failed.
+Frontend TypeScript/TSX syntax transpilation: 126 files, 0 syntax errors.
+Backend TypeScript syntax transpilation: 50 files, 0 syntax errors.
+Focused strict TypeScript check: exactOptionalPropertyTypes-compatible notification filter construction and recurring-invoice optional-field deletion passed.
+Backup inventory: 154 table decisions, 137 discovered schema/migration references covered.
+OpenAPI coverage: 296 operations across 235 routes, exact match.
+Route-to-adapter coverage: 17/17.
+Ledger workflow coverage: 9/9.
+Frontend prebuild scripts: authentication UI, module completion, palette/route coverage and build-origin checks executed after changes.
+
+Latest hosted evidence supplied by the user:
+- Vercel commit 34b0a58: all 23 test files and 99 tests passed; TypeScript failed on four exactOptionalPropertyTypes/noUnusedLocals diagnostics in InboxPage.tsx and RecurringInvoicesPage.tsx. Those four source defects are repaired in this package but full tsc -b/Vite was not executable locally.
+- Render commit 34b0a58: npm install added 778 packages, Prisma Client generation succeeded, backup inventory check passed and `nest build` passed. Runtime then crashed because fastify-raw-body was configured with `encoding:false`, which registered a duplicate application/json parser before Nest's Fastify adapter registered its own. The plugin now uses route-scoped UTF-8 capture; controller normalizes string/Buffer to bytes before Svix verification. Backend regression tests cover that normalization and configuration.
+- Render applied four migrations (20261101120000, 20261101130000, 20261101140000, 20261101170000) successfully and reported no pending migrations. Leave them applied.
+
+Previous failures retained as repaired:
+- Vercel missing Dexie compound index for returns; schema v2 upgrade and migration test added. Hosted Vercel later passed 99 tests.
+- Render invalid @fastify/raw-body package; changed to fastify-raw-body@^5.0.0.
+- Earlier Vercel missing local getPaymentReport, unused import preview/reviewer state, and palette route issue; source repairs included.
+- Earlier Render Nest TypeScript errors in platform import/export and finance period field; source repairs included.
+
+Non-blocking warnings requiring follow-up:
+- Render npm install reported 51 vulnerabilities (1 low, 45 moderate, 5 high) and deprecated transitive packages. The repository snapshot has no npm lockfiles and the complete audit JSON was not available; no blind force-upgrade was performed. Generate lockfiles and triage exact advisories in a network-enabled environment.
+- pg emitted an SSL-mode forward-compatibility warning. The safe sample connection string now uses sslmode=verify-full; the live Render DATABASE_URL was not changed.
+- Render's no-open-port message followed the process crash before listen completed; app binds to 0.0.0.0 and process.env.PORT. Recheck after startup repair.
+
+Not run in this workspace:
+- Full Vercel frontend `npm test`, `tsc -b` and `vite build`; frontend packages are not installed locally.
+- Full Render `npm install`, Prisma generation, Nest build and live process startup; backend packages are not installed locally. `registry.npmjs.org` does not resolve from this runtime.
+- Live Fastify/Nest integration smoke, live redeploy, Playwright/E2E, real Resend webhook, worker/Redis/ClamAV/R2, telemetry export, or restore drill.
+- Package-by-package remediation of the npm audit vulnerabilities.
+
+No production database rollback, main-branch write, production deploy, live secret change, external email send or restore was performed. This package is not yet verified green by hosted Vercel and Render health checks.
