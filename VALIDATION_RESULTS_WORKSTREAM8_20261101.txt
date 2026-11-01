@@ -1,3 +1,5 @@
+SUPERSEDED for the single-service AI architecture by VALIDATION_RESULTS_SINGLE_SERVICE_20261101.txt.
+
 LEXA Workstream 8 validation — 2026-11-01
 
 PASSED IN THE REPAIR WORKSPACE

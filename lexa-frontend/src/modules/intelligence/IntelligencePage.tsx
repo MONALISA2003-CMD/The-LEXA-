@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, BrainCircuit, CheckCircle2, FileSearch, LoaderCircle, RefreshCw, ShieldCheck, Sparkles, UploadCloud } from 'lucide-react';
 import { toast } from 'sonner';
@@ -9,7 +9,6 @@ import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
 
 const scopes: Array<{ value: IntelligenceScope; label: string }> = [
-  { value: 'lexa_help', label: 'How to use LEXA (public product guide)' },
   { value: 'overview', label: 'Whole business overview' },
   { value: 'sales', label: 'Sales & customer receipts' },
   { value: 'inventory', label: 'Stock & inventory' },
@@ -20,7 +19,7 @@ const scopes: Array<{ value: IntelligenceScope; label: string }> = [
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : 'The request could not be completed.'; }
 const managedFeatures: Array<{ key: string; label: string; detail: string }> = [
   { key: 'analytics.advanced', label: 'Advanced CRM and workforce summaries', detail: 'Aggregate counts only; never employee or customer record details.' },
-  { key: 'intelligence.explain', label: 'LEXA business adviser', detail: 'Read-only explanations using finance-approved provider routing.' },
+  { key: 'intelligence.explain', label: 'LEXA business adviser', detail: 'Read-only explanations using LEXA’s unified multi-provider router.' },
   { key: 'intelligence.document_extract', label: 'Document extraction', detail: 'Local text extraction; no automatic model submission or record writes.' },
   { key: 'saas.usage_view', label: 'Workspace usage visibility', detail: 'Show current plan meters and recent AI request metadata.' },
 ];
@@ -30,7 +29,7 @@ export default function IntelligencePage() {
   const location = useLocation();
   const initialParams = new URLSearchParams(location.search);
   const requestedScope = initialParams.get('scope');
-  const allowedInitialScopes: IntelligenceScope[] = ['lexa_help', 'overview', 'sales', 'inventory', 'finance', 'customers', 'people'];
+  const allowedInitialScopes: IntelligenceScope[] = ['overview', 'sales', 'inventory', 'finance', 'customers', 'people'];
   const initialScope: IntelligenceScope = allowedInitialScopes.includes(requestedScope as IntelligenceScope) ? requestedScope as IntelligenceScope : 'overview';
   const requestedQuestion = initialParams.get('question');
   const queryClient = useQueryClient();
@@ -44,15 +43,9 @@ export default function IntelligencePage() {
   const entitlementQuery = useQuery({ queryKey: ['saas-entitlements', workspace.id, branch.id], queryFn: () => apiIntelligence.entitlements(workspace.id, branch.id), enabled: isApiProvider, retry: false, staleTime: 60_000 });
   const plansQuery = useQuery({ queryKey: ['saas-plans', workspace.id, branch.id], queryFn: () => apiIntelligence.plans(workspace.id, branch.id), enabled: isApiProvider, retry: false, staleTime: 300_000 });
   const status = statusQuery.data;
-  const canAsk = isApiProvider && (scope === 'lexa_help' ? status?.canRunHelp === true : status?.canRunBusiness === true);
-  const anyModelAvailable = isApiProvider && (status?.canRunHelp === true || status?.canRunBusiness === true);
+  const canAsk = isApiProvider && status?.canRunBusiness === true;
+  const anyModelAvailable = isApiProvider && status?.canRunBusiness === true;
   const canExtract = isApiProvider && status?.canExtract === true;
-  useEffect(() => {
-    if (status?.canRunHelp && !status.canRunBusiness && scope !== 'lexa_help') {
-      setScope('lexa_help');
-      setQuestion('How do I create a new customer invoice in LEXA?');
-    }
-  }, [status?.canRunHelp, status?.canRunBusiness, scope]);
   const supportQuery = useQuery({ queryKey: ['saas-support-diagnostics', workspace.id, branch.id], queryFn: () => apiIntelligence.supportDiagnostics(workspace.id, branch.id), enabled: isApiProvider && status?.canViewSupportDiagnostics === true, retry: false, staleTime: 60_000 });
   const featureMutation = useMutation({
     mutationFn: (input: { featureKey: string; enabled: boolean }) => apiIntelligence.setFeatureOverride(workspace.id, branch.id, input.featureKey, input.enabled, overrideReason),
@@ -60,7 +53,7 @@ export default function IntelligencePage() {
     onError: (error) => toast.error('Feature setting was not changed', { description: errorMessage(error) }),
   });
   const explainMutation = useMutation({
-    mutationFn: () => scope === 'lexa_help' ? apiIntelligence.help(workspace.id, branch.id, question.trim()) : apiIntelligence.explain(workspace.id, branch.id, question.trim(), scope),
+    mutationFn: () => apiIntelligence.explain(workspace.id, branch.id, question.trim(), scope),
     onSuccess: (result) => { setAnswer({ answer: result.answer, assurance: result.assurance, requestId: result.requestId }); void queryClient.invalidateQueries({ queryKey: ['intelligence-usage', workspace.id, branch.id] }); },
     onError: (error) => toast.error('LEXA could not complete the explanation', { description: errorMessage(error) }),
   });
@@ -90,27 +83,27 @@ export default function IntelligencePage() {
 
   return <main className="page-stack" data-module-accent={moduleAccentForPath('/intelligence')}>
     <header className="page-heading-row">
-      <div><div className="eyebrow eyebrow-blue">LEXA INTELLIGENCE</div><h2>Business intelligence</h2><p>Understand your business, get clear explanations and extract information from documents.</p></div>
+      <div><div className="eyebrow eyebrow-blue">LEXA AI</div><h2>Business assistant</h2><p>One professional assistant for your business, with automatic provider fallback and read-only access to authorised business summaries.</p></div>
       <button className="button button-secondary button-small" onClick={() => { void statusQuery.refetch(); void usageQuery.refetch(); void entitlementQuery.refetch(); void plansQuery.refetch(); }} disabled={statusQuery.isFetching || usageQuery.isFetching}><RefreshCw size={14}/> Refresh</button>
     </header>
     {!isApiProvider && <section className="overview-service-note"><AlertCircle size={18}/><div><strong>Connect to your LEXA workspace</strong><span>Intelligence works through the secure LEXA backend. Your local records remain available independently.</span></div></section>}
     {statusQuery.isError && <section className="inline-error"><strong>Intelligence status is unavailable.</strong><span>{errorMessage(statusQuery.error)} Core LEXA workflows are unaffected.</span><button className="button button-secondary button-small" onClick={() => void statusQuery.refetch()}>Retry</button></section>}
     <section className="section-card">
-      <div className="section-card-heading"><span className="heading-icon blue-icon"><BrainCircuit size={19}/></span><div><h3>LEXA business adviser</h3><p>Professional explanations based on authorised business totals, not guesses.</p></div><span className={`status-pill ${canAsk ? 'status-good' : 'status-neutral'}`}>{canAsk ? 'Ready for this mode' : status?.enabled && !status.canRun ? 'View only' : 'Not connected'}</span></div>
-      {!canAsk && <div className="overview-service-note"><ShieldCheck size={18}/><div><strong>{status?.enabled && !status.canRun ? 'Your role is view-only' : 'Intelligence is optional'}</strong><span>{status?.enabled && !status.canRun ? 'Your current workspace role allows viewing status and usage, but not running explanations.' : status?.explanation ?? 'The intelligence service or an approved provider pool is not configured. Sales, stock, accounting and other core LEXA modules continue to operate normally.'}</span></div></div>}
+      <div className="section-card-heading"><span className="heading-icon blue-icon"><BrainCircuit size={19}/></span><div><h3>LEXA Business Assistant</h3><p>Clear, practical explanations based on authorised business totals—not guesses.</p></div><span className={`status-pill ${canAsk ? 'status-good' : 'status-neutral'}`}>{canAsk ? 'Ready' : status?.enabled && !status.canRun ? 'View only' : 'Unavailable'}</span></div>
+      {!canAsk && <div className="overview-service-note"><ShieldCheck size={18}/><div><strong>{status?.enabled && !status.canRun ? 'Your role is view-only' : 'AI provider routing is not ready'}</strong><span>{status?.enabled && !status.canRun ? 'Your current workspace role allows viewing status and usage, but not running explanations.' : status?.explanation ?? 'The AI router is not configured. Sales, stock, accounting and other core LEXA modules continue to operate normally.'}</span>{status?.providersAvailable?.length ? <small>Configured providers: {status.providersAvailable.join(' · ')}. Paid provider tier: off.</small> : null}</div></div>}
       <form className="page-stack" onSubmit={ask}>
-        <label className="field-label">Business area<select value={scope} onChange={(event) => { const next = event.target.value as IntelligenceScope; setScope(next); if (next === 'lexa_help' && /business trends|stock value changed/i.test(question)) setQuestion('How do I create a new customer invoice?'); }} disabled={!anyModelAvailable}><option value="lexa_help" disabled={!status?.canRunHelp}>How to use LEXA (public product guide)</option><option value="overview" disabled={!status?.canRunBusiness}>Whole business overview</option>{scopes.slice(2).map((item) => <option value={item.value} key={item.value} disabled={!status?.canRunBusiness}>{item.label}</option>)}</select></label>
-        {scope === 'lexa_help' && <div className="overview-service-note"><ShieldCheck size={18}/><div><strong>Public product guidance only</strong><span>Only the question text and approved LEXA product guide are sent to the public provider pool. Free-tier provider terms may permit retention or model improvement. Do not enter customer, employee, financial, account or other private business information; sensitive-looking questions are rejected. Use the paid LEXA business adviser for authorised workspace summaries.</span></div></div>}
-        <label className="field-label">What would you like to understand?<textarea rows={3} maxLength={2000} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={scope === 'lexa_help' ? 'For example: How do I create a new customer invoice?' : 'For example: What should I review in this month’s sales performance?'} disabled={!canAsk}/></label>
+        <label className="field-label">Business area<select value={scope} onChange={(event) => setScope(event.target.value as IntelligenceScope)} disabled={!anyModelAvailable}>{scopes.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>
+        <div className="overview-service-note"><ShieldCheck size={18}/><div><strong>Business data protection</strong><span>LEXA sends permission-filtered aggregate figures only. Individual customer and employee details are excluded. Provider availability, free-tier limits and data-retention terms vary. LEXA automatically tries another configured provider when one is unavailable; do not type individual personal details. AI cannot post or change ERP records.</span>{status?.providersAvailable?.length ? <small>Configured providers: {status.providersAvailable.join(' · ')}. Paid provider tier: off.</small> : null}</div></div>
+        <label className="field-label">What would you like to understand?<textarea rows={3} maxLength={2000} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="For example: What should I review in this month’s sales performance?" disabled={!canAsk}/></label>
         <div><button className="button button-primary" type="submit" disabled={!canAsk || explainMutation.isPending || !question.trim()}>{explainMutation.isPending ? <><LoaderCircle size={16} className="spin-icon"/> Preparing explanation…</> : <><Sparkles size={16}/> Explain for my business</>}</button></div>
       </form>
-      {answer && <section className="section-card" aria-live="polite"><div className="section-card-heading"><div><h3>LEXA's explanation</h3><p>{scope === 'lexa_help' ? 'Based on the approved LEXA product guide.' : `Based on authorised business aggregates for ${branch.name}.`}</p></div><CheckCircle2 size={18}/></div><div className="page-stack"><div style={{ whiteSpace: 'pre-wrap' }}>{answer.answer}</div><small>{answer.assurance} · Reference {answer.requestId}</small></div></section>}
+      {answer && <section className="section-card" aria-live="polite"><div className="section-card-heading"><div><h3>LEXA's explanation</h3><p>Based on authorised business aggregates for {branch.name}.</p></div><CheckCircle2 size={18}/></div><div className="page-stack"><div style={{ whiteSpace: 'pre-wrap' }}>{answer.answer}</div><small>{answer.assurance} · Reference {answer.requestId}</small></div></section>}
     </section>
     <section className="section-card">
-      <div className="section-card-heading"><span className="heading-icon blue-icon"><FileSearch size={19}/></span><div><h3>Document extraction</h3><p>Extract text from business documents for your review.</p></div><span className={`status-pill ${canExtract ? 'status-good' : 'status-neutral'}`}>{canExtract ? 'Available' : 'Unavailable'}</span></div>
-      <div className="overview-service-note"><ShieldCheck size={18}/><div><strong>Your document stays within LEXA's extraction service</strong><span>Extracted content is not automatically sent to an AI model, posted to a ledger or used to update records. Review everything before using it.</span></div></div>
+      <div className="section-card-heading"><span className="heading-icon blue-icon"><FileSearch size={19}/></span><div><h3>Document extraction</h3><p>Planned for a later production phase; it is not part of the single-service development setup.</p></div><span className={`status-pill ${canExtract ? 'status-good' : 'status-neutral'}`}>{canExtract ? 'Available' : 'Unavailable'}</span></div>
+      <div className="overview-service-note"><ShieldCheck size={18}/><div><strong>Not enabled in this development phase</strong><span>Business AI responses are available separately. Document extraction will be added after the single-service AI router is validated.</span></div></div>
       <label className="button button-secondary" style={{ display: 'inline-flex', width: 'fit-content', cursor: canExtract ? 'pointer' : 'not-allowed', opacity: canExtract ? 1 : 0.55 }}><UploadCloud size={16}/> {extractMutation.isPending ? 'Extracting document…' : 'Choose a document'}<input type="file" hidden disabled={!canExtract || extractMutation.isPending} accept=".pdf,.docx,.xlsx,.pptx,.csv,.txt,.md,.json,.xml,.html" onChange={(event) => void chooseFile(event)}/></label>
-      <small>PDF, Word, Excel, PowerPoint, CSV or text files · Maximum 5 MiB</small>
+      <small>Document processing is intentionally disabled until its production implementation is ready.</small>
       {extracted && <div className="page-stack" aria-live="polite"><div><strong>{extracted.filename}</strong><span> · {extracted.text.length.toLocaleString()} characters</span></div>{extracted.warnings.map((warning) => <div className="overview-service-note" key={warning}><AlertCircle size={16}/><span>{warning}</span></div>)}<textarea rows={12} readOnly value={extracted.text}/><div className="overview-integrity-note"><ShieldCheck size={16}/><p>{extracted.assurance}</p></div></div>}
     </section>
     <section className="section-card">

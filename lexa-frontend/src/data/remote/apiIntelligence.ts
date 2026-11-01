@@ -1,6 +1,6 @@
 import { apiClient } from './apiClient';
 
-export type IntelligenceScope = 'lexa_help' | 'overview' | 'sales' | 'inventory' | 'finance' | 'customers' | 'people';
+export type IntelligenceScope = 'overview' | 'sales' | 'inventory' | 'finance' | 'customers' | 'people';
 export interface IntelligenceStatus {
   enabled: boolean;
   serviceConfigured: boolean;
@@ -13,6 +13,8 @@ export interface IntelligenceStatus {
   canViewSupportDiagnostics: boolean;
   businessAvailable: boolean;
   publicHelpAvailable: boolean;
+  providersAvailable?: string[];
+  paidTierEnabled?: boolean;
   availability: 'available_on_request' | 'unavailable';
   coreLexaImpact: 'none';
   explanation: string;

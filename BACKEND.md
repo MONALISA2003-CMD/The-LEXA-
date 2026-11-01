@@ -36,7 +36,7 @@ The design must deliver:
 | Identity | Supabase Auth, if retained in the existing project | Use it for identity and sessions; verify access tokens in the API. Do not use a frontend-supplied user or tenant ID as proof of authorization. |
 | Authorization | Server-side tenant-aware RBAC and resource-level checks | Permissions must be enforced by backend services for every read and write. PostgreSQL RLS can be added as defense-in-depth where connection design supports it. |
 | Background work | Redis + BullMQ | Separate worker process for AI jobs, imports/exports, notifications, scheduled tasks and other retryable work. |
-| Multi-provider AI gateway | LiteLLM Proxy, behind a LEXA-owned AI orchestration module | Centralize provider credentials, model routing, bounded retries/fallbacks and cost controls. Keep LEXA-specific policy and metering in LEXA's own backend. |
+| Multi-provider AI routing | Native TypeScript provider router inside the existing NestJS API for the current one-service development phase; LiteLLM remains a future production option only after cost review | Keep provider credentials server-side, with a provider allowlist, bounded timeouts, fallback/cooldowns and LEXA-owned policy and metering. |
 | AI provider integration | Provider/model registry and task profiles | Support free and paid providers without hard-coding a provider into business modules. Check actual model capabilities before routing. |
 | File storage | S3-compatible object storage, recommended Cloudflare R2 | Store documents, attachments, imports and exports outside the application container. Keep private files private and issue time-limited download URLs. |
 | Search and retrieval | PostgreSQL full-text search first; `pgvector` when semantic retrieval is required | Retrieval must enforce tenant and user permissions before content is passed to a model. |
@@ -48,9 +48,11 @@ The design must deliver:
 
 - **Neon PostgreSQL owns business data.** Do not split core ERP records between Neon and the Supabase database.
 - Supabase Auth owns identity only unless a deliberate ADR changes this boundary.
-- LiteLLM routes model requests; it is not LEXA's authoritative tenant-usage ledger.
+- The current development router calls eligible provider APIs directly from NestJS; a future LiteLLM migration must preserve LEXA's authoritative tenant-usage ledger and data policy.
 - Object storage holds file bytes; PostgreSQL holds their metadata, ownership, permissions and lifecycle status.
 - The existing frontend remains in place. Backend work is additive and must not trigger an unnecessary frontend rewrite or project-structure reorganization.
+
+> **Current development deployment decision (2026-11-01):** Keep only the existing `lexa-backend-api-live` Render service. The NestJS API contains the native AI router. Do not create separate LiteLLM, Python Intelligence, or worker services during this free development phase. The frontend remains on Vercel and Neon remains the system of record.
 
 ## 3. Deployment shape
 
@@ -70,11 +72,11 @@ LEXA API (NestJS + Fastify) ---------------------> Neon PostgreSQL
           |                              +-- notifications / schedules
           |                              +-- long-running AI and document jobs
           |
-          +---- LEXA AI orchestration ----> LiteLLM gateway
+          +---- Native LEXA AI router ----> eligible provider APIs
                                              |
-                                             +-- eligible free-tier providers
-                                             +-- approved paid providers
-                                             +-- optional approved self-hosted models
+                                             +-- free/developer-tier providers
+                                             +-- automatic fallback and cooldowns
+                                             +-- paid providers disabled in development
 
 Private S3-compatible storage <---- file metadata and authorization in PostgreSQL
 ```
@@ -354,8 +356,7 @@ These references support the implementation choices. Review current terms, limit
 - Prisma Migrate production workflow: https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/development-and-production
 - Supabase JWT verification: https://supabase.com/docs/guides/auth/jwts
 - BullMQ rate limiting: https://docs.bullmq.io/guide/rate-limiting
-- LiteLLM gateway architecture and routing: https://docs.litellm.ai/docs/proxy/architecture and https://docs.litellm.ai/docs/routing
-- LiteLLM spend tracking and budgets: https://docs.litellm.ai/docs/proxy/cost_tracking and https://docs.litellm.ai/docs/proxy/users
+- LiteLLM gateway architecture and routing (future production option only): https://docs.litellm.ai/docs/proxy/architecture and https://docs.litellm.ai/docs/routing
 - OpenAI Responses API: https://developers.openai.com/api/reference/responses/overview
 - OpenAI function calling: https://developers.openai.com/api/docs/guides/function-calling
 - Gemini API additional terms: https://ai.google.dev/gemini-api/terms

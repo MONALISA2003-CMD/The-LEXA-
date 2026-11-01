@@ -1,57 +1,59 @@
-# Workstream 8 — Render setup keys
+# LEXA single-service AI router — Render configuration
 
-This is the key list for the Workstream 8 Blueprint in `render.yaml`. **Do not commit values to Git or paste credentials into ChatGPT.** Render prompts for third-party values during Blueprint sync (`sync: false`).
+LEXA development now uses **one Render service only**: `lexa-backend-api-live`. The NestJS backend contains the AI router and calls provider APIs directly over HTTPS. Do not create or sync separate LiteLLM, Intelligence, worker, or private services during this phase.
 
-## Third-party keys you obtain
+## Render service
 
-| Render environment key | Provider | What it enables | Policy |
-|---|---|---|---|
-| `GEMINI_FREE_API_KEY` | Google AI Studio / Gemini API | Public LEXA Guide candidate | Use a Free-tier project/key. Product guidance only; free-tier data terms may permit model improvement. |
-| `GROQ_API_KEY` | Groq | Fast public LEXA Guide candidate models | Provider quota and model availability are account-dependent. |
-| `CEREBRAS_API_KEY` | Cerebras Inference | Fast public LEXA Guide candidate models | Provider quota and model availability are account-dependent. |
-| `OPENROUTER_API_KEY` | OpenRouter | Public LEXA Guide `:free` model only | LEXA does not configure a paid fallback in this pool. Free limits are tight and can change. |
-| `GEMINI_API_KEY` | Google AI Studio / Gemini API | Paid LEXA Business Adviser candidate | Use a billing-enabled paid API project. |
-| `OPENAI_API_KEY` | OpenAI API | Paid LEXA Business Adviser candidate | Add API billing/usage limits in OpenAI separately. |
-| `HF_TOKEN` | Hugging Face | Optional public-help candidate | Not treated as a guaranteed free provider; keep disabled until credits/billing and provider policy are checked. |
+- Service: `lexa-backend-api-live`
+- Runtime: Docker
+- Dockerfile: `backend/Dockerfile`
+- Plan: Free during development
+- Region: Frankfurt
+- Frontend: remains on Vercel
+- Database: existing Neon project
 
-You do not need every provider to start. At least one configured public provider plus `LEXA_AI_PUBLIC_HELP_CONFIGURED=true` enables product-only help. At least one paid Gemini/OpenAI provider plus `LEXA_AI_BUSINESS_CONFIGURED=true` enables aggregate business explanations. The startup script includes only deployments whose exact provider key is present.
+## Environment variable names
 
-## Render-generated internal secrets — do not obtain manually
+Set all credentials in the existing service's Render **Environment** settings. Never place credential values in GitHub, source code, frontend variables, logs, or ZIP files.
 
-Render generates these in the Blueprint:
+| Render key | Role in this phase |
+|---|---|
+| `GEMINI_FREE_API_KEY` | Active Google Gemini free-tier route |
+| `GROQ_API_KEY` | Active Groq free-tier route |
+| `CEREBRAS_API_KEY` | Active Cerebras developer/trial route; may stop when free trial credit is exhausted |
+| `OPENROUTER_API_KEY` | Active OpenRouter `openrouter/free` route |
+| `NVIDIA_NIM_API_KEY` | Active NVIDIA NIM developer/prototyping route |
+| `GEMINI_API_KEY` | Stored for the later paid production tier; not used while `LEXA_AI_PAID_TIER_ENABLED=false` |
+| `OPENAI_API_KEY` | Stored for the later paid production tier; not used while `LEXA_AI_PAID_TIER_ENABLED=false` |
 
-- `LITELLM_MASTER_KEY`: protects the private LiteLLM gateway.
-- `LEXA_INTELLIGENCE_INTERNAL_TOKEN`: authenticates the private FastAPI service.
+## LEXA feature flags
 
-The Blueprint uses `fromService` references to pass them over Render's private network. Do not copy them into Git or the browser bundle.
+| Variable | Development value | Meaning |
+|---|---:|---|
+| `LEXA_AI_ENABLED` | `true` | Enables the native backend router |
+| `LEXA_AI_PAID_TIER_ENABLED` | `false` | Prevents use of paid Gemini/OpenAI routes |
+| `LEXA_AI_PUBLIC_HELP_CONFIGURED` | `true` | Compatibility flag for earlier clients; no separate public-help pool is deployed |
+| `LEXA_AI_BUSINESS_CONFIGURED` | `true` | Compatibility flag; the one assistant serves business-owner workflows through the free/developer provider allowlist |
+| `NVIDIA_NIM_MODEL` | `nvidia/nemotron-3.5-lightning-30b-a3b` | Model ID passed to NVIDIA NIM; verify account/model availability during smoke testing |
 
-## Service configuration
+The two compatibility flags do not create separate assistants or provider pools. The frontend exposes one LEXA Business Assistant. Paid subscription entitlements remain governed by the existing LEXA subscription tables; the separate paid-provider route is disabled.
 
-| Variable | Service | Initial value / action |
-|---|---|---|
-| `LEXA_INTELLIGENCE_ENABLED` | Existing `lexa-backend-api-live` | Blueprint sets `true`; AI still fails closed until its health/readiness checks pass. |
-| `LEXA_INTELLIGENCE_BASE_URL` | Existing backend | Render private `hostport` reference to `lexa-intelligence`. |
-| `LEXA_INTELLIGENCE_INTERNAL_TOKEN` | Existing backend | Private `fromService` reference; do not set a literal. |
-| `LEXA_AI_BUSINESS_MODEL_ALIAS` | Existing backend | `lexa-business-paid`; keep this alias unchanged unless policy and tests are updated. |
-| `LEXA_AI_BUSINESS_CONFIGURED` | `lexa-intelligence` | Keep `false` until LiteLLM lists `lexa-business-paid` and a paid provider call is validated. |
-| `LEXA_AI_PUBLIC_HELP_CONFIGURED` | `lexa-intelligence` | Keep `false` until LiteLLM lists `lexa-public-help` and a product-only question is validated. |
-| `LEXA_AI_HF_ENABLED` | `lexa-litellm` | `false`; opt in only after checking Hugging Face credits and retention policy. |
-| `LITELLM_BASE_URL`, `LITELLM_API_KEY`, `LITELLM_PUBLIC_HELP_API_KEY` | `lexa-intelligence` | Private `fromService` references to LiteLLM host and generated master key. |
+## Provider and data policy
 
-## Safe activation order
+- The router tries configured free/developer-tier endpoints and falls back when a provider times out, returns an error, or is rate-limited.
+- OpenRouter uses `openrouter/free`, not a paid model fallback.
+- OpenAI and the second Gemini key are not used while the paid-tier flag is false.
+- Only permission-filtered aggregate business facts are included in the provider request. Individual customer/employee records, contact details, salaries, credentials and uploaded documents are excluded.
+- Models have no tools, database access, browser, shell or write permissions. They cannot create, post, approve, pay, edit or delete ERP records.
+- LEXA stores usage metadata, token counts, provider/model and status—not prompts or answers.
+- Provider free-tier quotas, privacy terms and model availability vary by account and may change. Cerebras developer credit is limited; NVIDIA developer API access is for prototyping; Groq and OpenRouter free routes have rate limits. A fallback router improves availability but cannot promise unlimited free usage or guaranteed latency.
 
-1. Review the two private `starter` Render services in `render.yaml`. They are additional billable services. Check current Render pricing and workspace capacity before syncing.
-2. Sync the Blueprint. Render should prompt for the third-party keys above; leave providers you do not have blank/unsynced rather than inventing a value.
-3. Confirm the two private services are healthy and the API can reach `lexa-intelligence` over the private network.
-4. Check the private LiteLLM `/models` response from the intelligence service network. The desired alias must actually exist; a configured environment flag alone is not proof.
-5. Set `LEXA_AI_PUBLIC_HELP_CONFIGURED=true` only after the public alias appears. Test with a generic LEXA product question and verify that private business questions are rejected.
-6. Set `LEXA_AI_BUSINESS_CONFIGURED=true` only after the paid alias appears. Test with a branch-scoped report and confirm usage/cost metadata appears in LEXA. Do not route confidential aggregates to the free/public pool.
-7. Keep the Workstream 8 migration additive. Let the API deploy complete before applying pending migrations through the reviewed Render startup path. Do not roll back the Workstream 7 migrations already applied to Neon.
+## Deployment notes
 
-## What this does not do automatically
+1. Keep the existing Render service and its existing database/storage/email environment variables. Merge AI variables; do not replace the entire environment.
+2. No extra Render services are required.
+3. Apply the single-service source package to the repository root and deploy the backend/frontend updates.
+4. Confirm `/intelligence/status` reports the configured providers and that a real workspace request succeeds.
+5. Keep paid-tier routing disabled until the final production phase, when billing controls, provider terms, data processing agreements, spending caps and production hosting are reviewed.
 
-- It does not buy credits, link provider billing accounts, or guarantee a provider's advertised free quota.
-- It does not perform OpenAI/Google account setup for you.
-- It does not enable a model alias merely because an API key exists; the private gateway readiness check must confirm the alias.
-- It does not expose provider keys to the frontend or grant models tools to write LEXA records.
-- It does not change live Render service variables until you sync the Blueprint and enter the required keys.
+The previous separate Python Intelligence and LiteLLM services remain in the repository as a future reference only. They are not part of the current Render deployment or `render.yaml`.

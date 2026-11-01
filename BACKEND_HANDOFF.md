@@ -83,7 +83,7 @@ Use the locked stack in `BACKEND.md`:
 - **Authentication:** use Supabase Auth if retained in the project; verify tokens on the backend. Do not create a second competing identity system without an ADR.
 - **Authorization:** server-side tenant-aware RBAC plus resource-level checks on every request.
 - **Background jobs:** Redis + BullMQ, in a separately configured worker process.
-- **Multi-provider AI:** LEXA AI orchestration module + LiteLLM gateway, with free-tier and paid providers controlled by policy.
+- **Multi-provider AI:** Native LEXA TypeScript router inside the existing NestJS API for the current one-service development phase; LiteLLM is only a possible future production migration.
 - **Private files:** S3-compatible object storage (Cloudflare R2 is the current candidate); PostgreSQL stores ownership/metadata, not file bytes.
 - **Observability:** structured logs, request/correlation IDs, OpenTelemetry and Sentry/equivalent.
 - **Frontend:** remain on Vercel; preserve the existing `lexa-frontend/` tree and current navigation.
@@ -677,7 +677,7 @@ Finalize these details in OpenAPI before backend integration tests:
 
 ### Phase 5 — Multi-provider AI
 
-- [ ] Central AI interface + provider registry + LiteLLM gateway.
+- [ ] Central AI interface + provider registry + direct provider adapters, bounded fallback and cooldowns; evaluate LiteLLM only after the production cost review.
 - [ ] Data-class policy, per-tenant provider allowlist, free/paid quota rules and budget limits.
 - [ ] Provider timeout/rate-limit/fallback/circuit-breaker tests.
 - [ ] AI usage metering, safe logs, quality evaluation and spend monitoring.
@@ -765,7 +765,7 @@ This is a dependency order, not a claim that all modules must wait until the ver
 | Business records, stock movements, payments, ledgers, settings and audit | Neon PostgreSQL through backend application services |
 | File bytes | Private object storage, with authorization metadata in PostgreSQL |
 | Queued work/retries | Redis + BullMQ and worker processes |
-| AI model access/routing/budgets | LEXA AI orchestration + LiteLLM; tenant usage ledger stored in PostgreSQL |
+| AI model access/routing/budgets | Native NestJS AI router in the current development phase; tenant usage ledger stored in PostgreSQL. LiteLLM is a future option only. |
 | External provider status | Provider adapter plus persisted request/reference/status and reconciliation |
 | Production deploy/runtime configuration | Vercel for frontend, backend API/worker host, Neon, Supabase and provider secret stores |
 

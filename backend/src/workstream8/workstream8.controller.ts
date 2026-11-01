@@ -8,12 +8,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { assertBranchAccess } from '../authorization/branch-scope';
 import { hasPermission, isWorkspaceAdministrator, type Permission } from '../authorization/role-policy';
 import { CsrfGuard } from '../core/csrf.guard';
+import { AiRouterService } from './ai-router.service';
 
-const AI_RESERVATION_MICROS = 50_000; // $0.05 conservative per-request reservation; settled to LiteLLM cost
+const AI_RESERVATION_MICROS = 50_000; // $0.05 reservation; the current free/developer router settles successful calls to zero cost
 const AI_MAX_INPUT_CHARS = 2_000;
-const AI_MAX_FILE_BYTES = 5 * 1024 * 1024;
-const PAID_MODEL_ALIASES = new Set(['lexa-business-paid']);
-const PUBLIC_HELP_MODEL_ALIAS = 'lexa-public-help';
+const FREE_MODEL_ALIAS = 'lexa-business-free';
 type Scope = 'overview' | 'sales' | 'inventory' | 'finance' | 'customers' | 'people';
 
 function cookie(request: FastifyRequest, name: string): string | undefined {
@@ -37,16 +36,11 @@ function safeText(value: unknown, label: string, max = 500): string {
   return value.trim();
 }
 function number(value: unknown): number { const n = Number(value ?? 0); return Number.isFinite(n) ? n : 0; }
-function providerForAlias(alias: string): string { return alias === 'lexa-public-help' ? 'litellm_public_pool' : 'litellm_paid_pool'; }
-function intelligenceBaseUrl(): string | null {
-  const value = process.env.LEXA_INTELLIGENCE_BASE_URL?.trim().replace(/\/+$/, '');
-  if (!value) return null;
-  return /^https?:\/\//i.test(value) ? value : `http://${value}`;
-}
+function providerForAlias(_alias: string): string { return 'lexa_native_free_router'; }
 
 @Controller('workspaces/:workspaceId/branches/:branchId')
 export class Workstream8Controller {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly aiRouter: AiRouterService) {}
 
   private async access(request: FastifyRequest, workspaceId: string, branchId: string, permission: Permission) {
     const token = cookie(request, 'lexa_session');
@@ -257,7 +251,7 @@ export class Workstream8Controller {
     const subscription = await this.prisma.$queryRaw<any[]>`SELECT current_period_start,current_period_end FROM tenant_subscriptions WHERE tenant_id=${workspaceId}::uuid LIMIT 1`;
     return { periodStart: subscription[0]?.current_period_start ?? null, periodEnd: subscription[0]?.current_period_end ?? null,
       meters: rows.map((row) => ({ ...row, quantity: number(row.quantity), amount_micros: number(row.amount_micros) })),
-      recentAiActivity: recent.map((row) => ({ ...row, input_tokens: number(row.input_tokens), output_tokens: number(row.output_tokens), reserved_micros: number(row.reserved_micros), reported_cost_micros: row.reported_cost_micros === null ? null : number(row.reported_cost_micros) })), contentLogging: 'Prompt and response content is never stored in LEXA usage records. The AI meter reserves a conservative per-request budget, then settles to LiteLLM-reported cost on successful calls; failures retain the reserve.' };
+      recentAiActivity: recent.map((row) => ({ ...row, input_tokens: number(row.input_tokens), output_tokens: number(row.output_tokens), reserved_micros: number(row.reserved_micros), reported_cost_micros: row.reported_cost_micros === null ? null : number(row.reported_cost_micros) })), contentLogging: 'Prompt and response content is never stored in LEXA usage records. The AI meter reserves a conservative per-request budget, then settles to the native router reported cost; failures retain the reserve.' };
   }
 
   @Get('saas/support-diagnostics')
@@ -364,47 +358,54 @@ export class Workstream8Controller {
   @Get('intelligence/status')
   async intelligenceStatus(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Req() request: FastifyRequest) {
     const actor = await this.access(request, workspaceId, branchId, 'intelligence.read');
-    const enabled = process.env.LEXA_INTELLIGENCE_ENABLED === 'true';
+    const enabled = process.env.LEXA_AI_ENABLED === 'true';
+    const router = this.aiRouter.status();
     const canManageFeatures = isWorkspaceAdministrator(actor.role) && await this.hasFeature(workspaceId, 'saas.feature_management');
     const canViewSupportDiagnostics = isWorkspaceAdministrator(actor.role) || hasPermission(actor.role, 'support.write');
-    const base = intelligenceBaseUrl();
-    const internalToken = process.env.LEXA_INTELLIGENCE_INTERNAL_TOKEN?.trim();
     const entitled = await this.hasFeature(workspaceId, 'intelligence.explain');
-    const extractEntitled = await this.hasFeature(workspaceId, 'intelligence.document_extract');
     const canRun = hasPermission(actor.role, 'intelligence.run');
-    let serviceConfigured = false; let businessAvailable = false; let publicHelpAvailable = false; let documentExtractionAvailable = false;
-    if (enabled && base && internalToken) {
-      try {
-        const health = await fetch(`${base}/health/ready`, { headers: { 'X-LEXA-Internal-Token': internalToken }, signal: AbortSignal.timeout(2_500) });
-        if (health.ok) {
-          const status = await health.json() as { configured?: boolean; business_available?: boolean; public_help_available?: boolean; document_extraction_available?: boolean };
-          serviceConfigured = status.configured === true;
-          businessAvailable = status.business_available === true;
-          publicHelpAvailable = status.public_help_available === true;
-          documentExtractionAvailable = status.document_extraction_available === true;
-        }
-      } catch { /* Intelligence health is optional; the ERP remains available. */ }
-    }
-    const businessReady = enabled && serviceConfigured && entitled && businessAvailable;
-    const helpReady = enabled && serviceConfigured && entitled && publicHelpAvailable;
-    return { enabled: businessReady || helpReady, serviceConfigured, entitled, canRun, canRunBusiness: canRun && businessReady, canRunHelp: canRun && helpReady, canExtract: enabled && canRun && extractEntitled && serviceConfigured && documentExtractionAvailable, businessAvailable, publicHelpAvailable, canManageFeatures, canViewSupportDiagnostics, availability: businessReady || helpReady ? 'available_on_request' : 'unavailable', coreLexaImpact: 'none', explanation: 'LEXA sales, stock, accounting and other core workflows operate independently of Intelligence.' };
+    const serviceConfigured = router.configured;
+    const businessAvailable = serviceConfigured;
+    // Compatibility fields for older clients. LEXA now exposes one business assistant and one provider router.
+    const publicHelpAvailable = serviceConfigured;
+    const businessReady = enabled && serviceConfigured && entitled;
+    return {
+      enabled: businessReady,
+      serviceConfigured,
+      entitled,
+      canRun,
+      canRunBusiness: canRun && businessReady,
+      canRunHelp: canRun && businessReady,
+      canExtract: false,
+      businessAvailable,
+      publicHelpAvailable,
+      providersAvailable: router.providers,
+      paidTierEnabled: router.paidTierEnabled,
+      canManageFeatures,
+      canViewSupportDiagnostics,
+      availability: businessReady ? 'available_on_request' : 'unavailable',
+      coreLexaImpact: 'none',
+      explanation: businessReady
+        ? 'LEXA uses one business assistant with automatic provider fallback. Only permission-filtered aggregate business facts are sent; AI cannot write to ERP records.'
+        : 'The LEXA AI router is not ready or this workspace is not entitled. Sales, stock, accounting and other core workflows remain available.',
+    };
   }
 
   @Post('intelligence/explain')
   @UseGuards(CsrfGuard)
   async explain(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Body() body: any, @Req() request: FastifyRequest) {
     const actor = await this.access(request, workspaceId, branchId, 'intelligence.run');
-    const intelligenceBase = intelligenceBaseUrl();
-    if (process.env.LEXA_INTELLIGENCE_ENABLED !== 'true' || !intelligenceBase || !process.env.LEXA_INTELLIGENCE_INTERNAL_TOKEN) throw new ServiceUnavailableException({ code: 'INTELLIGENCE_UNAVAILABLE', message: 'LEXA Intelligence is temporarily unavailable. Your core LEXA workspace remains ready to use.' });
-    if (!(await this.hasFeature(workspaceId, 'intelligence.explain'))) throw new ForbiddenException({ code: 'FEATURE_NOT_ENTITLED', message: 'LEXA Intelligence is not included in this workspace plan.' });
+    if (process.env.LEXA_AI_ENABLED !== 'true' || !this.aiRouter.status().configured) throw new ServiceUnavailableException({ code: 'INTELLIGENCE_UNAVAILABLE', message: 'LEXA AI is temporarily unavailable. Your core LEXA workspace remains ready to use.' });
+    if (!(await this.hasFeature(workspaceId, 'intelligence.explain'))) throw new ForbiddenException({ code: 'FEATURE_NOT_ENTITLED', message: 'LEXA AI is not included in this workspace plan.' });
     const question = safeText(body?.question, 'Business question', AI_MAX_INPUT_CHARS);
+    const sensitiveQuestion = /\b(?:salary|payroll|employee name|customer name|personal details|phone number|email address|bank account|account number|national id|passport|medical record|password|api key|specific employee|specific customer|individual record)\b/i.test(question)
+      || /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/.test(question)
+      || /(?:\+?\d[\d ().-]{7,}\d)/.test(question);
+    if (sensitiveQuestion) throw new BadRequestException('LEXA AI can analyse aggregate business information, but it cannot process individual personal, payroll, identity or credential details.');
     const scope = (['overview','sales','inventory','finance','customers','people'].includes(body?.scope) ? body.scope : 'overview') as Scope;
     if (scope === 'finance' && !hasPermission(actor.role, 'finance.read')) throw new ForbiddenException('Your role cannot request finance explanations.');
-    if (scope === 'people' && !hasPermission(actor.role, 'people.read')) throw new ForbiddenException('Your role cannot request people summaries.');
+    if (scope === 'people' && !hasPermission(actor.role, 'people.read')) throw new ForbiddenException('Your role cannot request workforce summaries.');
     if (scope === 'customers' && !hasPermission(actor.role, 'crm.read')) throw new ForbiddenException('Your role cannot request customer summaries.');
-    // Tenant business data is confidential aggregate data. Free/shared community models are not approved here.
-    const modelAlias = (process.env.LEXA_AI_BUSINESS_MODEL_ALIAS || 'lexa-business-paid').trim();
-    if (!PAID_MODEL_ALIASES.has(modelAlias)) throw new ServiceUnavailableException({ code: 'AI_PROVIDER_POLICY_INVALID', message: 'The configured AI provider is not approved for confidential LEXA business data.' });
     const advancedAnalytics = await this.hasFeature(workspaceId, 'analytics.advanced');
     if ((scope === 'customers' || scope === 'people') && !advancedAnalytics) throw new ForbiddenException({ code: 'FEATURE_NOT_ENTITLED', message: 'Customer and workforce summaries require the advanced analytics entitlement.' });
     const facts = await this.aggregate(workspaceId, branchId, undefined, undefined, actor.role, advancedAnalytics);
@@ -415,87 +416,42 @@ export class Workstream8Controller {
       : scope === 'people' ? { people: facts.people ?? {} }
       : facts;
     const requestId = randomUUID();
-    const reservation = await this.reserveAi(workspaceId, branchId, actor.userId, requestId, 'business_explanation', 'confidential_aggregate', modelAlias);
+    const reservation = await this.reserveAi(workspaceId, branchId, actor.userId, requestId, 'business_explanation', 'confidential_aggregate', FREE_MODEL_ALIAS);
     const started = Date.now();
     try {
-      const base = intelligenceBase!;
-      const response = await fetch(`${base}/v1/explain`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-LEXA-Internal-Token': process.env.LEXA_INTELLIGENCE_INTERNAL_TOKEN!, 'X-Request-ID': requestId },
-        body: JSON.stringify({ request_id: requestId, question, scope, data_class: 'confidential_aggregate', facts: allowedFacts, currency: actor.branch.currency, model_alias: modelAlias }),
-        signal: AbortSignal.timeout(30_000),
+      const result = await this.aiRouter.complete({ requestId, question, scope, currency: actor.branch.currency, facts: allowedFacts });
+      await this.completeAi(workspaceId, reservation.eventId, 'succeeded', {
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+        latencyMs: Date.now() - started,
+        reportedCostMicros: result.costMicros,
+        providerModel: `${result.provider}:${result.model}`,
       });
-      if (!response.ok) throw new Error(`Intelligence service returned ${response.status}.`);
-      const result = await response.json() as any;
-      if (typeof result?.answer !== 'string' || !result.answer.trim() || result.answer.length > 8000) throw new Error('The Intelligence service returned an invalid response.');
-      const usage = result.usage && typeof result.usage === 'object' ? result.usage : {};
-      await this.completeAi(workspaceId, reservation.eventId, 'succeeded', { inputTokens: number(usage.input_tokens), outputTokens: number(usage.output_tokens), latencyMs: Date.now()-started, reportedCostMicros: Number.isFinite(Number(usage.cost_micros)) ? number(usage.cost_micros) : null, providerModel: typeof result.provider_model === 'string' ? result.provider_model : null });
-      return { answer: result.answer, scope, assurance: 'Explanation based only on the LEXA records summarised above. It is not an accounting posting or an instruction to change records.', requestId, usage: { inputTokens: number(usage.input_tokens), outputTokens: number(usage.output_tokens), reservedBudgetMicros: reservation.reservedMicros } };
-    } catch (error) {
-      await this.completeAi(workspaceId, reservation.eventId, 'failed', { latencyMs: Date.now()-started, policyCode: error instanceof Error ? 'INTELLIGENCE_UPSTREAM_UNAVAILABLE' : 'INTELLIGENCE_FAILED' });
-      throw new ServiceUnavailableException({ code: 'INTELLIGENCE_UNAVAILABLE', message: 'LEXA Intelligence could not complete this explanation. Your business records and core workflows are unaffected.', requestId });
+      return {
+        answer: result.answer,
+        scope,
+        assurance: 'Based on permission-filtered LEXA business aggregates. Individual customer and employee records are excluded. AI is read-only and cannot post or change ERP records.',
+        requestId,
+        usage: { inputTokens: result.inputTokens, outputTokens: result.outputTokens, reservedBudgetMicros: reservation.reservedMicros, provider: result.provider, model: result.model },
+      };
+    } catch {
+      await this.completeAi(workspaceId, reservation.eventId, 'failed', { latencyMs: Date.now() - started, policyCode: 'AI_PROVIDER_FALLBACKS_EXHAUSTED' });
+      throw new ServiceUnavailableException({ code: 'INTELLIGENCE_UNAVAILABLE', message: 'LEXA could not reach an available AI provider. Your business records and core workflows are unaffected.', requestId });
     }
   }
 
+  // Backward-compatible route: old clients are redirected to the same business assistant.
   @Post('intelligence/help')
   @UseGuards(CsrfGuard)
   async productHelp(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Body() body: any, @Req() request: FastifyRequest) {
-    const actor = await this.access(request, workspaceId, branchId, 'intelligence.run');
-    const intelligenceBase = intelligenceBaseUrl();
-    if (process.env.LEXA_INTELLIGENCE_ENABLED !== 'true' || !intelligenceBase || !process.env.LEXA_INTELLIGENCE_INTERNAL_TOKEN) throw new ServiceUnavailableException({ code: 'INTELLIGENCE_UNAVAILABLE', message: 'LEXA Guide is temporarily unavailable. Your core LEXA workspace remains ready to use.' });
-    if (!(await this.hasFeature(workspaceId, 'intelligence.explain'))) throw new ForbiddenException({ code: 'FEATURE_NOT_ENTITLED', message: 'LEXA Guide is not included in this workspace plan.' });
-    const question = safeText(body?.question, 'LEXA question', 1_200);
-    const requestId = randomUUID();
-    const reservation = await this.reserveAi(workspaceId, branchId, actor.userId, requestId, 'business_explanation', 'public', PUBLIC_HELP_MODEL_ALIAS);
-    const started = Date.now();
-    try {
-      const response = await fetch(`${intelligenceBase}/v1/help`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-LEXA-Internal-Token': process.env.LEXA_INTELLIGENCE_INTERNAL_TOKEN!, 'X-Request-ID': requestId },
-        body: JSON.stringify({ request_id: requestId, question, model_alias: PUBLIC_HELP_MODEL_ALIAS }),
-        signal: AbortSignal.timeout(25_000),
-      });
-      if (!response.ok) throw new Error(`LEXA Guide returned ${response.status}.`);
-      const result = await response.json() as any;
-      if (typeof result?.answer !== 'string' || !result.answer.trim() || result.answer.length > 8_000) throw new Error('LEXA Guide returned an invalid response.');
-      const usage = result.usage && typeof result.usage === 'object' ? result.usage : {};
-      await this.completeAi(workspaceId, reservation.eventId, 'succeeded', { inputTokens: number(usage.input_tokens), outputTokens: number(usage.output_tokens), latencyMs: Date.now()-started, reportedCostMicros: Number.isFinite(Number(usage.cost_micros)) ? number(usage.cost_micros) : null, providerModel: typeof result.provider_model === 'string' ? result.provider_model : null });
-      return { answer: result.answer, scope: 'lexa_help', assurance: 'LEXA Guide uses approved product guidance only. No workspace records, uploaded documents or private business information were sent to a provider.', requestId, usage: { inputTokens: number(usage.input_tokens), outputTokens: number(usage.output_tokens), reservedBudgetMicros: reservation.reservedMicros } };
-    } catch {
-      await this.completeAi(workspaceId, reservation.eventId, 'failed', { latencyMs: Date.now()-started, policyCode: 'PUBLIC_HELP_UPSTREAM_UNAVAILABLE' });
-      throw new ServiceUnavailableException({ code: 'LEXA_GUIDE_UNAVAILABLE', message: 'LEXA Guide could not complete this answer. Your business records and core workflows are unaffected.', requestId });
-    }
+    return this.explain(workspaceId, branchId, { question: body?.question, scope: 'overview' }, request);
   }
 
   @Post('intelligence/extract')
   @UseGuards(CsrfGuard)
-  async extractDocument(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Body() body: any, @Req() request: FastifyRequest) {
-    const actor = await this.access(request, workspaceId, branchId, 'intelligence.run');
-    const intelligenceBase = intelligenceBaseUrl();
-    if (process.env.LEXA_INTELLIGENCE_ENABLED !== 'true' || !intelligenceBase || !process.env.LEXA_INTELLIGENCE_INTERNAL_TOKEN) throw new ServiceUnavailableException({ code: 'INTELLIGENCE_UNAVAILABLE', message: 'Document extraction is temporarily unavailable. Other LEXA functions remain available.' });
+  async extractDocument(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Body() _body: any, @Req() request: FastifyRequest) {
+    await this.access(request, workspaceId, branchId, 'intelligence.run');
     if (!(await this.hasFeature(workspaceId, 'intelligence.document_extract'))) throw new ForbiddenException({ code: 'FEATURE_NOT_ENTITLED', message: 'Document extraction is not included in this workspace plan.' });
-    const filename = safeText(body?.filename, 'Filename', 180);
-    if (/[\\/]/.test(filename) || filename.startsWith('.')) throw new BadRequestException('The document filename is invalid.');
-    const mimeType = safeText(body?.mimeType, 'Document type', 120);
-    const base64 = safeText(body?.contentBase64, 'Document content', Math.ceil(AI_MAX_FILE_BYTES*4/3)+8);
-    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) throw new BadRequestException('The document encoding is invalid.');
-    const bytes = Buffer.from(base64, 'base64');
-    if (!bytes.length || bytes.length > AI_MAX_FILE_BYTES) throw new BadRequestException('Documents must be between 1 byte and 5 MiB.');
-    const requestId = randomUUID();
-    const reservation = await this.reserveAi(workspaceId, branchId, actor.userId, requestId, 'document_extraction', 'restricted', null);
-    const started = Date.now();
-    try {
-      const response = await fetch(`${intelligenceBase}/v1/extract`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-LEXA-Internal-Token': process.env.LEXA_INTELLIGENCE_INTERNAL_TOKEN!, 'X-Request-ID': requestId },
-        body: JSON.stringify({ filename, mime_type: mimeType, content_base64: bytes.toString('base64'), max_bytes: AI_MAX_FILE_BYTES }),
-        signal: AbortSignal.timeout(45_000),
-      });
-      if (!response.ok) throw new Error(`Document extraction returned ${response.status}.`);
-      const result = await response.json() as any;
-      if (typeof result?.text !== 'string' || result.text.length > 120_000) throw new Error('The document extraction result is invalid.');
-      await this.completeAi(workspaceId, reservation.eventId, 'succeeded', { latencyMs: Date.now()-started });
-      return { filename, text: result.text, pages: result.pages ?? null, characters: result.text.length, warnings: result.warnings ?? [], assurance: 'Extracted text is untrusted source content. Review it before using it; it has not been sent to a language model or used to change LEXA records.', requestId };
-    } catch {
-      await this.completeAi(workspaceId, reservation.eventId, 'failed', { latencyMs: Date.now()-started, policyCode: 'DOCUMENT_EXTRACTION_FAILED' });
-      throw new ServiceUnavailableException({ code: 'DOCUMENT_EXTRACTION_UNAVAILABLE', message: 'The document could not be processed. Your original file and LEXA records have not been changed.', requestId });
-    }
+    throw new ServiceUnavailableException({ code: 'DOCUMENT_EXTRACTION_NOT_ENABLED', message: 'Document extraction will be enabled in a later production phase. LEXA AI business responses are available independently.' });
   }
 }
