@@ -99,6 +99,11 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/sales(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
   if (/\/commerce\/payment-report$/.test(path)) return 'sales.read';
   if (/\/platform\/attachments(?:\/|$)/.test(path)) return choose('collaboration.read','collaboration.write');
+  if (/\/platform\/jobs\/(?:backup|restore-dry-run|restore)$/.test(path) || /\/platform\/jobs\/[^/]+\/restore-(?:approve|release)$/.test(path) || /\/platform\/events\/(?:dead-letter|[^/]+\/replay)$/.test(path)) return 'workspace.manage';
+  if (/\/platform\/jobs\/export$/.test(path)) return 'reports.read';
+  if (/\/platform\/jobs\/(?:import|[^/]+\/(?:approve|cancel|retry))$/.test(path)) return choose('catalog.read','catalog.write');
+  if (/\/platform\/jobs(?:$|\/)/.test(path) || /\/platform\/imports\/templates$/.test(path)) return choose('reports.read','catalog.write');
+  if (/\/platform\/jobs\/[^/]+\/download-url$/.test(path)) return 'reports.read';
   if (/\/branches\/[^/]+\/tax\/(?:references|codes|summary)(?:\/|$)/.test(path)) return choose('finance.read','finance.write');
   if (/\/branches\/[^/]+\/tax\/preview$/.test(path)) return 'finance.read';
   if (/\/commerce\/delivery-report$/.test(path)) return 'fulfilment.read';

@@ -28,6 +28,7 @@ export const router = createBrowserRouter([
       { path: 'modules/sales-invoices', lazy: async () => ({ Component: (await import('../modules/operations/AccountsReceivablePanel')).default }) },
       { path: 'modules/purchase-invoices', lazy: async () => ({ Component: (await import('../modules/operations/AccountsPayablePanel')).default }) },
       { path: 'modules/:moduleId', lazy: async () => ({ Component: (await import('../modules/operations/OperationsWorkspacePage')).default }) },
+      { path: 'data-operations', lazy: async () => ({ Component: (await import('../modules/operations/ImportExportCentrePage')).default }) },
       { path: 'business-tools', lazy: async () => ({ Component: (await import('../modules/tools/BusinessToolsPage')).default }) },
       { path: 'settings', lazy: async () => ({ Component: (await import('../modules/settings/SettingsPage')).default }) },
       { path: '*', element: <Navigate to="/" replace /> },
