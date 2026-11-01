@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { AlertCircle, BarChart3, CheckCircle2, RefreshCw, ShieldCheck, Sparkles, Wallet } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
-import { apiReports, type AuthoritativeReports } from '../../data/remote/apiReports';
+import { apiReports } from '../../data/remote/apiReports';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
 
@@ -17,7 +17,7 @@ function money(value: number, currency: string): string {
   catch { return `${currency} ${(value / minorScale(currency)).toLocaleString()}`; }
 }
 function amount(value?: number, currency = 'UGX'): string { return money(value ?? 0, currency); }
-function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
+function Stat({ label, value, detail }: { label: string; value: string; detail?: string | undefined }) {
   return <div className="overview-stat-card"><small>{label}</small><strong>{value}</strong>{detail && <span>{detail}</span>}</div>;
 }
 function Reconciliation({ title, value, currency }: { title: string; value: { glControlBalanceMinor: number; subledgerBalanceMinor: number; differenceMinor: number; status: 'matched' | 'review' }; currency: string }) {
@@ -40,7 +40,7 @@ export default function AuthoritativeReportsPage() {
   const query = useQuery({ queryKey: ['authoritative-reports', workspace.id, branch.id, from, to], queryFn: () => apiReports.authoritative(workspace.id, branch.id, from || undefined, to || undefined), enabled: isApiProvider && (!from || !to || from <= to), retry: false, staleTime: 30_000 });
   const report = query.data;
   const generatedAt = useMemo(() => report?.generatedAt ? new Date(report.generatedAt).toLocaleString() : '', [report?.generatedAt]);
-  const currency = report?.currency ?? branch.currency ?? workspace.currency ?? 'UGX';
+  const currency = report?.currency ?? workspace.currency ?? 'UGX';
 
   return <main className="page-stack" data-module-accent={moduleAccentForPath('/reports')}>
     <header className="page-heading-row"><div><div className="eyebrow eyebrow-blue">BUSINESS PERFORMANCE</div><h2>Authoritative reports</h2><p>Sales, stock, receivables, payables and posted-ledger figures from LEXA's source records.</p></div><div className="page-heading-actions"><button className="button button-secondary button-small" onClick={() => navigate(`/intelligence?scope=overview&question=${encodeURIComponent('Please explain the key trends and items that need management attention in this report.')}`)}><Sparkles size={14}/> Ask LEXA to explain</button><button className="button button-secondary button-small" onClick={() => void query.refetch()} disabled={!isApiProvider || query.isFetching}><RefreshCw size={14}/> Refresh</button></div></header>
