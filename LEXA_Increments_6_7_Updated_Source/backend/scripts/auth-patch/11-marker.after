@@ -1,2 +1,0 @@
-  // LEXA_AUTH_SECURITY_PATCH:core-v1
-  constructor(private readonly prisma: PrismaService) {}
