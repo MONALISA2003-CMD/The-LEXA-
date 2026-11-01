@@ -1,0 +1,35 @@
+# LEXA development deployment: one existing Render web service only.
+# No private services, workers, databases, or paid Render add-ons are created here.
+services:
+  - type: web
+    name: lexa-backend-api-live
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: LEXA_AI_ENABLED
+        value: "true"
+      - key: LEXA_AI_PAID_TIER_ENABLED
+        value: "false"
+      - key: LEXA_AI_PUBLIC_HELP_CONFIGURED
+        value: "true"
+      - key: LEXA_AI_BUSINESS_CONFIGURED
+        value: "true"
+      - key: GEMINI_FREE_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CEREBRAS_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NVIDIA_NIM_API_KEY
+        sync: false
+      - key: NVIDIA_NIM_MODEL
+        value: "nvidia/nemotron-3.5-lightning-30b-a3b"

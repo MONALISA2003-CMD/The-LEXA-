@@ -1,0 +1,11 @@
+model AuthRateLimit {
+  key             String   @id
+  attempts        Int      @default(0)
+  windowStartedAt DateTime @map("window_started_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([updatedAt])
+  @@map("auth_rate_limits")
+}
+
+model Tenant {

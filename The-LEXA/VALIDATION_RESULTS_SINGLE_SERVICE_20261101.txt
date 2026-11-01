@@ -1,0 +1,23 @@
+LEXA single-service AI router validation — 2026-11-01
+
+PASSED IN THE LOCAL REPAIR WORKSPACE
+- Full backend Node test suite: 83 passed, 0 failed.
+- New AI router unit tests: 3 passed, 0 failed (missing keys fail closed; provider fallback on 429; paid provider keys remain excluded).
+- Render YAML parsed successfully and contains exactly one service: lexa-backend-api-live (type web, Free plan).
+- Backend and frontend TypeScript/TSX syntax checks completed with no syntax/type diagnostics from the changed files. Full project type-checks could not resolve dependencies because node_modules are not installed in this workspace.
+- No provider secret values were added to source files, examples, docs, or ZIP output.
+
+RENDER LIVE WORKSPACE CHECKS
+- Existing service: lexa-backend-api-live, service ID srv-dbhp0f0m7kps73ffeqrg, Frankfurt, Free plan.
+- Render accepted the merged environment-variable updates for the seven provider key variables, the NVIDIA model ID, the two requested compatibility flags, LEXA_AI_ENABLED=true and LEXA_AI_PAID_TIER_ENABLED=false. Existing environment variables were not replaced. The connector does not provide a secret read-back, so values were not echoed or independently re-read.
+- Render deployment dep-dbjm8e0u01pc73ft1c0g completed successfully at 16:10:51Z. Nest application started successfully.
+- Render startup logs report 30 migrations found and "No pending migrations to apply." No migration rollback or reset was performed.
+- Important: this live deployment is still on the existing main commit (1b1abee8d65a19ad1037bc60eaedccfce39f7e81); it does NOT yet contain this local single-service AI-router source package.
+
+NOT YET VERIFIED / REQUIRED BEFORE CALLING AI LIVE
+- GitHub branch creation/write was denied with 403 Resource not accessible by integration. No source changes were pushed to GitHub.
+- The new source package must be applied to the repository root and committed; Render and Vercel must then build the exact updated commit.
+- Full dependency-backed Nest build and Vite frontend production build were not run here because dependencies are not installed.
+- No live provider API smoke tests were run. Confirm each account's free/developer quota and provider-side billing mode before using it with real workspace data.
+- No frontend production deployment of this exact source package has completed.
+- Document extraction is intentionally disabled in this single-service development phase.

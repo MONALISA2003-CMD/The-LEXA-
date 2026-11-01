@@ -1,0 +1,5 @@
+-r requirements.txt
+# Heavy, separately provisioned document-understanding worker; not part of API startup.
+docling>=2.40,<3
+unstructured[local-inference]>=0.18,<1
+rapidfuzz>=3.14,<4
