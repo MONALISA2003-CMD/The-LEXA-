@@ -1,0 +1,10 @@
+LEXA validation evidence — 2026-11-01
+
+Backend unit tests: 74 passed, 0 failed.
+TypeScript/TSX syntax transpilation: 175 files, 0 syntax errors.
+Backup inventory: 154 decisions, 137 discovered references covered.
+OpenAPI coverage: 296 operations across 235 routes, exact match.
+Route-to-adapter coverage: 17/17.
+Ledger workflow coverage: 9/9.
+
+Not run: npm install, full backend Nest build, frontend tsc/vite build, frontend Vitest, Playwright, live HTTP/database E2E, staging migration apply/upgrade/fresh-install test, live Resend delivery/webhook, deployed worker/Redis/ClamAV/R2 checks, Sentry/OTel exporter verification, and actual staging restore drill.
