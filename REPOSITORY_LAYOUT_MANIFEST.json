@@ -1,0 +1,31 @@
+{
+  "name": "LEXA canonical single-root repository",
+  "archive_root": "repository root; no wrapper directory",
+  "canonical_application_roots": [
+    "backend/",
+    "lexa-frontend/"
+  ],
+  "supporting_roots": [
+    ".github/",
+    "docs/",
+    "deploy/",
+    "scripts/",
+    "services/"
+  ],
+  "deployment": {
+    "vercel_root": "lexa-frontend",
+    "vercel_framework": "vite",
+    "vercel_build_command": "npm run build",
+    "vercel_output": "dist",
+    "render_dockerfile": "backend/Dockerfile",
+    "render_context": "."
+  },
+  "repository_maintenance": {
+    "layout_check": "scripts/check_repository_layout.py",
+    "deduplicate_legacy_copies": "scripts/cleanup_legacy_repo_copies.py",
+    "archive_import_workflow": ".github/workflows/extract-frontend.yml"
+  },
+  "frontend_build_correction": "WORKFLOW_EDGES is exported from lexa-frontend/src/modules/operations/workflowGraph.ts.",
+  "secrets": "No live .env files or provider credential values included.",
+  "archive_file_count": 394
+}

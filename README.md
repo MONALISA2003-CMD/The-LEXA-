@@ -1,15 +1,59 @@
-# LEXA — Increment 1–7 source handoff
+# LEXA
 
-This package contains the canonical application source for the current LEXA workstream. It is packaged for extraction at the Git repository root; `backend/`, `lexa-frontend/`, `.github/`, `docs/`, `deploy/` and `scripts/` are at the archive top level.
+LEXA is a business management platform for sales, inventory, finance, people, reporting and day-to-day operations.
 
-- Implementation/release status: `backend/INCREMENT_6_7_IMPLEMENTATION_STATUS.md`
-- Deployment build repair record: `DEPLOYMENT_BUILD_REPAIRS_20261101.md`
-- Increment 6/7 operator runbooks: `docs/workstream7/runbooks/README.md`
-- Verification results: `VALIDATION_RESULTS_20261101.txt`
+## Repository layout
 
-The archive includes the Dexie v2 compound-index migration, the corrected `fastify-raw-body` package, the reported Vercel exact-optional TypeScript repairs, and the Render Fastify/Nest duplicate JSON-parser startup repair. The latest supplied Vercel log passed 99/99 tests before type-checking; the latest Render log passed install, Prisma generation and Nest compilation before runtime startup. The newest fixes have not yet been redeployed, so hosted green status is not claimed. See `DEPLOYMENT_BUILD_REPAIRS_20261101.md` for incident chronology, upstream root-cause research, security warnings, migration status and remaining release gates.
+| Location | Purpose |
+|---|---|
+| `backend/` | NestJS API, database schema, migrations and automated tests |
+| `lexa-frontend/` | Vite/React web application |
+| `services/intelligence/` | Optional AI and document-intelligence components; the current live assistant is routed by the backend |
+| `docs/` | Architecture, deployment guidance, handoffs, history and validation records |
+| `deploy/` | Operational deployment and recovery material |
+| `scripts/` | Repository checks and source-maintenance utilities |
+| `.github/workflows/` | Automated validation and repository maintenance |
+| `render.yaml` | Configuration for the existing Render API service |
 
+There is one canonical frontend and one canonical backend. Do not copy the repository into a child directory or commit downloaded source archives into the repository.
 
-## Workstream 8 — Reporting, SaaS controls & Intelligence
+## Local development
 
-The first Workstream 8 implementation slice is documented in [WORKSTREAM8_IMPLEMENTATION_20261101.md](WORKSTREAM8_IMPLEMENTATION_20261101.md). It adds source-ledger reporting, tenant plan/feature/usage controls, and a single-service AI router in the existing NestJS backend. The current development deployment uses only `lexa-backend-api-live`; it does not create private LiteLLM or Python services. Provider keys are entered in that service's Render Environment settings and are never committed to Git. See [WORKSTREAM8_RENDER_KEYS_20261101.md](WORKSTREAM8_RENDER_KEYS_20261101.md). The migration is additive and must be applied only after the backend release; no Workstream 7 migration should be rolled back.
+**Frontend**
+
+```bash
+cd lexa-frontend
+npm install
+npm run dev
+```
+
+**Backend**
+
+```bash
+cd backend
+npm install
+npm run start:dev
+```
+
+The frontend production build is `npm run build` from `lexa-frontend/`. The backend Docker build uses `backend/Dockerfile` with the repository root as its build context.
+
+## Deployment settings
+
+- **Vercel frontend root directory:** `lexa-frontend`
+- **Vercel framework:** Vite
+- **Frontend build command:** `npm run build`
+- **Frontend output directory:** `dist`
+- **Render service:** `lexa-backend-api-live`
+- **Render Dockerfile:** `backend/Dockerfile`
+- **Render Docker context:** repository root
+
+Provider credentials remain in private service environment settings. Never commit `.env` files or provider secrets.
+
+## Project documentation
+
+- Architecture: `docs/architecture/`
+- Deployment and provider configuration: `docs/deployment/`
+- Operational handoffs: `docs/handoffs/`
+- Historical implementation records: `docs/history/`
+- Validation records: `docs/validation/`
+- Frontend research and reference notes: `docs/frontend/`

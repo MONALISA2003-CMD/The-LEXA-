@@ -36,7 +36,7 @@ test('AI router uses one free-tier business assistant with automatic fallback an
   assert.doesNotMatch(controller, /LEXA_INTELLIGENCE_BASE_URL/);
   assert.match(router, /GEMINI_FREE_API_KEY/);
   assert.match(router, /GROQ_API_KEY/);
-  assert.match(router, /CEREBRAS_API_KEY/);
+  assert.doesNotMatch(router, /CEREBRAS_API_KEY/);
   assert.match(router, /OPENROUTER_API_KEY/);
   assert.match(router, /NVIDIA_NIM_API_KEY/);
   assert.match(router, /openrouter\/free/);

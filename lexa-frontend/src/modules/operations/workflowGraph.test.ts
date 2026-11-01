@@ -63,10 +63,10 @@ describe('cross-module workflow graph', () => {
     expect(isDuplicateSensitiveHandoff('sales-orders', 'sales-invoices')).toBe(false);
   });
 
-  it('provides a review-note route from each writable module', () => {
-    for (const module of MODULE_CATALOG.filter((item) => item.id !== 'audit' && !item.readOnly)) {
-      expect(getRelatedActions(module.id, record('SOURCE-1', 'Draft')).some((item) => item.targetId === 'audit'), module.id).toBe(true);
-    }
+  it('does not expose activity-note or integration-status modules as business workflows', () => {
+    expect(ids.has('audit')).toBe(false);
+    expect(ids.has('integrations')).toBe(false);
+    expect(WORKFLOW_EDGES.some((item) => item.targetId === 'audit' || item.sourceId === 'integrations')).toBe(false);
   });
 });
 
@@ -76,7 +76,7 @@ describe('core workflow navigation shortcuts', () => {
     for (const id of ['sales-orders', 'sales-invoices', 'purchases', 'receiving', 'stock-counts', 'boms', 'team', 'accounting']) {
       const shortcuts = getCoreScreenShortcuts(id);
       expect(shortcuts.length, id).toBeGreaterThan(0);
-      for (const shortcut of shortcuts) expect(['/products', '/inventory', '/checkout', '/sales', '/settings', '/modules/reports']).toContain(shortcut.path);
+      for (const shortcut of shortcuts) expect(['/products', '/inventory', '/checkout', '/sales', '/settings', '/reports']).toContain(shortcut.path);
     }
     expect(getCoreScreenShortcuts('sales-orders').some((item) => item.path === '/checkout')).toBe(true);
   });

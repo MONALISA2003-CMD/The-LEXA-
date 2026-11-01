@@ -117,18 +117,21 @@ test('backend contracts retain idempotent source processing, no payment collecti
 });
 
 
-test('Operations Centre exposes configurable bounded alert rules and operator acknowledgement', async () => {
-  const [controller, page, api, evaluator, migration] = await Promise.all([
+test('retired operations centre is not exposed while protected alert controls remain server-side', async () => {
+  const [controller, router, api, evaluator, migration, appShell] = await Promise.all([
     readFile(new URL('../src/operations/operations.controller.ts', import.meta.url), 'utf8'),
-    readFile(new URL('../../lexa-frontend/src/modules/operations/OperationsCentrePage.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../../lexa-frontend/src/app/router.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../../lexa-frontend/src/data/remote/apiOperations.ts', import.meta.url), 'utf8'),
     readFile(new URL('../src/operations/alert-evaluator.ts', import.meta.url), 'utf8'),
     readFile(new URL('../prisma/migrations/20261101170000_increment6_7_runtime_hardening/migration.sql', import.meta.url), 'utf8'),
+    readFile(new URL('../../lexa-frontend/src/app/layouts/AppShell.tsx', import.meta.url), 'utf8'),
   ]);
   assert.match(controller, /isWorkspaceAdministrator/);
   assert.match(controller, /cooldownSeconds/);
   assert.match(controller, /alert-rules\/:ruleKey/);
-  assert.match(page, /Alert rules and thresholds/);
+  assert.match(router, /path: 'operations', element: <Navigate to=\"\/\" replace \/>/);
+  assert.doesNotMatch(router, /OperationsCentrePage/);
+  assert.doesNotMatch(appShell, /Operations centre|Activity and audit logs|Integration status|Inbox and collaboration|All modules/i);
   assert.match(api, /updateRule/);
   assert.match(evaluator, /redis\.unavailable/);
   assert.match(evaluator, /import_export\.stalled/);

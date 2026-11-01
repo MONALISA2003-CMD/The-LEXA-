@@ -340,12 +340,12 @@ export default function BusinessToolsPage() {
         const saved = await apiBusinessTools.saveCashUp(record);
         setCashUps((current) => [...current.filter((item) => !(item.workspaceId === saved.workspaceId && item.branchId === saved.branchId && item.date === saved.date)), saved]);
         await queryClient.invalidateQueries({ queryKey: ['business-tools-cash-ups', workspace.id, branch.id] });
-        toast.success('Cash-up saved to the backend', { description: 'This compares recorded cash entries with your count; it is not a bank or mobile-money reconciliation.' });
+        toast.success('Cash-up saved to LEXA', { description: 'This compares recorded cash entries with your count; it is not a bank or mobile-money reconciliation.' });
       } else {
         const next = [...readCashUps().filter((item) => !(item.workspaceId === workspace.id && item.branchId === branch.id && item.date === cashDate)), record];
         writeJson(CASHUP_KEY, next); setCashUps(next); toast.success('Cash-up saved on this device', { description: 'This compares recorded cash entries with your count; it is not a bank or mobile-money reconciliation.' });
       }
-    } catch (error) { toast.error('Cash-up was not saved', { description: error instanceof Error ? error.message : 'Check the backend connection and retry.' }); }
+    } catch (error) { toast.error('Cash-up was not saved', { description: error instanceof Error ? error.message : 'Check your LEXA connection and try again.' }); }
     finally { setBusy(false); }
   }
 
@@ -360,12 +360,12 @@ export default function BusinessToolsPage() {
         const saved = await apiBusinessTools.saveTaxProfile(workspace.id, profile);
         setProfile(saved);
         await queryClient.invalidateQueries({ queryKey: ['business-tools-tax-profile', workspace.id] });
-        toast.success('Tax profile saved to the backend', { description: 'The thresholds remain user-configured guidance, not a legal/tax determination.' });
+        toast.success('Tax profile saved to LEXA', { description: 'The thresholds remain user-configured guidance, not a legal/tax determination.' });
       } else {
         saveProfile(workspace.id, profile);
         toast.success('Tax profile saved on this device', { description: 'The thresholds remain user-configured guidance, not a legal/tax determination.' });
       }
-    } catch (error) { toast.error('Tax profile was not saved', { description: error instanceof Error ? error.message : 'Check the backend connection and retry.' }); }
+    } catch (error) { toast.error('Tax profile was not saved', { description: error instanceof Error ? error.message : 'Check your LEXA connection and try again.' }); }
     finally { setBusy(false); }
   }
 
@@ -379,7 +379,7 @@ export default function BusinessToolsPage() {
         const saved = await apiBusinessTools.createComplianceNote(workspace.id, note);
         setComplianceNotes((current) => [saved, ...current]);
         await queryClient.invalidateQueries({ queryKey: ['business-tools-compliance-notes', workspace.id] });
-        toast.success('Document reference saved to the backend');
+        toast.success('Document reference saved to LEXA');
       } else {
         const localNote: ComplianceNote = { ...note, id: safeId('tax-note') };
         const next = [localNote, ...readComplianceNotes(workspace.id)];
@@ -387,7 +387,7 @@ export default function BusinessToolsPage() {
         toast.success('Manual tax reference saved on this device');
       }
       setInternalReference(''); setFdn(''); setComplianceNoteText('');
-    } catch (error) { toast.error('Document reference was not saved', { description: error instanceof Error ? error.message : 'Check the backend connection and retry.' }); }
+    } catch (error) { toast.error('Document reference was not saved', { description: error instanceof Error ? error.message : 'Check your LEXA connection and try again.' }); }
     finally { setBusy(false); }
   }
 
@@ -396,7 +396,7 @@ export default function BusinessToolsPage() {
     try {
       const backup = isApiProvider ? await apiBusinessTools.exportBackup(workspace.id) : await createLocalDatabaseBackup();
       downloadText(JSON.stringify(backup, null, 2), `lexa-${isApiProvider ? 'workspace' : 'local'}-backup-${workspace.id}-${new Date().toISOString().slice(0, 10)}.json`, 'application/json;charset=utf-8');
-      toast.success(isApiProvider ? 'Workspace backup downloaded' : 'Local database backup downloaded', { description: isApiProvider ? 'The backup was supplied by the backend for the selected workspace.' : 'Core IndexedDB tables were included; separate tool data and attachments are not included.' });
+      toast.success(isApiProvider ? 'Workspace backup downloaded' : 'Local database backup downloaded', { description: isApiProvider ? 'The backup was prepared for the selected business.' : 'Core IndexedDB tables were included; separate tool data and attachments are not included.' });
     } catch (error) { toast.error('Backup failed', { description: error instanceof Error ? error.message : 'Could not read business data.' }); }
     finally { setBusy(false); }
   }
@@ -409,10 +409,10 @@ export default function BusinessToolsPage() {
       const value: unknown = JSON.parse(await file.text());
       if (isApiProvider) {
         if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Select a valid JSON workspace backup.');
-        if (!window.confirm(`Send this backup to the backend to restore workspace ${workspace.businessName}? This can replace records on the server. A server-side permission check and audit event are required.`)) return;
+        if (!window.confirm(`Restore this backup for ${workspace.businessName}? This can replace records on the server. A server-side permission check and audit event are required.`)) return;
         const result = await apiBusinessTools.restoreBackup(workspace.id, value);
         await refreshWorkspaces(); await refreshSnapshot();
-        toast.success('Restore request accepted by the backend', { description: `${result.recordsRestored ?? 0} records reported restored. Verify the server audit log and resulting records.` });
+        toast.success('Restore request accepted by LEXA', { description: `${result.recordsRestored ?? 0} records reported restored. Review the restored records before continuing.` });
       } else {
         const valid = validateLocalDatabaseBackup(value);
         const recordCount = Object.values(valid.tables).reduce((sum, rows) => sum + rows.length, 0);
@@ -443,7 +443,7 @@ export default function BusinessToolsPage() {
           : await importOpeningStockCsv(workspace.id, branch.id, contents);
       }
       await refreshSnapshot();
-      toast.success(kind === 'products' ? 'Products imported' : 'Opening stock imported', { description: isApiProvider ? `${count} validated rows were accepted by the backend.` : `${count} validated rows were imported locally.` });
+      toast.success(kind === 'products' ? 'Products imported' : 'Opening stock imported', { description: isApiProvider ? `${count} validated rows were accepted by LEXA.` : `${count} validated rows were imported locally.` });
     } catch (error) { toast.error('CSV import rejected', { description: error instanceof Error ? error.message : 'The file did not pass validation. Existing records were left unchanged.' }); }
     finally { setBusy(false); }
   }

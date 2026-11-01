@@ -232,7 +232,7 @@ export default function DeliveryDispatchPanel() {
     <section className="commerce-workflow-panel" style={{ marginBottom: 18 }}>
       <div className="commerce-panel-heading">
         <div className="commerce-panel-icon">🚚</div>
-        <div><span className="eyebrow eyebrow-blue">WORKSTREAM 7 · INCREMENT 1</span><h3>POS dispatches and rider reconciliation</h3><p>Split a completed sale into dispatch batches, record lifecycle events, then reconcile rider-held money separately from customer receipts.</p></div>
+        <div><span className="eyebrow eyebrow-blue">DELIVERY MANAGEMENT</span><h3>Dispatches and rider reconciliation</h3><p>Split a completed sale into dispatch batches, record lifecycle events, then reconcile rider-held money separately from customer receipts.</p></div>
       </div>
       <div className="commerce-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginBottom: 16 }}>
         <div className="commerce-summary-card"><span>Dispatch records</span><strong>{deliveryReportQuery.data?.totals.dispatchCount ?? dispatchCount}</strong></div>

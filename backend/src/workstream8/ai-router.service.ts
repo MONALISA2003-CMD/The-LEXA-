@@ -47,18 +47,16 @@ export class AiRouterService {
     const providers: Provider[] = [];
     const gemini = env('GEMINI_FREE_API_KEY');
     const groq = env('GROQ_API_KEY');
-    const cerebras = env('CEREBRAS_API_KEY');
     const openrouter = env('OPENROUTER_API_KEY');
     const nvidia = env('NVIDIA_NIM_API_KEY');
 
-    if (gemini) providers.push({ name: 'Google Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', key: gemini, model: 'gemini-3.8-flash' });
-    if (groq) providers.push({ name: 'Groq', baseUrl: 'https://api.groq.com/openai/v1/chat/completions', key: groq, model: 'llama-3.3-70b-versatile' });
-    if (cerebras) providers.push({ name: 'Cerebras', baseUrl: 'https://api.cerebras.ai/v1/chat/completions', key: cerebras, model: 'qwen-3.8-27b' });
-    if (openrouter) providers.push({ name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1/chat/completions', key: openrouter, model: 'openrouter/free', headers: { 'HTTP-Referer': 'https://lexa.app', 'X-Title': 'LEXA Business Assistant' } });
+    // Free services are tried in order. A provider is skipped during a short cooldown after throttling or an availability error.
+    if (gemini) providers.push({ name: 'Google Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', key: gemini, model: env('GEMINI_FREE_MODEL') || 'gemini-3.5-flash-lite' });
+    if (groq) providers.push({ name: 'Groq', baseUrl: 'https://api.groq.com/openai/v1/chat/completions', key: groq, model: env('GROQ_FREE_MODEL') || 'openai/gpt-oss-20b' });
+    if (openrouter) providers.push({ name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1/chat/completions', key: openrouter, model: 'openrouter/free', headers: { 'HTTP-Referer': 'https://lexareview.vercel.app', 'X-Title': 'LEXA Business Assistant' } });
     if (nvidia) providers.push({ name: 'NVIDIA NIM', baseUrl: 'https://integrate.api.nvidia.com/v1/chat/completions', key: nvidia, model: env('NVIDIA_NIM_MODEL') || 'nvidia/nemotron-3.5-lightning-30b-a3b' });
 
-    // OpenAI and the second Gemini credential are stored for production handover only.
-    // Paid provider routing is deliberately not implemented in this development release.
+    // Paid provider routing is deliberately excluded from this free-service configuration.
     return providers;
   }
 
@@ -75,11 +73,10 @@ export class AiRouterService {
     const candidates = this.providers();
     if (!candidates.length) throw new Error('No eligible AI providers are configured.');
 
-    // Spread first attempts across providers; failed or rate-limited providers are skipped temporarily.
-    const start = [...input.requestId].reduce((sum, character) => (sum + character.charCodeAt(0)) >>> 0, 0) % candidates.length;
-    const ordered = [...candidates.slice(start), ...candidates.slice(0, start)];
-    const available = ordered.filter((provider) => (this.cooldownUntil.get(provider.name) ?? 0) <= Date.now());
-    const attempts = available.length ? available : ordered;
+    // Use the preferred free provider first. Temporarily skip throttled providers, then try
+    // the remaining free services in order; never silently fall back to a paid model.
+    const available = candidates.filter((provider) => (this.cooldownUntil.get(provider.name) ?? 0) <= Date.now());
+    const attempts = available.length ? available : candidates;
     const system = [
       'You are LEXA, a professional business operations and management assistant for business owners.',
       'Answer clearly, accurately, and practically. Use concise headings or numbered actions when helpful.',

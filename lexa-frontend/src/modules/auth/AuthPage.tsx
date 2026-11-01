@@ -13,8 +13,8 @@ type AuthMode = 'sign-in' | 'forgot-password' | 'reset-password';
 const copy: Record<AuthMode, { eyebrow: string; title: string; description: string; submit: string }> = {
   'sign-in': {
     eyebrow: 'SECURE BUSINESS ACCESS',
-    title: 'Welcome back.',
-    description: 'Sign in to continue to your business workspace.',
+    title: 'Sign in to LEXA.',
+    description: 'Access your business, team and daily operations from one secure workspace.',
     submit: 'Sign in securely',
   },
   'forgot-password': {
@@ -50,16 +50,16 @@ function BrandPanel() {
       <div className="auth-brand-content">
         <div className="auth-brand-orbit auth-orbit-one" />
         <div className="auth-brand-orbit auth-orbit-two" />
-        <div className="auth-brand-kicker"><Sparkles size={15} /> A clearer way to run your business</div>
-        <h2>Everything connected.<br /><span>Work made clearer.</span></h2>
-        <p>Bring your people, daily operations, and business information into one organised workspace.</p>
+        <div className="auth-brand-kicker"><Sparkles size={15} /> Clarity for every business decision</div>
+        <h2>Your business.<br /><span>Clearly managed.</span></h2>
+        <p>Manage your people, customers, finances and daily work in one professional workspace.</p>
         <div className="auth-feature-list">
-          <div><span className="auth-feature-icon"><Users size={17} /></span><div><strong>Workspace-based access</strong><small>People see the work they are authorised to manage.</small></div></div>
-          <div><span className="auth-feature-icon"><LockKeyhole size={17} /></span><div><strong>Protected sign-in</strong><small>Account access is verified by the LEXA service.</small></div></div>
+          <div><span className="auth-feature-icon"><Users size={17} /></span><div><strong>Access for your team</strong><small>Each team member sees the information and tasks assigned to their role.</small></div></div>
+          <div><span className="auth-feature-icon"><LockKeyhole size={17} /></span><div><strong>Protected sign-in</strong><small>Your account is protected by secure sign-in.</small></div></div>
           <div><span className="auth-feature-icon"><ShieldCheck size={17} /></span><div><strong>Secure account recovery</strong><small>Reset links are time-limited and single-use.</small></div></div>
         </div>
       </div>
-      <div className="auth-brand-footer"><span>LEXA</span><span>Business operations, in one place.</span></div>
+      <div className="auth-brand-footer"><span>LEXA</span><span>A clearer way to manage your business.</span></div>
     </aside>
   );
 }
@@ -139,7 +139,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
     <main className="auth-page">
       <BrandPanel />
       <section className="auth-main-panel">
-        <div className="auth-main-top"><Link to="/onboarding" className="auth-back-link"><ArrowLeft size={15} /> Back to LEXA</Link><span className="auth-top-secure"><ShieldCheck size={15} /> Secure connection</span></div>
+        <div className="auth-main-top"><Link to="/onboarding" className="auth-back-link"><ArrowLeft size={15} /> Back to LEXA</Link><span className="auth-top-secure"><ShieldCheck size={15} /> Protected sign-in</span></div>
         <div className="auth-card">
           <div className="auth-mobile-brand"><img src="/lexa-logo.png" alt="LEXA" /></div>
           <div className="auth-eyebrow">{complete ? 'REQUEST RECEIVED' : text.eyebrow}</div>
@@ -149,11 +149,11 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
             : text.description}</p>
 
           {passwordUpdated && <div className="auth-complete-panel auth-password-updated" role="status"><CheckCircle2 size={20} /><div><strong>Password updated successfully</strong><span>Sign in with your new password. Your previous sessions have been closed.</span></div></div>}
-          {!apiReady && <div className="auth-notice" role="status">LEXA account access requires the connected backend service.</div>}
+          {!apiReady && <div className="auth-notice" role="status">LEXA account access requires an active business service connection.</div>}
 
           {!complete && <form className="auth-form" onSubmit={submit}>
             {mode !== 'reset-password' && <div className="auth-field">
-              <label htmlFor="account-email">Account email <span aria-hidden="true">*</span></label>
+              <label htmlFor="account-email">Business email address <span aria-hidden="true">*</span></label>
               <div className="auth-input-wrap"><Mail size={17} aria-hidden="true" /><input id="account-email" name="email" type="email" inputMode="email" autoComplete="username" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@business.com" /></div>
             </div>}
             {mode !== 'forgot-password' && <PasswordField
@@ -179,7 +179,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
           {mode === 'sign-in' && !complete && <div className="auth-support-row"><Link to="/forgot-password">Forgot password?</Link><span>Need access? Contact your workspace administrator.</span></div>}
           {mode === 'forgot-password' && <div className="auth-support-row"><Link to="/sign-in"><ArrowLeft size={14} /> Back to sign in</Link></div>}
           {mode === 'reset-password' && <div className="auth-support-row"><Link to="/forgot-password">Request a new recovery link</Link></div>}
-          {mode === 'sign-in' && bootstrapAvailable && <Link className="auth-first-admin" to="/create-account">Set up the first administrator <ArrowRight size={15} /></Link>}
+          {mode === 'sign-in' && bootstrapAvailable && <Link className="auth-first-admin" to="/create-account">Create the first administrator account <ArrowRight size={15} /></Link>}
           {complete && <Link className="auth-submit auth-return-button" to="/sign-in">Return to sign in <ArrowRight size={17} /></Link>}
 
           <div className="auth-security-footnote"><ShieldCheck size={16} /><span>Your password is checked by the LEXA service. Session credentials are held in secure cookies, not browser storage.</span></div>
@@ -246,7 +246,7 @@ export function CreateAccountPage() {
           {available && <form className="auth-form" onSubmit={submit}>
             <div className="auth-field"><label htmlFor="bootstrap-secret">One-time setup code <span aria-hidden="true">*</span></label><div className="auth-input-wrap"><KeyRound size={17} /><input id="bootstrap-secret" type="password" autoComplete="off" required maxLength={256} value={bootstrapSecret} onChange={(event) => setBootstrapSecret(event.target.value)} placeholder="Enter the private setup code" /></div></div>
             <div className="auth-field"><label htmlFor="admin-name">Full name <span aria-hidden="true">*</span></label><div className="auth-input-wrap"><input id="admin-name" autoComplete="name" required maxLength={100} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Your name" /></div></div>
-            <div className="auth-field"><label htmlFor="admin-email">Account email <span aria-hidden="true">*</span></label><div className="auth-input-wrap"><Mail size={17} /><input id="admin-email" type="email" autoComplete="email" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@business.com" /></div></div>
+            <div className="auth-field"><label htmlFor="admin-email">Business email address <span aria-hidden="true">*</span></label><div className="auth-input-wrap"><Mail size={17} /><input id="admin-email" type="email" autoComplete="email" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@business.com" /></div></div>
             <PasswordField id="admin-password" label="Create password" value={password} onChange={setPassword} autoComplete="new-password" placeholder="Use a unique passphrase" />
             <PasswordLengthGuide value={password} />
             <PasswordField id="admin-password-confirm" label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" placeholder="Enter the password again" />

@@ -58,18 +58,6 @@ def generic_values_source() -> str:
   const sourceReference = sourceReferenceField ? (source[sourceReferenceField] ?? source.id) : source.id;
 
   if (!target) return {};
-  if (targetId === 'audit') {
-    const sourceTitle = getModuleDefinition(sourceModuleId)?.title ?? sourceModuleId;
-    return {
-      eventDate: today,
-      actor: '',
-      action: 'Review note created',
-      entity: sourceTitle,
-      reference: sourceReference,
-      detail: `Activity note for ${sourceTitle} ${sourceReference}. This is not a trusted security audit event or a posted business transaction.`,
-      status: 'Recorded',
-    };
-  }
 
   const aliases: Record<string, string[]> = {
     customer: ['customer', 'customerName', 'company', 'contactName', 'clientName', 'accountName', 'partyName'],
@@ -588,53 +576,7 @@ def main() -> None:
     if "getCoreScreenShortcuts(module.id).map((action) => <button key={action.path}" not in page:
         page = replace_once(page, ui_old, ui_new, "core screen shortcuts in record details")
 
-    # Automatically add a *preview* activity note after creating a related draft. This is not a secure audit log.
-    event_marker = """      const targetRows = await previewDataService.save(previewScope, targetId, linked, target.initial);
-      queryClient.setQueryData(['phase-preview', workspace.id, branch.id, targetId], targetRows);
-      void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] });
-      setStorageMode(previewDataService.getPersistenceMode());
-      setDetail(null);
-      toast.success('Related draft created', { description: 'Saved in the browser-local preview workspace only. No live module, stock or ledger was changed.' });
-      navigate('/modules/' + targetId);"""
-    event_replacement = """      const targetRows = await previewDataService.save(previewScope, targetId, linked, target.initial);
-      queryClient.setQueryData(['phase-preview', workspace.id, branch.id, targetId], targetRows);
-      if (targetId !== 'audit') {
-        const auditModule = getModuleDefinition('audit');
-        if (auditModule) {
-          try {
-            const now = new Date().toISOString();
-            const targetReferenceField = REFERENCE_FIELDS[targetId];
-            const targetReference = targetReferenceField ? (linked[targetReferenceField] ?? linked.id) : linked.id;
-            const auditRecord: PreviewRecord = {
-              id: 'AUD-LINK-' + Date.now().toString(36).toUpperCase(),
-              updatedAt: now,
-              status: 'Recorded',
-              eventDate: now.slice(0, 10),
-              actor: '',
-              action: 'Related record created',
-              entity: target.title,
-              reference: targetReference,
-              detail: `${target.title} ${targetReference} was prepared from ${module.title} ${sourceReference}. This activity note does not create a core ledger posting.`,
-              sourceModuleId: module.id,
-              sourceRecordId: source.id,
-              sourceReference,
-            };
-            const auditRows = await previewDataService.save(previewScope, 'audit', auditRecord, auditModule.initial);
-            queryClient.setQueryData(['phase-preview', workspace.id, branch.id, 'audit'], auditRows);
-          } catch (auditError) {
-            toast.warning('Related record saved, but its activity note failed', { description: auditError instanceof Error ? auditError.message : 'The activity register could not be updated.' });
-          }
-        }
-      }
-      void queryClient.invalidateQueries({ queryKey: ['phase-preview-reports', workspace.id, branch.id] });
-      setStorageMode(previewDataService.getPersistenceMode());
-      setDetail(null);
-      toast.success('Related record created', { description: 'The linked register record was saved. Core stock, payments and accounting are not posted by this action.' });
-      navigate('/modules/' + targetId);"""
-    if event_marker in page:
-        page = replace_once(page, event_marker, event_replacement, "preview activity note")
-    elif "const auditRecord: PreviewRecord" not in page:
-        fail("createRelatedPreview save block not found")
+    # Activity and audit-note screens have been retired from the business interface.
 
     # Extend the payment prefill with a payroll run without changing the existing invoice/expense branches.
     old_payment = """    const isExpense = sourceModuleId === 'expenses';
@@ -665,27 +607,14 @@ def main() -> None:
     elif "const isPayroll = sourceModuleId === 'payroll';" not in page:
         fail("payment prefill block not found")
 
-    # Make the audit module description accurately reflect generated local preview notes.
-    old_description = "description: 'Browse sample operational events to shape the future audit trail and exception review interface.',"
-    new_description = "description: 'Review operational activity notes and exceptions. Security-critical audit events must be recorded by trusted server-side actions.',"
-    if old_description in catalog:
-        catalog = replace_once(catalog, old_description, new_description, "audit module description")
-    old_workflow = "workflow: 'A production audit log must be generated by trusted server-side actions and be tamper-resistant. This module is read-only sample data and is not a security audit source.',"
-    new_workflow = "workflow: 'Review related operational activity and exceptions. Security-critical audit events must be recorded by trusted server-side actions and protected against tampering.',"
-    if old_workflow in catalog:
-        catalog = replace_once(catalog, old_workflow, new_workflow, "audit module workflow text")
-
-
     # Add a Business Tools screen for cash-up, tax guidance, local import/export, recovery and mobile capture.
     route_marker = "      { path: 'settings', lazy: async () => ({ Component: (await import('../modules/settings/SettingsPage')).default }) },"
     route_entry = "      { path: 'business-tools', lazy: async () => ({ Component: (await import('../modules/tools/BusinessToolsPage')).default }) },\n"
     if "path: 'business-tools'" not in router:
         router = replace_once(router, route_marker, route_entry + route_marker, "business tools route")
 
-    nav_marker = "    { to: '/modules/audit', label: 'Activity & audit log', icon: Activity },"
-    nav_entry = "    { to: '/business-tools', label: 'Business tools', icon: Settings },\n"
     if "to: '/business-tools'" not in app_shell:
-        app_shell = replace_once(app_shell, nav_marker, nav_entry + nav_marker, "business tools navigation link")
+        fail("Business Tools navigation entry is missing from AppShell")
 
     # Keep the default menu simple and mobile-focused, with an event-driven switch to Advanced navigation.
     mobile_state = "  const [mobileNavOpen, setMobileNavOpen] = useState(false);"
@@ -758,10 +687,8 @@ def main() -> None:
         fail("TypeScript seed error fix did not complete")
     if "from './workflowGraph'" not in page or "return getRelatedActions(moduleId, record);" not in page or "getCoreScreenShortcuts(module.id)" not in page or "isDuplicateSensitiveHandoff" not in page:
         fail("workflow graph import/delegation/core shortcuts/duplicate protection are missing")
-    if "function genericRelatedValues(" not in page or "sourceReference," not in page:
+    if "function genericRelatedValues(" not in page or "sourceReference };" not in page:
         fail("generic mapping or source reference metadata is missing")
-    if "AUD-LINK-" not in page:
-        fail("preview activity note code is missing")
     if "path: 'business-tools'" not in router or "to: '/business-tools'" not in app_shell or "visibleNavSections.map((section) => (" not in app_shell:
         fail("Business Tools route or Simple/Advanced navigation changes are missing")
     if "const [paymentLines, setPaymentLines]" not in checkout or "Add split-payment line" not in checkout or "REQUIRED FOR CREDIT" not in checkout:
@@ -795,8 +722,8 @@ def main() -> None:
     print(" - enabled the shared status-aware workflow graph")
     print(" - added generic related-field mapping and source references")
     print(" - protected one-to-one hand-offs from duplicate target drafts")
-    print(" - recorded activity notes for related hand-offs")
-    print(" - clarified activity-log security boundaries")
+    print(" - retired legacy activity-note workflows")
+    print(" - kept protected business records within their existing permissions")
     print(" - added Business Tools: local cash-up, compliance guidance, backups, CSV imports/exports and device capture")
     print(" - enabled Simple / Advanced navigation modes")
     print(" - added split-tender payments, customer-required credit, promised dates and later instalments")

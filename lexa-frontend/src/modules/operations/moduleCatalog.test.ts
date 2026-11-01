@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EXISTING_MODULE_LINKS, MODULE_CATALOG, PHASE_TWO_LINKS, getModuleDefinition } from './moduleCatalog';
 
-describe('LEXA Phase 2 module map', () => {
+describe('LEXA business module catalogue', () => {
   it('keeps editable fields separate from read-only transactional detail metadata', () => {
     const ids = MODULE_CATALOG.map((module) => module.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -27,9 +27,11 @@ describe('LEXA Phase 2 module map', () => {
   it('resolves every module-directory link to a registered route or the report centre', () => {
     for (const link of PHASE_TWO_LINKS) {
       const id = link.to.split('/').filter(Boolean).at(-1);
-      if (id === 'reports') expect(link.to).toBe('/modules/reports');
+      if (id === 'reports') expect(link.to).toBe('/reports');
       else expect(getModuleDefinition(id)).toBeDefined();
     }
+    expect(MODULE_CATALOG.some((module) => ['audit', 'integrations'].includes(module.id))).toBe(false);
+    expect(PHASE_TWO_LINKS.some((link) => link.title === 'Reports & analytics' || link.to === '/modules/reports')).toBe(false);
     expect(EXISTING_MODULE_LINKS.length).toBeGreaterThan(0);
   });
 });

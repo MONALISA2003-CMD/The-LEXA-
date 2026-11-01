@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import {
-  Activity, ArrowDownUp, Banknote, Bell, BookOpen, Building2, BarChart3, ChevronDown, Target, Boxes, Plug,
-  CircleHelp, ClipboardList, Command, CreditCard, FileText, LayoutDashboard, Menu, MessageCircle,
+  Activity, ArrowDownUp, Banknote, BookOpen, Building2, BarChart3, ChevronDown, Target, Boxes,
+  CircleHelp, ClipboardList, CreditCard, FileText, LayoutDashboard, Menu,
   Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X, Moon, Sun, Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,7 +12,6 @@ import { WorkspaceContext } from '../WorkspaceContext';
 import type { Branch, Workspace } from '../../domain/shared/types';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import GlobalSearch from '../../components/GlobalSearch';
-import { apiCollaboration } from '../../data/remote/apiCollaboration';
 
 const ACTIVE_WORKSPACE_KEY = 'lexa.ui.activeWorkspaceId';
 const ACTIVE_BRANCH_KEY = 'lexa.ui.activeBranchId';
@@ -28,14 +26,10 @@ const navSections = [
   { title: 'WORKSPACE', items: [
     { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
     { to: '/workspace', label: 'Business & branches', icon: Building2 },
-    { to: '/modules', label: 'All modules', icon: Command, end: true },
   ] },
-  { title: 'INBOX & WORK', items: [
-    { to: '/inbox', label: 'Inbox & collaboration', icon: MessageCircle },
-  ] },
-  { title: 'REPORTS & INSIGHTS', items: [
+  { title: 'REPORTS & ADVICE', items: [
     { to: '/reports', label: 'Authoritative reports', icon: BarChart3 },
-    { to: '/intelligence', label: 'LEXA Intelligence', icon: Sparkles },
+    { to: '/intelligence', label: 'LEXA Assistant', icon: Sparkles },
   ] },
   { title: 'CRM & GROWTH', items: [
     { to: '/modules/leads', label: 'Leads & prospects', icon: Users },
@@ -93,20 +87,16 @@ const navSections = [
     { to: '/modules/attendance', label: 'Attendance & shifts', icon: Activity },
     { to: '/modules/payroll', label: 'Payroll', icon: Wallet },
   ] },
-  { title: 'INTEGRATION & CONTROL', items: [
-    { to: '/modules/integrations', label: 'Integration status', icon: Plug },
-    { to: '/reports', label: 'Authoritative reports', icon: BarChart3 },
+  { title: 'ADMINISTRATION', items: [
+
     { to: '/modules/team', label: 'Team & access', icon: Users },
     { to: '/business-tools', label: 'Business tools', icon: Settings },
-    { to: '/modules/audit', label: 'Activity & audit log', icon: Activity },
-    { to: '/operations', label: 'Operations Centre', icon: Activity },
   ] },
 ];
 
 function routeTitle(pathname: string): string {
   if (pathname === '/') return 'Overview';
   if (pathname.startsWith('/sales/')) return 'Sale details';
-  if (pathname === '/modules') return 'All modules';
   const found = navSections.flatMap((section) => section.items)
     .filter((item) => item.to !== '/')
     .sort((a, b) => b.to.length - a.to.length)
@@ -128,15 +118,6 @@ export default function AppShell() {
   const [loadErrorStatus, setLoadErrorStatus] = useState<number | null>(null);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [resolvedBranchWorkspaceId, setResolvedBranchWorkspaceId] = useState<string | null>(null);
-  const notificationSummaryQuery = useQuery({
-    queryKey: ['notifications-summary', workspace?.id, branch?.id],
-    queryFn: () => { if (!workspace || !branch) throw new Error('Choose a workspace and branch first.'); return apiCollaboration.notificationSummary(workspace.id, branch.id); },
-    enabled: isApiProvider && Boolean(workspace?.id && branch?.id),
-    staleTime: 20_000,
-    refetchInterval: isApiProvider && workspace && branch ? 60_000 : false,
-    retry: false,
-  });
-  const unreadNotificationCount = notificationSummaryQuery.data?.unreadCount ?? 0;
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [uiMode, setUiMode] = useState<'simple' | 'advanced'>(() => {
     try { return readPreference('lexa.ui.mode') === 'advanced' ? 'advanced' : 'simple'; }
@@ -162,14 +143,13 @@ export default function AppShell() {
     { title: 'WORKSPACE', items: (navSections[0]?.items ?? []).filter((item) => item.to === '/' || item.to === '/workspace') },
     { title: 'QUICK ACTIONS', items: [
       { to: '/checkout', label: 'Sell', icon: ShoppingCart },
-      { to: '/inbox', label: 'Inbox', icon: MessageCircle },
       { to: '/modules/purchases', label: 'Buy', icon: ShoppingCart },
       { to: '/modules/expenses', label: 'Expense', icon: ReceiptText },
       { to: '/inventory', label: 'Stock', icon: Package },
       { to: '/modules/customers', label: 'Money owed', icon: Users },
       { to: '/business-tools', label: 'Business tools', icon: Settings },
-      { to: '/reports', label: 'Reports', icon: BarChart3 },
-      { to: '/intelligence', label: 'LEXA Intelligence', icon: Sparkles },
+      { to: '/reports', label: 'Authoritative reports', icon: BarChart3 },
+      { to: '/intelligence', label: 'LEXA Assistant', icon: Sparkles },
       { to: '/settings', label: 'Settings', icon: Settings },
     ] },
   ];
@@ -288,7 +268,7 @@ export default function AppShell() {
     return { workspaces, workspace, branches, branch, setActiveWorkspace, setActiveBranch, refreshWorkspaces };
   }, [workspaces, workspace, branches, branch, setActiveWorkspace, setActiveBranch, refreshWorkspaces]);
 
-  if (loadError) return <div className="backend-block-screen"><section className="backend-block-card"><div className="backend-block-mark">LEXA</div><div className="eyebrow eyebrow-blue">WORKSPACE CONNECTION</div><h1>{loadErrorStatus === 401 ? 'Sign in to your business workspace' : isApiProvider ? 'Backend connection required' : 'Workspace could not be opened'}</h1><p className="backend-block-message">{loadErrorStatus === 401 ? 'Your session is missing or has expired.' : loadError}</p><p>{loadErrorStatus === 401 ? 'Sign in using the account that has access to this business. Access to each workspace and branch is checked by the backend.' : isApiProvider ? 'LEXA is in server-backed mode and will not silently switch to browser-only storage. Check VITE_API_BASE_URL, the API server, CORS and the backend contract.' : 'Check that browser storage is available, then retry.'}</p><div className="backend-block-actions"><button className="button button-primary" onClick={() => window.location.reload()}>Retry connection</button>{loadErrorStatus === 401 ? <a className="button button-secondary" href="/sign-in">Sign in</a> : <button className="button button-secondary" onClick={() => { window.location.href = '/onboarding'; }}>Open business setup</button>}</div><small>Request failed before the workspace could be verified. No local fallback was used.</small></section></div>;
+  if (loadError) return <div className="backend-block-screen"><section className="backend-block-card"><div className="backend-block-mark">LEXA</div><div className="eyebrow eyebrow-blue">WORKSPACE CONNECTION</div><h1>{loadErrorStatus === 401 ? 'Sign in to your business workspace' : isApiProvider ? 'LEXA connection required' : 'Workspace could not be opened'}</h1><p className="backend-block-message">{loadErrorStatus === 401 ? 'Your session is missing or has expired.' : 'LEXA could not open the selected business. Check your connection and try again.'}</p><p>{loadErrorStatus === 401 ? 'Sign in using the account that has access to this business. LEXA checks access to each business and branch.' : isApiProvider ? 'LEXA could not connect to the selected business. Check your internet connection and try again, or contact your LEXA administrator.' : 'Check that browser storage is available, then retry.'}</p><div className="backend-block-actions"><button className="button button-primary" onClick={() => window.location.reload()}>Retry connection</button>{loadErrorStatus === 401 ? <a className="button button-secondary" href="/sign-in">Sign in</a> : <button className="button button-secondary" onClick={() => { window.location.href = '/onboarding'; }}>Open business setup</button>}</div><small>Request failed before the workspace could be verified. No local fallback was used.</small></section></div>;
   if (loading || (workspace && (branchesLoading || resolvedBranchWorkspaceId !== workspace.id))) return <div className="boot-screen"><div className="brand-mark">L</div><span>Opening your workspace…</span></div>;
   if (!workspace) return <Navigate to="/onboarding" replace />;
   if (!branch) return <Navigate to="/onboarding" replace />;
@@ -324,7 +304,7 @@ export default function AppShell() {
           <div className="sidebar-bottom">
             <div className="local-note"><span className="status-dot" /><div><strong>Workspace status</strong><span>Business workspace active</span></div></div>
             <NavLink to="/settings" data-module-accent={moduleAccentForPath('/settings')} className={({ isActive }) => `nav-link settings-link ${isActive ? 'nav-link-active' : ''}`}><Settings size={18} /><span>Settings</span></NavLink>
-            <button className="help-link" onClick={() => toast.info('LEXA workspace help', { description: 'Use the module directory to access sales, inventory, finance, operations and team tools. See Settings for storage and connection details.' })}><CircleHelp size={16} /><span>Help & guidance</span></button>
+            <button className="help-link" onClick={() => toast.info('LEXA workspace help', { description: 'Use the navigation to manage sales, stock, purchasing, finance, reports and your team. Visit Settings to manage business preferences.' })}><CircleHelp size={16} /><span>Help & guidance</span></button>
           </div>
         </aside>
 
@@ -337,7 +317,6 @@ export default function AppShell() {
               <label className="select-wrap branch-select"><Store size={15} /><span className="sr-only">Active branch</span><select aria-label="Active branch" value={branch.id} onChange={(event) => setActiveBranch(event.target.value)}>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><ChevronDown size={14} /></label>
               <div className="topbar-divider" />
               <button className="icon-button theme-toggle" type="button" aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
-              <button className="icon-button notification-button" aria-label={`Open notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ''}`} title={unreadNotificationCount ? `${unreadNotificationCount} unread notifications` : 'Notifications'} onClick={() => navigate('/inbox?tab=notifications')}><Bell size={18} />{unreadNotificationCount > 0 && <span className="notification-count-badge">{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</span>}</button>
               <div className="user-avatar" aria-label="Workspace operator">L</div>
             </div>
           </header>

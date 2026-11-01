@@ -4,7 +4,7 @@ import { AiRouterService } from '../src/workstream8/ai-router.service.ts';
 
 const keys = [
   'LEXA_AI_ENABLED', 'LEXA_AI_PAID_TIER_ENABLED', 'GEMINI_FREE_API_KEY', 'GEMINI_API_KEY',
-  'GROQ_API_KEY', 'CEREBRAS_API_KEY', 'OPENROUTER_API_KEY', 'NVIDIA_NIM_API_KEY', 'OPENAI_API_KEY',
+  'OPENROUTER_API_KEY', 'GROQ_API_KEY', 'GROQ_FREE_MODEL', 'NVIDIA_NIM_API_KEY', 'OPENAI_API_KEY', 'GEMINI_FREE_MODEL', 'NVIDIA_NIM_MODEL',
 ];
 const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
 function clear() { for (const key of keys) delete process.env[key]; }
@@ -30,12 +30,14 @@ test('routes across configured free providers and falls back on a rate limit', a
   clear();
   process.env.LEXA_AI_ENABLED = 'true';
   process.env.LEXA_AI_PAID_TIER_ENABLED = 'false';
+  process.env.GEMINI_FREE_API_KEY = 'gemini-free-test-key';
   process.env.GROQ_API_KEY = 'groq-test-key';
   process.env.OPENROUTER_API_KEY = 'openrouter-test-key';
+  process.env.NVIDIA_NIM_API_KEY = 'nvidia-test-key';
   const calls = [];
   globalThis.fetch = async (url) => {
     calls.push(String(url));
-    if (String(url).includes('groq.com')) return new Response('{}', { status: 429 });
+    if (String(url).includes('generativelanguage.googleapis.com') || String(url).includes('api.groq.com')) return new Response('{}', { status: 429 });
     return new Response(JSON.stringify({
       model: 'free-test-model',
       choices: [{ message: { content: 'Review sales, stock cover, and overdue receivables.' } }],
@@ -48,11 +50,14 @@ test('routes across configured free providers and falls back on a rate limit', a
     facts: { sales: { count: 4 } },
   });
   assert.equal(result.provider, 'OpenRouter');
+  assert.match(calls[0], /generativelanguage\.googleapis\.com/);
+  assert.match(calls[1], /api\.groq\.com/);
+  assert.match(calls[2], /openrouter\.ai/);
   assert.equal(result.model, 'free-test-model');
   assert.equal(result.inputTokens, 21);
   assert.equal(result.outputTokens, 13);
   assert.equal(result.costMicros, 0);
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
 });
 
 test('paid provider keys remain excluded from the development router', () => {

@@ -56,18 +56,18 @@ ACCENT_SOURCE = '''/** Explicit LEXA module accent metadata; never inferred from
 export type ModuleAccentKey = 'navy' | 'blue' | 'cyan' | 'emerald' | 'gold' | 'orange';
 const forPaths = (accent: ModuleAccentKey, paths: string[]) => Object.fromEntries(paths.map((path) => [path, accent])) as Record<string, ModuleAccentKey>;
 export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
-  ...forPaths('navy', ['/', '/workspace', '/modules', '/modules/', '/settings', '/inbox', '/operations', '/modules/projects', '/modules/team', '/modules/audit']),
+  ...forPaths('navy', ['/', '/workspace', '/modules', '/modules/', '/settings', '/modules/projects', '/modules/team', '/operations']),
   ...forPaths('blue', ['/intelligence']),
   ...forPaths('gold', ['/reports']),
   ...forPaths('cyan', ['/business-tools']),
   ...forPaths('blue', ['/checkout', '/sales', '/modules/sales-orders', '/modules/sales-invoices', '/modules/quotations', '/modules/price-lists', '/modules/sales-returns', '/modules/cash-sessions']),
   ...forPaths('emerald', ['/modules/leads', '/modules/opportunities', '/modules/contacts', '/modules/campaigns', '/modules/sales-teams', '/modules/customers', '/modules/employees', '/modules/attendance', '/modules/payroll', '/modules/leave', '/modules/timesheets', '/modules/support']),
-  ...forPaths('cyan', ['/products', '/inventory', '/modules/receiving', '/modules/stock-counts', '/modules/stock-transfers', '/modules/warehouses', '/modules/picklists', '/modules/item-bundles', '/modules/work-orders', '/modules/boms', '/modules/job-cards', '/modules/quality', '/modules/batches', '/modules/replenishment', '/modules/deliveries', '/modules/packages', '/modules/tasks', '/modules/integrations']),
+  ...forPaths('cyan', ['/products', '/inventory', '/modules/receiving', '/modules/stock-counts', '/modules/stock-transfers', '/modules/warehouses', '/modules/picklists', '/modules/item-bundles', '/modules/work-orders', '/modules/boms', '/modules/job-cards', '/modules/quality', '/modules/batches', '/modules/replenishment', '/modules/deliveries', '/modules/packages', '/modules/tasks']),
   ...forPaths('orange', ['/modules/purchase-requests', '/modules/rfqs', '/modules/supplier-quotes', '/modules/suppliers', '/modules/purchases', '/modules/purchase-invoices', '/modules/purchase-returns']),
-  ...forPaths('gold', ['/modules/expenses', '/modules/money-accounts', '/modules/payments', '/modules/accounting', '/modules/chart-of-accounts', '/modules/tax-codes', '/modules/bank-reconciliation', '/modules/assets', '/modules/cost-centers', '/modules/budgets', '/modules/tax-documents', '/modules/reports', '/modules/recurring-invoices']),
+  ...forPaths('gold', ['/modules/expenses', '/modules/money-accounts', '/modules/payments', '/modules/accounting', '/modules/chart-of-accounts', '/modules/tax-codes', '/modules/bank-reconciliation', '/modules/assets', '/modules/cost-centers', '/modules/budgets', '/modules/tax-documents', '/modules/recurring-invoices']),
 });
 export const MODULE_ACCENTS_BY_GROUP: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
-  WORKSPACE:'navy',CRM:'emerald','CRM & GROWTH':'emerald',SELLING:'blue',INVENTORY:'cyan',LOGISTICS:'cyan',PROCUREMENT:'orange',FINANCE:'gold','PEOPLE & PAYROLL':'emerald','INTEGRATION & CONTROL':'cyan',INSIGHTS:'gold',ADMINISTRATION:'navy',MANUFACTURING:'cyan',
+  WORKSPACE:'navy',CRM:'emerald','CRM & GROWTH':'emerald',SELLING:'blue',INVENTORY:'cyan',LOGISTICS:'cyan',PROCUREMENT:'orange',FINANCE:'gold','PEOPLE & PAYROLL':'emerald',INSIGHTS:'gold',ADMINISTRATION:'navy',MANUFACTURING:'cyan',
 });
 export function moduleAccentForPath(path: string): ModuleAccentKey {
   const pathname = path.split(/[?#]/, 1)[0]?.replace(new RegExp('/+$'), '') || '/';
@@ -92,14 +92,14 @@ import { EXISTING_MODULE_LINKS, MODULE_CATALOG, PHASE_TWO_LINKS } from '../../mo
 import { MODULE_ACCENTS_BY_PATH, moduleAccentForGroup, moduleAccentForPath, type ModuleAccentKey } from './moduleAccents';
 const allowed: ModuleAccentKey[] = ['navy','blue','cyan','emerald','gold','orange'];
 describe('LEXA module accents', () => {
-  it('covers every existing and Phase 2 directory link', () => { for (const link of [...EXISTING_MODULE_LINKS, ...PHASE_TWO_LINKS]) expect(MODULE_ACCENTS_BY_PATH[link.to], link.to).toBeDefined(); });
+  it('covers every business navigation link', () => { for (const link of [...EXISTING_MODULE_LINKS, ...PHASE_TWO_LINKS]) expect(MODULE_ACCENTS_BY_PATH[link.to], link.to).toBeDefined(); });
   it('covers every operational catalogue module', () => { for (const module of MODULE_CATALOG) expect(MODULE_ACCENTS_BY_PATH['/modules/' + module.id], module.id).toBeDefined(); });
   it('ships operational modules without preloaded demo records', () => { for (const module of MODULE_CATALOG) expect(module.initial, module.id).toEqual([]); });
   it('uses only approved accents', () => { for (const [path, accent] of Object.entries(MODULE_ACCENTS_BY_PATH)) expect(allowed, path).toContain(accent); });
-  it('assigns semantic colours to representative families', () => { expect(moduleAccentForPath('/checkout')).toBe('blue'); expect(moduleAccentForPath('/modules/receiving')).toBe('cyan'); expect(moduleAccentForPath('/modules/purchases')).toBe('orange'); expect(moduleAccentForPath('/modules/accounting')).toBe('gold'); expect(moduleAccentForPath('/modules/leads')).toBe('emerald'); expect(moduleAccentForPath('/modules/recurring-invoices')).toBe('gold'); expect(moduleAccentForPath('/business-tools')).toBe('cyan'); expect(moduleAccentForPath('/inbox')).toBe('navy'); });
+  it('assigns semantic colours to representative families', () => { expect(moduleAccentForPath('/checkout')).toBe('blue'); expect(moduleAccentForPath('/modules/receiving')).toBe('cyan'); expect(moduleAccentForPath('/modules/purchases')).toBe('orange'); expect(moduleAccentForPath('/modules/accounting')).toBe('gold'); expect(moduleAccentForPath('/modules/leads')).toBe('emerald'); expect(moduleAccentForPath('/modules/recurring-invoices')).toBe('gold'); expect(moduleAccentForPath('/business-tools')).toBe('cyan'); });
   it('keeps manufacturing registers in the cyan module family', () => { expect(moduleAccentForPath('/modules/boms')).toBe('cyan'); expect(moduleAccentForPath('/modules/job-cards')).toBe('cyan'); expect(moduleAccentForGroup('MANUFACTURING')).toBe('cyan'); });
   it('normalises and carries module accents into nested routes', () => { expect(moduleAccentForPath('/modules/purchases/PO-2026-001')).toBe('orange'); expect(moduleAccentForPath('/modules/reports/monthly?period=month')).toBe('gold'); expect(moduleAccentForPath('/products/sku-1/')).toBe('cyan'); expect(moduleAccentForPath('/checkout?mode=quick')).toBe('blue'); expect(moduleAccentForPath('/modules/not-real/detail')).toBe('navy'); });
-  it('uses explicit group metadata and a safe default', () => { expect(moduleAccentForGroup('CRM & GROWTH')).toBe('emerald'); expect(moduleAccentForGroup('CRM')).toBe('emerald'); expect(moduleAccentForGroup('MANUFACTURING')).toBe('cyan'); expect(moduleAccentForGroup('PROCUREMENT')).toBe('orange'); expect(moduleAccentForGroup('FINANCE')).toBe('gold'); expect(moduleAccentForGroup('INTEGRATION & CONTROL')).toBe('cyan'); expect(moduleAccentForGroup('unknown group')).toBe('navy'); expect(moduleAccentForPath('/modules/not-real')).toBe('navy'); expect(moduleAccentForPath('/operations')).toBe('navy'); expect(moduleAccentForPath('/intelligence')).toBe('blue'); expect(moduleAccentForPath('/reports')).toBe('gold'); });
+  it('uses explicit group metadata and a safe default', () => { expect(moduleAccentForGroup('CRM & GROWTH')).toBe('emerald'); expect(moduleAccentForGroup('CRM')).toBe('emerald'); expect(moduleAccentForGroup('MANUFACTURING')).toBe('cyan'); expect(moduleAccentForGroup('PROCUREMENT')).toBe('orange'); expect(moduleAccentForGroup('FINANCE')).toBe('gold'); expect(moduleAccentForGroup('unknown group')).toBe('navy'); expect(moduleAccentForPath('/modules/not-real')).toBe('navy'); expect(moduleAccentForPath('/operations')).toBe('navy'); expect(moduleAccentForPath('/intelligence')).toBe('blue'); expect(moduleAccentForPath('/reports')).toBe('gold'); });
 });
 '''
 
@@ -297,7 +297,6 @@ def wire_accent_metadata() -> None:
     ops = replace_idempotent(ops, '<section className="module-group" key={group}>', '<section className="module-group" key={group} data-module-accent={moduleAccentForGroup(group)}>', 'module group accent')
     ops = replace_idempotent(ops, '<Link className="module-directory-card" to={item.to} key={item.to}>', '<Link className="module-directory-card" data-module-accent={moduleAccentForPath(item.to)} to={item.to} key={item.to}>', 'directory card accent')
     ops = add_root_attribute(ops, 'function ModuleManager(', 'function ReportsPage(', 'data-module-accent={moduleAccentForPath("/modules/" + module.id)}', 'module manager')
-    ops = add_root_attribute(ops, 'function ReportsPage(', None, 'data-module-accent={moduleAccentForPath("/modules/reports")}', 'reports page')
     write(OPS, ops)
 
     dashboard = read(DASH)

@@ -1,0 +1,26 @@
+SUPERSEDED for the single-service AI architecture by VALIDATION_RESULTS_SINGLE_SERVICE_20261101.txt.
+
+LEXA Workstream 8 validation — 2026-11-01
+
+PASSED IN THE REPAIR WORKSPACE
+- Backend Node test suite: 80 passed, 0 failed.
+- Python intelligence test suite: 12 passed, 0 failed.
+- Python compileall: services/intelligence/app and services/intelligence/litellm passed.
+- TypeScript/TSX syntax transpilation: 181 files, 0 syntax errors.
+- Frontend prebuild scripts: apply_auth_security_ui.mjs, complete_modules.py, apply_lexa_palette.py and fix_build_origin.py all passed.
+- Render Blueprint, LiteLLM provider config and GitHub Actions workflow YAML parsed successfully.
+- Backup inventory: 161 table decisions / 144 discovered schema and migration references covered.
+- OpenAPI: 296 operations across 235 routes; exact match, no missing/orphan operations.
+- Route adapter coverage: 17/17.
+- Ledger posting coverage: 9 source workflows and invariants.
+
+NOT RUN / NOT YET VERIFIED
+- Full frontend `npm run build` (`tsc -b && vite build`) was not run here because frontend dependencies are not installed in the repair workspace.
+- Full backend `npm run build` (`nest build`) was not run here because backend dependencies are not installed in the repair workspace.
+- No provider API key was available for a live Gemini, OpenAI, Groq, Cerebras, OpenRouter or Hugging Face test.
+- No LiteLLM, Python service or Render Blueprint was deployed/synced in this workstream.
+- No hosted Vercel build for this exact source snapshot has completed.
+- Workstream 8 migration `20261101180000_workstream8_saas_ai_reporting` has not been applied to staging or production. Existing Workstream 7 migration history must be retained.
+- No production Render environment variables or provider secrets were changed.
+
+The new GitHub Actions workflow includes separate backend, frontend and Python-intelligence build/test jobs so full dependency-backed checks can run after the package is applied to the connected repository.

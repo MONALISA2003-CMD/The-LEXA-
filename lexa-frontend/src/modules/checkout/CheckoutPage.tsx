@@ -157,7 +157,7 @@ export default function CheckoutPage() {
       ]);
       setCart({}); setCustomerName(''); setCustomerPhone(''); setPromisedPaymentDate('');
       setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '', methodLabel: '', notes: '' }]);
-      toast.success('Sale recorded', { description: `Receipt ${result.sale.receiptNumber} ${dataProviderMode === 'api' ? 'saved to the LEXA backend' : 'saved on this device'}${creditMinor > 0 ? '; customer credit remains outstanding.' : '.'}` });
+      toast.success('Sale recorded', { description: `Receipt ${result.sale.receiptNumber} ${dataProviderMode === 'api' ? 'saved to LEXA' : 'saved on this device'}${creditMinor > 0 ? '; customer credit remains outstanding.' : '.'}` });
       navigate(`/sales/${result.sale.id}`);
     } catch (error) {
       toast.error('Sale was not completed', { description: error instanceof Error ? error.message : 'No sale records were committed. Check the cart and try again.' });

@@ -59,7 +59,7 @@ export default function SecurityPanel() {
       <div className="security-status-grid">
         <div className="security-status-item">
           <span className="security-status-icon"><LockKeyhole size={17} /></span>
-          <div><strong>Secure sign-in session</strong><span>Session cookies are HttpOnly, Secure and issued by the backend.</span></div>
+          <div><strong>Secure sign-in session</strong><span>Your sign-in session is protected by LEXA security controls.</span></div>
           <CheckCircle2 className="security-status-check" size={17} />
         </div>
         <div className="security-status-item">

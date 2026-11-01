@@ -42,7 +42,7 @@ const edge = (
  * source module/record metadata; it does not post to inventory, the GL, a payment rail,
  * tax authority, payroll provider, email service or the backend.
  */
-const CORE_WORKFLOW_EDGES: WorkflowEdge[] = [
+export const WORKFLOW_EDGES: WorkflowEdge[] = [
   edge('contacts', 'leads', 'Create lead draft', 'Carry contact details into prospect qualification.', ['Active']),
   edge('contacts', 'customers', 'Prepare customer master draft', 'Prepare a customer record from this contact; review duplicates before saving.', ['Active']),
   edge('leads', 'opportunities', 'Create opportunity draft', 'Carry the qualified prospect into the deal pipeline.', ['Contacted', 'Qualified']),
@@ -134,20 +134,9 @@ const CORE_WORKFLOW_EDGES: WorkflowEdge[] = [
   edge('support', 'tasks', 'Create support follow-up task', 'Create a task linked to the support issue.', ['New', 'Triaged', 'In progress', 'Waiting on customer', 'Reopened']),
   edge('support', 'contacts', 'Add case contact', 'Prepare a contact/address record from the case contact details.', ['New', 'Triaged', 'In progress', 'Waiting on customer', 'Reopened']),
   edge('team', 'employees', 'Prepare employee directory record', 'Carry member identity into a separate HR directory draft; this does not create a user account.', ['Active', 'Invited']),
-  edge('integrations', 'support', 'Create integration follow-up case', 'Record an investigation task for a failed or unconfigured connector.', ['Error', 'Configuration needed', 'Not connected', 'Paused']),
 ];
 
-// Every writable module gets a source-to-activity action, so no module is a dead end.
-const AUDIT_NOTE_EDGES: WorkflowEdge[] = MODULE_CATALOG
-  .filter((module) => module.id !== 'audit' && !module.readOnly)
-  .map((module) => edge(
-    module.id,
-    'audit',
-    'Create review note',
-    'Append a local activity note with this record reference. Security-critical audit events must be recorded by the trusted server.',
-  ));
 
-export const WORKFLOW_EDGES: readonly WorkflowEdge[] = [...CORE_WORKFLOW_EDGES, ...AUDIT_NOTE_EDGES];
 
 /** These conversions are one-to-one. Re-running the same source action must not create duplicate target drafts. */
 const ONE_TO_ONE_HANDOFFS = new Set([
@@ -186,13 +175,13 @@ const CORE_SCREEN_SHORTCUTS: Record<string, CoreScreenShortcut[]> = {
   'sales-returns': [{ path: '/sales', label: 'Open returns', description: 'Open core sales and returns. Credits here do not reverse a completed sale.' }],
   purchases: [{ path: '/inventory', label: 'Open inventory', description: 'Review core stock balances and movements. Purchase orders do not receive stock.' }],
   receiving: [{ path: '/inventory', label: 'Open inventory', description: 'Review stock movements. Receiving records change on-hand stock only through a confirmed goods receipt.' }],
-  'purchase-invoices': [{ path: '/modules/reports', label: 'Open report centre', description: 'Review available reports. Supplier invoices are not posted to the payable ledger from this register.' }],
+  'purchase-invoices': [{ path: '/reports', label: 'Open reports', description: 'Review available reports. Supplier invoices are not posted to the payable ledger from this register.' }],
   'purchase-returns': [{ path: '/inventory', label: 'Open inventory', description: 'Review core stock movements. Supplier returns reverse stock only through an approved return workflow.' }],
-  expenses: [{ path: '/modules/reports', label: 'Open report centre', description: 'Review available reports. Expense records are not posted to the general ledger from this register.' }],
+  expenses: [{ path: '/reports', label: 'Open reports', description: 'Review available reports. Expense records are not posted to the general ledger from this register.' }],
   payments: [{ path: '/sales', label: 'Sales history', description: 'Open receipts and returns. Payment records here do not send or reconcile money.' }],
-  'money-accounts': [{ path: '/modules/reports', label: 'Open report centre', description: 'Review available reports. A bank feed is not connected.' }],
+  'money-accounts': [{ path: '/reports', label: 'Open reports', description: 'Review available reports. A bank feed is not connected.' }],
   'cash-sessions': [{ path: '/checkout', label: 'Open checkout', description: 'Open checkout/POS. Cash-session records here do not close a live till.' }],
-  'bank-reconciliation': [{ path: '/modules/reports', label: 'Open report centre', description: 'Review available reporting; no bank statement feed or live ledger is connected.' }],
+  'bank-reconciliation': [{ path: '/reports', label: 'Open reports', description: 'Review available reporting; no bank statement feed or live ledger is connected.' }],
   products: [{ path: '/products', label: 'Open product catalogue', description: 'Open the core product catalogue. Changes in this register do not modify the core catalogue.' }],
   'price-lists': [{ path: '/products', label: 'Open product catalogue', description: 'Review product master prices. Price lists here do not change core selling prices.' }],
   warehouses: [{ path: '/inventory', label: 'Open inventory', description: 'Open the core movement ledger. Warehouse setup here does not create live locations.' }],
@@ -207,23 +196,22 @@ const CORE_SCREEN_SHORTCUTS: Record<string, CoreScreenShortcut[]> = {
   'item-bundles': [{ path: '/products', label: 'Open product catalogue', description: 'Review core products. Bundle components do not deduct inventory until linked to a stock workflow.' }],
   'work-orders': [{ path: '/inventory', label: 'Open inventory ledger', description: 'Review core stock movements. Work orders here do not post material consumption.' }],
   quality: [{ path: '/inventory', label: 'Open inventory ledger', description: 'Review stock separately. Quality decisions here do not release or quarantine stock.' }],
-  assets: [{ path: '/modules/reports', label: 'Open report centre', description: 'Review available reports; depreciation is not posted to a general ledger.' }],
-  accounting: [{ path: '/modules/reports', label: 'Open report centre', description: 'Review available reports. Journals here are not posted to the general ledger.' }],
-  'chart-of-accounts': [{ path: '/modules/reports', label: 'Open report centre', description: 'Review reporting; account mapping is not connected to live transaction posting.' }],
-  'tax-codes': [{ path: '/modules/reports', label: 'Open report centre', description: 'Review available reports; tax codes do not submit to a tax authority.' }],
-  'tax-documents': [{ path: '/modules/reports', label: 'Open report centre', description: 'Review available reports. No URA/EFRIS request is sent from this register.' }],
+  assets: [{ path: '/reports', label: 'Open reports', description: 'Review available reports; depreciation is not posted to a general ledger.' }],
+  accounting: [{ path: '/reports', label: 'Open reports', description: 'Review available reports. Journals here are not posted to the general ledger.' }],
+  'chart-of-accounts': [{ path: '/reports', label: 'Open reports', description: 'Review reporting; account mapping is not connected to live transaction posting.' }],
+  'tax-codes': [{ path: '/reports', label: 'Open reports', description: 'Review available reports; tax codes do not submit to a tax authority.' }],
+  'tax-documents': [{ path: '/reports', label: 'Open reports', description: 'Review available reports. No URA/EFRIS request is sent from this register.' }],
   team: [{ path: '/settings', label: 'Open workspace settings', description: 'Open workspace settings. Team roles here do not enforce access permissions.' }],
   employees: [{ path: '/settings', label: 'Open workspace settings', description: 'Open workspace settings. Employee records here are not connected to an HR identity service.' }],
-  attendance: [{ path: '/modules/reports', label: 'Open report centre', description: 'Review saved attendance records. Statutory payroll calculations require the approved payroll workflow.' }],
-  leave: [{ path: '/modules/reports', label: 'Open report centre', description: 'Review saved leave records. Payroll postings require the approved payroll workflow.' }],
-  payroll: [{ path: '/modules/reports', label: 'Open report centre', description: 'Review available reports. Payroll here is not a statutory payroll run and does not create payable entries.' }],
-  integrations: [{ path: '/settings', label: 'Open workspace settings', description: 'Review current local workspace settings; connector credentials are not stored here.' }],
+  attendance: [{ path: '/reports', label: 'Open reports', description: 'Review saved attendance records. Statutory payroll calculations require the approved payroll workflow.' }],
+  leave: [{ path: '/reports', label: 'Open reports', description: 'Review saved leave records. Payroll postings require the approved payroll workflow.' }],
+  payroll: [{ path: '/reports', label: 'Open reports', description: 'Review available reports. Payroll here is not a statutory payroll run and does not create payable entries.' }],
 };
 
 export function getCoreScreenShortcuts(moduleId: string): CoreScreenShortcut[] {
   return CORE_SCREEN_SHORTCUTS[moduleId] ?? [{
-    path: '/modules/reports',
-    label: 'Open report centre',
-    description: 'Open available reports; this navigation does not post or synchronize the current record.',
+    path: '/reports',
+    label: 'Open reports',
+    description: 'Review current business performance and financial summaries.',
   }];
 }

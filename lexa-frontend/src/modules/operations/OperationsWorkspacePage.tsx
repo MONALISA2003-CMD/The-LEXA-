@@ -17,7 +17,6 @@ import { useModuleRecordService } from '../../data/providers/ModuleRecordService
 import type { DataPersistenceMode, ModuleRecordScope } from '../../data/contracts/previewData';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import { BarcodeCapture } from '../../components/barcode/BarcodeCapture';
-import { RecordConversationPanel } from '../../components/inbox/RecordConversationPanel';
 import { products } from '../../data/repositories';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { filterPreviewRecords, paginatePreviewRecords } from './previewSelectors';
@@ -139,7 +138,7 @@ export default function OperationsWorkspacePage() {
   const module = getModuleDefinition(moduleId);
   if (!moduleId) return <ModuleDirectoryPage />;
   if (moduleId === 'reports') return <ReportsPage />;
-  if (['employees','shifts','attendance','leave','timesheets','payroll','projects','support','audit'].includes(moduleId)) return <PeopleProjectsPage moduleId={moduleId} />;
+  if (['employees','shifts','attendance','leave','timesheets','payroll','projects','support'].includes(moduleId)) return <PeopleProjectsPage moduleId={moduleId} />;
   if (!module) return <Navigate to="/modules" replace />;
   return <ModuleManager key={module.id + ':' + workspace.id + ':' + branch.id} module={module} />;
 }
@@ -158,7 +157,7 @@ function ModuleDirectoryPage() {
   return (
     <div className="page-stack phase-two-page">
       <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">LEXA MODULE MAP</div><h2>All business modules</h2><p>One operational workspace for day-to-day trading, stock, finance, reporting and administration.</p></div><span className="soft-badge"><Boxes size={14} /> {EXISTING_MODULE_LINKS.length + PHASE_TWO_LINKS.length} module screens</span></div>
-      <section className="section-card phase-two-directory-toolbar"><div><h3>Find a module</h3><p>{visibleModuleCount} matching screens · search names, functions or module group.</p></div><label className="phase-two-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search modules…" aria-label="Search all modules" />{search && <button type="button" className="phase-clear-filters" aria-label="Clear module search" onClick={() => setSearch('')}>Clear</button>}</label></section>
+      <section className="section-card phase-two-directory-toolbar"><div><h3>Find a business task</h3><p>{visibleModuleCount} available activities · search by name, purpose or business area.</p></div><label className="phase-two-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search business tasks…" aria-label="Search business tasks" />{search && <button type="button" className="phase-clear-filters" aria-label="Clear module search" onClick={() => setSearch('')}>Clear</button>}</label></section>
       {visibleModuleCount === 0 && <div className="empty-state"><div className="empty-icon"><Search size={22} /></div><h3>No modules match your search</h3><p>Try a different module name, workflow term or group.</p></div>}
       {groupedLinks.map(({ group, items }) => (
         <section className="module-group" key={group} data-module-accent={moduleAccentForGroup(group)}>
@@ -186,18 +185,6 @@ function genericRelatedValues(sourceModuleId: string, source: PreviewRecord, tar
   const sourceReference = sourceReferenceField ? (source[sourceReferenceField] ?? source.id) : source.id;
 
   if (!target) return {};
-  if (targetId === 'audit') {
-    const sourceTitle = getModuleDefinition(sourceModuleId)?.title ?? sourceModuleId;
-    return {
-      eventDate: today,
-      actor: 'Local user (device only)',
-      action: 'Review note created',
-      entity: sourceTitle,
-      reference: sourceReference,
-      detail: `Review note for ${sourceTitle} ${sourceReference}. This is an activity note, not a security audit event or a posted business transaction.`,
-      status: 'Recorded',
-    };
-  }
 
   const aliases: Record<string, string[]> = {
     customer: ['customer', 'customerName', 'company', 'contactName', 'clientName', 'accountName', 'partyName'],
@@ -457,7 +444,7 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
       void queryClient.invalidateQueries({ queryKey: ['module-reports', workspace.id, branch.id] });
       setStorageMode(moduleRecordService.getPersistenceMode());
       setFormOpen(false); setEditing(null); setForm(initialValues(module));
-      toast.success(editing ? 'Record updated' : 'Record created', { description: moduleRecordService.getPersistenceMode() === 'server' ? 'Saved to the LEXA backend for the active business and branch.' : moduleRecordService.getPersistenceMode() === 'browser-local' ? 'Saved on this device for the active business and branch.' : 'Browser storage is unavailable; this record will be lost when the session ends.' });
+      toast.success(editing ? 'Record updated' : 'Record created', { description: moduleRecordService.getPersistenceMode() === 'server' ? 'Saved to the active business and branch.' : moduleRecordService.getPersistenceMode() === 'browser-local' ? 'Saved on this device for the active business and branch.' : 'This device cannot save records right now. Please check your device settings and try again.' });
     } catch (error) { toast.error('Could not save record', { description: error instanceof Error ? error.message : 'Please check the form.' }); }
     finally { setSaving(false); }
   }
@@ -471,7 +458,7 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
       const updated = nextRows.find((row) => row.id === record.id);
       if (updated) setDetail(updated);
       setStorageMode(moduleRecordService.getPersistenceMode());
-      toast.success('Status updated', { description: record.status + ' → ' + next + '. Downstream ledger, inventory and external-system effects occur only when their backend workflows are configured.' });
+      toast.success('Status updated', { description: record.status + ' → ' + next + '. This update does not by itself post a payment, adjust stock or submit information to an external service.' });
     } catch (error) { toast.error('Could not change status', { description: error instanceof Error ? error.message : 'Try again.' }); }
   }
 
@@ -496,41 +483,13 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
     try {
       const targetRows = await moduleRecordService.save(recordScope, targetId, linked, target.initial);
       queryClient.setQueryData(['module-register', workspace.id, branch.id, targetId], targetRows);
-      // A browser must never author a privileged audit event. In API mode, the server owns the audit trail; only the explicitly local adapter stores a local activity note.
-      if (!isApiProvider && targetId !== 'audit') {
-        const auditModule = getModuleDefinition('audit');
-        if (auditModule) {
-          try {
-            const now = new Date().toISOString();
-            const targetReferenceField = REFERENCE_FIELDS[targetId];
-            const targetReference = targetReferenceField ? (linked[targetReferenceField] ?? linked.id) : linked.id;
-            const auditRecord: PreviewRecord = {
-              id: 'AUD-LINK-' + Date.now().toString(36).toUpperCase(),
-              updatedAt: now,
-              status: 'Recorded',
-              eventDate: now.slice(0, 10),
-              actor: 'Local user (device only)',
-              action: 'Related record created',
-              entity: target.title,
-              reference: targetReference,
-              detail: `${target.title} ${targetReference} was prepared from ${module.title} ${sourceReference}. This activity note does not create a posting in the core ledgers.`,
-              sourceModuleId: module.id,
-              sourceRecordId: source.id,
-              sourceReference,
-            };
-            const auditRows = await moduleRecordService.save(recordScope, 'audit', auditRecord, auditModule.initial);
-            queryClient.setQueryData(['module-register', workspace.id, branch.id, 'audit'], auditRows);
-          } catch (auditError) {
-            toast.warning('Related record saved, but the activity note could not be saved', { description: auditError instanceof Error ? auditError.message : 'The activity record could not be updated.' });
-          }
-        }
-      }
+
       void queryClient.invalidateQueries({ queryKey: ['module-reports', workspace.id, branch.id] });
       setStorageMode(moduleRecordService.getPersistenceMode());
       setDetail(null);
       toast.success('Related record created', { description: 'The linked record is saved, but this action does not automatically post to core stock, payment or accounting ledgers.' });
       navigate('/modules/' + targetId);
-    } catch (error) { toast.error('Could not save the related record', { description: error instanceof Error ? error.message : 'Check the backend connection or device storage, then retry.' }); }
+    } catch (error) { toast.error('Could not save the related record', { description: error instanceof Error ? error.message : 'Check your connection or device storage, then try again.' }); }
   }
 
   const barcodeEnabledModules = ['receiving', 'stock-counts', 'stock-transfers', 'picklists', 'packages', 'deliveries', 'work-orders', 'batches', 'quality'];
@@ -575,7 +534,7 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
 
   return (
     <div className="page-stack phase-two-page" data-module-accent={moduleAccentForPath("/modules/" + module.id)}>
-      <div className="page-heading-row module-heading"><div><div className="eyebrow eyebrow-blue">{module.group} / MODULE REGISTER</div><h2>{module.title}</h2><p>{module.description}</p></div><div className="phase-two-heading-actions"><span className="module-persistence-badge"><span />{storageMode === 'server' ? 'Saved to backend' : storageMode === 'browser-local' ? 'Saved on this device' : 'Session-only storage'}</span>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={16} /> New {module.singular}</button>}</div></div>
+      <div className="page-heading-row module-heading"><div><div className="eyebrow eyebrow-blue">{module.group} / MODULE REGISTER</div><h2>{module.title}</h2><p>{module.description}</p></div><div className="phase-two-heading-actions"><span className="module-persistence-badge"><span />{storageMode === 'server' ? 'Saved to LEXA' : storageMode === 'browser-local' ? 'Saved on this device' : 'Not saved'}</span>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={16} /> New {module.singular}</button>}</div></div>
       <div className="module-workflow-strip"><span className="module-workflow-icon"><Activity size={17} /></span><div><strong>Typical workflow</strong><p>{module.workflow}</p></div></div>
       <CommerceWorkflowPanel moduleId={module.id} />
       <div className="metric-strip three-metrics phase-two-metrics">
@@ -608,7 +567,7 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
           return true;
         }).map((field) => <FieldInput key={field.key} field={field} value={form[field.key] ?? ''} onChange={(value) => setForm((current) => ({ ...current, [field.key]: value }))} currency={workspace.currency} editing={Boolean(editing)} />)}</div><CalculatedFigures moduleId={module.id} values={form} currency={workspace.currency} /><div className="phase-form-disclaimer"><ShieldAlert size={15} /><span>{storageMode === 'server' ? 'This saves a module record through the backend. A saved register record does not itself transfer money, submit tax documents or post core accounting entries.' : 'This saves a device-local module record. It does not transfer money, submit tax documents or create accounting entries.'}</span></div><div className="phase-modal-actions"><button type="button" className="button button-secondary" onClick={() => { setFormOpen(false); setEditing(null); }}>Cancel</button><button type="submit" className="button button-primary" disabled={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Save record'} <Check size={15} /></button></div></form></section></div>}
 
-      {detail && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section className="phase-modal phase-detail-modal" role="dialog" aria-modal="true" aria-labelledby="phase-detail-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.title.toUpperCase()} / RECORD DETAILS</div><h3 id="phase-detail-title">{detail[module.columns[0]?.key ?? 'id'] || detail.id}</h3><p>Reference: {detail.id} · Updated {displayDate(detail.updatedAt)}</p></div><button className="icon-button" aria-label="Close details" onClick={() => setDetail(null)}><X size={18} /></button></div><div className="phase-detail-status"><span className={'status-pill ' + (CLOSED_STATES.includes(detail.status) ? 'status-good' : 'status-warning')}>{detail.status}</span><span className="module-persistence-badge"><span /> {moduleRecordService.getPersistenceMode() === 'server' ? 'Saved to backend' : moduleRecordService.getPersistenceMode() === 'browser-local' ? 'Saved on this device' : 'Session-only storage'}</span></div><div className="phase-detail-grid">{Object.entries(detail).filter(([key]) => key !== 'id' && key !== 'updatedAt').map(([key, value]) => <div className="phase-detail-field" key={key}><span>{(module.detailFields ?? module.fields).find((field) => field.key === key)?.label ?? module.columns.find((column) => column.key === key)?.label ?? ({ sourceModuleId: 'Source module', sourceRecordId: 'Source record' } as Record<string, string>)[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</span><strong>{detailValue(module, key, value, detail.currency || workspace.currency)}</strong></div>)}</div><RecordConversationPanel recordType={module.id} recordId={detail.id} recordTitle={`${module.title}: ${detail[module.columns[0]?.key ?? 'id'] || detail.id}`} /><div className="phase-modal-actions">{getCoreScreenShortcuts(module.id).map((action) => <button key={action.path} className="button button-secondary" title={action.description} onClick={() => navigate(action.path)}><ArrowUpRight size={15} /> {action.label}</button>)}{!module.readOnly && <>{relatedActions(module.id, detail).map((action) => <button key={action.targetId} className="button button-secondary" title={action.description} onClick={() => createRelatedRecord(action.targetId, detail)}><ArrowRight size={15} /> {action.label}</button>)}{nextStatus(module.id, detail.status) && <button className="button button-secondary" onClick={() => updateStatus(detail)}><BadgeCheck size={15} /> Advance to {nextStatus(module.id, detail.status)}</button>}<button className="button button-primary" onClick={() => openEdit(detail)}><Edit3 size={15} /> Edit record</button></>}<button className="button button-secondary" onClick={() => setDetail(null)}>Close</button></div></section></div>}
+      {detail && <div className="phase-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}><section className="phase-modal phase-detail-modal" role="dialog" aria-modal="true" aria-labelledby="phase-detail-title"><div className="phase-modal-header"><div><div className="eyebrow eyebrow-blue">{module.title.toUpperCase()} / RECORD DETAILS</div><h3 id="phase-detail-title">{detail[module.columns[0]?.key ?? 'id'] || detail.id}</h3><p>Reference: {detail.id} · Updated {displayDate(detail.updatedAt)}</p></div><button className="icon-button" aria-label="Close details" onClick={() => setDetail(null)}><X size={18} /></button></div><div className="phase-detail-status"><span className={'status-pill ' + (CLOSED_STATES.includes(detail.status) ? 'status-good' : 'status-warning')}>{detail.status}</span><span className="module-persistence-badge"><span /> {moduleRecordService.getPersistenceMode() === 'server' ? 'Saved to LEXA' : moduleRecordService.getPersistenceMode() === 'browser-local' ? 'Saved on this device' : 'Not saved'}</span></div><div className="phase-detail-grid">{Object.entries(detail).filter(([key]) => key !== 'id' && key !== 'updatedAt').map(([key, value]) => <div className="phase-detail-field" key={key}><span>{(module.detailFields ?? module.fields).find((field) => field.key === key)?.label ?? module.columns.find((column) => column.key === key)?.label ?? ({ sourceModuleId: 'Source area', sourceRecordId: 'Source reference' } as Record<string, string>)[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</span><strong>{detailValue(module, key, value, detail.currency || workspace.currency)}</strong></div>)}</div><div className="phase-modal-actions">{getCoreScreenShortcuts(module.id).map((action) => <button key={action.path} className="button button-secondary" title={action.description} onClick={() => navigate(action.path)}><ArrowUpRight size={15} /> {action.label}</button>)}{!module.readOnly && <>{relatedActions(module.id, detail).map((action) => <button key={action.targetId} className="button button-secondary" title={action.description} onClick={() => createRelatedRecord(action.targetId, detail)}><ArrowRight size={15} /> {action.label}</button>)}{nextStatus(module.id, detail.status) && <button className="button button-secondary" onClick={() => updateStatus(detail)}><BadgeCheck size={15} /> Advance to {nextStatus(module.id, detail.status)}</button>}<button className="button button-primary" onClick={() => openEdit(detail)}><Edit3 size={15} /> Edit record</button></>}<button className="button button-secondary" onClick={() => setDetail(null)}>Close</button></div></section></div>}
     </div>
   );
 }
@@ -770,7 +729,7 @@ function ReportsPage() {
   }
 
   return (
-    <div className="page-stack phase-two-page" data-module-accent={moduleAccentForPath("/modules/reports")}>
+    <div className="page-stack phase-two-page" data-module-accent={moduleAccentForPath("/reports")}>
       <div className="page-heading-row">
         <div><div className="eyebrow eyebrow-blue">INSIGHTS / REPORT CENTRE</div><h2>Reports & analytics</h2><p>Report figures are calculated from saved records for the active business and branch. Select a period to refine the results.</p></div>
         <div className="action-group"><button className="button button-secondary" onClick={() => void queryClient.invalidateQueries({ queryKey: ['module-reports', workspace.id, branch.id] })}><RefreshCw size={15} /> Refresh</button><button className="button button-primary" onClick={exportReport} disabled={!snapshot}><Download size={15} /> Export CSV</button></div>
