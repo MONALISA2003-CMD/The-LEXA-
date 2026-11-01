@@ -15,6 +15,9 @@ export interface ReceivePaymentInput {
   method: PaymentMethod;
   amountMinor: number;
   reference?: string;
+  methodLabel?: string;
+  notes?: string;
+  reportedReceivedAt?: string;
 }
 
 export interface ReceivePaymentResult {

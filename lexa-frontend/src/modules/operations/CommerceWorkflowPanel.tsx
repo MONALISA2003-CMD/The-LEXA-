@@ -7,8 +7,10 @@ import { useModuleRecordService } from '../../data/providers/ModuleRecordService
 import { products } from '../../data/repositories';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { apiCommerce, type CommerceOrder, type GoodsReceiptInput } from '../../data/remote/apiCommerce';
+import DeliveryDispatchPanel from './DeliveryDispatchPanel';
 import type { PreviewRecord } from './moduleCatalog';
 import type { Product } from '../../domain/shared/types';
+import { minorUnitFactor, parseMajorAmount } from '../../domain/money/money';
 import './commerce-workflows.css';
 
 type DraftLine = { productId: string; quantity: string };
@@ -44,6 +46,12 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
   const [receivingOrder, setReceivingOrder] = useState<CommerceOrder | null>(null);
   const [dispatchOrder, setDispatchOrder] = useState<CommerceOrder | null>(null);
   const [dispatchDraft, setDispatchDraft] = useState<DispatchDraft[]>([]);
+  const [dispatchMethod, setDispatchMethod] = useState('other');
+  const [dispatchAgentId, setDispatchAgentId] = useState('');
+  const [dispatchRecipientPhone, setDispatchRecipientPhone] = useState('');
+  const [dispatchTransportDetails, setDispatchTransportDetails] = useState('');
+  const [dispatchExpectedCollection, setDispatchExpectedCollection] = useState('0');
+  const [dispatchExpense, setDispatchExpense] = useState('0');
   const [receiptDraft, setReceiptDraft] = useState<ReceiptDraft[]>([]);
   const [receiptReason, setReceiptReason] = useState('');
   const [deliveryRefs, setDeliveryRefs] = useState<Record<string, string>>({});
@@ -55,12 +63,14 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
   const salesOrdersQuery = useQuery({ queryKey: ['commerce-sales-orders', workspace.id, branch.id], queryFn: () => apiCommerce.listSalesOrders(scope), enabled: apiMode && (salesModule || customerModule) });
   const purchaseOrdersQuery = useQuery({ queryKey: ['commerce-purchase-orders', workspace.id, branch.id], queryFn: () => apiCommerce.listPurchaseOrders(scope), enabled: apiMode && (purchaseModule || supplierModule) });
   const deliveriesQuery = useQuery({ queryKey: ['commerce-deliveries', workspace.id, branch.id], queryFn: () => apiCommerce.listDeliveries(scope), enabled: apiMode && deliveryModule });
+  const deliveryAgentsQuery = useQuery({ queryKey: ['commerce-delivery-agents', workspace.id, branch.id], queryFn: () => apiCommerce.listDeliveryAgents(scope), enabled: apiMode && salesModule });
   const availableProducts = useMemo(() => productQuery.data ?? [], [productQuery.data]);
   const parties = useMemo(() => (partyQuery.data ?? []).filter((r) => (r.status ?? 'Active') === 'Active'), [partyQuery.data]);
   const leads = useMemo(() => leadQuery.data ?? [], [leadQuery.data]);
   const salesOrders = salesOrdersQuery.data ?? [];
   const purchaseOrders = purchaseOrdersQuery.data ?? [];
   const deliveries = deliveriesQuery.data ?? [];
+  const deliveryAgents = deliveryAgentsQuery.data ?? [];
   const isWorkflowModule = salesModule || purchaseModule || deliveryModule || leadModule || customerModule || supplierModule;
 
   if (!apiMode || !isWorkflowModule) return null;
@@ -70,6 +80,7 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
       client.invalidateQueries({ queryKey: ['commerce-sales-orders', workspace.id, branch.id] }),
       client.invalidateQueries({ queryKey: ['commerce-purchase-orders', workspace.id, branch.id] }),
       client.invalidateQueries({ queryKey: ['commerce-deliveries', workspace.id, branch.id] }),
+      client.invalidateQueries({ queryKey: ['commerce-delivery-agents', workspace.id, branch.id] }),
       client.invalidateQueries({ queryKey: ['module-register', workspace.id, branch.id] }),
       client.invalidateQueries({ queryKey: ['inventory-balances', workspace.id, branch.id] }),
       client.invalidateQueries({ queryKey: ['inventory-movements', workspace.id, branch.id] }),
@@ -118,13 +129,25 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
       quantity: String(Math.max(0, line.quantity - (line.quantityFulfilled ?? 0))),
     })).filter((line) => line.remaining > 0);
     setDispatchOrder(order); setDispatchDraft(pending);
+    setDispatchMethod(order.courier ? 'courier_manual' : 'other');
+    setDispatchAgentId(''); setDispatchRecipientPhone('');
+    setDispatchTransportDetails(order.courier ?? '');
+    setDispatchExpectedCollection('0'); setDispatchExpense('0');
   }
   async function postDispatch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!dispatchOrder) return; setBusy(true);
     try {
       const linesToDispatch = dispatchDraft.filter((line) => Number(line.quantity) > 0).map((line) => ({ orderLineId: line.orderLineId, quantity: Number(line.quantity) }));
       if (!linesToDispatch.length) throw new Error('Enter at least one quantity to dispatch.');
-      const result = await apiCommerce.fulfilSalesOrder(scope, dispatchOrder.id, linesToDispatch);
+      const result = await apiCommerce.fulfilSalesOrder(scope, dispatchOrder.id, {
+        lines: linesToDispatch,
+        deliveryMethod: dispatchMethod,
+        ...(dispatchAgentId ? { deliveryAgentId: dispatchAgentId } : {}),
+        ...(dispatchRecipientPhone.trim() ? { recipientPhone: dispatchRecipientPhone.trim() } : {}),
+        ...(dispatchTransportDetails.trim() ? { transportDetails: dispatchTransportDetails.trim() } : {}),
+        expectedCollectionMinor: parseMajorAmount(dispatchExpectedCollection || '0', workspace.currency),
+        deliveryExpenseMinor: parseMajorAmount(dispatchExpense || '0', workspace.currency),
+      });
       toast.success('Fulfilment dispatched', { description: `${result.fulfilmentNumber} · ${money(result.totalMinor, workspace.currency)} · Stock ledger updated.` });
       setDispatchOrder(null); setDispatchDraft([]); await refreshAll();
     } catch (error) { toast.error('Fulfilment was not posted', { description: error instanceof Error ? error.message : 'Check quantities and stock availability.' }); }
@@ -171,6 +194,8 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
   const [eyebrow, title, description] = heading();
 
   return (
+    <>
+    {deliveryModule && <DeliveryDispatchPanel />}
     <section className="commerce-workflow-panel">
       <div className="commerce-panel-heading">
         <div className="commerce-panel-icon"><PackageCheck size={18} /></div>
@@ -208,7 +233,16 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
       {dispatchOrder && <form className="commerce-create-form commerce-receipt-form" onSubmit={postDispatch}>
         <div className="commerce-lines-heading"><div><strong>Pick and dispatch · {dispatchOrder.orderNumber}</strong><p>Enter the quantity leaving this branch for each line. You can dispatch part of an order now and the remainder later.</p></div><button type="button" className="icon-button" aria-label="Close fulfilment" onClick={() => setDispatchOrder(null)}><X size={17}/></button></div>
         {dispatchDraft.map((line,index)=><div className="commerce-receipt-row commerce-dispatch-row" key={line.orderLineId}><div><strong>{line.productName}</strong><small>{line.remaining} still to fulfil</small></div><label className="field-label">Quantity to dispatch<input type="number" min="0" max={line.remaining} step="0.001" value={line.quantity} onChange={(e)=>setDispatchDraft((current)=>current.map((r,i)=>i===index?{...r,quantity:e.target.value}:r))}/></label></div>)}
-        <div className="commerce-form-actions"><button type="button" className="button button-secondary" onClick={()=>setDispatchOrder(null)}>Cancel</button><button type="submit" className="button button-primary" disabled={busy}>{busy?'Dispatching…':'Confirm dispatch'} <Truck size={15}/></button></div>
+        <div className="form-two-col">
+          <label className="field-label">Transport method<select value={dispatchMethod} onChange={(e)=>setDispatchMethod(e.target.value)}><option value="business_rider">Business-owned rider</option><option value="independent_rider">Independent rider</option><option value="bus">Bus / bus company</option><option value="transport_company">Transport company</option><option value="courier_manual">Courier (manual record)</option><option value="customer_pickup">Customer pickup</option><option value="business_employee">Business employee / owner</option><option value="other">Other</option></select></label>
+          <label className="field-label">Rider / transport contact<select value={dispatchAgentId} onChange={(e)=>setDispatchAgentId(e.target.value)}><option value="">Select later / none</option>{deliveryAgents.map((agent)=> <option key={agent.id} value={agent.id}>{agent.displayName} · {agent.agentType.replaceAll('_',' ')}</option>)}</select></label>
+        </div>
+        <div className="form-two-col"><label className="field-label">Recipient phone<input type="tel" value={dispatchRecipientPhone} onChange={(e)=>setDispatchRecipientPhone(e.target.value)} placeholder="Recipient contact" /></label><label className="field-label">Bus route / parcel / transport detail<input value={dispatchTransportDetails} onChange={(e)=>setDispatchTransportDetails(e.target.value)} placeholder="e.g. Kampala–Mbarara bus" /></label></div>
+        <div className="form-two-col"><label className="field-label">Expected collection ({workspace.currency})<input type="number" min="0" step={minorUnitFactor(workspace.currency)===1?'1':'0.01'} value={dispatchExpectedCollection} onChange={(e)=>setDispatchExpectedCollection(e.target.value)} /></label><label className="field-label">Delivery expense ({workspace.currency})<input type="number" min="0" step={minorUnitFactor(workspace.currency)===1?'1':'0.01'} value={dispatchExpense} onChange={(e)=>setDispatchExpense(e.target.value)} /></label></div>
+        {dispatchOrder.deliveryAddress && <p className="commerce-form-note">Destination: {dispatchOrder.deliveryAddress}</p>}
+        {deliveryAgentsQuery.isError && <p className="inline-error">Delivery-agent directory could not be loaded. You can still record a manual transport contact in the details field.</p>}
+        <div className="commerce-form-actions"><button type="button" className="button button-secondary" onClick={()=>setDispatchOrder(null)}>Cancel</button><button type="submit" className="button button-primary" disabled={busy || dispatchDraft.every((line)=>Number(line.quantity)<=0)}>{busy?'Dispatching…':'Confirm dispatch'} <Truck size={15}/></button></div>
+        <p className="commerce-form-note">A sales-order fulfilment creates the sale, dispatch snapshots and stock movement in one transaction. Transport details are manually recorded; no carrier is contacted.</p>
       </form>}
 
       {purchaseModule && <>
@@ -242,5 +276,6 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
         <p className="commerce-form-note">Select a record in the register to see its cross-module links in the record detail panel. This section shows branch-level transaction history.</p>
       </>}
     </section>
+    </>
   );
 }

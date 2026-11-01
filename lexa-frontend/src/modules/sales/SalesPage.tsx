@@ -4,18 +4,20 @@ import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowUpRight, ReceiptText, Search } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
+import { apiSalesWorkflow } from '../../data/remote/apiSalesWorkflow';
 import { sales } from '../../data/repositories';
 import { formatMinorAmount } from '../../domain/money/money';
 import type { Sale } from '../../domain/shared/types';
 import { StandardDataTable, type DataTableColumn } from '../../components/tables/StandardDataTable';
 
 export default function SalesPage() {
-  const { workspace } = useWorkspace();
+  const { workspace, branch } = useWorkspace();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const salesQuery = useQuery({ queryKey: ['sales', workspace.id], queryFn: () => sales.list({ workspaceId: workspace.id, limit: 500 }) });
+  const paymentReportQuery = useQuery({ queryKey: ['sales-payment-report', workspace.id, branch.id, dateFrom, dateTo], queryFn: () => apiSalesWorkflow.getPaymentReport({ workspaceId: workspace.id, branchId: branch.id, ...(dateFrom ? { from: dateFrom } : {}), ...(dateTo ? { to: dateTo } : {}) }), enabled: !(dateFrom && dateTo && dateFrom > dateTo) });
   const filtered = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase();
     return (salesQuery.data ?? []).filter((sale) => {
@@ -42,6 +44,23 @@ export default function SalesPage() {
       <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">TRANSACTION HISTORY</div><h2>Sales & receipts</h2><p>Every sale links to the items, recorded payments, stock movements and any returns.</p></div><button className="button button-primary" onClick={() => navigate('/checkout')}><ReceiptText size={17} /> New sale</button></div>
       <div className="metric-strip three-metrics"><div className="mini-metric"><span>Matching sales</span><strong>{filtered.length.toLocaleString()}</strong><small>Within the current filters</small></div><div className="mini-metric"><span>Filtered gross value</span><strong>{formatMinorAmount(totalSales, workspace.currency)}</strong><small>Before recorded returns</small></div><div className="mini-metric"><span>Latest matching receipt</span><strong className="metric-receipt">{filtered[0]?.receiptNumber ?? '—'}</strong><small>Most recent in this view</small></div></div>
       {invalidDateRange && <div className="inline-warning" role="alert">The start date must be on or before the end date.</div>}
+      <section className="section-card" style={{ padding: 16 }}>
+        <div className="table-toolbar"><div><h3>Payment methods and customer credit</h3><p>Manual receipt/refund activity for this date range; outstanding credit is a current balance snapshot as of {paymentReportQuery.data?.credit.asOf ?? 'today'}.</p></div></div>
+        {paymentReportQuery.isLoading ? <div className="loading-state">Loading payment report…</div> : paymentReportQuery.error ? <div className="inline-error" role="alert"><strong>Could not load the payment report.</strong><span>{paymentReportQuery.error instanceof Error ? paymentReportQuery.error.message : 'Try again.'}</span><button className="button button-secondary button-small" onClick={() => void paymentReportQuery.refetch()}>Retry</button></div> : paymentReportQuery.data && <>
+          <div className="metric-strip" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', marginBottom: 14 }}>
+            <div className="mini-metric"><span>Recorded receipts</span><strong>{formatMinorAmount(paymentReportQuery.data.activity.receiptsMinor, workspace.currency)}</strong><small>Business-recorded, not provider verified</small></div>
+            <div className="mini-metric"><span>Recorded refunds</span><strong>{formatMinorAmount(paymentReportQuery.data.activity.refundsMinor, workspace.currency)}</strong><small>Separate refund entries</small></div>
+            <div className="mini-metric"><span>Outstanding customer credit</span><strong>{formatMinorAmount(paymentReportQuery.data.credit.outstandingMinor, workspace.currency)}</strong><small>{paymentReportQuery.data.credit.creditSalesCount} open credit sales</small></div>
+            <div className="mini-metric"><span>Overdue credit</span><strong>{formatMinorAmount(paymentReportQuery.data.credit.overdueMinor, workspace.currency)}</strong><small>{paymentReportQuery.data.credit.overdueCount} overdue sales</small></div>
+            <div className="mini-metric"><span>Credit with no due date</span><strong>{formatMinorAmount(paymentReportQuery.data.credit.noDueDateMinor, workspace.currency)}</strong><small>{paymentReportQuery.data.credit.noDueDateCount} sales</small></div>
+          </div>
+          <div className="form-two-col" style={{ gap: 14 }}>
+            <div><h4 style={{ margin: '0 0 8px' }}>Receipts and refunds by method / recorder</h4><div className="responsive-table-wrap"><table className="data-table"><thead><tr><th>TYPE</th><th>METHOD</th><th>LABEL</th><th>RECORDED BY</th><th>COUNT</th><th>AMOUNT</th></tr></thead><tbody>{paymentReportQuery.data.activity.methodBreakdown.map((row, index) => <tr key={`${row.kind}-${row.methodCategory}-${row.methodLabel ?? ''}-${row.recordedByName}-${index}`}><td>{row.kind === 'receipt' ? 'Receipt' : 'Refund'}</td><td>{row.methodCategory.replaceAll('_',' ')}</td><td>{row.methodLabel || '—'}</td><td>{row.recordedByName}</td><td>{row.count}</td><td>{formatMinorAmount(row.amountMinor, workspace.currency)}</td></tr>)}</tbody></table></div>{!paymentReportQuery.data.activity.methodBreakdown.length && <p className="compact-empty">No payment activity in this date range.</p>}</div>
+            <div><h4 style={{ margin: '0 0 8px' }}>Open customer credit and ageing</h4><div className="responsive-table-wrap"><table className="data-table"><thead><tr><th>RECEIPT / CUSTOMER</th><th>DUE DATE</th><th>AGEING</th><th>OUTSTANDING</th></tr></thead><tbody>{paymentReportQuery.data.credit.sales.slice(0, 100).map((row) => <tr key={row.id}><td><strong>{row.receiptNumber}</strong><small className="subtle-line">{row.customerName || 'Customer not named'}{row.customerPhone ? ` · ${row.customerPhone}` : ''}</small></td><td>{row.promisedPaymentDate || 'Not set'}</td><td>{row.ageing.replaceAll('_',' ')}</td><td>{formatMinorAmount(row.outstandingMinor, workspace.currency)}</td></tr>)}</tbody></table></div>{!paymentReportQuery.data.credit.sales.length && <p className="compact-empty">There are no outstanding POS credit balances.</p>}</div>
+          </div>
+          <p className="page-footnote">{paymentReportQuery.data.assurance} Credit balances are a current snapshot, not limited by the activity date filters.</p>
+        </>}
+      </section>
       <section className="section-card table-card"><div className="table-toolbar sales-table-toolbar"><div><h3>Sales history</h3><p>{filtered.length} matching {filtered.length === 1 ? 'sale' : 'sales'} · {formatMinorAmount(totalSales, workspace.currency)} in filtered gross sales</p></div><div className="sales-table-filters"><label className="search-field"><Search size={16} /><input aria-label="Search sales" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search receipt or customer" /></label><label className="field-label sales-date-filter"><span>From</span><input aria-label="Sales from date" type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label className="field-label sales-date-filter"><span>To</span><input aria-label="Sales to date" type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label>{(search || dateFrom || dateTo) && <button type="button" className="button button-secondary button-small" onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); }}>Clear filters</button>}</div></div>
         {salesQuery.isError ? <div className="inline-error" role="alert"><strong>Could not load sales history.</strong><span>{salesQuery.error instanceof Error ? salesQuery.error.message : 'Try again.'}</span><button className="button button-secondary button-small" onClick={() => void salesQuery.refetch()}>Retry</button></div> : salesQuery.isLoading ? <div className="loading-state">Loading sales…</div> : filtered.length === 0 ? <div className="empty-state"><div className="empty-icon"><ReceiptText size={22} /></div><h3>{search || dateFrom || dateTo ? 'No matching sales' : 'No sales have been recorded'}</h3><p>{search || dateFrom || dateTo ? 'Try a different search or widen the date range.' : 'Your completed sales will appear here together with their receipt details and payment records.'}</p>{!(search || dateFrom || dateTo) && <button className="button button-primary" onClick={() => navigate('/checkout')}>Start a sale <ArrowUpRight size={16} /></button>}</div> : <StandardDataTable rows={filtered} columns={saleColumns} enableSearch={false} rowLabel="sales" emptyTitle="No sales have been recorded" emptyDescription="Completed sales will appear here." />}
       </section>

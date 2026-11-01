@@ -42,12 +42,12 @@ const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
   business_manager: ['finance.write', ...ALL_READS, ...OPERATIONAL_WRITES, 'projects.read','projects.write','support.read','support.write'],
   manager: ['finance.write', ...ALL_READS, ...OPERATIONAL_WRITES, 'projects.read','projects.write','support.read','support.write'],
   branch_manager: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'procurement.read', 'finance.read', 'crm.read', 'people.read', 'manufacturing.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'module.read', ...OPERATIONAL_WRITES],
-  cashier: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'cash.manage', 'support.read'],
-  sales: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'crm.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'sales.return', 'crm.write', 'support.read', 'support.write'],
-  sales_operator: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'crm.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'crm.write', 'support.read', 'support.write'],
+  cashier: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'cash.manage', 'support.read'],
+  sales: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'crm.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'sales.return', 'crm.write', 'support.read', 'support.write'],
+  sales_operator: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'crm.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'crm.write', 'support.read', 'support.write'],
   inventory_operator: ['workspace.read', 'catalog.read', 'inventory.read', 'procurement.read', 'manufacturing.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'catalog.write', 'inventory.write', 'procurement.receive', 'fulfilment.write', 'manufacturing.write', 'module.write'],
   warehouse_operator: ['workspace.read', 'catalog.read', 'inventory.read', 'procurement.read', 'manufacturing.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'inventory.write', 'procurement.receive', 'fulfilment.write', 'manufacturing.write'],
-  accountant: ['workspace.read', 'catalog.read', 'sales.read', 'procurement.read', 'finance.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'finance.write', 'procurement.write', 'approval.decide', 'module.write'],
+  accountant: ['workspace.read', 'catalog.read', 'sales.read', 'fulfilment.read', 'procurement.read', 'finance.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'finance.write', 'procurement.write', 'approval.decide', 'module.write'],
   read_only: [...ALL_READS],
   readonly: [...ALL_READS],
   viewer: [...ALL_READS],
@@ -97,7 +97,11 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/inventory\/(?:movements|balances)(?:\/|$)/.test(path)) return choose('inventory.read', 'inventory.write');
   if (/\/sales\/[^/]+\/returns$/.test(path)) return choose('sales.read', 'sales.return');
   if (/\/sales(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
-  if (/\/commerce\/sales-orders\/[^/]+\/fulfil$|\/commerce\/deliveries(?:\/|$)/.test(path)) return choose('fulfilment.read', 'fulfilment.write');
+  if (/\/commerce\/payment-report$/.test(path)) return 'sales.read';
+  if (/\/commerce\/delivery-report$/.test(path)) return 'fulfilment.read';
+  if (/\/commerce\/dispatches\/[^/]+\/direct-receipts$/.test(path)) return choose('sales.read', 'sales.write');
+  if (/\/commerce\/remittances(?:\/|$)/.test(path)) return choose('sales.read', 'cash.manage');
+  if (/\/commerce\/(?:sales-orders\/[^/]+\/fulfil|deliveries|dispatches|delivery-agents|collection-reports|remittances)(?:\/|$)/.test(path)) return choose('fulfilment.read', 'fulfilment.write');
   if (/\/commerce\/sales-orders(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
   if (/\/commerce\/purchase-orders\/[^/]+\/receipts$/.test(path)) return choose('procurement.read', 'procurement.receive');
   if (/\/commerce\/purchase-orders(?:\/|$)/.test(path)) return choose('procurement.read', 'procurement.write');

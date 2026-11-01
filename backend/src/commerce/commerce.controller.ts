@@ -12,6 +12,7 @@ import { CsrfGuard } from '../core/csrf.guard';
 type Obj = Record<string, unknown>;
 type ReqBody = FastifyRequest & { body?: unknown };
 type Tx = any;
+const DELIVERY_METHODS = new Set(['business_rider','independent_rider','bus','transport_company','courier_manual','customer_pickup','business_employee','other']);
 
 function cookie(request: FastifyRequest, name: string): string | undefined {
   for (const part of (request.headers.cookie ?? '').split(';')) {
@@ -196,15 +197,40 @@ export class CommerceController {
   @UseGuards(CsrfGuard)
   async fulfilSalesOrder(@Param('workspaceId') workspaceId:string,@Param('branchId') branchId:string,@Param('orderId') orderId:string,@Body() raw:unknown,@Req() req:ReqBody) {
     const actor=await this.access(req,workspaceId,branchId); const body=object(raw); uuid(orderId,'Sales order ID');
+    const rawKey=req.headers['idempotency-key']; const key=Array.isArray(rawKey)?rawKey[0]:rawKey;
+    if(!key||key.length>200) throw new BadRequestException('Idempotency-Key header is required for sales-order fulfilment.');
+    const requestHash=sha(JSON.stringify({workspaceId,branchId,orderId,body}));
     return this.prisma.$transaction(async(tx)=>{
+      const existing=await tx.idempotencyRecord.findUnique({where:{tenantId_key:{tenantId:workspaceId,key}}});
+      if(existing){
+        if(existing.requestHash!==requestHash) throw new ConflictException({code:'IDEMPOTENCY_CONFLICT',message:'This request key was already used for a different fulfilment request.'});
+        if(existing.status==='COMPLETED'&&existing.responseBody) return existing.responseBody;
+        throw new ConflictException({code:'REQUEST_IN_PROGRESS',message:'This fulfilment request is already being processed.'});
+      }
+      await tx.idempotencyRecord.create({data:{tenantId:workspaceId,key,requestHash,status:'IN_PROGRESS',expiresAt:new Date(Date.now()+86_400_000)}});
       const rows=await tx.$queryRaw<any[]>`SELECT * FROM commerce_sales_orders WHERE id=${orderId}::uuid AND tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid FOR UPDATE`;
       const order=rows[0]; if(!order) throw new NotFoundException('Sales order not found.'); if(!['confirmed','partially_fulfilled'].includes(order.status)) throw new ConflictException('Confirm the order before dispatching it.');
-      const orderLines=await tx.$queryRaw<any[]>`SELECT * FROM commerce_sales_order_lines WHERE order_id=${orderId}::uuid FOR UPDATE`;
-      const productIds=[...new Set(orderLines.map((line:any)=>String(line.product_id)))].sort();
-      if(productIds.length) await tx.$queryRaw`SELECT id FROM products WHERE tenant_id=${workspaceId}::uuid AND id=ANY(${productIds}::uuid[]) ORDER BY id FOR UPDATE`;
       const requested=Array.isArray(body.lines)?body.lines.map((v)=>{const r=object(v,'Fulfilment line');return {orderLineId:text(r.orderLineId,'Order line ID',80)!,quantity:quantity(r.quantity,'Fulfilled quantity')}}):null;
       if(requested && new Set(requested.map(x=>x.orderLineId)).size!==requested.length) throw new BadRequestException('A fulfilment request cannot repeat the same order line.');
-      const fulfilLines:Array<{line:any;qty:number;product:any}>=[];
+      const deliveryMethod=text(body.deliveryMethod??(order.courier?'courier_manual':'other'),'Delivery method',40)!;
+      if(!DELIVERY_METHODS.has(deliveryMethod)) throw new BadRequestException('Unsupported delivery method.');
+      const deliveryAgentId=body.deliveryAgentId?uuid(String(body.deliveryAgentId),'Delivery agent ID'):null;
+      const recipientName=text(body.recipientName??order.customer_name,'Recipient name',160,true)??null;
+      const recipientPhone=text(body.recipientPhone,'Recipient phone',80,true)??null;
+      const destinationArea=text(body.destinationArea,'Destination area',160,true)??null;
+      const destinationTown=text(body.destinationTown,'Destination town / district',160,true)??null;
+      const deliveryInstructions=text(body.deliveryInstructions,'Delivery instructions',1000,true)??null;
+      const transportDetails=text(body.transportDetails??order.courier,'Transport details',250,true)??null;
+      const expectedCollectionMinor=body.expectedCollectionMinor===undefined?0:money(Number(body.expectedCollectionMinor),'Expected collection');
+      const deliveryExpenseMinor=body.deliveryExpenseMinor===undefined?0:money(Number(body.deliveryExpenseMinor),'Delivery expense');
+      if(deliveryAgentId){
+        const agent=await tx.$queryRaw<any[]>`SELECT id FROM commerce_delivery_agents WHERE tenant_id=${workspaceId}::uuid AND id=${deliveryAgentId}::uuid AND active=true AND (default_branch_id IS NULL OR default_branch_id=${branchId}::uuid) FOR SHARE`;
+        if(!agent.length) throw new NotFoundException('The selected delivery agent is inactive or outside this branch.');
+      }
+      const orderLines=await tx.$queryRaw<any[]>`SELECT * FROM commerce_sales_order_lines WHERE order_id=${orderId}::uuid ORDER BY id FOR UPDATE`;
+      const productIds=[...new Set(orderLines.map((line:any)=>String(line.product_id)))].sort();
+      if(productIds.length) await tx.$queryRaw`SELECT id FROM products WHERE tenant_id=${workspaceId}::uuid AND id=ANY(${productIds}::uuid[]) ORDER BY id FOR UPDATE`;
+      const fulfilLines:Array<{line:any;qty:number;product:any;saleLineId?:string}>=[];
       for(const line of orderLines){
         const outstanding=Number(line.quantity)-Number(line.quantity_fulfilled); const selected=requested?.find((x)=>x.orderLineId===line.id)?.quantity??(requested?0:outstanding);
         if(selected<=0) continue; if(selected>outstanding) throw new ConflictException(`Cannot fulfil more than ${outstanding} remaining for ${line.product_name_snapshot}.`);
@@ -220,33 +246,58 @@ export class CommerceController {
       }
       if(!fulfilLines.length) throw new BadRequestException('Enter at least one unfulfilled quantity.');
       const total=fulfilLines.reduce((sum,x)=>sum+Math.round(x.product.sellingPriceMinor*x.qty),0); money(total,'Fulfilment total');
-      const sale=await tx.sale.create({data:{tenantId:workspaceId,branchId,receiptNumber:doc('LX'),customerName:order.customer_name,totalMinor:total,status:'completed'}});
+      const sale=await tx.sale.create({data:{tenantId:workspaceId,branchId,receiptNumber:doc('LX'),customerName:recipientName,customerPhone:recipientPhone,totalMinor:total,status:'completed'}});
       const fulfilmentId=randomUUID(); const fulfilmentNumber=doc('FUL');
       await tx.$executeRaw`INSERT INTO commerce_fulfilments (id,tenant_id,branch_id,order_id,sale_id,fulfilment_number,status,created_by_user_id)
         VALUES (${fulfilmentId}::uuid,${workspaceId}::uuid,${branchId}::uuid,${orderId}::uuid,${sale.id}::uuid,${fulfilmentNumber},'dispatched',${actor.userId}::uuid)`;
       for(const item of fulfilLines){
         const lineTotal=Math.round(item.product.sellingPriceMinor*item.qty);
-        await tx.saleLine.create({data:{tenantId:workspaceId,saleId:sale.id,productId:item.product.id,productNameSnapshot:item.product.name,quantity:String(item.qty),unitPriceMinor:item.product.sellingPriceMinor,lineTotalMinor:lineTotal}});
+        const saleLine=await tx.saleLine.create({data:{tenantId:workspaceId,saleId:sale.id,productId:item.product.id,productNameSnapshot:item.product.name,quantity:String(item.qty),unitPriceMinor:item.product.sellingPriceMinor,lineTotalMinor:lineTotal,unitCostMinor:item.product.costPriceMinor}});
+        item.saleLineId=saleLine.id;
         if(item.product.trackStock){
           await tx.stockMovement.create({data:{tenantId:workspaceId,branchId,productId:item.product.id,type:'sale',quantityDelta:String(-item.qty),reason:`Fulfilment ${fulfilmentNumber}`,sourceId:fulfilmentId}});
           await tx.$executeRaw`UPDATE commerce_stock_reservations SET quantity_reserved=quantity_reserved-${String(item.qty)}::numeric WHERE order_line_id=${item.line.id}::uuid`;
         }
         await tx.$executeRaw`UPDATE commerce_sales_order_lines SET quantity_fulfilled=quantity_fulfilled+${String(item.qty)}::numeric WHERE id=${item.line.id}::uuid`;
-        await tx.$executeRaw`INSERT INTO commerce_fulfilment_lines (id,tenant_id,fulfilment_id,order_line_id,product_id,quantity)
-          VALUES (${randomUUID()}::uuid,${workspaceId}::uuid,${fulfilmentId}::uuid,${item.line.id}::uuid,${item.product.id}::uuid,${String(item.qty)}::numeric)`;
+        await tx.$executeRaw`INSERT INTO commerce_fulfilment_lines (id,tenant_id,fulfilment_id,order_line_id,product_id,quantity,sale_line_id)
+          VALUES (${randomUUID()}::uuid,${workspaceId}::uuid,${fulfilmentId}::uuid,${item.line.id}::uuid,${item.product.id}::uuid,${String(item.qty)}::numeric,${saleLine.id}::uuid)`;
       }
       const remaining=await tx.$queryRaw<Array<{qty:any}>>`SELECT COALESCE(SUM(quantity-quantity_fulfilled),0) AS qty FROM commerce_sales_order_lines WHERE order_id=${orderId}::uuid`;
       const orderStatus=Number(remaining[0]?.qty??0)===0?'fulfilled':'partially_fulfilled';
       await tx.$executeRaw`UPDATE commerce_sales_orders SET status=${orderStatus},updated_at=CURRENT_TIMESTAMP WHERE id=${orderId}::uuid`;
       await tx.$executeRaw`UPDATE module_records SET data=jsonb_set(data,'{status}',to_jsonb(${orderStatus==='fulfilled'?'Fulfilled':'Partially fulfilled'}::text)),version=version+1,updated_at=CURRENT_TIMESTAMP WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND module_id='sales-orders' AND record_id=${orderId}`;
       const deliveryId=randomUUID();const deliveryNumber=doc('DLV');
-      const deliveryData={id:deliveryId,deliveryNumber,salesOrder:order.order_number,customer:order.customer_name??'',deliveryAddress:order.delivery_address??'',courier:order.courier??'',expectedDate:order.expected_date?new Date(order.expected_date).toISOString().slice(0,10):'',status:'Dispatched',dispatchDate:new Date().toISOString().slice(0,10)};
-      await tx.$executeRaw`INSERT INTO commerce_deliveries (id,tenant_id,branch_id,fulfilment_id,delivery_number,recipient_name,delivery_address,courier,expected_date,status) VALUES (${deliveryId}::uuid,${workspaceId}::uuid,${branchId}::uuid,${fulfilmentId}::uuid,${deliveryNumber},${order.customer_name},${order.delivery_address},${order.courier},${order.expected_date},'dispatched')`;
+      const deliveryData={id:deliveryId,deliveryNumber,salesOrder:order.order_number,customer:recipientName??'',recipientPhone:recipientPhone??'',deliveryAddress:order.delivery_address??'',courier:transportDetails??'',deliveryMethod,deliveryAgentId,transportDetails:transportDetails??'',expectedDate:order.expected_date?new Date(order.expected_date).toISOString().slice(0,10):'',status:'Dispatched',dispatchDate:new Date().toISOString().slice(0,10)};
+      await tx.$executeRaw`INSERT INTO commerce_deliveries
+        (id,tenant_id,branch_id,fulfilment_id,sale_id,delivery_number,recipient_name,recipient_phone,delivery_address,
+         courier,expected_date,tracking_reference,status,dispatched_at,updated_at,delivery_method,delivery_agent_id,
+         transport_details,delivery_expense_minor,expected_collection_minor,created_by_user_id,updated_by_user_id,
+         picked_up_at,picked_up_by_user_id,idempotency_key,request_hash)
+        VALUES (${deliveryId}::uuid,${workspaceId}::uuid,${branchId}::uuid,${fulfilmentId}::uuid,${sale.id}::uuid,
+          ${deliveryNumber},${recipientName},${recipientPhone},${order.delivery_address},${transportDetails},${order.expected_date},
+          NULL,'dispatched',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,${deliveryMethod},${deliveryAgentId}::uuid,
+          ${transportDetails},${deliveryExpenseMinor},${expectedCollectionMinor},${actor.userId}::uuid,${actor.userId}::uuid,
+          CURRENT_TIMESTAMP,${actor.userId}::uuid,${key},${requestHash})`;
+      for(const item of fulfilLines){
+        if(!item.saleLineId) throw new ConflictException('The generated sale line ID is missing from its fulfilment item.');
+        const totalSellingMinor=Math.round(item.product.sellingPriceMinor*item.qty);
+        const totalCostMinor=Math.round(item.product.costPriceMinor*item.qty);
+        await tx.$executeRaw`INSERT INTO commerce_delivery_items
+          (id,tenant_id,delivery_id,sale_line_id,product_id,product_name_snapshot,sku_snapshot,quantity,unit_selling_minor,total_selling_minor,unit_cost_minor,total_cost_minor)
+          VALUES (${randomUUID()}::uuid,${workspaceId}::uuid,${deliveryId}::uuid,${item.saleLineId}::uuid,${item.product.id}::uuid,
+            ${item.product.name},${item.product.sku},${String(item.qty)}::numeric,${item.product.sellingPriceMinor},${totalSellingMinor},${item.product.costPriceMinor},${totalCostMinor})`;
+      }
+      await tx.$executeRaw`INSERT INTO commerce_delivery_events
+        (tenant_id,branch_id,delivery_id,previous_status,new_status,actor_user_id,occurred_at,reason,idempotency_key,metadata)
+        VALUES (${workspaceId}::uuid,${branchId}::uuid,${deliveryId}::uuid,NULL,'dispatched',${actor.userId}::uuid,CURRENT_TIMESTAMP,
+          'Sales order fulfilment created a delivery record',${`${deliveryId}:created`},${JSON.stringify({fulfilmentId,fulfilmentNumber,source:'sales_order'})}::jsonb)`;
       await this.moduleRecord(tx,workspaceId,branchId,'deliveries',deliveryId,deliveryData);
       await this.link(tx,workspaceId,branchId,'sales-orders',orderId,'deliveries',deliveryId,actor.userId);
       await this.event(tx,workspaceId,branchId,'sales-orders',orderId,'sales_order.fulfilled',{fulfilmentId,deliveryId,fulfilmentNumber,deliveryNumber,saleId:sale.id,quantity:fulfilLines.reduce((s,x)=>s+x.qty,0)},actor.userId,`fulfilment:${fulfilmentId}`);
       await this.audit(tx,workspaceId,actor.userId,'sales_order.fulfilled','sales_order',orderId);
-      return {fulfilmentId,fulfilmentNumber,deliveryId,deliveryNumber,saleId:sale.id,status:orderStatus,dispatchedLines:fulfilLines.map(x=>({productId:x.product.id,productName:x.product.name,quantity:x.qty})),totalMinor:total};
+      const response={fulfilmentId,fulfilmentNumber,deliveryId,deliveryNumber,saleId:sale.id,status:orderStatus,dispatchedLines:fulfilLines.length,totalMinor:total};
+      await tx.idempotencyRecord.update({where:{tenantId_key:{tenantId:workspaceId,key}},data:{status:'COMPLETED',responseStatus:201,responseBody:response as any}});
+      return response;
     },{isolationLevel:'Serializable'});
   }
 

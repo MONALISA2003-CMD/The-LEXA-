@@ -141,8 +141,8 @@ export async function postLedgerJournal(tx: any, input: LedgerPostingInput): Pro
 }
 
 export function settlementAccountKey(method: string): string {
-  if (method === 'mtn_momo' || method === 'airtel_money') return 'mobile_money';
-  if (method === 'bank_transfer' || method === 'card_recorded' || method === 'cheque') return 'bank';
+  if (method === 'mtn_momo' || method === 'airtel_money' || method === 'mobile_money') return 'mobile_money';
+  if (method === 'bank_transfer' || method === 'card_recorded' || method === 'card' || method === 'cheque') return 'bank';
   if (method === 'other') return 'other_clearing';
   return 'cash';
 }

@@ -507,8 +507,12 @@ export class ReceivablesController {
           saleId: String(invoice.source_sale_id),
           kind: 'receipt',
           method,
+          methodCategory: ['mtn_momo','airtel_money'].includes(method) ? 'mobile_money' : method === 'bank_transfer' ? 'bank_transfer' : method === 'card_recorded' ? 'card' : method === 'cheque' ? 'cheque' : method === 'cash' ? 'cash' : 'other',
           amountMinor: allocation.amountMinor,
           reference: reference ?? receiptNumber,
+          recordedByUserId: actor.userId,
+          recordedAt: new Date(),
+          sourceType: 'customer_receipt',
           ledgerSource: 'customer_receipt_recorded',
           createdAt: new Date(`${paymentDate}T00:00:00.000Z`),
         } });

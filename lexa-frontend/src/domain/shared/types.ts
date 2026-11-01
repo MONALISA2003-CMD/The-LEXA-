@@ -1,5 +1,5 @@
 export type Id = string;
-export type PaymentMethod = 'cash' | 'mtn_momo' | 'airtel_money' | 'bank_transfer' | 'card_recorded' | 'other';
+export type PaymentMethod = 'cash' | 'mobile_money' | 'mtn_momo' | 'airtel_money' | 'bank_transfer' | 'card' | 'card_recorded' | 'cheque' | 'other';
 export type StockMovementType = 'opening' | 'receiving' | 'sale' | 'return' | 'adjustment' | 'transfer_in' | 'transfer_out' | 'write_off';
 export type PaymentKind = 'receipt' | 'refund';
 
@@ -92,8 +92,17 @@ export interface PaymentRecord {
   saleId: Id;
   kind: PaymentKind;
   method: PaymentMethod;
+  methodCategory?: 'cash' | 'mobile_money' | 'bank_transfer' | 'card' | 'cheque' | 'other';
+  methodLabel?: string;
   amountMinor: number;
   reference?: string;
+  notes?: string;
+  reportedReceivedAt?: string;
+  recordedByUserId?: string;
+  recordedByName?: string;
+  reversalOfPaymentId?: string;
+  recordedAt?: string;
+  sourceType?: string;
   createdAt: string;
 }
 
@@ -163,8 +172,11 @@ export interface SaleItemInput {
 
 export interface PaymentInput {
   method: PaymentMethod;
+  methodLabel?: string;
   amountMinor: number;
   reference?: string;
+  notes?: string;
+  reportedReceivedAt?: string;
 }
 
 export interface CompleteSaleInput {
@@ -193,4 +205,5 @@ export interface RecordReturnInput {
   reason: string;
   recordRefund: boolean;
   refundMethod: PaymentMethod;
+  refundPaymentId?: Id;
 }

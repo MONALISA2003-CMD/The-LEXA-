@@ -7,6 +7,7 @@ import { CsrfGuard } from './core/csrf.guard';
 import { TypedModuleWriteGuard } from './core/typed-module-write.guard';
 import { ModuleGraphController } from './module-graph/module-graph.controller';
 import { CommerceController } from './commerce/commerce.controller';
+import { DeliveryWorkflowController } from './commerce/delivery-workflow.controller';
 import { ReceivablesController } from './receivables/receivables.controller';
 import { PayablesController } from './payables/payables.controller';
 import { TenantAuthorizationGuard } from './authorization/tenant-authorization.guard';
@@ -21,7 +22,7 @@ import { PeopleProjectsService } from './people-projects/people-projects.service
 
 @Module({
   imports: [PrismaModule],
-  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, ReceivablesController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController, SupplyChainController, PeopleProjectsController, PlatformController],
+  controllers: [HealthController, CoreController, ModuleGraphController, CommerceController, DeliveryWorkflowController, ReceivablesController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController, SupplyChainController, PeopleProjectsController, PlatformController],
   providers: [CsrfGuard, PeopleProjectsService, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
 })
 export class AppModule {}

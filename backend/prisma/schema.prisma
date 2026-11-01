@@ -444,20 +444,33 @@ model SaleLine {
 }
 
 model SalePayment {
-  id         String   @id @default(uuid()) @db.Uuid
-  tenantId   String   @map("tenant_id") @db.Uuid
-  saleId     String   @map("sale_id") @db.Uuid
-  kind       String   @default("receipt")
-  method     String
-  amountMinor Int     @map("amount_minor")
-  reference  String?
-  ledgerSource String? @map("ledger_source")
-  cashSessionId String? @map("cash_session_id") @db.Uuid
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sale       Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  id                    String   @id @default(uuid()) @db.Uuid
+  tenantId              String   @map("tenant_id") @db.Uuid
+  saleId                String   @map("sale_id") @db.Uuid
+  kind                  String   @default("receipt")
+  method                String
+  methodCategory        String   @default("other") @map("method_category")
+  methodLabel           String?  @map("method_label")
+  amountMinor           Int      @map("amount_minor")
+  reference             String?
+  notes                 String?
+  reportedReceivedAt    DateTime? @map("reported_received_at") @db.Timestamptz(3)
+  recordedByUserId      String?  @map("recorded_by_user_id") @db.Uuid
+  recordedAt            DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  sourceType            String?  @map("source_type")
+  idempotencyKey        String?  @map("idempotency_key")
+  requestHash           String?  @map("request_hash")
+  reversalOfPaymentId   String?  @map("reversal_of_payment_id") @db.Uuid
+  deliveryId            String?  @map("delivery_id") @db.Uuid
+  ledgerSource          String?  @map("ledger_source")
+  cashSessionId         String?  @map("cash_session_id") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale                  Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, saleId, createdAt])
+  @@index([tenantId, methodCategory, createdAt])
+  @@index([tenantId, recordedByUserId, recordedAt])
   @@map("sale_payments")
 }
 

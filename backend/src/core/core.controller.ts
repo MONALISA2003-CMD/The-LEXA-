@@ -13,12 +13,21 @@ import { assertBranchAccess } from '../authorization/branch-scope';
 import { CsrfGuard } from './csrf.guard';
 import { sendTransactionalEmail } from '../notifications/email-delivery';
 import { PeopleProjectsService } from '../people-projects/people-projects.service';
+import { outstandingSaleMinor, paymentCategoryFromMethod } from '../commerce/increment1-rules';
 
 const scrypt = promisify(scryptCallback);
 const SESSION_SECONDS = 60 * 60 * 24 * 7;
 const RESET_SECONDS = 60 * 30;
 const IDEMPOTENCY_SECONDS = 60 * 60 * 24;
-const PAYMENT_METHODS = new Set(['cash', 'mtn_momo', 'airtel_money', 'bank_transfer', 'card_recorded', 'other']);
+const PAYMENT_METHODS = new Set(['cash', 'mobile_money', 'mtn_momo', 'airtel_money', 'bank_transfer', 'card', 'card_recorded', 'cheque', 'other']);
+
+function reportedDateTime(value: unknown): Date | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) throw new BadRequestException('Reported payment time must be a valid ISO date/time.');
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) throw new BadRequestException('Reported payment time must be a valid ISO date/time.');
+  return parsed;
+}
 
 type RequestWithBody = FastifyRequest & { body?: unknown };
 type JsonObject = Record<string, unknown>;
@@ -986,12 +995,17 @@ export class CoreController {
     const sale = await this.prisma.sale.findFirst({ where: { tenantId: workspaceId, id: saleId }, include: { lines: true, payments: true, returns: { include: { lines: true } } } });
     if (!sale) throw new NotFoundException('Sale not found.');
     await this.branchFor(workspaceId, sale.branchId, session.userId);
+    const paymentActorIds = [...new Set(sale.payments.map((payment: any) => payment.recordedByUserId).filter((id: unknown): id is string => typeof id === 'string'))];
+    const paymentActors = paymentActorIds.length
+      ? await this.prisma.user.findMany({ where: { id: { in: paymentActorIds } }, select: { id: true, displayName: true, email: true } })
+      : [];
+    const paymentActorNames = new Map(paymentActors.map((actor) => [actor.id, actor.displayName || actor.email]));
     return {
       sale: toSale(sale),
       lines: sale.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, saleId: line.saleId, productId: line.productId, productNameSnapshot: line.productNameSnapshot, quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor })),
       returns: sale.returns.map((r: any) => ({ id: r.id, workspaceId: r.tenantId, branchId: r.branchId, saleId: r.saleId, returnNumber: r.returnNumber, totalMinor: r.totalMinor, reason: r.reason, refundRecorded: r.refundRecorded, createdAt: r.createdAt.toISOString() })),
       returnLines: sale.returns.flatMap((r: any) => r.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, returnId: line.returnId, originalSaleLineId: line.originalSaleLineId, productId: line.productId, productNameSnapshot: line.productNameSnapshot, quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor, disposition: line.disposition }))),
-      payments: sale.payments.map((p: any) => ({ id: p.id, workspaceId: p.tenantId, saleId: p.saleId, kind: p.kind, method: p.method, amountMinor: p.amountMinor, ...(p.reference ? { reference: p.reference } : {}), createdAt: p.createdAt.toISOString() })),
+      payments: sale.payments.map((p: any) => ({ id: p.id, workspaceId: p.tenantId, saleId: p.saleId, kind: p.kind, method: p.method, methodCategory: p.methodCategory ?? paymentCategoryFromMethod(p.method), ...(p.methodLabel ? { methodLabel: p.methodLabel } : {}), amountMinor: p.amountMinor, ...(p.reference ? { reference: p.reference } : {}), ...(p.notes ? { notes: p.notes } : {}), ...(p.reportedReceivedAt ? { reportedReceivedAt: p.reportedReceivedAt.toISOString() } : {}), ...(p.recordedByUserId ? { recordedByUserId: p.recordedByUserId, recordedByName: paymentActorNames.get(p.recordedByUserId) ?? 'Unknown / legacy actor' } : { recordedByName: 'Unknown / legacy actor' }), ...(p.reversalOfPaymentId ? { reversalOfPaymentId: p.reversalOfPaymentId } : {}), recordedAt: (p.recordedAt ?? p.createdAt).toISOString(), ...(p.sourceType ? { sourceType: p.sourceType } : {}), createdAt: p.createdAt.toISOString() })),
     };
   }
 
@@ -1018,7 +1032,15 @@ export class CoreController {
       const row = asObject(item, 'payment');
       const method = requiredString(row.method, 'Payment method', 40);
       if (!PAYMENT_METHODS.has(method)) throw new BadRequestException('Unsupported payment method.');
-      return { method, amountMinor: moneyMinor(row.amountMinor, 'Payment amount'), reference: optionalString(row.reference, 200) };
+      return {
+        method,
+        methodCategory: paymentCategoryFromMethod(method),
+        methodLabel: optionalString(row.methodLabel, 120),
+        amountMinor: moneyMinor(row.amountMinor, 'Payment amount', false),
+        reference: optionalString(row.reference, 200),
+        notes: optionalString(row.notes, 500),
+        reportedReceivedAt: reportedDateTime(row.reportedReceivedAt),
+      };
     }) : [];
     const idempotencyKey = request.headers['idempotency-key'];
     const key = Array.isArray(idempotencyKey) ? idempotencyKey[0] : idempotencyKey;
@@ -1097,6 +1119,9 @@ export class CoreController {
         }
         const paidMinor = payments.reduce((sum, p) => sum + p.amountMinor, 0);
         if (paidMinor > totalMinor) throw new BadRequestException('Recorded payments cannot exceed the sale total.');
+        if (paidMinor < totalMinor && (!optionalString(body.customerName, 150) || !optionalString(body.customerPhone, 80))) {
+          throw new BadRequestException('Credit sales require the customer name and phone number.');
+        }
         const receiptNumber = `LX-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomBytes(4).toString('hex').toUpperCase()}`;
         const sale = await tx.sale.create({ data: {
           tenantId: workspaceId, branchId, receiptNumber, customerName: optionalString(body.customerName, 150), customerPhone: optionalString(body.customerPhone, 80),
@@ -1118,9 +1143,16 @@ export class CoreController {
             }
           }
         }
-        for (const payment of payments) {
+        for (const [paymentIndex, payment] of payments.entries()) {
           const activeCashSession = payment.method === 'cash' ? await tx.cashSession.findFirst({ where: { tenantId: workspaceId, branchId, openedByUserId: session.userId, status: 'open' }, select: { id: true } }) : null;
-          const savedPayment = await tx.salePayment.create({ data: { tenantId: workspaceId, saleId: sale.id, kind: 'receipt', method: payment.method, amountMinor: payment.amountMinor, reference: payment.reference, ledgerSource: 'sale_completed', cashSessionId: activeCashSession?.id ?? null } });
+          const savedPayment = await tx.salePayment.create({ data: {
+            tenantId: workspaceId, saleId: sale.id, kind: 'receipt', method: payment.method,
+            methodCategory: payment.methodCategory, methodLabel: payment.methodLabel ?? null,
+            amountMinor: payment.amountMinor, reference: payment.reference ?? null, notes: payment.notes ?? null,
+            reportedReceivedAt: payment.reportedReceivedAt ?? null, recordedByUserId: session.userId,
+            recordedAt: new Date(), sourceType: 'checkout', idempotencyKey: `${key}:payment:${paymentIndex}`,
+            requestHash, ledgerSource: 'sale_completed', cashSessionId: activeCashSession?.id ?? null,
+          } });
           if (activeCashSession) await tx.cashMovement.create({ data: { tenantId: workspaceId, branchId, cashSessionId: activeCashSession.id, direction: 'in', category: 'pos_sale_receipt', amountMinor: BigInt(payment.amountMinor), referenceType: 'sale_payment', referenceId: savedPayment.id, idempotencyKey: `sale-payment:${savedPayment.id}`, createdByUserId: session.userId } });
         }
         const settlementTotals = new Map<string, number>();
@@ -1143,6 +1175,12 @@ export class CoreController {
         }
         if (postingLines.length >= 2) await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'sale_completed', sourceId: sale.id, memo: `Sale ${receiptNumber}`, lines: postingLines });
         await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'sale.completed', resourceType: 'sale', resourceId: sale.id, requestId: request.headers['x-request-id'] as string | undefined } });
+        await tx.$executeRaw`INSERT INTO module_domain_events
+          (id, tenant_id, branch_id, module_id, record_id, event_type, payload, dedupe_key, actor_user_id)
+          VALUES (${randomUUID()}::uuid, ${workspaceId}::uuid, ${branchId}::uuid, 'sales-invoices', ${sale.id}, 'sale.completed',
+            ${JSON.stringify({ saleId: sale.id, receiptNumber, totalMinor, paidMinor, outstandingMinor })}::jsonb,
+            ${`sale.completed:${sale.id}`}, ${session.userId}::uuid)
+          ON CONFLICT (tenant_id, dedupe_key) DO NOTHING`;
         const response = { sale: toSale(sale) };
         await tx.idempotencyRecord.update({ where: { tenantId_key: { tenantId: workspaceId, key } }, data: { status: 'COMPLETED', responseStatus: 201, responseBody: response as any } });
         return response;
@@ -1169,10 +1207,14 @@ export class CoreController {
     const method = requiredString(body.method, 'Payment method', 40);
     if (!PAYMENT_METHODS.has(method)) throw new BadRequestException('Unsupported payment method.');
     const reference = optionalString(body.reference, 200);
+    const methodLabel = optionalString(body.methodLabel, 120);
+    const notes = optionalString(body.notes, 500);
+    const receivedAt = reportedDateTime(body.reportedReceivedAt);
     const rawKey = request.headers['idempotency-key'];
     const key = Array.isArray(rawKey) ? rawKey[0] : rawKey;
     if (!key || key.length > 200) throw new BadRequestException('Idempotency-Key header is required for recording a payment.');
-    const requestHash = sha256(JSON.stringify({ workspaceId, branchId, saleId, amountMinor, method, reference: reference ?? null }));
+    const methodCategory = paymentCategoryFromMethod(method);
+    const requestHash = sha256(JSON.stringify({ workspaceId, branchId, saleId, amountMinor, method, methodLabel: methodLabel ?? null, notes: notes ?? null, reportedReceivedAt: receivedAt?.toISOString() ?? null, reference: reference ?? null }));
     const duplicate = await this.idempotentResponse(workspaceId, key, requestHash);
     if (duplicate) return duplicate;
     try {
@@ -1188,19 +1230,34 @@ export class CoreController {
         if (!lockedSale.length) throw new NotFoundException('Sale not found.');
         const sale = await tx.sale.findFirst({ where: { id: saleId, tenantId: workspaceId, branchId } });
         if (!sale) throw new NotFoundException('Sale not found.');
-        const priorPayments = await tx.salePayment.findMany({ where: { tenantId: workspaceId, saleId } });
-        const alreadyPaid = priorPayments.reduce((sum: number, p: any) => sum + (p.kind === 'refund' ? -p.amountMinor : p.amountMinor), 0);
-        const balance = sale.totalMinor - alreadyPaid;
+        const [priorPayments, returnedTotal] = await Promise.all([
+          tx.salePayment.findMany({ where: { tenantId: workspaceId, saleId }, select: { kind: true, amountMinor: true } }),
+          tx.saleReturn.aggregate({ where: { tenantId: workspaceId, saleId }, _sum: { totalMinor: true } }),
+        ]);
+        const receiptTotalMinor = priorPayments.filter((payment: any) => payment.kind === 'receipt').reduce((sum: number, payment: any) => sum + payment.amountMinor, 0);
+        const refundTotalMinor = priorPayments.filter((payment: any) => payment.kind === 'refund').reduce((sum: number, payment: any) => sum + payment.amountMinor, 0);
+        const balance = outstandingSaleMinor(sale.totalMinor, Number(returnedTotal._sum.totalMinor ?? 0), receiptTotalMinor, refundTotalMinor);
         if (amountMinor > balance) throw new ConflictException('Payment exceeds the current outstanding balance.');
         const activeCashSession = method === 'cash' ? await tx.cashSession.findFirst({ where: { tenantId: workspaceId, branchId, openedByUserId: session.userId, status: 'open' }, select: { id: true } }) : null;
-        const payment = await tx.salePayment.create({ data: { tenantId: workspaceId, saleId, kind: 'receipt', method, amountMinor, reference, ledgerSource: 'sale_payment_received', cashSessionId: activeCashSession?.id ?? null } });
+        const payment = await tx.salePayment.create({ data: {
+          tenantId: workspaceId, saleId, kind: 'receipt', method, methodCategory, methodLabel: methodLabel ?? null,
+          amountMinor, reference: reference ?? null, notes: notes ?? null, reportedReceivedAt: receivedAt ?? null,
+          recordedByUserId: session.userId, recordedAt: new Date(), sourceType: 'instalment',
+          idempotencyKey: key, requestHash, ledgerSource: 'sale_payment_received', cashSessionId: activeCashSession?.id ?? null,
+        } });
         if (activeCashSession) await tx.cashMovement.create({ data: { tenantId: workspaceId, branchId, cashSessionId: activeCashSession.id, direction: 'in', category: 'pos_sale_receipt', amountMinor: BigInt(amountMinor), referenceType: 'sale_payment', referenceId: payment.id, idempotencyKey: `sale-payment:${payment.id}`, createdByUserId: session.userId } });
         await postLedgerJournal(tx, { tenantId: workspaceId, branchId, actorUserId: session.userId, sourceType: 'sale_payment_received', sourceId: payment.id, memo: `Payment received for ${sale.receiptNumber}`, lines: [
           { accountKey: settlementAccountKey(method), debitMinor: amountMinor, description: `Customer payment - ${method}` },
           { accountKey: 'accounts_receivable', creditMinor: amountMinor, description: 'Reduce customer balance due' },
         ] });
         await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'sale.payment.received', resourceType: 'sale_payment', resourceId: payment.id, requestId: request.headers['x-request-id'] as string | undefined } });
-        const response = { payment: { id: payment.id, workspaceId, saleId, kind: payment.kind, method: payment.method, amountMinor: payment.amountMinor, ...(payment.reference ? { reference: payment.reference } : {}), createdAt: payment.createdAt.toISOString() }, outstandingMinor: balance - amountMinor };
+        await tx.$executeRaw`INSERT INTO module_domain_events
+          (id, tenant_id, branch_id, module_id, record_id, event_type, payload, dedupe_key, actor_user_id)
+          VALUES (${randomUUID()}::uuid, ${workspaceId}::uuid, ${branchId}::uuid, 'sales-invoices', ${saleId}, 'sale.payment.received',
+            ${JSON.stringify({ saleId, paymentId: payment.id, amountMinor, methodCategory, outstandingMinor: balance - amountMinor })}::jsonb,
+            ${`sale.payment.received:${payment.id}`}, ${session.userId}::uuid)
+          ON CONFLICT (tenant_id, dedupe_key) DO NOTHING`;
+        const response = { payment: { id: payment.id, workspaceId, saleId, kind: payment.kind, method: payment.method, methodCategory, ...(methodLabel ? { methodLabel } : {}), amountMinor: payment.amountMinor, ...(payment.reference ? { reference: payment.reference } : {}), ...(notes ? { notes } : {}), ...(receivedAt ? { reportedReceivedAt: receivedAt.toISOString() } : {}), recordedByUserId: session.userId, recordedAt: payment.recordedAt.toISOString(), sourceType: 'instalment', createdAt: payment.createdAt.toISOString() }, outstandingMinor: balance - amountMinor };
         await tx.idempotencyRecord.update({ where: { tenantId_key: { tenantId: workspaceId, key } }, data: { status: 'COMPLETED', responseStatus: 201, responseBody: response as any } });
         return response;
       }, { isolationLevel: 'Serializable' });
@@ -1224,6 +1281,8 @@ export class CoreController {
     if (!Array.isArray(body.items) || !body.items.length || body.items.length > 200) throw new BadRequestException('Select between 1 and 200 items to return.');
     const reason = requiredString(body.reason, 'Return reason', 500);
     const recordRefund = body.recordRefund === true;
+    const refundPaymentId = body.refundPaymentId ? requiredString(body.refundPaymentId, 'Original payment ID', 80) : undefined;
+    if (!recordRefund && refundPaymentId) throw new BadRequestException('Choose an original receipt only when recording a refund.');
     const refundMethod = requiredString(body.refundMethod ?? 'other', 'Refund method', 40);
     if (!PAYMENT_METHODS.has(refundMethod)) throw new BadRequestException('Unsupported refund method.');
     const requested = body.items.map((item) => { const row = asObject(item, 'return item'); const disposition = optionalString(row.disposition, 20) ?? 'restock'; if (!['restock', 'quarantine', 'scrap'].includes(disposition)) throw new BadRequestException('Return disposition must be restock, quarantine or scrap.'); return { saleLineId: requiredString(row.saleLineId, 'Sale line ID', 80), quantity: positiveQuantity(row.quantity), disposition }; });
@@ -1233,7 +1292,7 @@ export class CoreController {
     const rawKey = request.headers['idempotency-key'];
     const key = Array.isArray(rawKey) ? rawKey[0] : rawKey;
     if (!key || key.length > 200) throw new BadRequestException('Idempotency-Key header is required for recording a return.');
-    const requestHash = sha256(JSON.stringify({ workspaceId, branchId, saleId, items: requested, reason, recordRefund, refundMethod }));
+    const requestHash = sha256(JSON.stringify({ workspaceId, branchId, saleId, items: requested, reason, recordRefund, refundMethod, refundPaymentId: refundPaymentId ?? null }));
     const duplicate = await this.idempotentResponse(workspaceId, key, requestHash);
     if (duplicate) return duplicate;
     try {
@@ -1278,6 +1337,13 @@ export class CoreController {
           const refundsAlreadyRecorded = priorPayments.filter((payment: any) => payment.kind === 'refund').reduce((sum: number, payment: any) => sum + payment.amountMinor, 0);
           const refundable = Math.max(0, grossReceipts - refundsAlreadyRecorded);
           if (totalMinor > refundable) throw new ConflictException({ code: 'REFUND_EXCEEDS_RECEIPTS', message: `Only ${refundable} minor currency units have been received and remain refundable.` });
+          if (refundPaymentId) {
+            const originalReceipt = await tx.salePayment.findFirst({ where: { id: refundPaymentId, tenantId: workspaceId, saleId, kind: 'receipt' }, select: { id: true, amountMinor: true } });
+            if (!originalReceipt) throw new BadRequestException('The selected original receipt does not belong to this sale.');
+            const linkedRefunds = await tx.salePayment.aggregate({ where: { tenantId: workspaceId, saleId, kind: 'refund', reversalOfPaymentId: refundPaymentId }, _sum: { amountMinor: true } });
+            const remainingOnReceipt = Math.max(0, originalReceipt.amountMinor - Number(linkedRefunds._sum.amountMinor ?? 0));
+            if (totalMinor > remainingOnReceipt) throw new ConflictException({ code: 'REFUND_EXCEEDS_ORIGINAL_RECEIPT', message: `Only ${remainingOnReceipt} minor currency units remain refundable against the selected receipt.` });
+          }
         }
         const returned = await tx.saleReturn.create({ data: { tenantId: workspaceId, branchId, saleId, returnNumber, totalMinor, reason, refundRecorded: recordRefund } });
         for (const item of resolved) {
@@ -1295,7 +1361,13 @@ export class CoreController {
         }
         if (recordRefund) {
           const activeCashSession = refundMethod === 'cash' ? await tx.cashSession.findFirst({ where: { tenantId: workspaceId, branchId, openedByUserId: session.userId, status: 'open' }, select: { id: true } }) : null;
-          const refundPayment = await tx.salePayment.create({ data: { tenantId: workspaceId, saleId, kind: 'refund', method: refundMethod, amountMinor: totalMinor, reference: returnNumber, ledgerSource: 'sale_return_recorded', cashSessionId: activeCashSession?.id ?? null } });
+          const refundPayment = await tx.salePayment.create({ data: {
+            tenantId: workspaceId, saleId, kind: 'refund', method: refundMethod,
+            methodCategory: paymentCategoryFromMethod(refundMethod), amountMinor: totalMinor, reference: returnNumber,
+            notes: reason, recordedByUserId: session.userId, recordedAt: new Date(), sourceType: 'refund',
+            reversalOfPaymentId: refundPaymentId ?? null,
+            idempotencyKey: `${key}:refund`, requestHash, ledgerSource: 'sale_return_recorded', cashSessionId: activeCashSession?.id ?? null,
+          } });
           if (activeCashSession) await tx.cashMovement.create({ data: { tenantId: workspaceId, branchId, cashSessionId: activeCashSession.id, direction: 'out', category: 'pos_sale_refund', amountMinor: BigInt(totalMinor), referenceType: 'sale_payment', referenceId: refundPayment.id, idempotencyKey: `sale-payment:${refundPayment.id}`, createdByUserId: session.userId } });
         }
         const returnCostMinor = resolved.filter((item) => item.trackStock && item.disposition === 'restock').reduce((sum, item) => sum + Math.round(Number(item.line.unitCostMinor ?? 0) * item.quantity), 0);
@@ -1332,7 +1404,13 @@ export class CoreController {
         })) });
         await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'finance.credit_note.issued', resourceType: 'credit_note', resourceId: creditNote.id, metadata: { saleReturnId: returned.id, totalMinor, journalId: returnJournalId } } });
         await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'sale.return.recorded', resourceType: 'sale_return', resourceId: returned.id, requestId: request.headers['x-request-id'] as string | undefined } });
-        const response = { returnRecord: { id: returned.id, workspaceId, branchId, saleId, returnNumber, totalMinor, creditNoteId: creditNote.id, reason, refundRecorded: recordRefund, createdAt: returned.createdAt.toISOString() } };
+        await tx.$executeRaw`INSERT INTO module_domain_events
+          (id, tenant_id, branch_id, module_id, record_id, event_type, payload, dedupe_key, actor_user_id)
+          VALUES (${randomUUID()}::uuid, ${workspaceId}::uuid, ${branchId}::uuid, 'sales-returns', ${returned.id}, 'sale.return.recorded',
+            ${JSON.stringify({ saleId, returnId: returned.id, returnNumber, totalMinor, refundRecorded: recordRefund, refundPaymentId: refundPaymentId ?? null })}::jsonb,
+            ${`sale.return.recorded:${returned.id}`}, ${session.userId}::uuid)
+          ON CONFLICT (tenant_id, dedupe_key) DO NOTHING`;
+        const response = { returnRecord: { id: returned.id, workspaceId, branchId, saleId, returnNumber, totalMinor, creditNoteId: creditNote.id, reason, refundRecorded: recordRefund, refundPaymentId: refundPaymentId ?? null, createdAt: returned.createdAt.toISOString() } };
         await tx.idempotencyRecord.update({ where: { tenantId_key: { tenantId: workspaceId, key } }, data: { status: 'COMPLETED', responseStatus: 201, responseBody: response as any } });
         return response;
       }, { isolationLevel: 'Serializable' });

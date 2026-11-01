@@ -924,6 +924,21 @@ paths:
                   - readonly
                   - viewer
                   - member
+  /health/metrics:
+    get:
+      operationId: GetHealthMetrics
+      summary: Authenticated operational metrics (unprefixed)
+      description: Returns aggregate queue and attachment counters. Requires the server-side METRICS_TOKEN bearer credential; never expose the token in browser code.
+      servers: [{url: https://api.example.com}]
+      parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema: {type: string}
+      responses:
+        '200': {description: Aggregate operational metrics}
+        '503': {description: Metrics endpoint is not configured or authorized}
+      security: []
   /health/live:
     get:
       servers: [{url: https://api.example.com}]
@@ -5095,6 +5110,458 @@ paths:
         '404': {description: Record not found}
         '409': {description: Business rule conflict}
 
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/payment-report:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommercePaymentReport
+      summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/payment-report
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      responses:
+        '200': {description: Successful result.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-report:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceDeliveryReport
+      summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-report
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      responses:
+        '200': {description: Successful result.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-agents:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceDeliveryAgents
+      summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-agents
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      responses:
+        '200': {description: Successful result.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceDeliveryAgents
+      summary: POST /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-agents
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema: {type: string, minLength: 16}
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: {type: string, minLength: 8, maxLength: 180}
+      responses:
+        '200': {description: Successful result.}
+        '201': {description: Mutation completed.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-agents/{agentId}:
+    patch:
+      operationId: PatchWorkspacesWorkspaceIdBranchesBranchIdCommerceDeliveryAgentsAgentId
+      summary: PATCH /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-agents/{agentId}
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: agentId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema: {type: string, minLength: 16}
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: {type: string, minLength: 8, maxLength: 180}
+      responses:
+        '200': {description: Successful result.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-agents/{agentId}/history:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceDeliveryAgentsAgentIdHistory
+      summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-agents/{agentId}/history
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: agentId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200': {description: Successful result.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/sales/{saleId}/dispatchable-lines:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceSalesSaleIdDispatchableLines
+      summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/sales/{saleId}/dispatchable-lines
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: saleId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200': {description: Successful result.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceDispatches
+      summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      responses:
+        '200': {description: Successful result.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceDispatches
+      summary: POST /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema: {type: string, minLength: 16}
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: {type: string, minLength: 8, maxLength: 180}
+      responses:
+        '200': {description: Successful result.}
+        '201': {description: Mutation completed.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches/{deliveryId}:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceDispatchesDeliveryId
+      summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches/{deliveryId}
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: deliveryId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      responses:
+        '200': {description: Successful result.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches/{deliveryId}/events:
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceDispatchesDeliveryIdEvents
+      summary: POST /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches/{deliveryId}/events
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: deliveryId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema: {type: string, minLength: 16}
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: {type: string, minLength: 8, maxLength: 180}
+      responses:
+        '200': {description: Successful result.}
+        '201': {description: Mutation completed.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches/{deliveryId}/direct-receipts:
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceDispatchesDeliveryIdDirectReceipts
+      summary: POST /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches/{deliveryId}/direct-receipts
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: deliveryId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema: {type: string, minLength: 16}
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: {type: string, minLength: 8, maxLength: 180}
+      responses:
+        '200': {description: Successful result.}
+        '201': {description: Mutation completed.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches/{deliveryId}/collection-reports:
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceDispatchesDeliveryIdCollectionReports
+      summary: POST /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches/{deliveryId}/collection-reports
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: deliveryId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema: {type: string, minLength: 16}
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: {type: string, minLength: 8, maxLength: 180}
+      responses:
+        '200': {description: Successful result.}
+        '201': {description: Mutation completed.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/collection-reports:
+    get:
+      operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceCollectionReports
+      summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/collection-reports
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      responses:
+        '200': {description: Successful result.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /workspaces/{workspaceId}/branches/{branchId}/commerce/remittances:
+    post:
+      operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceRemittances
+      summary: POST /workspaces/{workspaceId}/branches/{branchId}/commerce/remittances
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      parameters:
+      - name: workspaceId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: branchId
+        in: path
+        required: true
+        schema: {type: string}
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema: {type: string, minLength: 16}
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: {type: string, minLength: 8, maxLength: 180}
+      responses:
+        '200': {description: Successful result.}
+        '201': {description: Mutation completed.}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
 components:
   securitySchemes:
     sessionCookie:

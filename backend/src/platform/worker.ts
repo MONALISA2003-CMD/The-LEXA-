@@ -13,7 +13,32 @@ const workerId=`lexa-worker-${process.env.RENDER_INSTANCE_ID||randomUUID()}`;
 const r2=()=>new S3Client({region:'auto',endpoint:`https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,credentials:{accessKeyId:process.env.R2_ACCESS_KEY_ID!,secretAccessKey:process.env.R2_SECRET_ACCESS_KEY!}});
 async function clamdScan(data:Buffer):Promise<void>{const host=process.env.CLAMAV_HOST;if(!host)throw new Error('CLAMAV_HOST is required; scan fails closed.');await new Promise<void>((resolve,reject)=>{const socket=new Socket();let response='';socket.setTimeout(120000);socket.connect(Number(process.env.CLAMAV_PORT||3310),host,()=>{socket.write('zINSTREAM\0');for(let i=0;i<data.length;i+=64*1024){const chunk=data.subarray(i,i+64*1024);const len=Buffer.alloc(4);len.writeUInt32BE(chunk.length);socket.write(Buffer.concat([len,chunk]));}socket.write(Buffer.alloc(4));});socket.on('data',b=>{response+=b.toString();if(response.includes('\0')||response.includes('\n')){socket.destroy();if(/: OK/.test(response))resolve();else reject(new Error(`ClamAV rejected attachment: ${response.slice(0,200)}`));}});socket.on('timeout',()=>{socket.destroy();reject(new Error('ClamAV scan timed out.'));});socket.on('error',reject);});}
 async function scanAttachment(id:string){const q=await pool.query('SELECT * FROM platform_attachments WHERE id=$1 AND status=$2',[id,'pending_scan']);const f=q.rows[0];if(!f)return;const obj=await r2().send(new GetObjectCommand({Bucket:process.env.R2_BUCKET,Key:f.object_key}));const bytes=Buffer.from(await obj.Body!.transformToByteArray());if(bytes.length!==Number(f.size_bytes)||createHash('sha256').update(bytes).digest('hex')!==f.sha256)throw new Error('File size or SHA-256 verification failed.');await clamdScan(bytes);await pool.query("UPDATE platform_attachments SET status='clean',scan_engine='clamav',scanned_at=now(),updated_at=now() WHERE id=$1 AND status='pending_scan'",[id]);}
-async function processOutbox(id:string){const q=await pool.query("SELECT * FROM module_domain_events WHERE id=$1 AND outbox_status IN ('pending','failed') FOR UPDATE SKIP LOCKED",[id]);const e=q.rows[0];if(!e)return;const type=String(e.event_type||'');if(!['attachment.scan.requested'].includes(type)){const msg=`No registered idempotent handler for outbox event ${type}; retained for dead-letter/replay after handler deployment.`;await pool.query("UPDATE module_domain_events SET outbox_status='failed',attempts=attempts+1,last_error=$2 WHERE id=$1",[id,msg]);throw new Error(msg);}await pool.query("UPDATE module_domain_events SET outbox_status='processed',processed_at=now(),attempts=attempts+1,last_error=NULL WHERE id=$1",[id]);}
+async function processOutbox(id:string){
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const q=await client.query("SELECT * FROM module_domain_events WHERE id=$1 AND outbox_status IN ('pending','failed') FOR UPDATE SKIP LOCKED",[id]);
+    const event=q.rows[0];
+    if(!event){await client.query('COMMIT');return;}
+    const type=String(event.event_type||'');
+    // Increment 1 persists these business facts in the transactional event stream.
+    // Increment 6 attaches notification delivery to this same stream; this handler
+    // acknowledges the durable event without pretending an email/SMS was sent.
+    const durableBusinessEvents=new Set([
+      'sale.completed','sale.payment.received','sale.return.recorded','sale.payment.direct_receipt_recorded',
+      'delivery.dispatch.created','delivery.lifecycle.changed','delivery.collection.reported','delivery.remittance.accepted',
+    ]);
+    if(type!=='attachment.scan.requested'&&!durableBusinessEvents.has(type)){
+      const msg=`No registered idempotent handler for outbox event ${type}; retained for dead-letter/replay after handler deployment.`;
+      await client.query("UPDATE module_domain_events SET outbox_status='failed',attempts=attempts+1,last_error=$2 WHERE id=$1",[id,msg]);
+      await client.query('COMMIT');
+      throw new Error(msg);
+    }
+    await client.query("UPDATE module_domain_events SET outbox_status='processed',processed_at=now(),attempts=attempts+1,last_error=NULL WHERE id=$1",[id]);
+    await client.query('COMMIT');
+  }catch(error){await client.query('ROLLBACK').catch(()=>{});throw error;}
+  finally{client.release();}
+}
 async function processJob(id:string){const q=await pool.query("UPDATE platform_jobs SET status='running',attempts=attempts+1,updated_at=now() WHERE id=$1 AND status IN ('queued','failed') RETURNING *",[id]);const j=q.rows[0];if(!j)return;if(j.kind==='export'||j.kind==='backup'||j.kind==='import'){throw new Error(`${j.kind} job requires the corresponding typed job adapter; job retained for safe retry.`);}await pool.query("UPDATE platform_jobs SET status='ready',progress=100,finished_at=now(),updated_at=now() WHERE id=$1",[id]);}
 const worker=new Worker('lexa-platform',async job=>{if(job.name==='scan-attachment')return scanAttachment(String(job.data.attachmentId));if(job.name==='outbox-event')return processOutbox(String(job.data.eventId));if(job.name==='platform-job')return processJob(String(job.data.jobId));}, {connection,concurrency:4});
 worker.on('failed',async(job,err)=>{if(!job)return;const id=String(job.data?.jobId||job.data?.attachmentId||job.data?.eventId||'');if(job.name==='platform-job'&&id)await pool.query("UPDATE platform_jobs SET status=CASE WHEN attempts>=max_attempts THEN 'dead_letter' ELSE 'failed' END,error=$2,updated_at=now() WHERE id=$1",[id,err.message]).catch(()=>{});if(job.name==='scan-attachment'&&id)await pool.query("UPDATE platform_attachments SET status='quarantined',scan_engine='clamav-error',updated_at=now() WHERE id=$1",[id]).catch(()=>{});});
