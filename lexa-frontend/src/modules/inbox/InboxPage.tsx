@@ -76,7 +76,18 @@ export default function InboxPage() {
   const attachmentsQuery = useQuery({ queryKey: ['inbox-attachments', workspace.id, branch.id, selectedThread?.id], queryFn: () => apiCollaboration.attachments(workspace.id, branch.id), enabled: isApiProvider && tab === 'messages' && Boolean(selectedThread?.id), refetchInterval: isApiProvider && tab === 'messages' ? 15000 : false });
   const tasksQuery = useQuery({ queryKey: ['inbox-tasks', workspace.id, branch.id, taskStatusFilter], queryFn: () => apiCollaboration.tasks(workspace.id, branch.id, taskStatusFilter === 'all' ? undefined : taskStatusFilter), enabled: isApiProvider && tab === 'tasks' });
   const approvalsQuery = useQuery({ queryKey: ['inbox-approvals', workspace.id, branch.id], queryFn: () => apiCollaboration.approvals(workspace.id, branch.id), enabled: isApiProvider && tab === 'approvals' });
-  const notificationsQuery = useQuery({ queryKey: ['inbox-notifications', workspace.id, branch.id, notificationTypeFilter, notificationUnreadOnly, notificationFrom, notificationTo, notificationCursor], queryFn: () => apiCollaboration.notificationPage(workspace.id, branch.id, { limit: 50, cursor: notificationCursor, type: notificationTypeFilter === 'all' ? undefined : notificationTypeFilter, unread: notificationUnreadOnly, from: notificationFrom || undefined, to: notificationTo || undefined }), enabled: isApiProvider && tab === 'notifications' });
+  const notificationsQuery = useQuery({
+    queryKey: ['inbox-notifications', workspace.id, branch.id, notificationTypeFilter, notificationUnreadOnly, notificationFrom, notificationTo, notificationCursor],
+    queryFn: () => apiCollaboration.notificationPage(workspace.id, branch.id, {
+      limit: 50,
+      ...(notificationCursor ? { cursor: notificationCursor } : {}),
+      ...(notificationTypeFilter !== 'all' ? { type: notificationTypeFilter } : {}),
+      unread: notificationUnreadOnly,
+      ...(notificationFrom ? { from: notificationFrom } : {}),
+      ...(notificationTo ? { to: notificationTo } : {}),
+    }),
+    enabled: isApiProvider && tab === 'notifications',
+  });
   const notificationPreferencesQuery = useQuery({ queryKey: ['notification-preferences', workspace.id, branch.id], queryFn: () => apiCollaboration.notificationPreferences(workspace.id, branch.id), enabled: isApiProvider && tab === 'notifications' });
   const activityQuery = useQuery({ queryKey: ['inbox-activity', workspace.id, branch.id], queryFn: () => apiCollaboration.activity(workspace.id, branch.id), enabled: isApiProvider && tab === 'activity' });
 

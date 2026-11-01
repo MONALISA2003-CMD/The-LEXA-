@@ -14,14 +14,16 @@ async function bootstrap(): Promise<void> {
     new FastifyAdapter({ logger: true, bodyLimit: webhookBodyLimitBytes }),
   );
 
-  // Only the Resend webhook needs an unparsed body for Svix signature verification.
-  // Avoid duplicating every API request body in memory. The Fastify bodyLimit
-  // applies the same 1 MiB bound to the raw-body reader and JSON parser.
+  // Capture a UTF-8 copy only for the Resend webhook. Do not use encoding:false:
+  // fastify-raw-body then registers another application/json parser, colliding
+  // with the parser Nest's Fastify adapter installs during app.init(). The
+  // controller converts this route-scoped string back to a Buffer for Svix.
+  // Fastify's bodyLimit bounds both the raw-body reader and JSON parser.
   await app.register(rawBody, {
     field: 'rawBody',
     global: false,
     routes: ['/api/v1/webhooks/resend'],
-    encoding: false,
+    encoding: 'utf8',
     runFirst: true,
   });
   await app.register(helmet);

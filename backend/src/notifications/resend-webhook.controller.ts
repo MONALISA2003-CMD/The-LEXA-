@@ -1,7 +1,7 @@
-import { Controller, Post, Headers, Req, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Req, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { createHash } from 'node:crypto';
-import { verifyResendWebhookSignature } from './resend-signature';
+import { normalizeRawBody, verifyResendWebhookSignature } from './resend-signature';
 import { PrismaService } from '../prisma/prisma.service';
 
 function headerValue(value: string | string[] | undefined): string { return Array.isArray(value) ? value[0] ?? '' : value ?? ''; }
@@ -13,11 +13,11 @@ export class ResendWebhookController {
   async receive(@Req() request: FastifyRequest) {
     const secret = process.env.RESEND_WEBHOOK_SECRET;
     if (!secret) throw new UnauthorizedException('Resend webhook is not configured.');
-    const rawBody = request.rawBody;
-    if (!Buffer.isBuffer(rawBody) || rawBody.length > 1024 * 1024) throw new BadRequestException('Webhook body is missing or exceeds the allowed size.');
-    const id = headerValue(request.headers['svix-id'] as any);
-    const timestamp = headerValue(request.headers['svix-timestamp'] as any);
-    const signature = headerValue(request.headers['svix-signature'] as any);
+    const rawBody = normalizeRawBody(request.rawBody);
+    if (!rawBody || rawBody.length > 1024 * 1024) throw new BadRequestException('Webhook body is missing or exceeds the allowed size.');
+    const id = headerValue(request.headers['svix-id']);
+    const timestamp = headerValue(request.headers['svix-timestamp']);
+    const signature = headerValue(request.headers['svix-signature']);
     if (!verifyResendWebhookSignature(rawBody, id, timestamp, signature, secret)) throw new UnauthorizedException('Webhook signature is invalid, expired or replayed.');
     let payload: any;
     try { payload = JSON.parse(rawBody.toString('utf8')); } catch { throw new BadRequestException('Webhook JSON is invalid.'); }

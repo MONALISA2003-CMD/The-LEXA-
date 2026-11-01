@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHmac, randomBytes } from 'node:crypto';
 import { nextRecurringDate, addCalendarDays, occurrenceKey } from '../src/receivables/recurring-schedule-rules.ts';
-import { verifyResendWebhookSignature } from '../src/notifications/resend-signature.ts';
+import { normalizeRawBody, verifyResendWebhookSignature } from '../src/notifications/resend-signature.ts';
 import { NOTIFICATION_CATALOGUE, notificationHref } from '../src/notifications/event-catalogue.ts';
 
 const root = new URL('../', import.meta.url);
@@ -53,6 +53,20 @@ test('Resend Svix signature accepts a fresh exact raw-body signature', () => {
   assert.equal(verifyResendWebhookSignature(body, id, timestamp, signature, secret), true);
   assert.equal(verifyResendWebhookSignature(Buffer.from('{}'), id, timestamp, signature, secret), false);
   assert.equal(verifyResendWebhookSignature(body, id, timestamp, 'v1,invalid', secret), false);
+});
+
+test('route-scoped UTF-8 raw-body capture reconstructs the exact bytes used by Svix', () => {
+  const key = randomBytes(32);
+  const secret = `whsec_${key.toString('base64')}`;
+  const body = Buffer.from(JSON.stringify({ type: 'email.delivered', data: { email_id: 're_123' }, note: 'café — Kampala' }), 'utf8');
+  const captured = body.toString('utf8');
+  const normalized = normalizeRawBody(captured);
+  assert.ok(normalized);
+  assert.deepEqual(normalized, body);
+  const id = 'msg_lexa_webhook_utf8';
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  assert.equal(verifyResendWebhookSignature(normalized, id, timestamp, resendSignature(body, id, timestamp, secret), secret), true);
+  assert.equal(normalizeRawBody(undefined), null);
 });
 
 test('Resend webhook rejects stale timestamps, unsigned and malformed deliveries', () => {
@@ -142,8 +156,10 @@ test('Resend raw-body capture uses the Fastify 5 plugin and only the prefixed we
   assert.match(main, /import rawBody from 'fastify-raw-body'/);
   assert.match(main, /routes:\s*\['\/api\/v1\/webhooks\/resend'\]/);
   assert.match(main, /bodyLimit:\s*webhookBodyLimitBytes/);
+  assert.match(main, /encoding:\s*['"]utf8['"]/);
+  assert.doesNotMatch(main, /^\s*encoding:\s*false\s*,/m);
   assert.doesNotMatch(main, /global:\s*true/);
   assert.doesNotMatch(main, /limit:\s*1024\s*\*\s*1024/);
-  assert.match(controller, /request\.rawBody/);
+  assert.match(controller, /normalizeRawBody\(request\.rawBody\)/);
   assert.doesNotMatch(controller, /\(request as any\)\.rawBody/);
 });

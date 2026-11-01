@@ -1,5 +1,12 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+/** Convert the route-scoped raw-body plugin value to bytes for signature checks. */
+export function normalizeRawBody(rawBody: string | Buffer | undefined): Buffer | null {
+  if (Buffer.isBuffer(rawBody)) return rawBody;
+  if (typeof rawBody === 'string') return Buffer.from(rawBody, 'utf8');
+  return null;
+}
+
 /** Resend's Svix-compatible v1 signature over `${id}.${timestamp}.${rawBody}`. */
 export function verifyResendWebhookSignature(
   rawBody: Buffer,
