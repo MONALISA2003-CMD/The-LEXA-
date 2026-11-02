@@ -1,4 +1,3 @@
-
 name: Import clean LEXA source ZIP
 
 on:
@@ -34,9 +33,17 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Validate ZIP and prepare a clean source tree
         env:
           ARCHIVE_NAME: ${{ inputs.archive_name || '' }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_BEFORE: ${{ github.event.before || '' }}
+          EVENT_SHA: ${{ github.sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -46,18 +53,46 @@ jobs:
           import os
           import shutil
           import stat
+          import subprocess
           import tempfile
           import unicodedata
           import zipfile
 
           ROOT = Path.cwd().resolve()
           requested = os.environ.get("ARCHIVE_NAME", "").strip()
+          event_name = os.environ.get("EVENT_NAME", "")
 
+          # On ZIP-upload pushes, select the archive changed by this push.
+          # Older failed ZIPs may remain at the repository root and will not
+          # make a new upload ambiguous.
           if requested:
               candidate = PurePosixPath(requested)
               if candidate.name != requested or candidate.suffix.lower() != ".zip":
                   raise SystemExit("archive_name must be a root-level ZIP filename, not a path.")
               archives = [ROOT / requested]
+          elif event_name == "push":
+              before = os.environ.get("EVENT_BEFORE", "")
+              head = os.environ.get("EVENT_SHA", "HEAD")
+              if not before or set(before) == {"0"}:
+                  changed_paths = subprocess.check_output(
+                      ["git", "ls-tree", "-r", "--name-only", head], text=True
+                  ).splitlines()
+              else:
+                  changed_paths = subprocess.check_output(
+                      ["git", "diff", "--name-only", before, head, "--", "*.zip"],
+                      text=True,
+                  ).splitlines()
+              changed_root_zips = sorted(
+                  path for path in changed_paths
+                  if PurePosixPath(path).parent == PurePosixPath(".")
+                  and PurePosixPath(path).suffix.lower() == ".zip"
+              )
+              if len(changed_root_zips) != 1:
+                  raise SystemExit(
+                      "This push must add or update exactly one ZIP at the repository root; "
+                      f"found: {changed_root_zips!r}."
+                  )
+              archives = [ROOT / changed_root_zips[0]]
           else:
               archives = sorted(
                   item for item in ROOT.iterdir()
@@ -66,305 +101,291 @@ jobs:
 
           if len(archives) != 1:
               if not archives:
-                  raise SystemExit("No ZIP was found at the repository root. Upload one .zip file and rerun.")
+                  raise SystemExit("No ZIP was found. Upload one .zip file to the repository root or provide archive_name.")
               raise SystemExit(
                   "More than one root-level ZIP was found: "
                   + ", ".join(item.name for item in archives)
-                  + ". Remove the old archive or specify archive_name in a manual run."
+                  + ". Specify archive_name in a manual run."
               )
 
           archive = archives[0]
           if not archive.is_file() or archive.is_symlink():
               raise SystemExit("The selected archive is not a regular file.")
 
-          ALLOWED_ROOT_DIRS = {
-              "backend", "lexa-frontend", "docs", "scripts", ".github"
-          }
-
+          ALLOWED_ROOT_DIRS = {"backend", "lexa-frontend", "docs", "scripts", ".github"}
           ALLOWED_ROOT_FILES = {
               ".dockerignore", ".gitignore", ".nvmrc", "README.md",
               "REPOSITORY_LAYOUT_MANIFEST.json", "render.yaml",
               "LICENSE", "LICENSE.md", "NOTICE", "SECURITY.md", "CODEOWNERS",
               ".gitattributes", ".editorconfig", ".prettierrc", ".prettierignore",
           }
-
           REQUIRED_FILES = {
               "README.md",
               "render.yaml",
               "REPOSITORY_LAYOUT_MANIFEST.json",
               "backend/package.json",
-              "backend/package-lock.json",
               "backend/Dockerfile",
               "backend/prisma/schema.prisma",
               "lexa-frontend/package.json",
-              "lexa-frontend/package-lock.json",
               "lexa-frontend/vercel.json",
               "scripts/clean_repository.py",
               "scripts/validate_repository.py",
               "docs/architecture/backend-architecture.md",
               "docs/deployment/deployment-guide.md",
               "docs/operations/runbooks/README.md",
-              ".github/workflows/backend-ci.yml",
-              ".github/workflows/repository-import.yml",
           }
-
-          EXPECTED_PACKAGE_FILES = {
-              "backend/package.json",
-              "lexa-frontend/package.json",
-          }
-
-          EXPECTED_LOCK_FILES = {
-              "backend/package-lock.json",
-              "lexa-frontend/package-lock.json",
-          }
-
+          EXPECTED_PACKAGE_FILES = {"backend/package.json", "lexa-frontend/package.json"}
+          EXPECTED_LOCK_FILES = {"backend/package-lock.json", "lexa-frontend/package-lock.json"}
           FORBIDDEN_PARTS = {
               ".git", "node_modules", "dist", "coverage", ".vercel",
               "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".turbo",
           }
-
           LEGACY_COPY_NAMES = {
               "the-lexa", "the-lexa--main", "lexa_ws8_updated",
               "lexa_render_current_fix", "lexa_render_ts2339_fix",
               "lexa_workstream4_reviewed_patch", "lexa_workstreams_0_3_patch",
           }
-
           MAX_ENTRIES = 30000
           MAX_UNCOMPRESSED_BYTES = 500 * 1024 * 1024
           MAX_SINGLE_FILE_BYTES = 100 * 1024 * 1024
           MAX_COMPRESSION_RATIO = 250
 
           stage = Path(tempfile.mkdtemp(prefix="lexa-clean-import-"))
-
           try:
               with zipfile.ZipFile(archive) as source:
                   entries = source.infolist()
-
                   if not entries:
                       raise SystemExit("The uploaded ZIP is empty.")
-
                   if len(entries) > MAX_ENTRIES:
                       raise SystemExit(f"The ZIP contains too many entries ({len(entries)}).")
-
                   corrupt = source.testzip()
                   if corrupt is not None:
                       raise SystemExit(f"ZIP integrity check failed at {corrupt!r}.")
 
-                  total_size = sum(
-                      item.file_size for item in entries if not item.is_dir()
-                  )
-
+                  total_size = sum(item.file_size for item in entries if not item.is_dir())
                   if total_size > MAX_UNCOMPRESSED_BYTES:
                       raise SystemExit("The uncompressed ZIP exceeds the 500 MB safety limit.")
 
-                  seen_paths = {}
-                  files = set()
-                  package_files = set()
-                  lock_files = set()
-                  root_items = set()
-                  skipped_root_docs = []
-
+                  # Validate raw ZIP paths before choosing the application root.
+                  raw_entries = []
+                  seen_raw = {}
                   for item in entries:
                       raw = item.filename
-
                       if not raw or raw.startswith("/") or "\\" in raw or "\x00" in raw:
                           raise SystemExit(f"Unsafe ZIP path: {raw!r}")
-
                       clean = unicodedata.normalize("NFC", raw.rstrip("/"))
                       parts = clean.split("/")
-
                       if not clean or any(part in ("", ".", "..") for part in parts):
                           raise SystemExit(f"Unsafe ZIP path: {raw!r}")
-
-                      if ":" in parts[0] or any(part in FORBIDDEN_PARTS for part in parts):
-                          raise SystemExit(f"Generated or unsafe path is not allowed: {raw!r}")
-
-                      if any(part.lower() in LEGACY_COPY_NAMES for part in parts):
-                          raise SystemExit(f"Nested or duplicate repository copy detected: {raw!r}")
-
+                      if ":" in parts[0]:
+                          raise SystemExit(f"Unsafe ZIP path: {raw!r}")
                       mode = item.external_attr >> 16
                       file_type = stat.S_IFMT(mode)
-
                       if stat.S_ISLNK(mode) or file_type not in (0, stat.S_IFREG, stat.S_IFDIR):
                           raise SystemExit(f"Symlinks and special files are not allowed: {raw!r}")
-
                       if not item.is_dir() and item.file_size > MAX_SINGLE_FILE_BYTES:
                           raise SystemExit(f"ZIP member is too large: {raw!r}")
-
                       if not item.is_dir() and item.file_size:
                           ratio = item.file_size / max(item.compress_size, 1)
                           if ratio > MAX_COMPRESSION_RATIO:
                               raise SystemExit(f"Suspicious compression ratio for {raw!r}.")
-
                       key = clean.casefold()
+                      if key in seen_raw:
+                          raise SystemExit(f"Duplicate or case-colliding ZIP path: {raw!r} and {seen_raw[key]!r}")
+                      seen_raw[key] = raw
+                      raw_entries.append((item, parts))
 
-                      if key in seen_paths:
-                          raise SystemExit(
-                              f"Duplicate or case-colliding ZIP path: {raw!r} and {seen_paths[key]!r}"
-                          )
+                  # Accept either the repository contents at ZIP root or one
+                  # enclosing folder (for example LEXA_RELEASE/backend/...).
+                  backend_prefixes = {
+                      tuple(parts[:i])
+                      for _, parts in raw_entries
+                      for i in range(len(parts) - 1)
+                      if parts[i:i + 2] == ["backend", "package.json"]
+                  }
+                  frontend_prefixes = {
+                      tuple(parts[:i])
+                      for _, parts in raw_entries
+                      for i in range(len(parts) - 1)
+                      if parts[i:i + 2] == ["lexa-frontend", "package.json"]
+                  }
+                  common_prefixes = backend_prefixes & frontend_prefixes
+                  if len(common_prefixes) != 1:
+                      raise SystemExit(
+                          "Could not identify one unambiguous LEXA source root. The ZIP must contain "
+                          "backend/package.json and lexa-frontend/package.json either directly at its "
+                          "root or inside one enclosing folder."
+                      )
+                  prefix = next(iter(common_prefixes))
+                  if len(prefix) > 1:
+                      raise SystemExit("Only one enclosing folder is supported; nested repository wrappers are not allowed.")
 
-                      seen_paths[key] = raw
+                  files = set()
+                  package_files = set()
+                  lock_files = set()
+                  root_items = set()
+                  canonical_entries = []
+                  skipped_metadata = 0
+                  skipped_root_docs = []
 
-                      # Root-level old implementation notes are discarded.
-                      # Maintained documentation belongs under docs/.
-                      if len(parts) == 1 and not item.is_dir():
+                  for item, original_parts in raw_entries:
+                      # Ignore common operating-system archive metadata.
+                      if original_parts[0] == "__MACOSX" or original_parts[0].startswith("._"):
+                          skipped_metadata += 1
+                          continue
+                      if prefix:
+                          if tuple(original_parts[:len(prefix)]) != prefix:
+                              raise SystemExit(f"Unexpected content outside the enclosing source folder: {item.filename!r}")
+                          parts = original_parts[len(prefix):]
+                      else:
+                          parts = original_parts
+                      if not parts:
+                          continue
+                      if any(part in FORBIDDEN_PARTS for part in parts):
+                          raise SystemExit(f"Generated or unsafe path is not allowed: {item.filename!r}")
+                      if any(part.lower() in LEGACY_COPY_NAMES for part in parts):
+                          raise SystemExit(f"Nested or duplicate repository copy detected: {item.filename!r}")
+
+                      clean = "/".join(parts)
+                      if not item.is_dir() and len(parts) == 1:
                           root_name = parts[0]
-
                           if root_name.lower().endswith(".md") and root_name != "README.md":
                               skipped_root_docs.append(root_name)
                               continue
-
                           if root_name not in ALLOWED_ROOT_FILES:
                               raise SystemExit(f"Unexpected root-level file {root_name!r}. Put maintained documentation under docs/.")
 
                       root_items.add(parts[0])
-
                       if len(parts) > 1 and parts[0] not in ALLOWED_ROOT_DIRS:
-                          raise SystemExit(f"Unexpected top-level directory {parts[0]!r}; ZIP must start at the repository root.")
+                          raise SystemExit(f"Unexpected top-level directory {parts[0]!r}; expected the LEXA repository layout.")
+
+                      filename = parts[-1]
+                      if filename.lower().endswith((".zip", ".pyc")):
+                          raise SystemExit(f"Nested archives and bytecode are not allowed: {item.filename!r}")
+                      if filename.startswith(".env") and filename not in {".env.example", ".env.worker.example"}:
+                          raise SystemExit(f"Potential secret environment file found: {item.filename!r}")
 
                       if not item.is_dir():
                           files.add(clean)
-
-                          if parts[-1] == "package.json":
+                          if filename == "package.json":
                               package_files.add(clean)
-
-                          if parts[-1] == "package-lock.json":
+                          if filename == "package-lock.json":
                               lock_files.add(clean)
-
-                      filename = parts[-1]
-
-                      if filename.lower().endswith((".zip", ".pyc")):
-                          raise SystemExit(f"Nested archives and bytecode are not allowed: {raw!r}")
-
-                      if filename.startswith(".env") and filename not in {".env.example", ".env.worker.example"}:
-                          raise SystemExit(f"Potential secret environment file found: {raw!r}")
-
-                  # A path cannot be both a file and a directory.
-                  file_keys = {path.casefold() for path in files}
-
-                  for path in files:
-                      parent = PurePosixPath(path).parent
-
-                      while str(parent) not in (".", ""):
-                          if str(parent).casefold() in file_keys:
-                              raise SystemExit(f"A ZIP path is both a file and a directory: {path!r}")
-                          parent = parent.parent
+                      canonical_entries.append((item, clean, item.is_dir()))
 
                   required_dirs = {"backend", "lexa-frontend", "docs", "scripts"}
-
                   if not required_dirs.issubset(root_items):
                       raise SystemExit(f"Missing canonical application directories: {sorted(required_dirs - root_items)}")
-
-                  unexpected_dirs = root_items - ALLOWED_ROOT_DIRS - ALLOWED_ROOT_FILES
-
-                  if unexpected_dirs:
-                      raise SystemExit(f"Unexpected or nested top-level directories: {sorted(unexpected_dirs)}")
+                  unexpected_roots = root_items - ALLOWED_ROOT_DIRS - ALLOWED_ROOT_FILES
+                  if unexpected_roots:
+                      raise SystemExit(f"Unexpected or nested top-level directories: {sorted(unexpected_roots)}")
 
                   missing = sorted(REQUIRED_FILES - files)
-
                   if missing:
                       raise SystemExit("Required source files are missing: " + ", ".join(missing))
-
                   if package_files != EXPECTED_PACKAGE_FILES:
                       raise SystemExit("The ZIP must contain exactly one backend and one frontend package.json; found: " + repr(sorted(package_files)))
+                  if not lock_files.issubset(EXPECTED_LOCK_FILES):
+                      raise SystemExit("Unexpected package lockfiles found: " + repr(sorted(lock_files)))
 
-                  if lock_files != EXPECTED_LOCK_FILES:
-                      raise SystemExit("The ZIP must contain exactly one backend and one frontend package-lock.json; found: " + repr(sorted(lock_files)))
+                  # Check package metadata and any lockfiles supplied by the ZIP.
+                  package_data_by_path = {}
+                  entry_by_name = {name: item for item, name, is_dir in canonical_entries if not is_dir}
+                  for package_path in sorted(EXPECTED_PACKAGE_FILES):
+                      try:
+                          package_data = json.loads(source.read(entry_by_name[package_path]))
+                      except (KeyError, json.JSONDecodeError) as exc:
+                          raise SystemExit(f"Invalid or missing package manifest: {package_path}: {exc}")
+                      if not isinstance(package_data, dict) or not package_data.get("name"):
+                          raise SystemExit(f"Package manifest must contain a package name: {package_path}")
+                      package_data_by_path[package_path] = package_data
 
-                  # Verify package manifest and lockfile identity.
-                  for package_path, lock_path in (
-                      ("backend/package.json", "backend/package-lock.json"),
-                      ("lexa-frontend/package.json", "lexa-frontend/package-lock.json"),
-                  ):
-                      package_data = json.loads(source.read(package_path))
-                      lock_data = json.loads(source.read(lock_path))
-                      lock_root = lock_data.get("packages", {}).get("")
+                  for lock_path in sorted(lock_files):
+                      try:
+                          lock_data = json.loads(source.read(entry_by_name[lock_path]))
+                      except (KeyError, json.JSONDecodeError) as exc:
+                          raise SystemExit(f"Invalid package lockfile: {lock_path}: {exc}")
+                      app_path = lock_path.removesuffix("package-lock.json") + "package.json"
+                      lock_name = lock_data.get("name") or lock_data.get("packages", {}).get("", {}).get("name")
+                      expected_name = package_data_by_path[app_path].get("name")
+                      if lock_name and lock_name != expected_name:
+                          raise SystemExit(f"Package and lockfile names do not match for {lock_path}.")
 
-                      if package_data.get("name") != lock_root.get("name"):
-                          raise SystemExit(f"Package and lockfile names do not match for {package_path}.")
-
-                  # Extract only after all archive checks pass.
-                  # Keep the currently installed GitHub workflows. The ZIP
-                  # cannot create additional workflows or overwrite these.
-                  for item in entries:
-                      if item.is_dir():
-                          continue
-
-                      clean = unicodedata.normalize("NFC", item.filename.rstrip("/"))
+                  # Extract into a new staging tree only after validation.
+                  # The live .github directory is preserved, not replaced.
+                  for item, clean, is_dir in canonical_entries:
                       parts = clean.split("/")
-
                       if parts[0] == ".github":
                           continue
-
                       if len(parts) == 1 and parts[0].lower().endswith(".md") and parts[0] != "README.md":
                           continue
-
-                      if clean not in files:
-                          continue
-
                       destination = stage.joinpath(*parts)
+                      if is_dir:
+                          destination.mkdir(parents=True, exist_ok=True)
+                          continue
                       destination.parent.mkdir(parents=True, exist_ok=True)
-
                       if not destination.resolve().is_relative_to(stage.resolve()):
                           raise SystemExit(f"ZIP path escaped the staging directory: {item.filename!r}")
-
                       with source.open(item) as source_file, destination.open("xb") as target_file:
                           shutil.copyfileobj(source_file, target_file)
 
               for required in REQUIRED_FILES:
-                  if required.startswith(".github/"):
-                      continue
-
                   if not stage.joinpath(*required.split("/")).is_file():
                       raise SystemExit(f"Staged source is incomplete: {required}")
-
               staged_packages = {
                   path.relative_to(stage).as_posix()
                   for path in stage.rglob("package.json")
               }
-
               if staged_packages != EXPECTED_PACKAGE_FILES:
                   raise SystemExit(f"Staged source contains duplicate application manifests: {sorted(staged_packages)}")
 
               print(f"Validated {archive.name}; {len(files)} source files; {total_size:,} uncompressed bytes.")
-
+              if prefix:
+                  print(f"Removed one enclosing ZIP folder: {'/'.join(prefix)}")
               if skipped_root_docs:
-                  print("Removed obsolete root-level documentation; maintained docs remain under docs/.")
+                  print("Removed obsolete root-level Markdown notes; maintained documentation remains under docs/.")
+              if skipped_metadata:
+                  print(f"Ignored {skipped_metadata} macOS archive metadata entries.")
 
-              # Replace every old project file, preserving Git metadata and
-              # existing installed GitHub workflows.
+              # Replace old project files while retaining Git metadata and
+              # existing workflows. This change is committed only after tests pass.
               for child in ROOT.iterdir():
                   if child.name in {".git", ".github"}:
                       continue
-
                   if child.is_dir() and not child.is_symlink():
                       shutil.rmtree(child)
                   else:
                       child.unlink()
-
               for child in stage.iterdir():
                   destination = ROOT / child.name
-
                   if child.is_dir():
                       shutil.copytree(child, destination)
                   else:
                       shutil.copy2(child, destination)
-
-              print("Old project files replaced. Existing GitHub workflows were preserved.")
-
+              print("Source staged in the checkout. Existing GitHub workflows were preserved.")
           finally:
               shutil.rmtree(stage, ignore_errors=True)
           PY
+
+      - name: Generate any missing npm lockfiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          for app in backend lexa-frontend; do
+            if [ ! -f "$app/package-lock.json" ]; then
+              echo "No $app/package-lock.json was included; generating it from $app/package.json."
+              (
+                cd "$app"
+                npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+              )
+            fi
+            test -s "$app/package-lock.json"
+          done
 
       - name: Remove generated leftovers and validate repository layout
         run: |
           python3 scripts/clean_repository.py
           python3 scripts/validate_repository.py
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
 
       - name: Install and validate backend
         working-directory: backend
@@ -380,22 +401,4 @@ jobs:
       - name: Install, test and build frontend
         working-directory: lexa-frontend
         run: |
-          npm ci --no-audit --no-fund
-          npm run build
-
-      - name: Commit the clean replacement
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-
-          if git diff --cached --quiet; then
-            echo "The uploaded source is identical to the current clean repository."
-            exit 0
-          fi
-
-          git commit -m "Replace repository with validated clean LEXA source"
-          git push origin HEAD:main
-          
+          npm ci --no-audit 
