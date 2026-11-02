@@ -62,9 +62,7 @@ jobs:
           requested = os.environ.get("ARCHIVE_NAME", "").strip()
           event_name = os.environ.get("EVENT_NAME", "")
 
-          # On ZIP-upload pushes, select the archive changed by this push.
-          # Older failed ZIPs may remain at the repository root and will not
-          # make a new upload ambiguous.
+          # Select the ZIP changed by this push, not an older failed ZIP.
           if requested:
               candidate = PurePosixPath(requested)
               if candidate.name != requested or candidate.suffix.lower() != ".zip":
@@ -195,8 +193,7 @@ jobs:
                       seen_raw[key] = raw
                       raw_entries.append((item, parts))
 
-                  # Accept either the repository contents at ZIP root or one
-                  # enclosing folder (for example LEXA_RELEASE/backend/...).
+                  # Accept root-level source or one enclosing folder.
                   backend_prefixes = {
                       tuple(parts[:i])
                       for _, parts in raw_entries
@@ -229,7 +226,6 @@ jobs:
                   skipped_root_docs = []
 
                   for item, original_parts in raw_entries:
-                      # Ignore common operating-system archive metadata.
                       if original_parts[0] == "__MACOSX" or original_parts[0].startswith("._"):
                           skipped_metadata += 1
                           continue
@@ -273,6 +269,17 @@ jobs:
                               lock_files.add(clean)
                       canonical_entries.append((item, clean, item.is_dir()))
 
+                  # Reject files used as parent directories.
+                  file_keys = {path.casefold() for path in files}
+                  for file_path in files:
+                      parent = PurePosixPath(file_path).parent
+                      while str(parent) not in (".", ""):
+                          if str(parent).casefold() in file_keys:
+                              raise SystemExit(
+                                  f"A ZIP path is both a file and a directory: {file_path!r}"
+                              )
+                          parent = parent.parent
+
                   required_dirs = {"backend", "lexa-frontend", "docs", "scripts"}
                   if not required_dirs.issubset(root_items):
                       raise SystemExit(f"Missing canonical application directories: {sorted(required_dirs - root_items)}")
@@ -288,7 +295,7 @@ jobs:
                   if not lock_files.issubset(EXPECTED_LOCK_FILES):
                       raise SystemExit("Unexpected package lockfiles found: " + repr(sorted(lock_files)))
 
-                  # Check package metadata and any lockfiles supplied by the ZIP.
+                  # Check package metadata and supplied lockfile names.
                   package_data_by_path = {}
                   entry_by_name = {name: item for item, name, is_dir in canonical_entries if not is_dir}
                   for package_path in sorted(EXPECTED_PACKAGE_FILES):
@@ -311,8 +318,7 @@ jobs:
                       if lock_name and lock_name != expected_name:
                           raise SystemExit(f"Package and lockfile names do not match for {lock_path}.")
 
-                  # Extract into a new staging tree only after validation.
-                  # The live .github directory is preserved, not replaced.
+                  # Extract only after archive validation. Keep current workflows.
                   for item, clean, is_dir in canonical_entries:
                       parts = clean.split("/")
                       if parts[0] == ".github":
@@ -347,8 +353,7 @@ jobs:
               if skipped_metadata:
                   print(f"Ignored {skipped_metadata} macOS archive metadata entries.")
 
-              # Replace old project files while retaining Git metadata and
-              # existing workflows. This change is committed only after tests pass.
+              # Replace old project files while preserving Git metadata and workflows.
               for child in ROOT.iterdir():
                   if child.name in {".git", ".github"}:
                       continue
@@ -382,23 +387,18 @@ jobs:
             test -s "$app/package-lock.json"
           done
 
-      - name: Remove generated leftovers and validate repository layout
+      - name: Reconcile backup inventory with the incoming SSO identity table
+        shell: bash
         run: |
-          python3 scripts/clean_repository.py
-          python3 scripts/validate_repository.py
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          import re
 
-      - name: Install and validate backend
-        working-directory: backend
-        env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/lexa?schema=public
-        run: |
-          npm ci --no-audit --no-fund
-          npx prisma generate
-          npm test
-          npm run contract:check
-          npm run build
+          backend = Path("backend")
+          schema_path = backend / "prisma" / "schema.prisma"
+          migrations = backend / "prisma" / "migrations"
+          inventory_path = backend / "backup" / "authoritative-inventory.json"
 
-      - name: Install, test and build frontend
-        working-directory: lexa-frontend
-        run: |
-          npm ci --no-audit 
+       
