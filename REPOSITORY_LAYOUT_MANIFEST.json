@@ -1,0 +1,49 @@
+{
+  "name": "LEXA canonical repository",
+  "version": "2026-11-02",
+  "archive_root": "Repository root; archive contains no wrapper directory",
+  "applications": {
+    "backend": "backend/",
+    "frontend": "lexa-frontend/"
+  },
+  "supporting_directories": [
+    "docs/",
+    "scripts/"
+  ],
+  "database": {
+    "provider": "Neon PostgreSQL",
+    "project": "lexa-backend",
+    "production_branch": "production",
+    "database": "lexa",
+    "migration_policy": "Keep all production-applied Prisma migration directory names immutable."
+  },
+  "deployment": {
+    "vercel_project": "lexa_review",
+    "vercel_root_directory": "lexa-frontend",
+    "vercel_framework": "vite",
+    "vercel_build_command": "npm run build",
+    "vercel_output_directory": "dist",
+    "render_service": "lexa-backend-api-live",
+    "render_dockerfile": "backend/Dockerfile",
+    "render_docker_context": "."
+  },
+  "ai": {
+    "router": "backend/src/ai/ai-router.service.ts",
+    "provider_credentials": "Render private environment variables only",
+    "paid_tier_default": false
+  },
+  "maintenance": {
+    "cleanup": "scripts/clean_repository.py",
+    "validation": "scripts/validate_repository.py",
+    "archive_import_workflow": ".github/workflows/repository-import.yml",
+    "ci_workflow": ".github/workflows/backend-ci.yml"
+  },
+  "compatibility": {
+    "legacy_alert_runbook_paths": "Mapped in the API response layer to the new docs/operations/runbooks/ directory; production database rows remain unchanged.",
+    "legacy_people_projects_api_route": "Preserved to avoid breaking existing clients."
+  },
+  "security": {
+    "environment_files": "Only .env.example templates are included; live credentials are stored in platform environment settings.",
+    "production_database": "Not modified during repository cleanup."
+  }
+}
