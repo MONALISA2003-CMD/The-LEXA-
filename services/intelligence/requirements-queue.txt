@@ -1,4 +1,0 @@
--r requirements.txt
-# Optional background worker profile; core API does not require Redis or a queue.
-dramatiq[redis]>=1.17,<2
-redis>=5.2,<7
