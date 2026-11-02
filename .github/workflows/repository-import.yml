@@ -1,0 +1,166 @@
+name: Replace repository from canonical source archive
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "LEXA_CANONICAL_SOURCE.zip"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lexa-canonical-repository-replacement
+  cancel-in-progress: false
+
+jobs:
+  replace:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out current repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Validate archive and replace repository contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          import stat
+          import tempfile
+          import zipfile
+
+          root = Path.cwd().resolve()
+          archive = root / "LEXA_CANONICAL_SOURCE.zip"
+          if not archive.is_file():
+              raise SystemExit("Upload LEXA_CANONICAL_SOURCE.zip to the repository root before running this workflow.")
+
+          stage = Path(tempfile.mkdtemp(prefix="lexa-canonical-"))
+          required = (
+              "README.md", "backend/package.json", "backend/Dockerfile",
+              "backend/prisma/schema.prisma", "lexa-frontend/package.json",
+              "lexa-frontend/vercel.json", "render.yaml",
+              "scripts/clean_repository.py", "scripts/validate_repository.py",
+              ".github/workflows/backend-ci.yml", ".github/workflows/repository-import.yml",
+          )
+          package_files = set()
+          seen = set()
+          with zipfile.ZipFile(archive) as source:
+              if not source.infolist() or source.testzip() is not None:
+                  raise SystemExit("The canonical archive is empty or corrupt.")
+              for entry in source.infolist():
+                  name = entry.filename
+                  mode = entry.external_attr >> 16
+                  if not name or name.startswith("/") or "\\" in name or stat.S_ISLNK(mode):
+                      raise SystemExit(f"Unsafe archive entry: {name!r}")
+                  parts = name.rstrip("/").split("/")
+                  if any(part in ("", ".", "..") for part in parts) or ".git" in parts:
+                      raise SystemExit(f"Unsafe archive path: {name!r}")
+                  if parts[0] in {"The-LEXA", "The-LEXA--main", "LEXA_WS8_updated"}:
+                      raise SystemExit(f"Nested repository wrapper is not allowed: {name!r}")
+                  if name in seen:
+                      raise SystemExit(f"Duplicate archive path: {name!r}")
+                  seen.add(name)
+                  if not entry.is_dir() and parts[-1] == "package.json":
+                      package_files.add("/".join(parts))
+              for path in required:
+                  if path not in seen:
+                      raise SystemExit(f"Required source file missing from archive: {path}")
+              if package_files != {"backend/package.json", "lexa-frontend/package.json"}:
+                  raise SystemExit(f"Archive must contain exactly two application manifests; found {sorted(package_files)}")
+              for entry in source.infolist():
+                  parts = entry.filename.rstrip("/").split("/")
+                  # The built-in GitHub token cannot replace workflow files.
+                  # Keep the already-installed workflows in place; update them in the GitHub editor first.
+                  if len(parts) >= 3 and parts[:2] == [".github", "workflows"]:
+                      continue
+                  if entry.is_dir():
+                      continue
+                  destination = stage.joinpath(*parts)
+                  destination.parent.mkdir(parents=True, exist_ok=True)
+                  with source.open(entry) as src, destination.open("wb") as dst:
+                      shutil.copyfileobj(src, dst)
+
+          # Confirm a clean, root-level project before removing the current checkout.
+          for path in required:
+              if path.startswith(".github/workflows/"):
+                  continue
+              if not stage.joinpath(*path.split("/")).is_file():
+                  raise SystemExit(f"Extracted source is incomplete: {path}")
+
+          # Preserve .git and the installed workflow directory; replace every other tracked/untracked item.
+          for child in root.iterdir():
+              if child.name in {".git", ".github"}:
+                  continue
+              if child.is_dir() and not child.is_symlink():
+                  shutil.rmtree(child)
+              else:
+                  child.unlink()
+
+          for child in stage.iterdir():
+              destination = root / child.name
+              if child.name == ".github":
+                  destination.mkdir(exist_ok=True)
+                  for item in child.iterdir():
+                      if item.name == "workflows":
+                          continue
+                      target = destination / item.name
+                      if item.is_dir(): shutil.copytree(item, target, dirs_exist_ok=True)
+                      else: shutil.copy2(item, target)
+              elif child.is_dir():
+                  shutil.copytree(child, destination)
+              else:
+                  shutil.copy2(child, destination)
+
+          shutil.rmtree(stage)
+          (root / "LEXA_CANONICAL_SOURCE.zip").unlink(missing_ok=True)
+          print("Canonical source extracted. Existing repository files have been replaced.")
+          PY
+
+      - name: Remove legacy copies and validate clean layout
+        run: |
+          python3 scripts/clean_repository.py
+          python3 scripts/validate_repository.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install and validate backend
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/lexa?schema=public
+        run: |
+          npm install --no-audit --no-fund
+          npx prisma generate
+          npm test
+          npm run contract:check
+          npm run build
+
+      - name: Install and validate frontend
+        working-directory: lexa-frontend
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit canonical repository replacement
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The uploaded archive matches the current repository."
+            exit 0
+          fi
+          git commit -m "Replace repository with canonical LEXA source"
+          git push origin HEAD:main
