@@ -1,0 +1,82 @@
+name: Reset repository contents
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type WIPE to remove all current repository files except the three LEXA workflows."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repository-reset-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    name: Clear repository working tree
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify confirmation and required workflows
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -eu
+          if [ "$CONFIRMATION" != "WIPE" ]; then
+            echo "Stopped: enter WIPE exactly to authorize this reset."
+            exit 1
+          fi
+          test -f .github/workflows/repository-import.yml
+          test -f .github/workflows/backend-ci.yml
+          test -f .github/workflows/repository-reset.yml
+
+      - name: Delete all repository files except the LEXA workflows
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          root = Path.cwd()
+          keep = {
+              ".github/workflows/repository-import.yml",
+              ".github/workflows/backend-ci.yml",
+              ".github/workflows/repository-reset.yml",
+          }
+
+          paths = sorted(root.rglob("*"), key=lambda p: len(p.parts), reverse=True)
+          for path in paths:
+              relative = path.relative_to(root).as_posix()
+              if relative == ".git" or relative.startswith(".git/"):
+                  continue
+              if relative in keep:
+                  continue
+              if any(item.startswith(relative + "/") for item in keep):
+                  continue
+              if path.is_symlink() or path.is_file():
+                  path.unlink(missing_ok=True)
+              elif path.is_dir():
+                  shutil.rmtree(path, ignore_errors=True)
+          PY
+
+      - name: Commit and push the clean working tree
+        run: |
+          set -eu
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          if git diff --cached --quiet; then
+            echo "Repository already contains only the retained workflows."
+            exit 0
+          fi
+          git commit -m "chore: clear repository before clean source import"
+          git push origin HEAD:main
