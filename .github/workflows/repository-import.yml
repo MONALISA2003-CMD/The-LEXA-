@@ -1,129 +1,189 @@
-name: Replace repository from canonical source archive
+
+name: Replace repository from uploaded ZIP
 
 on:
   push:
     branches: [main]
     paths:
-      - "LEXA_CANONICAL_SOURCE.zip"
+      - "*.zip"
   workflow_dispatch:
+    inputs:
+      archive_name:
+        description: "Optional ZIP filename in the repository root (leave blank when only one ZIP exists)."
+        required: false
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: lexa-canonical-repository-replacement
+  group: lexa-repository-import
   cancel-in-progress: false
 
 jobs:
   replace:
+    name: Validate, extract, test and replace repository
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - name: Check out current repository
+      - name: Check out main
         uses: actions/checkout@v4
         with:
           ref: main
-          persist-credentials: true
+          fetch-depth: 0
 
-      - name: Validate archive and replace repository contents
+      - name: Validate ZIP and stage replacement source
+        env:
+          ARCHIVE_NAME: ${{ inputs.archive_name || '' }}
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import os
           import shutil
           import stat
           import tempfile
           import zipfile
 
           root = Path.cwd().resolve()
-          archive = root / "LEXA_CANONICAL_SOURCE.zip"
-          if not archive.is_file():
-              raise SystemExit("Upload LEXA_CANONICAL_SOURCE.zip to the repository root before running this workflow.")
+          requested = os.environ.get("ARCHIVE_NAME", "").strip()
 
-          stage = Path(tempfile.mkdtemp(prefix="lexa-canonical-"))
+          if requested:
+              candidate = Path(requested)
+              if candidate.name != requested or candidate.suffix.lower() != ".zip":
+                  raise SystemExit("archive_name must be a ZIP filename only, with no folder path.")
+              archives = [root / requested]
+          else:
+              archives = sorted(
+                  path for path in root.iterdir()
+                  if path.is_file() and path.suffix.lower() == ".zip"
+              )
+
+          if len(archives) != 1:
+              names = [path.name for path in archives]
+              if not archives:
+                  raise SystemExit("No root-level ZIP found. Upload any .zip file to the repository root, then rerun this workflow.")
+              raise SystemExit(
+                  "More than one root-level ZIP was found: " + ", ".join(names)
+                  + ". Delete the old ZIP or rerun manually and specify archive_name."
+              )
+
+          archive = archives[0]
+          if not archive.is_file() or archive.is_symlink():
+              raise SystemExit(f"Archive is not a regular file: {archive.name}")
+
           required = (
-              "README.md", "backend/package.json", "backend/Dockerfile",
-              "backend/prisma/schema.prisma", "lexa-frontend/package.json",
-              "lexa-frontend/vercel.json", "render.yaml",
-              "scripts/clean_repository.py", "scripts/validate_repository.py",
-              ".github/workflows/backend-ci.yml", ".github/workflows/repository-import.yml",
+              "README.md",
+              "backend/package.json",
+              "backend/Dockerfile",
+              "backend/prisma/schema.prisma",
+              "lexa-frontend/package.json",
+              "lexa-frontend/vercel.json",
+              "render.yaml",
+              "scripts/clean_repository.py",
+              "scripts/validate_repository.py",
+              ".github/workflows/backend-ci.yml",
+              ".github/workflows/repository-import.yml",
           )
           package_files = set()
           seen = set()
-          with zipfile.ZipFile(archive) as source:
-              if not source.infolist() or source.testzip() is not None:
-                  raise SystemExit("The canonical archive is empty or corrupt.")
-              for entry in source.infolist():
-                  name = entry.filename
-                  mode = entry.external_attr >> 16
-                  if not name or name.startswith("/") or "\\" in name or stat.S_ISLNK(mode):
-                      raise SystemExit(f"Unsafe archive entry: {name!r}")
-                  parts = name.rstrip("/").split("/")
-                  if any(part in ("", ".", "..") for part in parts) or ".git" in parts:
-                      raise SystemExit(f"Unsafe archive path: {name!r}")
-                  if parts[0] in {"The-LEXA", "The-LEXA--main", "LEXA_WS8_updated"}:
-                      raise SystemExit(f"Nested repository wrapper is not allowed: {name!r}")
-                  if name in seen:
-                      raise SystemExit(f"Duplicate archive path: {name!r}")
-                  seen.add(name)
-                  if not entry.is_dir() and parts[-1] == "package.json":
-                      package_files.add("/".join(parts))
-              for path in required:
-                  if path not in seen:
-                      raise SystemExit(f"Required source file missing from archive: {path}")
-              if package_files != {"backend/package.json", "lexa-frontend/package.json"}:
-                  raise SystemExit(f"Archive must contain exactly two application manifests; found {sorted(package_files)}")
-              for entry in source.infolist():
-                  parts = entry.filename.rstrip("/").split("/")
-                  # The built-in GitHub token cannot replace workflow files.
-                  # Keep the already-installed workflows in place; update them in the GitHub editor first.
-                  if len(parts) >= 3 and parts[:2] == [".github", "workflows"]:
-                      continue
-                  if entry.is_dir():
-                      continue
-                  destination = stage.joinpath(*parts)
-                  destination.parent.mkdir(parents=True, exist_ok=True)
-                  with source.open(entry) as src, destination.open("wb") as dst:
-                      shutil.copyfileobj(src, dst)
+          stage = Path(tempfile.mkdtemp(prefix="lexa-import-"))
 
-          # Confirm a clean, root-level project before removing the current checkout.
-          for path in required:
-              if path.startswith(".github/workflows/"):
-                  continue
-              if not stage.joinpath(*path.split("/")).is_file():
-                  raise SystemExit(f"Extracted source is incomplete: {path}")
+          try:
+              with zipfile.ZipFile(archive) as source:
+                  entries = source.infolist()
+                  if not entries:
+                      raise SystemExit("The uploaded ZIP is empty.")
+                  corrupt = source.testzip()
+                  if corrupt is not None:
+                      raise SystemExit(f"The uploaded ZIP is corrupt at: {corrupt}")
 
-          # Preserve .git and the installed workflow directory; replace every other tracked/untracked item.
-          for child in root.iterdir():
-              if child.name in {".git", ".github"}:
-                  continue
-              if child.is_dir() and not child.is_symlink():
-                  shutil.rmtree(child)
-              else:
-                  child.unlink()
+                  for entry in entries:
+                      name = entry.filename
+                      mode = entry.external_attr >> 16
+                      if not name or name.startswith("/") or "\\" in name:
+                          raise SystemExit(f"Unsafe ZIP entry: {name!r}")
+                      parts = name.rstrip("/").split("/")
+                      if not parts or any(part in ("", ".", "..") for part in parts):
+                          raise SystemExit(f"Unsafe ZIP path: {name!r}")
+                      if ".git" in parts or ":" in parts[0] or stat.S_ISLNK(mode):
+                          raise SystemExit(f"Unsafe ZIP entry: {name!r}")
+                      file_type = stat.S_IFMT(mode)
+                      if file_type not in (0, stat.S_IFREG, stat.S_IFDIR):
+                          raise SystemExit(f"Unsupported special file in ZIP: {name!r}")
+                      if parts[0] in {"The-LEXA", "The-LEXA--main", "LEXA_WS8_updated"}:
+                          raise SystemExit(f"Nested repository wrapper is not allowed: {name!r}")
+                      normalized = name.rstrip("/")
+                      if normalized in seen:
+                          raise SystemExit(f"Duplicate ZIP path: {name!r}")
+                      seen.add(normalized)
+                      if not entry.is_dir() and parts[-1] == "package.json":
+                          package_files.add("/".join(parts))
 
-          for child in stage.iterdir():
-              destination = root / child.name
-              if child.name == ".github":
-                  destination.mkdir(exist_ok=True)
-                  for item in child.iterdir():
-                      if item.name == "workflows":
+                  for path in required:
+                      if path not in seen:
+                          raise SystemExit(f"Required source file missing from ZIP: {path}")
+                  expected_packages = {"backend/package.json", "lexa-frontend/package.json"}
+                  if package_files != expected_packages:
+                      raise SystemExit(
+                          "ZIP must contain exactly the backend and frontend package manifests; found: "
+                          + repr(sorted(package_files))
+                      )
+
+                  for entry in entries:
+                      if entry.is_dir():
                           continue
-                      target = destination / item.name
-                      if item.is_dir(): shutil.copytree(item, target, dirs_exist_ok=True)
-                      else: shutil.copy2(item, target)
-              elif child.is_dir():
-                  shutil.copytree(child, destination)
-              else:
-                  shutil.copy2(child, destination)
+                      parts = entry.filename.rstrip("/").split("/")
+                      # GitHub's built-in token cannot update workflow files.
+                      # Keep installed workflows; replace all other project content.
+                      if len(parts) >= 3 and parts[:2] == [".github", "workflows"]:
+                          continue
+                      destination = stage.joinpath(*parts)
+                      destination.parent.mkdir(parents=True, exist_ok=True)
+                      with source.open(entry) as source_file, destination.open("wb") as dest_file:
+                          shutil.copyfileobj(source_file, dest_file)
 
-          shutil.rmtree(stage)
-          (root / "LEXA_CANONICAL_SOURCE.zip").unlink(missing_ok=True)
-          print("Canonical source extracted. Existing repository files have been replaced.")
+              for path in required:
+                  if path.startswith(".github/workflows/"):
+                      continue
+                  if not stage.joinpath(*path.split("/")).is_file():
+                      raise SystemExit(f"Extracted source is incomplete: {path}")
+
+              # Replace the checkout only after the staged archive passes validation.
+              for child in root.iterdir():
+                  if child.name in {".git", ".github"}:
+                      continue
+                  if child.is_dir() and not child.is_symlink():
+                      shutil.rmtree(child)
+                  else:
+                      child.unlink()
+
+              for child in stage.iterdir():
+                  destination = root / child.name
+                  if child.name == ".github":
+                      destination.mkdir(exist_ok=True)
+                      for item in child.iterdir():
+                          if item.name == "workflows":
+                              continue
+                          target = destination / item.name
+                          if item.is_dir():
+                              shutil.copytree(item, target, dirs_exist_ok=True)
+                          else:
+                              shutil.copy2(item, target)
+                  elif child.is_dir():
+                      shutil.copytree(child, destination)
+                  else:
+                      shutil.copy2(child, destination)
+
+              print(f"Successfully extracted {archive.name}.")
+          finally:
+              shutil.rmtree(stage, ignore_errors=True)
+
+          archive.unlink(missing_ok=True)
           PY
 
-      - name: Remove legacy copies and validate clean layout
+      - name: Clean and validate repository layout
         run: |
           python3 scripts/clean_repository.py
           python3 scripts/validate_repository.py
@@ -144,23 +204,22 @@ jobs:
           npm run contract:check
           npm run build
 
-      - name: Install and validate frontend
+      - name: Install, test and build frontend
         working-directory: lexa-frontend
         run: |
           npm install --no-audit --no-fund
           npm run build
 
-      - name: Configure Git identity
+      - name: Commit validated replacement
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Commit canonical repository replacement
-        run: |
           git add -A
           if git diff --cached --quiet; then
-            echo "The uploaded archive matches the current repository."
+            echo "The uploaded ZIP matches the current repository; nothing to commit."
             exit 0
           fi
-          git commit -m "Replace repository with canonical LEXA source"
+          git commit -m "Replace repository with validated LEXA source"
           git push origin HEAD:main
+          
