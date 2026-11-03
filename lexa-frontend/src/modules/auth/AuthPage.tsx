@@ -86,7 +86,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   const [complete, setComplete] = useState(false);
   const [bootstrapAvailable, setBootstrapAvailable] = useState(false);
   const [formError, setFormError] = useState('');
-  const token = new URLSearchParams(window.location.search).get('token') ?? '';
+  const [token] = useState(() => new URLSearchParams(window.location.search).get('token') ?? '');
   const text = copy[mode];
   const apiReady = dataProviderMode === 'api' && Boolean(apiBaseUrl);
   const passwordUpdated = mode === 'sign-in' && new URLSearchParams(window.location.search).get('password-updated') === '1';
@@ -167,7 +167,8 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
           {mode === 'sign-in' && connectionIssue === 'workspace' && <div className="auth-notice" role="status">We could not reopen your business. Sign in again and choose your business to continue.</div>}
           {!apiReady && <div className="auth-notice" role="status">Your business account is temporarily unavailable. Please contact your administrator.</div>}
 
-          {!complete && <form className="auth-form" onSubmit={submit}>
+          {mode === 'reset-password' && !token && <div className="auth-notice" role="alert">This page needs the private link from your recovery email. Open your latest LEXA password-reset email and tap <strong>Reset password</strong>, or request a fresh link below.</div>}
+          {!complete && (mode !== 'reset-password' || Boolean(token)) && <form className="auth-form" onSubmit={submit}>
             {mode !== 'reset-password' && <div className="auth-field">
               <label htmlFor="account-email">Business email address <span aria-hidden="true">*</span></label>
               <div className="auth-input-wrap"><Mail size={17} aria-hidden="true" /><input id="account-email" name="email" type="email" inputMode="email" autoComplete="username" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@business.com" /></div>

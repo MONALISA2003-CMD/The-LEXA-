@@ -1,5 +1,5 @@
 import {
-  BadRequestException, ConflictException, Controller, HttpCode, Post, Body,
+  BadRequestException, ConflictException, Controller, HttpCode, Logger, Post, Body,
   Req, Res, UseGuards, ServiceUnavailableException, UnauthorizedException, ForbiddenException,
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CsrfGuard } from '../core/csrf.guard';
 import { sendTransactionalEmail } from '../notifications/email-delivery';
+import { sendLexaWelcomeEmail } from '../notifications/welcome-email';
 
 const scrypt = promisify(scryptCallback);
 const SIGNUP_EXPIRY_MS = 24 * 60 * 60 * 1000;
@@ -58,6 +59,7 @@ function frontendUrl(): string {
 /** Public registration is intentionally separate from the first-admin bootstrap endpoint. */
 @Controller('auth')
 export class PublicRegistrationController {
+  private readonly logger = new Logger(PublicRegistrationController.name);
   constructor(private readonly prisma: PrismaService) {}
 
   private async establishSession(userId: string, reply: FastifyReply): Promise<void> {
@@ -137,6 +139,17 @@ export class PublicRegistrationController {
       return { user, tenant };
     }, { isolationLevel: 'Serializable' }));
     await this.establishSession(userId, reply);
+    // Activation and welcome delivery are separate: never roll back a verified business
+    // when the mail provider is temporarily unavailable. The Resend key is idempotent.
+    try {
+      await sendLexaWelcomeEmail({
+        userId, recipientEmail: created.user.email,
+        displayName: created.user.displayName ?? 'LEXA member',
+        businessName: created.tenant.name, owner: true,
+      });
+    } catch {
+      this.logger.warn('LEXA_WELCOME_EMAIL_DELIVERY_FAILED: verified owner account remains active.');
+    }
     return { verified: true, workspaceId: created.tenant.id, user: { id: created.user.id, email: created.user.email, displayName: created.user.displayName }, roles: ['owner'] };
   }
 
@@ -232,9 +245,19 @@ export class PublicRegistrationController {
       }
       await tx.workspaceInvitation.update({ where: { id: invitationId }, data: { status: 'ACCEPTED', acceptedByUserId: userId, acceptedAt: new Date() } });
       await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: userId, action: 'workspace.invitation.accepted.new_account', resourceType: 'workspace_invitation', resourceId: invitationId } });
-      return user;
+      const tenant = await tx.tenant.findUnique({ where: { id: workspaceId }, select: { name: true } });
+      return { user, businessName: tenant?.name ?? 'your business' };
     }, { isolationLevel: 'Serializable' }));
     await this.establishSession(userId, reply);
-    return { accepted: true, workspaceId, user: { id: result.id, email: result.email, displayName: result.displayName } };
+    try {
+      await sendLexaWelcomeEmail({
+        userId, recipientEmail: result.user.email,
+        displayName: result.user.displayName ?? 'LEXA member',
+        businessName: result.businessName, owner: false,
+      });
+    } catch {
+      this.logger.warn('LEXA_WELCOME_EMAIL_DELIVERY_FAILED: invited account remains active.');
+    }
+    return { accepted: true, workspaceId, user: { id: result.user.id, email: result.user.email, displayName: result.user.displayName } };
   }
 }
