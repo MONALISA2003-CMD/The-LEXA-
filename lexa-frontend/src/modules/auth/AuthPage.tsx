@@ -130,9 +130,9 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
     setSubmitting(true);
     try {
       if (mode === 'sign-in') {
-        await apiAuth.signIn(email, password);
+        const account = await apiAuth.signIn(email, password);
         // The business shell opens the saved business or guides first-time users to setup.
-        navigate(returnTo, { replace: true });
+        navigate(account.requiresPasswordChange ? '/change-password' : returnTo, { replace: true });
         return;
       }
       if (mode === 'forgot-password') {
@@ -170,8 +170,8 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
           {mode === 'reset-password' && !token && <div className="auth-notice" role="alert">This page needs the private link from your recovery email. Open your latest LEXA password-reset email and tap <strong>Reset password</strong>, or request a fresh link below.</div>}
           {!complete && (mode !== 'reset-password' || Boolean(token)) && <form className="auth-form" onSubmit={submit}>
             {mode !== 'reset-password' && <div className="auth-field">
-              <label htmlFor="account-email">Business email address <span aria-hidden="true">*</span></label>
-              <div className="auth-input-wrap"><Mail size={17} aria-hidden="true" /><input id="account-email" name="email" type="email" inputMode="email" autoComplete="username" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@business.com" /></div>
+              <label htmlFor="account-email">{mode === 'sign-in' ? 'Business email or employee username' : 'Business email address'} <span aria-hidden="true">*</span></label>
+              <div className="auth-input-wrap"><Mail size={17} aria-hidden="true" /><input id="account-email" name="email" type={mode === 'sign-in' ? 'text' : 'email'} inputMode={mode === 'sign-in' ? 'text' : 'email'} autoComplete="username" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@business.com" /></div>
             </div>}
             {mode !== 'forgot-password' && <PasswordField
               id="account-password"

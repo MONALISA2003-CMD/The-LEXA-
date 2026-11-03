@@ -24,11 +24,10 @@ export class BusinessSetupController {
       select: { userId: true },
     });
     if (!session) throw new UnauthorizedException('Your session expired. Sign in again.');
-    this.prisma.enterTenantContext(workspaceId, session.userId);
-    const membership = await this.prisma.membership.findUnique({
+    const membership = await this.prisma.runWithTenantContext({ tenantId: workspaceId, userId: session.userId }, () => this.prisma.membership.findUnique({
       where: { tenantId_userId: { tenantId: workspaceId, userId: session.userId } },
       select: { role: true, status: true },
-    });
+    }));
     if (membership?.status !== 'ACTIVE') throw new ForbiddenException('Business access is no longer active.');
     return { userId: session.userId, isOwner: ['owner','owner_administrator'].includes(normalizeRole(membership.role)) };
   }
@@ -36,6 +35,7 @@ export class BusinessSetupController {
   @Get()
   async read(@Param('workspaceId') workspaceId: string, @Req() request: FastifyRequest) {
     const member = await this.member(workspaceId, request);
+    return this.prisma.runWithTenantContext({ tenantId: workspaceId, userId: member.userId }, async () => {
     const [tenant, branch, profile, savedMethods] = await Promise.all([
       this.prisma.tenant.findUnique({ where: { id: workspaceId } }),
       this.prisma.branch.findFirst({ where: { tenantId: workspaceId }, orderBy: { createdAt: 'asc' } }),
@@ -61,6 +61,7 @@ export class BusinessSetupController {
       manualPaymentsConfirmedAt: profile?.manualPaymentsConfirmedAt?.toISOString() ?? null,
       paymentMethods: availablePaymentCodes.map(item => ({ code: item.code, label: saved.get(item.code)?.label ?? item.label, enabled: saved.get(item.code)?.enabled ?? (savedMethods.length === 0 && item.code === 'cash') })),
     };
+    });
   }
 
   @Patch()
@@ -71,7 +72,7 @@ export class BusinessSetupController {
     let payload: ReturnType<typeof validateSetupStep>;
     try { payload = validateSetupStep(body); }
     catch (error) { if (error instanceof SetupValidationError) throw new BadRequestException(error.message); throw error; }
-    return this.prisma.$transaction(async tx => {
+    return this.prisma.runWithTenantContext({ tenantId: workspaceId, userId: member.userId }, () => this.prisma.$transaction(async tx => {
       const tenant = await tx.tenant.findUnique({ where: { id: workspaceId } });
       if (!tenant) throw new ForbiddenException('Business unavailable.');
       const step = payload.step;
@@ -119,7 +120,7 @@ export class BusinessSetupController {
       });
       await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: member.userId, action: `business.setup.step_${step}.saved`, resourceType: 'business_profile', resourceId: workspaceId } });
       return { saved: true, step, nextStep: Math.min(4, step + 1) };
-    });
+    }));
   }
 
   @Post('complete')
@@ -127,7 +128,7 @@ export class BusinessSetupController {
   async complete(@Param('workspaceId') workspaceId: string, @Req() request: FastifyRequest) {
     const member = await this.member(workspaceId, request);
     if (!member.isOwner) throw new ForbiddenException('Only the owner may complete business setup.');
-    return this.prisma.$transaction(async tx => {
+    return this.prisma.runWithTenantContext({ tenantId: workspaceId, userId: member.userId }, () => this.prisma.$transaction(async tx => {
       const [profile, methods] = await Promise.all([
         tx.businessProfile.findUnique({ where: { tenantId: workspaceId } }),
         tx.businessPaymentMethod.findMany({ where: { tenantId: workspaceId, enabled: true } }),
@@ -140,6 +141,6 @@ export class BusinessSetupController {
       const completed = await tx.businessProfile.update({ where: { tenantId: workspaceId }, data: { completedAt: profile.completedAt ?? new Date() } });
       await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: member.userId, action: 'business.setup.completed', resourceType: 'business_profile', resourceId: workspaceId } });
       return { completed: true, completedAt: completed.completedAt?.toISOString() };
-    });
+    }));
   }
 }

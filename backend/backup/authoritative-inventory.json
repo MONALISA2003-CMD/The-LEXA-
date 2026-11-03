@@ -312,6 +312,12 @@
     "rationale": "Compensation data restricted by role"
   },
   {
+    "table": "hr_employee_private_profiles",
+    "disposition": "authoritative",
+    "domain": "people",
+    "rationale": "CEO-controlled employee identity, emergency contact and employment-private data, included in protected backups"
+  },
+  {
     "table": "hr_employee_shift_assignments",
     "disposition": "authoritative",
     "domain": "people",

@@ -4,10 +4,11 @@ import { toast } from 'sonner';
 import { CircleAlert, LockKeyhole, RefreshCw, Save, ShieldCheck, UserRoundPlus, UserX, UserCheck } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiTeamAccess, type TeamMember } from '../../data/remote/apiTeamAccess';
+import AddEmployeePanel from './AddEmployeePanel';
 import './team-access.css';
 
 const ROLE_OPTIONS = [
- ['business_manager','Business manager'],['cashier','Sales attendant / cashier'],['sales','Sales representative'],
+ ['business_manager','Business manager'],['finance_manager','Finance manager'],['delivery_officer','Delivery officer'],['production_officer','Production officer'],['quality_officer','Quality officer'],['project_manager','Project manager'],['support_agent','Support agent'],['hr_manager','HR manager'],['employee','Ordinary employee'],['cashier','Sales attendant / cashier'],['sales','Sales representative'],
  ['inventory_operator','Storekeeper'],['procurement_officer','Procurement officer'],['accountant','Accountant'],
  ['hr_officer','HR officer'],['payroll_officer','Payroll officer'],['customer_service','Customer service'],
  ['auditor','Auditor / viewer'],['viewer','Read only'],
@@ -37,6 +38,7 @@ export default function TeamAccessPanel(){
  if(!enabled)return <section className="section-card"><h2>Owner-only management</h2><p>Only the CEO of this business can create, manage or suspend employee accounts.</p></section>;
  return <div className="team-access-workspace">
    <header className="team-access-header"><div><span className="eyebrow eyebrow-blue">BUSINESS TEAM</span><h2>Team & permissions</h2><p>Every employee works in {workspace.businessName} using their own secure login.</p></div><button type="button" onClick={()=>void refresh()}><RefreshCw size={15}/> Refresh</button></header>
+   <AddEmployeePanel workspaceId={workspace.id} onCreated={refresh}/>
    <section className="team-access-member-card team-access-invitation-card"><div className="team-access-identity"><strong><UserRoundPlus size={17}/> Invite an employee</strong><span>They receive an email link and create their own password. Never share passwords.</span></div>
     <form className="team-access-controls" onSubmit={invite}><div className="team-access-control"><label htmlFor="staff-invite-email">Employee email</label><input id="staff-invite-email" type="email" autoComplete="email" required maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} placeholder="employee@business.com"/></div><div className="team-access-control"><label htmlFor="staff-invite-role">Assigned role</label><select id="staff-invite-role" value={inviteRole} onChange={e=>setInviteRole(e.target.value)}>{ROLE_OPTIONS.map(([v,label])=><option key={v} value={v}>{label}</option>)}</select><small>{ROLE_DESCRIPTIONS[inviteRole]}</small></div><button className="team-access-save" type="submit" disabled={busy!==null||!email.trim()}>{busy==='invite'?'Sending…':'Send secure invitation'}</button></form>
     <div className="team-access-invitations">{(invitesQuery.data??[]).filter(i=>String(i.status)==='PENDING').slice(0,8).map(i=><span key={String(i.id)}>{String(i.email)} · Awaiting acceptance</span>)}</div>

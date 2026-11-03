@@ -7,7 +7,7 @@ import { isWorkspaceAdministrator } from '../authorization/role-policy';
 import { sendTransactionalEmail } from '../notifications/email-delivery';
 
 type Input = Record<string, unknown>;
-const ROLES = new Set(['business_manager','manager','accountant','procurement_officer','hr_officer','payroll_officer','customer_service','support_agent','auditor','sales','sales_operator','cashier','inventory_operator','warehouse_operator','read_only','member','viewer']);
+const ROLES = new Set(['business_manager','manager','accountant','finance_manager','procurement_officer','hr_officer','hr_manager','payroll_officer','customer_service','support_agent','delivery_officer','production_officer','quality_officer','project_manager','employee','auditor','sales','sales_operator','cashier','inventory_operator','warehouse_operator','read_only','readonly','member','viewer']);
 const sha = (value: string) => createHash('sha256').update(value).digest('hex');
 function cookie(request: FastifyRequest) { for (const part of (request.headers.cookie ?? '').split(';')) { const at=part.indexOf('='); if(at>=0 && part.slice(0,at).trim()==='lexa_session') { try{return decodeURIComponent(part.slice(at+1).trim())}catch{return undefined} } } return undefined; }
 function obj(value: unknown): Input { if(!value || typeof value!=='object' || Array.isArray(value)) throw new BadRequestException('Request body must be an object.'); return value as Input; }

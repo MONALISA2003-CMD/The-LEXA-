@@ -58,7 +58,7 @@ export default function WorkspacePage() {
     </section>
 
     {accessQuery.isError && <div className="inline-error" role="alert">Unable to verify your business role. Reload to try again. Management controls remain unavailable.</div>}
-    {setupQuery.isError && <div className="inline-error" role="alert">Business profile details could not be loaded. Your records have not been changed.</div>}
+    {setupQuery.isError && <div className="inline-error" role="alert">Business profile details could not be loaded. Your CEO permissions have not been changed. <button type="button" className="button button-secondary button-small" onClick={() => void setupQuery.refetch()}>Retry profile</button></div>}
     <div className="my-business-heading">
       <div><span className="eyebrow eyebrow-blue">BUSINESS CONTROL CENTRE</span><h3>Your company, configured your way</h3>
         <p>Keep your business details, secure staff access and recording preferences up to date.</p></div>

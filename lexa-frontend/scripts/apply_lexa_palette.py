@@ -56,7 +56,7 @@ ACCENT_SOURCE = '''/** Explicit LEXA module accent metadata; never inferred from
 export type ModuleAccentKey = 'navy' | 'blue' | 'cyan' | 'emerald' | 'gold' | 'orange';
 const forPaths = (accent: ModuleAccentKey, paths: string[]) => Object.fromEntries(paths.map((path) => [path, accent])) as Record<string, ModuleAccentKey>;
 export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
-  ...forPaths('navy', ['/', '/workspace', '/business-setup', '/modules', '/modules/', '/team', '/settings', '/modules/projects', '/modules/team', '/operations']),
+  ...forPaths('navy', ['/', '/workspace', '/my-employment', '/business-setup', '/modules', '/modules/', '/team', '/settings', '/modules/projects', '/modules/team', '/operations']),
   ...forPaths('blue', ['/intelligence']),
   ...forPaths('gold', ['/reports', '/modules/reports']),
   ...forPaths('cyan', ['/business-tools']),

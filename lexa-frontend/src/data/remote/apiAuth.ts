@@ -9,6 +9,7 @@ export interface AuthenticatedUser {
 export interface SessionResponse {
   user: AuthenticatedUser;
   roles: string[];
+  requiresPasswordChange?: boolean;
 }
 
 function objectResponse<T>(value: unknown, label: string): T {
@@ -56,6 +57,9 @@ export const apiAuth = {
     const response = objectResponse<SessionResponse>(await apiClient.post('/auth/login', { email: email.trim().toLowerCase(), password }), 'sign-in');
     if (!response.user || typeof response.user.id !== 'string' || !Array.isArray(response.roles)) throw new Error('Sign-in did not return a valid session.');
     return response;
+  },
+  async changeInitialPassword(currentPassword:string,newPassword:string): Promise<void> {
+    await apiClient.post('/auth/change-initial-password',{currentPassword,newPassword});
   },
   async signOut(): Promise<void> {
     await apiClient.post('/auth/logout', {});

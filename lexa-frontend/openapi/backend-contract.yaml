@@ -20,6 +20,51 @@ servers:
 security:
 - sessionCookie: []
 paths:
+  /auth/change-initial-password:
+    post:
+      operationId: changeEmployeeInitialPassword
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: Authenticated employee changes their temporary password. Required before accessing workspace records.
+      responses:
+        '200': {description: Initial password changed successfully}
+        '401': {description: Session or temporary password invalid}
+  /workspaces/{workspaceId}/staff:
+    get:
+      operationId: listCeoEmployeeProfiles
+      description: CEO-only listing of employment, contact and protected HR data scoped to one business.
+      responses:
+        '200': {description: CEO employee profiles}
+        '403': {description: Owner authorization required}
+    post:
+      operationId: createCeoEmployeeAccount
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: CEO creates a staff identity, employment record and assigned role in the existing business; mandatory temporary password rotation.
+      responses:
+        '201': {description: Employee created in existing workspace}
+        '403': {description: CEO authorization required}
+        '409': {description: Employee identity conflicts with existing account}
+  /workspaces/{workspaceId}/staff/{employeeId}:
+    put:
+      operationId: updateCeoEmployeeProfile
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      responses:
+        '200': {description: Employee biodata and employment profile updated}
+        '403': {description: CEO authorization required}
+  /workspaces/{workspaceId}/staff/{employeeId}/reset-password:
+    post:
+      operationId: resetCeoEmployeeTemporaryPassword
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: CEO resets one non-owner employee temporary password and invalidates sessions.
+      responses:
+        '201': {description: Employee password reset and sessions revoked}
+        '403': {description: CEO authorization required}
+  /workspaces/{workspaceId}/my-employment:
+    get:
+      operationId: getOwnEmployeeSummary
+      description: Authenticated employee reads only their own non-sensitive employment details.
+      responses:
+        '200': {description: Own employment summary or null}
+        '401': {description: Sign-in required}
   /health:
     get:
       operationId: getApiHealth

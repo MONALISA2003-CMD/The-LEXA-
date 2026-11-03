@@ -31,9 +31,10 @@ export class TenantAuthorizationGuard implements CanActivate {
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const session = await this.prisma.session.findFirst({
       where: { tokenHash, expiresAt: { gt: new Date() } },
-      select: { userId: true },
+      select: { userId: true, user: { select: { mustChangePassword: true } } },
     });
     if (!session) throw new UnauthorizedException({ code: 'SESSION_EXPIRED', message: 'Your session has expired. Sign in again.' });
+    if (session.user.mustChangePassword) throw new ForbiddenException({ code: 'TEMP_PASSWORD_CHANGE_REQUIRED', message: 'Change your temporary employee password before accessing business records.' });
 
     // RLS context is request-local and every Prisma operation is executed in a
     // transaction with SET LOCAL; there is no connection-pool tenant leakage.

@@ -93,7 +93,8 @@ export default function BusinessSetupPage() {
     finally { setSaving(false); }
   }
   if (loading) return <section className="bs-shell"><div className="bs-card" role="status">Preparing your secure business setup…</div></section>;
-  if (!data || !data.isOwner) return <section className="bs-shell"><div className="bs-card"><h2>Business setup is for owners</h2><p>{error || 'Only the verified owner can configure this business.'}</p><Link to="/" className="button button-primary">Return to workspace</Link></div></section>;
+  if (!data) return <section className="bs-shell"><div className="bs-card" role="alert"><h2>Business profile unavailable</h2><p>{error || 'LEXA could not load the profile for this workspace. Your business has not been changed.'}</p><button className="button button-primary" onClick={() => window.location.reload()}>Retry loading profile</button><Link to="/workspace" className="button button-secondary">Back to My Business</Link></div></section>;
+  if (!data.isOwner) return <section className="bs-shell"><div className="bs-card"><h2>CEO access required</h2><p>Only the verified business CEO can edit this profile.</p><Link to="/workspace" className="button button-primary">Return to My Business</Link></div></section>;
   return <section className="bs-shell">
     <section className="bs-hero"><div className="bs-hero-icon"><Sparkles size={22}/></div><p className="bs-eyebrow">LEXA · BUSINESS FOUNDATIONS</p>
       <h1>{completed ? 'Your business profile' : 'Make LEXA yours.'}</h1>
@@ -143,7 +144,7 @@ export default function BusinessSetupPage() {
       </form></>}
       {step === 4 && <><div className="bs-step-title"><PackageCheck/><div><h2>Everything is connected.</h2><p>Review the details that will serve as the business-wide source of truth.</p></div></div>
       <div className="bs-review-grid"><div><Building2/><span>Business</span><strong>{data.businessName}</strong><small>{data.legalName||data.tradingName||'Business owner profile'}</small></div>
-        <div><MapPin/><span>First branch</span><strong>{data.branchName}</strong><small>{[data.city,data.district,data.country].filter(Boolean).join(', ')}</small></div>
+        <div><MapPin/><span>Internal accounting location</span><strong>{data.branchName}</strong><small>{[data.city,data.district,data.country].filter(Boolean).join(', ')}</small></div>
         <div><Store/><span>Business activity</span><strong>{data.industry.replaceAll('_',' ')}</strong><small>{data.offeringsDescription}</small></div>
         <div><CreditCard/><span>Recording methods</span><strong>{currentPaymentLabels.length} enabled</strong><small>{currentPaymentLabels.join(' · ')}</small></div></div>
       <div className="bs-notice"><ShieldCheck size={19}/><p>Owners have complete access inside this business. Other tenants stay private. Your setup is stored in Neon PostgreSQL and connected to the same tenant used by POS, stock, finance, staff and reports.</p></div>

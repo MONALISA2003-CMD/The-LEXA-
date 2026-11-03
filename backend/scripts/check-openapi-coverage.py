@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CONTROLLERS = [
     ROOT / 'backend/src/core/core.controller.ts',
     ROOT / 'backend/src/business-setup/business-setup.controller.ts',
+    ROOT / 'backend/src/staff/staff-provisioning.controller.ts',
     ROOT / 'backend/src/health/health.controller.ts',
     ROOT / 'backend/src/commerce/commerce.controller.ts',
     ROOT / 'backend/src/receivables/receivables.controller.ts',

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {ShieldCheck, Activity, AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, Box, CalendarDays, CheckCircle2, CircleDollarSign, Clock3, Sparkles, Package, RefreshCw, ShoppingBag, ShoppingCart, Users, Wallet, } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
+import StaffDashboard from './StaffDashboard';
 import { reports } from '../../data/repositories';
 import { apiDashboard } from '../../data/remote/apiDashboard';
 import { apiTeamAccess } from '../../data/remote/apiTeamAccess';
@@ -18,7 +19,7 @@ const overviewModeLabels: Record<OverviewMode, string> = { owner: 'Business owne
 function categoryForKpi(key: string): OverviewMode { const keyText = key.toLocaleLowerCase(); if (/sales|revenue|lead|opportunit|conversion|customer|crm/.test(keyText)) return 'sales'; if (/cash|receipt|receivable|payable|expense|profit|margin|budget|finance|invoice|payment|balance/.test(keyText)) return 'finance'; if (/stock|inventor|warehouse|deliver|fulfil|production|quality|movement/.test(keyText)) return 'operations'; if (/employee|staff|attendance|payroll|leave|workforce|headcount/.test(keyText)) return 'people'; return 'owner'; }
 const dateLabel = (timezone: string) => { try { return new Intl.DateTimeFormat('en-UG', { dateStyle: 'full', timeZone: timezone }).format(new Date()); } catch { return new Date().toLocaleDateString(); } };
 
-export default function DashboardPage() {
+function ExecutiveDashboardPage() {
   const { workspace, branch } = useWorkspace();
   const navigate = useNavigate();
   const [period, setPeriod] = useState<DashboardPeriod>('30d');
@@ -97,4 +98,13 @@ function KpiCard({ label, value, note, icon, accent, onClick }: { label: string;
 }
 function WorkflowCard({ title, description, icon, accent, onClick }: { title: string; description: string; icon: ReactNode; accent: string; onClick: () => void }) {
   return <button type="button" className={`overview-workflow-card overview-accent-${accent}`} onClick={onClick}><i>{icon}</i><span><strong>{title}</strong><small>{description}</small></span><ArrowRight size={15}/></button>;
+}
+
+export default function DashboardPage() {
+ const {workspace}=useWorkspace();
+ const access=useQuery({queryKey:['business-access',workspace.id],queryFn:()=>apiTeamAccess.access(workspace.id),enabled:isApiProvider});
+ if(isApiProvider&&access.isLoading)return <section className='section-card' style={{padding:24}}>Verifying your business role…</section>;
+ if(isApiProvider&&access.isError)return <section className='inline-error' role='alert'>Could not verify your role. <button className='button button-secondary' onClick={()=>void access.refetch()}>Retry</button></section>;
+ if(isApiProvider&&access.data&&!access.data.isOwner)return <StaffDashboard access={access.data}/>;
+ return <ExecutiveDashboardPage/>;
 }

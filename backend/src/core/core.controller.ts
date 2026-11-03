@@ -432,16 +432,16 @@ export class CoreController {
   @UseGuards(CsrfGuard)
   async login(@Body() raw: unknown, @Res({ passthrough: true }) reply: FastifyReply) {
     const body = asObject(raw);
-    const email = requiredString(body.email, 'Email', 254).toLowerCase();
+    const email = requiredString(body.email, 'Email or employee username', 254).toLowerCase();
     const password = requiredString(body.password, 'Password', 1024);
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findFirst({ where: { OR: [{ email }, { username: email }] } });
     if (!user || !(await this.passwordMatches(password, user.passwordHash))) {
       throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect.' });
     }
     await this.createSession(user.id, reply);
     this.prisma.enterTenantContext(undefined, user.id);
     const memberships = await this.prisma.membership.findMany({ where: { userId: user.id, status: 'ACTIVE' } });
-    return { user: { id: user.id, email: user.email, displayName: user.displayName ?? undefined }, roles: [...new Set(memberships.map((m) => m.role))] };
+    return { user: { id: user.id, email: user.email, displayName: user.displayName ?? undefined }, roles: [...new Set(memberships.map((m) => m.role))], requiresPasswordChange: user.mustChangePassword };
   }
 
   @Get('auth/session')
@@ -450,7 +450,28 @@ export class CoreController {
     return {
       user: { id: session.user.id, email: session.user.email, displayName: session.user.displayName ?? undefined },
       roles: [...new Set(session.user.memberships.map((m: any) => m.role))],
+      requiresPasswordChange: session.user.mustChangePassword,
     };
+  }
+
+  @Post('auth/change-initial-password')
+  @UseGuards(CsrfGuard)
+  async changeInitialPassword(@Body() raw: unknown, @Req() request: FastifyRequest) {
+    const body = asObject(raw);
+    const currentPassword = requiredString(body.currentPassword, 'Current password', 1024);
+    const nextPassword = requiredString(body.newPassword, 'New password', 1024);
+    if ([...nextPassword].length < 15) throw new BadRequestException('New password must be at least 15 characters.');
+    if (currentPassword === nextPassword) throw new BadRequestException('Choose a different password from the temporary one.');
+    const session = await this.sessionFor(request);
+    if (!(await this.passwordMatches(currentPassword, session.user.passwordHash))) {
+      throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Temporary password is incorrect.' });
+    }
+    const verifiedHash = await this.passwordHash(nextPassword);
+    await this.prisma.runWithTenantContext({ userId: session.user.id }, () =>
+      this.prisma.user.update({ where: { id: session.user.id }, data: {
+        passwordHash: verifiedHash, mustChangePassword: false,
+      } }));
+    return { changed: true, requiresPasswordChange: false };
   }
 
   @Post('auth/logout')
@@ -619,6 +640,7 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
+    throw new ForbiddenException({ code: 'BRANCH_CREATION_DISABLED', message: 'LEXA permits one business workspace and no additional branches. Your existing business records are unaffected.' });
     if (!isWorkspaceAdministrator(membership.role)) throw new ForbiddenException('You do not have permission to create branches.');
     const branchCount = await this.prisma.branch.count({ where: { tenantId: workspaceId } });
     if (branchCount > 0) throw new ForbiddenException({ code: 'SINGLE_BUSINESS_LOCATION', message: 'LEXA uses one business location. Add team members instead of creating branches.' });
@@ -676,7 +698,7 @@ export class CoreController {
     if (['owner', 'owner_administrator'].includes(normalizeRole(target.role))) throw new ForbiddenException('Workspace ownership cannot be changed through ordinary role management.');
     if (isWorkspaceAdministrator(target.role) && !actorIsOwner) throw new ForbiddenException('Only a workspace owner can change another administrator role.');
     const role = requiredString(body.role, 'Member role', 40).trim().toLowerCase().replace(/[\s/-]+/g, '_');
-    const allowed = new Set(['business_manager','manager','cashier','sales','sales_operator','inventory_operator','warehouse_operator','accountant','procurement_officer','hr_officer','payroll_officer','customer_service','support_agent','auditor','read_only','readonly','viewer','member']);
+    const allowed = new Set(['business_manager','manager','accountant','finance_manager','procurement_officer','hr_officer','hr_manager','payroll_officer','customer_service','support_agent','delivery_officer','production_officer','quality_officer','project_manager','employee','auditor','sales','sales_operator','cashier','inventory_operator','warehouse_operator','read_only','readonly','member','viewer']);
     if (!allowed.has(role)) throw new BadRequestException('Choose a supported workspace role.');
     if (role === 'administrator' && !actorIsOwner) throw new ForbiddenException('Only a workspace owner can assign administrator access.');
     await this.prisma.$transaction(async (tx) => {

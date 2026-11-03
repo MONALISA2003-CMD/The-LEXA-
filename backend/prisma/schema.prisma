@@ -120,6 +120,8 @@ model User {
   email              String              @unique
   displayName        String?              @map("display_name")
   passwordHash       String?              @map("password_hash")
+  username           String?              @unique
+  mustChangePassword Boolean              @default(false) @map("must_change_password")
   createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
   memberships        Membership[]

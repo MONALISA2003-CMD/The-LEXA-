@@ -14,6 +14,8 @@ import { WorkspaceContext } from '../WorkspaceContext';
 import type { Branch, Workspace } from '../../domain/shared/types';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import GlobalSearch from '../../components/GlobalSearch';
+import { isEmployeeNavigationAllowed } from '../../domain/shared/staffNavigation';
+import { apiAuth } from '../../data/remote/apiAuth';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import { resolveBusinessSelection } from '../resolveBusinessSelection';
 import { Link } from 'react-router';
@@ -32,6 +34,7 @@ const navSections = [
     { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
     { to: '/workspace', label: 'My Business', icon: Building2 },
     { to: '/team', label: 'Team & permissions', icon: Users },
+    { to: '/my-employment', label: 'My employment', icon: Users },
     { to: '/business-setup', label: 'Business profile setup', icon: Sparkles },
   ] },
   { title: 'BUSINESS REPORTS & ADVICE', items: [
@@ -176,7 +179,9 @@ export default function AppShell() {
     'PRODUCTION & QUALITY':'manufacturing.read', 'PROJECTS & SERVICE':'projects.read', 'ADMINISTRATION':'workspace.read',
   };
   const visibleNavSections = navSections.map(section => ({...section,items:section.items.filter(item => {
+    if (isApiProvider && !isOwner && !isEmployeeNavigationAllowed(accessQuery.data?.role ?? '', item.to)) return false;
     if(item.to==='/team'||item.to==='/business-setup') return isOwner;
+    if(item.to==='/my-employment') return !isOwner;
     if(item.to==='/workspace'||item.to==='/') return true;
     if(item.to==='/business-tools')return isOwner;
     if(item.to==='/intelligence')return allowed.has('intelligence.read');
@@ -272,6 +277,7 @@ export default function AppShell() {
   }, [workspace, requestedBusinessId, requestedBranchId]);
 
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
+  useEffect(() => { if (isApiProvider) { void apiAuth.getSession().then(s => { if(s.requiresPasswordChange) navigate('/change-password',{replace:true}); }).catch(() => {}); } }, [navigate]);
   useEffect(() => {
     const handleAuthRequired = () => navigate('/sign-in', { replace: true, state: { returnTo: location.pathname, connectionIssue: 'session' } });
     window.addEventListener('lexa:auth-required', handleAuthRequired);

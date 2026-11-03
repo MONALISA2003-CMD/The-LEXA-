@@ -4,6 +4,7 @@ import RouteErrorBoundary from './RouteErrorBoundary';
 import OnboardingPage from '../modules/onboarding/OnboardingPage';
 
 export const router = createBrowserRouter([
+  { path: '/change-password', lazy: async () => ({ Component: (await import('../modules/auth/ChangeInitialPasswordPage')).default }), errorElement: <RouteErrorBoundary /> },
   { path: '/sign-in', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).SignInPage }), errorElement: <RouteErrorBoundary /> },
   { path: '/create-account', lazy: async () => ({ Component: (await import('../modules/auth/SignupPage')).default }), errorElement: <RouteErrorBoundary /> },
   { path: '/verify-email', lazy: async () => ({ Component: (await import('../modules/auth/VerifyEmailPage')).default }), errorElement: <RouteErrorBoundary /> },
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
       { path: 'modules/audit', element: <Navigate to="/" replace /> },
       { path: 'modules/accounting', lazy: async () => ({ Component: (await import('../modules/operations/GeneralLedgerPanel')).default }) },
       { path: 'modules/team', element: <Navigate to="/team" replace /> },
+      { path: 'my-employment', lazy: async () => ({ Component: (await import('../modules/operations/MyEmploymentPage')).default }) },
       { path: 'team', lazy: async () => ({ Component: (await import('../modules/operations/TeamAccessPanel')).default }) },
       { path: 'modules/recurring-invoices', lazy: async () => ({ Component: (await import('../modules/operations/RecurringInvoicesPage')).default }) },
       { path: 'operations', element: <Navigate to="/" replace /> },

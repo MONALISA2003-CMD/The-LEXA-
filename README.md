@@ -118,3 +118,26 @@ backend source; do not apply it to production as a standalone manual edit.
 ## Bright Executive Blue CEO release — 3 November 2026
 
 The bright executive design polishes Overview, My Business, owner-only team administration, navigation and shared card styles. It preserves verified financial data, tenant isolation, auth, schema and migrations. See `docs/release/bright-executive-ceo-2026-11-03.md`.
+
+## CEO business control and staff onboarding (November 2026 release)
+
+The verified business membership role `owner` is displayed as CEO / Owner and
+retains all tenant-scoped operation privileges for existing and new owners.
+New public signup creates exactly one business. API-managed additional business
+creation is blocked for members, and user-created branches are disabled.
+Internal Main accounting locations are retained for existing foreign keys.
+
+Business Profile Setup now keeps owner authorization separate from profile
+network failures and scopes profile reads/writes to the signed-in tenant and CEO.
+My Business offers an explicit retry on profile failures.
+
+CEO-only Team & Permissions supports employee biodata, job details, username-only
+accounts when work email is unavailable, job-role assignment, temporary passwords
+with mandatory change on first sign-in, account suspension, profile edits and
+audited password resets that revoke existing staff sessions. Employee roles have
+curated navigation and a limited personal employment summary.
+Sensitive employee fields are tenant-scoped with forced PostgreSQL RLS.
+Compensation and statutory payroll continue to use the existing HR/Payroll
+workflows; approval limits require separate domain-specific enforcement.
+All migration changes are forward-only; do not run SQL manually in production
+before the matching backend release.
