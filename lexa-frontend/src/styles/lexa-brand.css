@@ -30,16 +30,16 @@
 
 html,body,#root{min-height:100%}body{background:var(--canvas);color:var(--text)}::selection{background:rgba(7,92,245,.18);color:var(--navy)}:focus-visible{outline:3px solid rgba(8,189,235,.72);outline-offset:3px}
 .brand-lockup{padding:0 8px 23px!important;min-height:78px}.lexa-brand-logo-frame{width:100%;height:76px;overflow:hidden;flex:1 1 auto;min-width:0;display:block;border-radius:8px;background:#06132f}.lexa-brand-logo{display:block;width:100%;height:100%;object-fit:cover;object-position:center 50%}.sidebar{background:linear-gradient(180deg,#06132f 0%,#071733 65%,#081b38 100%);border-right:1px solid rgba(138,174,230,.12)}.nav-section-title{color:#8296b9}.nav-link-active,.nav-link-active:hover{background:linear-gradient(90deg,rgba(7,92,245,.28),rgba(8,189,235,.08));border-color:rgba(8,189,235,.2);box-shadow:inset 3px 0 #08bdeb}.nav-link-active svg{color:#08bdeb}.workspace-avatar{color:#08bdeb;background:rgba(8,189,235,.13)}.status-dot{background:var(--lexa-emerald);box-shadow:0 0 0 3px rgba(0,189,131,.14)}
-.topbar{background:rgba(255,255,255,.94);border-bottom-color:#e0e8f3;backdrop-filter:blur(16px)}.topbar-title h1,.page-heading-row h2{color:var(--lexa-navy)}.eyebrow-blue{color:#075cf5}.section-card,.mini-metric{border-color:#e0e8f3;box-shadow:0 6px 24px rgba(6,19,47,.045)}.section-card-heading h3,.table-toolbar h3,.checkout-section-heading h3{color:#10264a}.button{min-height:40px;border-radius:10px;font-weight:720;transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease}.button-primary{background:linear-gradient(135deg,#075cf5,#0879f9);box-shadow:0 5px 14px rgba(7,92,245,.19)}.button-primary:hover:not(:disabled){background:linear-gradient(135deg,#064bd0,#0568df);box-shadow:0 8px 18px rgba(7,92,245,.25)}.button-secondary{border-color:#d7e2f0;color:#223856}.button-quiet:hover:not(:disabled){color:#075cf5;background:#eaf1ff}.field-label input:focus,.field-label select:focus,.field-label textarea:focus{border-color:#4d93ff;box-shadow:0 0 0 3px rgba(7,92,245,.12)}.blue-icon,.quick-blue,.metric-icon.blue-metric{color:#075cf5}.cyan-icon{color:#047fba;background:#e5f8ff}.green-icon{color:#00845d;background:#e4f8f0}.amber-icon{color:#936500;background:#fff5d5}.purple-icon,.quick-purple,.purple-metric{color:#075cf5!important;background:#eaf0ff!important}.welcome-banner{background:radial-gradient(circle at 82% 18%,rgba(8,189,235,.18),transparent 29%),linear-gradient(112deg,#06132f 0%,#0b2450 58%,#0755c8 100%)}.welcome-banner h2 span{color:#08bdeb}.welcome-kicker-dot{background:#00bd83;box-shadow:0 0 0 4px rgba(0,189,131,.14)}.local-status-banner{background:#edf5ff;border-bottom-color:#dceaff}.local-status-banner .status-dot{background:var(--lexa-emerald)}.metric-card:hover,.module-workspace-launch-grid>button:hover,.quick-actions-grid>button:hover{border-color:rgba(7,92,245,.28);box-shadow:0 8px 24px rgba(6,19,47,.09)}.status-good{background:#e2f8ef;color:#087953}.status-warning{background:#fff3ce;color:#825a00}.status-danger,.status-error{background:#ffe7e9;color:#b51b2b}.theme-toggle{color:var(--lexa-navy);background:#f6f8fc;border-color:#e0e8f3}.theme-toggle:hover{color:var(--lexa-blue);background:#eaf1ff;border-color:#c8d9f6}
+.topbar{background:rgba(255,255,255,.94);border-bottom-color:#e0e8f3;backdrop-filter:blur(16px)}.topbar-title h1,.page-heading-row h2{color:var(--lexa-navy)}.eyebrow-blue{color:#075cf5}.section-card,.mini-metric{border-color:#e0e8f3;box-shadow:0 6px 24px rgba(6,19,47,.045)}.section-card-heading h3,.table-toolbar h3,.checkout-section-heading h3{color:#10264a}.button{min-height:40px;border-radius:10px;font-weight:720;transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease}.button-primary{background:linear-gradient(135deg,#075cf5,#0879f9);box-shadow:0 5px 14px rgba(7,92,245,.19)}.button-primary:hover:not(:disabled){background:linear-gradient(135deg,#064bd0,#0568df);box-shadow:0 8px 18px rgba(7,92,245,.25)}.button-secondary{border-color:#d7e2f0;color:#223856}.button-quiet:hover:not(:disabled){color:#075cf5;background:#eaf1ff}.field-label input:focus,.field-label select:focus,.field-label textarea:focus{border-color:#4d93ff;box-shadow:0 0 0 3px rgba(7,92,245,.12)}.blue-icon,.quick-blue,.metric-icon.blue-metric{color:#075cf5}.cyan-icon{color:#047fba;background:#e5f8ff}.green-icon{color:#00845d;background:#e4f8f0}.amber-icon{color:#936500;background:#fff5d5}.purple-icon,.quick-purple,.purple-metric{color:#075cf5!important;background:#eaf0ff!important}.welcome-banner{background:radial-gradient(circle at 82% 18%,rgba(8,189,235,.18),transparent 29%),linear-gradient(112deg,#06132f 0%,#0b2450 58%,#0755c8 100%)}.welcome-banner h2 span{color:#08bdeb}.welcome-kicker-dot{background:#00bd83;box-shadow:0 0 0 4px rgba(0,189,131,.14)}.local-status-banner{background:#edf5ff;border-bottom-color:#dceaff}.local-status-banner .status-dot{background:var(--lexa-emerald)}.metric-card:hover,.phase-two-launch-grid>button:hover,.quick-actions-grid>button:hover{border-color:rgba(7,92,245,.28);box-shadow:0 8px 24px rgba(6,19,47,.09)}.status-good{background:#e2f8ef;color:#087953}.status-warning{background:#fff3ce;color:#825a00}.status-danger,.status-error{background:#ffe7e9;color:#b51b2b}.theme-toggle{color:var(--lexa-navy);background:#f6f8fc;border-color:#e0e8f3}.theme-toggle:hover{color:var(--lexa-blue);background:#eaf1ff;border-color:#c8d9f6}
 /* Persisted, optional dark mode. */
-:root[data-theme=dark]{color-scheme:dark;--text:#edf4ff;--muted:#a6b7d0;--line:#263b5d;--canvas:#06132f;--surface:#0c1d3a;--shadow:0 8px 28px rgba(0,0,0,.18)}:root[data-theme=dark] body,:root[data-theme=dark] .main-panel{background:#06132f;color:#edf4ff}:root[data-theme=dark] .topbar{color:#edf4ff;background:rgba(8,24,51,.94);border-color:#263b5d}:root[data-theme=dark] .topbar-title h1,:root[data-theme=dark] .page-heading-row h2,:root[data-theme=dark] .section-card-heading h3,:root[data-theme=dark] .table-toolbar h3,:root[data-theme=dark] .checkout-section-heading h3,:root[data-theme=dark] .mini-metric strong,:root[data-theme=dark] .metric-card strong,:root[data-theme=dark] .product-cell strong,:root[data-theme=dark] .amount-cell,:root[data-theme=dark] .data-table tfoot td{color:#edf4ff!important}:root[data-theme=dark] .section-card,:root[data-theme=dark] .mini-metric,:root[data-theme=dark] .metric-card,:root[data-theme=dark] .operational-panel,:root[data-theme=dark] .module-workspace-launch-card,:root[data-theme=dark] .quick-actions-card,:root[data-theme=dark] .data-integrity-card,:root[data-theme=dark] .receipt-summary,:root[data-theme=dark] .soft-badge{background:#0c1d3a;border-color:#263b5d;color:#dbe8fb;box-shadow:none}:root[data-theme=dark] .page-heading-row p,:root[data-theme=dark] .section-card-heading p,:root[data-theme=dark] .table-toolbar p,:root[data-theme=dark] .checkout-section-heading p,:root[data-theme=dark] .mini-metric span,:root[data-theme=dark] .mini-metric small,:root[data-theme=dark] .muted-text,:root[data-theme=dark] .muted-count{color:#9bb0ce!important}:root[data-theme=dark] .button-secondary,:root[data-theme=dark] .button-quiet,:root[data-theme=dark] .icon-button,:root[data-theme=dark] .select-wrap,:root[data-theme=dark] .search-field,:root[data-theme=dark] .soft-badge{background:#102647;color:#e3eeff;border-color:#2c4669}:root[data-theme=dark] .button-secondary:hover:not(:disabled),:root[data-theme=dark] .icon-button:hover{background:#183457;border-color:#3d6496;color:#fff}:root[data-theme=dark] .field-label{color:#c6d6ed}:root[data-theme=dark] .field-label input,:root[data-theme=dark] .field-label select,:root[data-theme=dark] .field-label textarea,:root[data-theme=dark] input,:root[data-theme=dark] select,:root[data-theme=dark] textarea{background-color:#0b1b36;color:#edf4ff;border-color:#2c4669}:root[data-theme=dark] option{background:#0b1b36;color:#edf4ff}:root[data-theme=dark] .data-table thead th,:root[data-theme=dark] .data-table tfoot td{background:#102647;border-color:#263b5d}:root[data-theme=dark] .data-table tbody td{color:#c5d5ed;border-color:#1c3151}:root[data-theme=dark] .data-table tbody tr:hover{background:#11294a}:root[data-theme=dark] .product-avatar,:root[data-theme=dark] .empty-icon,:root[data-theme=dark] .heading-icon{background-color:#142e53;color:#8bc3ff}:root[data-theme=dark] .local-status-banner{background:#0d2342;border-color:#263b5d;color:#b8cae4}:root[data-theme=dark] .local-status-banner strong{color:#eff6ff}:root[data-theme=dark] .local-status-banner button,:root[data-theme=dark] .text-link{color:#8bc3ff}:root[data-theme=dark] .app-footer{border-color:#263b5d;color:#8298b7}:root[data-theme=dark] .form-info{background:#0c2342;border-color:#24466e}:root[data-theme=dark] .form-info p{color:#b7cbe6}:root[data-theme=dark] .checkbox-field{background:#0c1d3a;border-color:#263b5d}:root[data-theme=dark] .checkbox-field strong{color:#dbe8fb}:root[data-theme=dark] .checkbox-field small{color:#9bb0ce}:root[data-theme=dark] .status-good{background:#103c37;color:#78e4ba}:root[data-theme=dark] .status-warning{background:#423719;color:#ffe08a}:root[data-theme=dark] .status-danger,:root[data-theme=dark] .status-error{background:#451f31;color:#ffadb4}:root[data-theme=dark] .theme-toggle{background:#132b4b;border-color:#365276;color:#f5c84b}:root[data-theme=dark] .welcome-banner{border:1px solid rgba(110,163,255,.2)}:root[data-theme=dark] .local-disclaimer{background:#0d2342;border-color:#263b5d}:root[data-theme=dark] .local-disclaimer strong{color:#e3eeff}
+:root[data-theme=dark]{color-scheme:dark;--text:#edf4ff;--muted:#a6b7d0;--line:#263b5d;--canvas:#06132f;--surface:#0c1d3a;--shadow:0 8px 28px rgba(0,0,0,.18)}:root[data-theme=dark] body,:root[data-theme=dark] .main-panel{background:#06132f;color:#edf4ff}:root[data-theme=dark] .topbar{color:#edf4ff;background:rgba(8,24,51,.94);border-color:#263b5d}:root[data-theme=dark] .topbar-title h1,:root[data-theme=dark] .page-heading-row h2,:root[data-theme=dark] .section-card-heading h3,:root[data-theme=dark] .table-toolbar h3,:root[data-theme=dark] .checkout-section-heading h3,:root[data-theme=dark] .mini-metric strong,:root[data-theme=dark] .metric-card strong,:root[data-theme=dark] .product-cell strong,:root[data-theme=dark] .amount-cell,:root[data-theme=dark] .data-table tfoot td{color:#edf4ff!important}:root[data-theme=dark] .section-card,:root[data-theme=dark] .mini-metric,:root[data-theme=dark] .metric-card,:root[data-theme=dark] .operational-panel,:root[data-theme=dark] .phase-two-launch-card,:root[data-theme=dark] .quick-actions-card,:root[data-theme=dark] .data-integrity-card,:root[data-theme=dark] .receipt-summary,:root[data-theme=dark] .soft-badge{background:#0c1d3a;border-color:#263b5d;color:#dbe8fb;box-shadow:none}:root[data-theme=dark] .page-heading-row p,:root[data-theme=dark] .section-card-heading p,:root[data-theme=dark] .table-toolbar p,:root[data-theme=dark] .checkout-section-heading p,:root[data-theme=dark] .mini-metric span,:root[data-theme=dark] .mini-metric small,:root[data-theme=dark] .muted-text,:root[data-theme=dark] .muted-count{color:#9bb0ce!important}:root[data-theme=dark] .button-secondary,:root[data-theme=dark] .button-quiet,:root[data-theme=dark] .icon-button,:root[data-theme=dark] .select-wrap,:root[data-theme=dark] .search-field,:root[data-theme=dark] .soft-badge{background:#102647;color:#e3eeff;border-color:#2c4669}:root[data-theme=dark] .button-secondary:hover:not(:disabled),:root[data-theme=dark] .icon-button:hover{background:#183457;border-color:#3d6496;color:#fff}:root[data-theme=dark] .field-label{color:#c6d6ed}:root[data-theme=dark] .field-label input,:root[data-theme=dark] .field-label select,:root[data-theme=dark] .field-label textarea,:root[data-theme=dark] input,:root[data-theme=dark] select,:root[data-theme=dark] textarea{background-color:#0b1b36;color:#edf4ff;border-color:#2c4669}:root[data-theme=dark] option{background:#0b1b36;color:#edf4ff}:root[data-theme=dark] .data-table thead th,:root[data-theme=dark] .data-table tfoot td{background:#102647;border-color:#263b5d}:root[data-theme=dark] .data-table tbody td{color:#c5d5ed;border-color:#1c3151}:root[data-theme=dark] .data-table tbody tr:hover{background:#11294a}:root[data-theme=dark] .product-avatar,:root[data-theme=dark] .empty-icon,:root[data-theme=dark] .heading-icon{background-color:#142e53;color:#8bc3ff}:root[data-theme=dark] .local-status-banner{background:#0d2342;border-color:#263b5d;color:#b8cae4}:root[data-theme=dark] .local-status-banner strong{color:#eff6ff}:root[data-theme=dark] .local-status-banner button,:root[data-theme=dark] .text-link{color:#8bc3ff}:root[data-theme=dark] .app-footer{border-color:#263b5d;color:#8298b7}:root[data-theme=dark] .form-info{background:#0c2342;border-color:#24466e}:root[data-theme=dark] .form-info p{color:#b7cbe6}:root[data-theme=dark] .checkbox-field{background:#0c1d3a;border-color:#263b5d}:root[data-theme=dark] .checkbox-field strong{color:#dbe8fb}:root[data-theme=dark] .checkbox-field small{color:#9bb0ce}:root[data-theme=dark] .status-good{background:#103c37;color:#78e4ba}:root[data-theme=dark] .status-warning{background:#423719;color:#ffe08a}:root[data-theme=dark] .status-danger,:root[data-theme=dark] .status-error{background:#451f31;color:#ffadb4}:root[data-theme=dark] .theme-toggle{background:#132b4b;border-color:#365276;color:#f5c84b}:root[data-theme=dark] .welcome-banner{border:1px solid rgba(110,163,255,.2)}:root[data-theme=dark] .local-disclaimer{background:#0d2342;border-color:#263b5d}:root[data-theme=dark] .local-disclaimer strong{color:#e3eeff}
 @media(max-width:760px){.brand-lockup{padding-right:28px!important}.lexa-brand-logo-frame{height:64px}.topbar{padding:12px 15px;gap:9px}.topbar-actions{gap:5px}.topbar-title h1{font-size:17px}.theme-toggle{width:34px;height:34px}.page-content{padding:18px 13px 20px}.local-status-banner{padding:9px 13px;align-items:flex-start}.local-status-banner button{white-space:normal}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
 /* merged former authority styles */
 /*
  * LEXA brand authority layer
- * Loaded after the base and module-workspace stylesheets so the logo palette is
+ * Loaded after the base and phase-two stylesheets so the logo palette is
  * the shared source of truth across every route and module.
  */
 
@@ -81,7 +81,7 @@ html,body,#root{min-height:100%}body{background:var(--canvas);color:var(--text)}
   box-shadow: 0 6px 15px rgba(7, 92, 245, .2);
 }
 
-/* Module workspaces use the shared accent system. */
+/* Phase-two screens: bring their hard-coded accents into the same system. */
 .module-preview-badge {
   color: #244a83;
   border-color: #d4e2fb;
@@ -99,19 +99,19 @@ html,body,#root{min-height:100%}body{background:var(--canvas);color:var(--text)}
 }
 .module-workflow-strip strong { color: #244a83; }
 .module-workflow-strip p { color: #647b9b; }
-.module-workspace-search:focus-within,
-.record-filter-select:focus-within,
-.record-date-filter:focus-within {
+.phase-two-search:focus-within,
+.phase-filter-select:focus-within,
+.phase-date-filter:focus-within {
   border-color: #78a9ff;
   box-shadow: 0 0 0 3px rgba(7, 92, 245, .1);
 }
-.record-clear-filters,
-.record-row-actions .icon-button:hover,
-.module-workspace-help-row a,
-.module-workspace-help-row svg {
+.phase-clear-filters,
+.phase-row-actions .icon-button:hover,
+.phase-two-help-row a,
+.phase-two-help-row svg {
   color: var(--lexa-blue);
 }
-.module-workspace-directory-toolbar .module-workspace-search:focus-within {
+.phase-two-directory-toolbar .phase-two-search:focus-within {
   border-color: #78a9ff;
 }
 .module-directory-card:hover {
@@ -125,15 +125,15 @@ html,body,#root{min-height:100%}body{background:var(--canvas);color:var(--text)}
 }
 .module-directory-arrow { color: #7188aa; }
 .module-directory-card:hover .module-directory-arrow { color: var(--lexa-cyan); }
-.record-calculated-panel {
+.phase-calculated-panel {
   border-color: #d9e7ff;
   background: #f4f8ff;
 }
-.record-calculated-title { color: #244a83; }
-.record-pagination select:focus-visible,
-.record-field input:focus-visible,
-.record-field select:focus-visible,
-.record-field textarea:focus-visible {
+.phase-calculated-title { color: #244a83; }
+.phase-pagination select:focus-visible,
+.phase-field input:focus-visible,
+.phase-field select:focus-visible,
+.phase-field textarea:focus-visible {
   outline-color: rgba(8, 189, 235, .78);
 }
 
@@ -160,13 +160,13 @@ a:not(.nav-link):hover { color: var(--lexa-blue); }
 :root[data-theme='dark'] .brand-lockup::before { background-color: var(--lexa-navy); }
 :root[data-theme='dark'] .module-preview-badge,
 :root[data-theme='dark'] .module-workflow-strip,
-:root[data-theme='dark'] .record-calculated-panel {
+:root[data-theme='dark'] .phase-calculated-panel {
   background: #0d2342;
   border-color: #263b5d;
   color: #b9cce7;
 }
 :root[data-theme='dark'] .module-workflow-strip strong,
-:root[data-theme='dark'] .record-calculated-title { color: #d9e8ff; }
+:root[data-theme='dark'] .phase-calculated-title { color: #d9e8ff; }
 :root[data-theme='dark'] .module-workflow-icon,
 :root[data-theme='dark'] .module-directory-icon,
 :root[data-theme='dark'] .module-icon-preview,
@@ -193,11 +193,11 @@ body{background:var(--color-bg-canvas);color:var(--color-text-primary)}:focus-vi
 button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allowed}button:disabled{color:var(--color-disabled-text);background:var(--color-disabled-bg);border-color:var(--color-disabled-border);box-shadow:none}
 .button-primary{color:var(--color-on-primary);background:var(--color-primary);border-color:var(--color-primary)}.button-primary:hover:not(:disabled){color:var(--color-on-primary);background:var(--color-primary-hover);border-color:var(--color-primary-hover)}
 .button-secondary{color:var(--color-text-primary);background:var(--color-surface);border-color:var(--color-border-control)}.button-quiet{color:var(--color-text-secondary);background:var(--color-surface-muted);border-color:var(--color-border)}.button-danger-soft{color:var(--color-danger);background:var(--color-danger-soft);border-color:var(--color-danger-border)}
-.section-card,.mini-metric,.metric-card,.operational-panel,.table-card,.module-workspace-launch-card,.quick-actions-card,.data-integrity-card,.receipt-summary,.record-modal{background:var(--color-surface);border-color:var(--color-border);color:var(--color-text-primary)}
-.section-card-heading h3,.table-toolbar h3,.checkout-section-heading h3,.module-workspace-launch-heading h3,.dashboard-section-title h3{color:var(--color-text-primary)}.section-card-heading p,.table-toolbar p,.checkout-section-heading p,.page-heading-row p,.dashboard-section-title p{color:var(--color-text-secondary)}
-.field-label,.record-field{color:var(--color-text-secondary)}.field-label input,.field-label select,.field-label textarea,.record-field input,.record-field select,.record-field textarea,.search-field,.module-workspace-search,.record-filter-select,.record-date-filter{color:var(--color-text-primary);background:var(--color-surface);border-color:var(--color-border-control)}
-.field-label input:focus,.field-label select:focus,.field-label textarea:focus,.record-field input:focus-visible,.record-field select:focus-visible,.record-field textarea:focus-visible,.search-field:focus-within,.module-workspace-search:focus-within,.record-filter-select:focus-within,.record-date-filter:focus-within{border-color:var(--color-focus);box-shadow:0 0 0 3px var(--color-focus-ring);outline-color:var(--color-focus)}
-.field-label input:disabled,.field-label select:disabled,.field-label textarea:disabled,.record-field input:disabled,.record-field select:disabled,.record-field textarea:disabled{color:var(--color-disabled-text);background:var(--color-disabled-bg);border-color:var(--color-disabled-border)}input::placeholder,textarea::placeholder{color:var(--color-text-muted);opacity:1}
+.section-card,.mini-metric,.metric-card,.operational-panel,.table-card,.phase-two-launch-card,.quick-actions-card,.data-integrity-card,.receipt-summary,.phase-modal{background:var(--color-surface);border-color:var(--color-border);color:var(--color-text-primary)}
+.section-card-heading h3,.table-toolbar h3,.checkout-section-heading h3,.phase-two-launch-heading h3,.dashboard-section-title h3{color:var(--color-text-primary)}.section-card-heading p,.table-toolbar p,.checkout-section-heading p,.page-heading-row p,.dashboard-section-title p{color:var(--color-text-secondary)}
+.field-label,.phase-field{color:var(--color-text-secondary)}.field-label input,.field-label select,.field-label textarea,.phase-field input,.phase-field select,.phase-field textarea,.search-field,.phase-two-search,.phase-filter-select,.phase-date-filter{color:var(--color-text-primary);background:var(--color-surface);border-color:var(--color-border-control)}
+.field-label input:focus,.field-label select:focus,.field-label textarea:focus,.phase-field input:focus-visible,.phase-field select:focus-visible,.phase-field textarea:focus-visible,.search-field:focus-within,.phase-two-search:focus-within,.phase-filter-select:focus-within,.phase-date-filter:focus-within{border-color:var(--color-focus);box-shadow:0 0 0 3px var(--color-focus-ring);outline-color:var(--color-focus)}
+.field-label input:disabled,.field-label select:disabled,.field-label textarea:disabled,.phase-field input:disabled,.phase-field select:disabled,.phase-field textarea:disabled{color:var(--color-disabled-text);background:var(--color-disabled-bg);border-color:var(--color-disabled-border)}input::placeholder,textarea::placeholder{color:var(--color-text-muted);opacity:1}
 .data-table thead th{color:var(--color-text-secondary);background:var(--color-surface-muted);border-color:var(--color-border)}.data-table tbody td{color:var(--color-text-secondary);border-color:var(--color-border)}.data-table tbody tr:hover{background:var(--color-primary-soft)}.data-table tfoot td{color:var(--color-text-primary);background:var(--color-surface-muted);border-color:var(--color-border)}
 .product-cell strong,.amount-cell,.stock-number{color:var(--color-text-primary)!important}.empty-state h3{color:var(--color-text-primary)}.empty-state p,.loading-state{color:var(--color-text-secondary)}
 .status-good,.module-state-existing{color:var(--color-success);background:var(--color-success-soft);border-color:var(--color-success-border)}.status-warning{color:var(--color-warning);background:var(--color-warning-soft);border-color:var(--color-warning-border)}.status-danger,.status-error{color:var(--color-danger);background:var(--color-danger-soft);border-color:var(--color-danger-border)}.status-info,.module-state-preview{color:var(--color-info);background:var(--color-info-soft);border-color:var(--color-info-border)}.status-muted{color:var(--color-text-secondary);background:var(--color-surface-muted);border-color:var(--color-border)}
@@ -220,12 +220,12 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 .module-group[data-module-accent] .module-group-heading>span:first-child{color:var(--module-accent-strong)}.module-group[data-module-accent] .module-group-heading>span:first-child::before{content:"";display:inline-block;width:6px;height:6px;margin:0 7px 1px 0;border-radius:50%;background:var(--module-accent)}
 .module-directory-card[data-module-accent]{border-left:3px solid var(--module-accent-soft)}.module-directory-card[data-module-accent]:hover{border-color:var(--module-accent-border);border-left-color:var(--module-accent);box-shadow:0 9px 25px rgba(6,19,47,.09)}
 .module-directory-card[data-module-accent] .module-directory-icon,.quick-action-icon[data-module-accent],.metric-icon[data-module-accent]{color:var(--module-accent-strong);background:var(--module-accent-soft)}.module-directory-card[data-module-accent] .module-directory-arrow{color:var(--module-accent-strong)}.quick-action-icon[data-module-accent]{border:1px solid var(--module-accent-border)}
-.page-stack[data-module-accent]>.page-heading-row .eyebrow-blue{color:var(--module-accent-strong)}.page-stack[data-module-accent]>.page-heading-row h2{text-decoration:underline;text-decoration-color:var(--module-accent);text-decoration-thickness:2px;text-underline-offset:6px}.module-workspace-page[data-module-accent] .module-workspace-heading .eyebrow-blue{color:var(--module-accent-strong)}.module-workspace-page[data-module-accent] .module-workflow-strip{border-left:3px solid var(--module-accent)}.module-workspace-page[data-module-accent] .module-workflow-icon{color:var(--module-accent-strong);background:var(--module-accent-soft);border-color:var(--module-accent-border)}.module-workspace-page[data-module-accent] .record-calculated-panel{border-color:var(--module-accent-border)}
+.page-stack[data-module-accent]>.page-heading-row .eyebrow-blue{color:var(--module-accent-strong)}.page-stack[data-module-accent]>.page-heading-row h2{text-decoration:underline;text-decoration-color:var(--module-accent);text-decoration-thickness:2px;text-underline-offset:6px}.phase-two-page[data-module-accent] .phase-two-heading .eyebrow-blue{color:var(--module-accent-strong)}.phase-two-page[data-module-accent] .module-workflow-strip{border-left:3px solid var(--module-accent)}.phase-two-page[data-module-accent] .module-workflow-icon{color:var(--module-accent-strong);background:var(--module-accent-soft);border-color:var(--module-accent-border)}.phase-two-page[data-module-accent] .phase-calculated-panel{border-color:var(--module-accent-border)}
 :root[data-theme=dark] body,:root[data-theme=dark] .main-panel{background:var(--color-bg-canvas);color:var(--color-text-primary)}:root[data-theme=dark] .topbar{background:rgba(8,24,51,.94);color:var(--color-text-primary);border-color:var(--color-border)}:root[data-theme=dark] .topbar-title h1,:root[data-theme=dark] .page-heading-row h2{color:var(--color-text-primary)!important}
-:root[data-theme=dark] .section-card,:root[data-theme=dark] .mini-metric,:root[data-theme=dark] .metric-card,:root[data-theme=dark] .operational-panel,:root[data-theme=dark] .module-workspace-launch-card,:root[data-theme=dark] .quick-actions-card,:root[data-theme=dark] .data-integrity-card,:root[data-theme=dark] .receipt-summary,:root[data-theme=dark] .module-directory-card,:root[data-theme=dark] .record-modal{background:var(--color-surface);border-color:var(--color-border);color:var(--color-text-primary);box-shadow:none}
+:root[data-theme=dark] .section-card,:root[data-theme=dark] .mini-metric,:root[data-theme=dark] .metric-card,:root[data-theme=dark] .operational-panel,:root[data-theme=dark] .phase-two-launch-card,:root[data-theme=dark] .quick-actions-card,:root[data-theme=dark] .data-integrity-card,:root[data-theme=dark] .receipt-summary,:root[data-theme=dark] .module-directory-card,:root[data-theme=dark] .phase-modal{background:var(--color-surface);border-color:var(--color-border);color:var(--color-text-primary);box-shadow:none}
 :root[data-theme=dark] .page-heading-row p,:root[data-theme=dark] .section-card-heading p,:root[data-theme=dark] .table-toolbar p,:root[data-theme=dark] .checkout-section-heading p,:root[data-theme=dark] .module-directory-copy small{color:var(--color-text-secondary)!important}:root[data-theme=dark] input,:root[data-theme=dark] select,:root[data-theme=dark] textarea{background:var(--color-surface-muted);color:var(--color-text-primary);border-color:var(--color-border-control)}:root[data-theme=dark] option{background:var(--color-surface-muted);color:var(--color-text-primary)}
 @media(max-width:760px){.topbar{padding:12px 15px;gap:9px}.topbar-actions{gap:5px}.topbar-title h1{font-size:17px}.theme-toggle{width:34px;height:34px}.page-content{padding:18px 13px 20px}.local-status-banner{padding:9px 13px;align-items:flex-start}.local-status-banner button{white-space:normal}}
-@media(max-width:640px){.module-directory-grid{grid-template-columns:1fr}.module-directory-card{min-height:108px}.module-workspace-launch-grid{grid-template-columns:1fr}}
+@media(max-width:640px){.module-directory-grid{grid-template-columns:1fr}.module-directory-card{min-height:108px}.phase-two-launch-grid{grid-template-columns:1fr}}
 /* Full lockup: preserve every logo letter and the gold tagline. */
 .brand-lockup{position:relative;display:flex;align-items:center;justify-content:center;min-height:112px;padding:0 8px 16px!important;gap:0}
 .brand-lockup::before{content:none!important;display:none!important}
@@ -237,8 +237,8 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 .topbar{background:color-mix(in srgb,var(--color-surface) 94%,transparent);border-color:var(--color-border)}
 .topbar-title h1,.page-heading-row h2,.section-card-heading h3,.table-toolbar h3,.checkout-section-heading h3,.dashboard-section-title h3{color:var(--color-text-primary)}
 .page-heading-row p,.section-card-heading p,.table-toolbar p,.checkout-section-heading p,.muted-text,.muted-count{color:var(--color-text-secondary)}
-.section-card,.mini-metric,.metric-card,.operational-panel,.table-card,.module-workspace-launch-card,.quick-actions-card,.data-integrity-card,.receipt-summary,.record-modal,.module-directory-card{background:var(--color-surface);border-color:var(--color-border);color:var(--color-text-primary)}
-.field-label input,.field-label select,.field-label textarea,.record-field input,.record-field select,.record-field textarea,.search-field,.module-workspace-search,.record-filter-select,.record-date-filter{background:var(--color-surface);color:var(--color-text-primary);border-color:var(--color-border-control)}
+.section-card,.mini-metric,.metric-card,.operational-panel,.table-card,.phase-two-launch-card,.quick-actions-card,.data-integrity-card,.receipt-summary,.phase-modal,.module-directory-card{background:var(--color-surface);border-color:var(--color-border);color:var(--color-text-primary)}
+.field-label input,.field-label select,.field-label textarea,.phase-field input,.phase-field select,.phase-field textarea,.search-field,.phase-two-search,.phase-filter-select,.phase-date-filter{background:var(--color-surface);color:var(--color-text-primary);border-color:var(--color-border-control)}
 .button-primary{color:var(--color-on-primary);background:var(--color-primary);border-color:var(--color-primary)}
 .button-primary:hover:not(:disabled){color:var(--color-on-primary);background:var(--color-primary-hover);border-color:var(--color-primary-hover)}
 .button-secondary{background:var(--color-surface);color:var(--color-text-primary);border-color:var(--color-border-control)}
@@ -277,10 +277,10 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 .page-stack[data-module-accent] { accent-color: var(--module-accent); }
 .page-stack[data-module-accent] > .page-heading-row .eyebrow-blue,
 .page-stack[data-module-accent] .module-heading .eyebrow-blue,
-.page-stack[data-module-accent] .module-workspace-heading .eyebrow-blue { color: var(--module-accent-strong); }
+.page-stack[data-module-accent] .phase-two-heading .eyebrow-blue { color: var(--module-accent-strong); }
 .page-stack[data-module-accent] > .page-heading-row h2,
 .page-stack[data-module-accent] .module-heading h2,
-.page-stack[data-module-accent] .module-workspace-heading h2 {
+.page-stack[data-module-accent] .phase-two-heading h2 {
   text-decoration-color: var(--module-accent);
   text-decoration-thickness: 2px;
   text-underline-offset: 6px;
@@ -302,14 +302,14 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
   background: var(--module-accent-soft);
 }
 .page-stack[data-module-accent] .module-preview-badge > span { background: var(--module-accent); }
-.module-workspace-page[data-module-accent] .module-workflow-strip {
+.phase-two-page[data-module-accent] .module-workflow-strip {
   border-color: var(--module-accent-border);
   border-left: 3px solid var(--module-accent);
   background: var(--module-accent-soft);
 }
-.module-workspace-page[data-module-accent] .module-workflow-strip strong { color: var(--module-accent-strong); }
-.module-workspace-page[data-module-accent] .module-workflow-strip p { color: var(--color-text-secondary); }
-.module-workspace-page[data-module-accent] .record-calculated-panel {
+.phase-two-page[data-module-accent] .module-workflow-strip strong { color: var(--module-accent-strong); }
+.phase-two-page[data-module-accent] .module-workflow-strip p { color: var(--color-text-secondary); }
+.phase-two-page[data-module-accent] .phase-calculated-panel {
   border-color: var(--module-accent-border);
   background: var(--module-accent-soft);
 }
@@ -322,10 +322,10 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 .page-stack[data-module-accent] .metric-strip > .mini-metric:hover {
   border-top-color: var(--module-accent);
 }
-.page-stack[data-module-accent] .module-workspace-table-card,
-.page-stack[data-module-accent] .module-workspace-launch-card,
-.page-stack[data-module-accent] .report-section-chart,
-.page-stack[data-module-accent] .report-section-questions {
+.page-stack[data-module-accent] .phase-two-table-card,
+.page-stack[data-module-accent] .phase-two-launch-card,
+.page-stack[data-module-accent] .phase-report-chart,
+.page-stack[data-module-accent] .phase-report-questions {
   border-top-color: var(--module-accent-border);
 }
 
@@ -333,18 +333,18 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
    read, without changing the meaning or colour of status pills. */
 .page-stack[data-module-accent] .data-table thead th,
 .page-stack[data-module-accent] .data-table tfoot td,
-.page-stack[data-module-accent] .module-workspace-table th {
+.page-stack[data-module-accent] .phase-two-table th {
   color: var(--module-accent-strong);
   background-color: var(--module-accent-soft);
   border-color: var(--module-accent-border);
 }
 .page-stack[data-module-accent] .data-table tbody tr:hover,
-.page-stack[data-module-accent] .module-workspace-table tbody tr:hover {
+.page-stack[data-module-accent] .phase-two-table tbody tr:hover {
   background: var(--module-accent-wash);
 }
-.page-stack[data-module-accent] .module-workspace-table-wrap { border-top-color: var(--module-accent-border); }
-.page-stack[data-module-accent] .module-workspace-table-footer { border-top-color: var(--module-accent-border); }
-.page-stack[data-module-accent] .record-row-actions .icon-button:hover,
+.page-stack[data-module-accent] .phase-two-table-wrap { border-top-color: var(--module-accent-border); }
+.page-stack[data-module-accent] .phase-two-table-footer { border-top-color: var(--module-accent-border); }
+.page-stack[data-module-accent] .phase-row-actions .icon-button:hover,
 .page-stack[data-module-accent] .data-table .table-action:hover {
   color: var(--module-accent-strong);
   background: var(--module-accent-soft);
@@ -353,15 +353,15 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 
 /* Filters use the module colour for their affordance, but retain LEXA's cyan
    focus ring so keyboard focus has the same meaning in every module. */
-.page-stack[data-module-accent] .module-workspace-search > svg,
-.page-stack[data-module-accent] .record-filter-select > svg,
-.page-stack[data-module-accent] .record-date-filter > svg,
-.page-stack[data-module-accent] .record-clear-filters,
-.page-stack[data-module-accent] .report-section-link > svg,
+.page-stack[data-module-accent] .phase-two-search > svg,
+.page-stack[data-module-accent] .phase-filter-select > svg,
+.page-stack[data-module-accent] .phase-date-filter > svg,
+.page-stack[data-module-accent] .phase-clear-filters,
+.page-stack[data-module-accent] .phase-report-link > svg,
 .page-stack[data-module-accent] .metric-card-link {
   color: var(--module-accent-strong);
 }
-.page-stack[data-module-accent] .module-workspace-search:focus-within,
+.page-stack[data-module-accent] .phase-two-search:focus-within,
 .page-stack[data-module-accent] .search-field:focus-within,
 .page-stack[data-module-accent] .field-label input:focus,
 .page-stack[data-module-accent] .field-label select:focus,
@@ -369,15 +369,15 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
   border-color: var(--color-focus);
   box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
-.page-stack[data-module-accent] .module-workspace-launch-grid > button:hover {
+.page-stack[data-module-accent] .phase-two-launch-grid > button:hover {
   border-color: var(--module-accent-border);
   background: var(--module-accent-soft);
 }
-.page-stack[data-module-accent] .report-section-link:hover { background: var(--module-accent-wash); }
+.page-stack[data-module-accent] .phase-report-link:hover { background: var(--module-accent-wash); }
 
 /* Reports deliberately combine the LEXA primary blue with the report accent
    (gold) so charts carry both the data and insight identities. */
-.page-stack[data-module-accent=gold] .record-bar-track > span {
+.page-stack[data-module-accent=gold] .phase-bar-track > span {
   background: linear-gradient(90deg, var(--lexa-blue), var(--module-accent));
 }
 
@@ -416,7 +416,7 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 }
 .main-panel[data-module-accent] .page-content .page-stack > .page-heading-row .eyebrow-blue,
 .main-panel[data-module-accent] .page-content .page-stack .module-heading .eyebrow-blue,
-.main-panel[data-module-accent] .page-content .page-stack .module-workspace-heading .eyebrow-blue {
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-heading .eyebrow-blue {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -430,7 +430,7 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 }
 .main-panel[data-module-accent] .page-content .page-stack > .page-heading-row .eyebrow-blue::before,
 .main-panel[data-module-accent] .page-content .page-stack .module-heading .eyebrow-blue::before,
-.main-panel[data-module-accent] .page-content .page-stack .module-workspace-heading .eyebrow-blue::before {
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-heading .eyebrow-blue::before {
   content: "";
   width: 6px;
   height: 6px;
@@ -441,7 +441,7 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 }
 .main-panel[data-module-accent] .page-content .page-stack > .page-heading-row h2,
 .main-panel[data-module-accent] .page-content .page-stack .module-heading h2,
-.main-panel[data-module-accent] .page-content .page-stack .module-workspace-heading h2 {
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-heading h2 {
   text-decoration: none;
   color: var(--module-accent-strong, var(--lexa-navy-2));
   letter-spacing: -.045em;
@@ -455,9 +455,9 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 .main-panel[data-module-accent] .page-content .page-stack > .section-card,
 .main-panel[data-module-accent] .page-content .page-stack > .operational-panel,
 .main-panel[data-module-accent] .page-content .page-stack > .table-card,
-.main-panel[data-module-accent] .page-content .page-stack .module-workspace-table-card,
-.main-panel[data-module-accent] .page-content .page-stack .report-section-chart,
-.main-panel[data-module-accent] .page-content .page-stack .report-section-questions,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-table-card,
+.main-panel[data-module-accent] .page-content .page-stack .phase-report-chart,
+.main-panel[data-module-accent] .page-content .page-stack .phase-report-questions,
 .main-panel[data-module-accent] .page-content .page-stack .settings-form-card,
 .main-panel[data-module-accent] .page-content .page-stack .integration-card,
 .main-panel[data-module-accent] .page-content .page-stack .privacy-card {
@@ -509,34 +509,34 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
    pills remain governed by their own status-good/warning/danger classes. */
 .main-panel[data-module-accent] .page-content .page-stack .data-table thead th,
 .main-panel[data-module-accent] .page-content .page-stack .data-table tfoot td,
-.main-panel[data-module-accent] .page-content .page-stack .module-workspace-table th {
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-table th {
   color: var(--module-accent-strong, var(--color-text-secondary));
   background: var(--module-accent-soft, var(--color-surface-muted));
   border-color: var(--module-accent-border, var(--color-border));
 }
 .main-panel[data-module-accent] .page-content .page-stack .data-table tbody tr:hover,
-.main-panel[data-module-accent] .page-content .page-stack .module-workspace-table tbody tr:hover {
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-table tbody tr:hover {
   background: var(--module-card-wash);
 }
 .main-panel[data-module-accent] .page-content .page-stack .table-toolbar .muted-count,
-.main-panel[data-module-accent] .page-content .page-stack .module-workspace-table-footer,
-.main-panel[data-module-accent] .page-content .page-stack .module-workspace-table-wrap {
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-table-footer,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-table-wrap {
   border-color: var(--module-accent-border, var(--color-border));
 }
 
 /* Search, date and select controls show module identity at rest. Focus is always
    cyan, regardless of module, to preserve consistent keyboard feedback. */
-.main-panel[data-module-accent] .page-content .page-stack .module-workspace-search,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-search,
 .main-panel[data-module-accent] .page-content .page-stack .search-field,
-.main-panel[data-module-accent] .page-content .page-stack .record-filter-select,
-.main-panel[data-module-accent] .page-content .page-stack .record-date-filter {
+.main-panel[data-module-accent] .page-content .page-stack .phase-filter-select,
+.main-panel[data-module-accent] .page-content .page-stack .phase-date-filter {
   border-color: var(--module-accent-border, var(--color-border-control));
 }
-.main-panel[data-module-accent] .page-content .page-stack .module-workspace-search > svg,
-.main-panel[data-module-accent] .page-content .page-stack .record-filter-select > svg,
-.main-panel[data-module-accent] .page-content .page-stack .record-date-filter > svg,
-.main-panel[data-module-accent] .page-content .page-stack .record-clear-filters,
-.main-panel[data-module-accent] .page-content .page-stack .report-section-link > svg,
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-search > svg,
+.main-panel[data-module-accent] .page-content .page-stack .phase-filter-select > svg,
+.main-panel[data-module-accent] .page-content .page-stack .phase-date-filter > svg,
+.main-panel[data-module-accent] .page-content .page-stack .phase-clear-filters,
+.main-panel[data-module-accent] .page-content .page-stack .phase-report-link > svg,
 .main-panel[data-module-accent] .page-content .page-stack .metric-card-link {
   color: var(--module-accent-strong, var(--color-text-secondary));
 }
@@ -544,7 +544,7 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 .main-panel[data-module-accent] .page-content .page-stack select:focus,
 .main-panel[data-module-accent] .page-content .page-stack textarea:focus,
 .main-panel[data-module-accent] .page-content .page-stack .search-field:focus-within,
-.main-panel[data-module-accent] .page-content .page-stack .module-workspace-search:focus-within {
+.main-panel[data-module-accent] .page-content .page-stack .phase-two-search:focus-within {
   border-color: var(--color-focus, #047fba);
   box-shadow: 0 0 0 3px var(--color-focus-ring, rgba(8,189,235,.38));
 }
@@ -570,7 +570,7 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 /* Dashboard stays anchored in LEXA navy/blue; module accents differentiate its
    individual action tiles without turning the whole page into a colour block. */
 .dashboard-page[data-module-accent] .quick-actions-grid > button:hover,
-.dashboard-page[data-module-accent] .module-workspace-launch-grid > button:hover {
+.dashboard-page[data-module-accent] .phase-two-launch-grid > button:hover {
   border-color: var(--module-accent-border);
   box-shadow: 0 9px 25px rgba(6, 19, 47, .085);
 }

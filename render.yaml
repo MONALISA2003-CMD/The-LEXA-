@@ -1,14 +1,22 @@
-# LEXA development deployment: one existing Render web service only.
-# No private services, workers, databases, or paid Render add-ons are created here.
+# Render Blueprint for the existing LEXA production API service.
+# This is the live 1 vCPU / 2 GB compute plan, not the legacy buildPlan field.
 services:
   - type: web
     name: lexa-backend-api-live
     runtime: docker
-    plan: free
+    plan: 1c-2g
     region: frankfurt
+    branch: main
+    autoDeployTrigger: commit
+    numInstances: 1
     dockerfilePath: backend/Dockerfile
     dockerContext: .
     envVars:
+      # The existing DATABASE_URL secret is intentionally not declared or replaced here.
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: DATABASE_RUNTIME_ROLE
+        value: lexa_app_runtime
       - key: LEXA_AI_ENABLED
         value: "true"
       - key: LEXA_AI_PAID_TIER_ENABLED
@@ -22,6 +30,8 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: GROQ_API_KEY
+        sync: false
+      - key: CEREBRAS_API_KEY
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false

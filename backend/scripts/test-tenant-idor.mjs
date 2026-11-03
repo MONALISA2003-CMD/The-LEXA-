@@ -2,8 +2,8 @@ import { Client } from 'pg';
 import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error('DATABASE_URL is required for the disposable tenant HTTP test.');
+const databaseUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
+if (!databaseUrl) throw new Error('DATABASE_URL_UNPOOLED (direct Neon URL) or DATABASE_URL is required for the disposable tenant HTTP test.');
 const expectedBranchId = process.env.LEXA_TEST_BRANCH_ID;
 const expectedHost = process.env.LEXA_TEST_ALLOWED_DB_HOST;
 const actualHost = new URL(databaseUrl).hostname;

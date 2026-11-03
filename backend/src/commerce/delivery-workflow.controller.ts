@@ -9,7 +9,7 @@ import { assertBranchAccess } from '../authorization/branch-scope';
 import { hasPermission } from '../authorization/role-policy';
 import { postLedgerJournal, settlementAccountKey } from '../general-ledger/ledger-posting';
 import { CsrfGuard } from '../core/csrf.guard';
-import { dispatchableQuantity, isValidDeliveryTransition, outstandingSaleMinor, remainingCollectionMinor } from './commerce-rules';
+import { dispatchableQuantity, isValidDeliveryTransition, outstandingSaleMinor, remainingCollectionMinor } from './increment1-rules';
 
 type Obj = Record<string, unknown>;
 type RequestBody = FastifyRequest & { body?: unknown };

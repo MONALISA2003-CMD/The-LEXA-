@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AiRouterService } from '../src/ai/ai-router.service.ts';
+import { AiRouterService } from '../src/workstream8/ai-router.service.ts';
 
 const keys = [
   'LEXA_AI_ENABLED', 'LEXA_AI_PAID_TIER_ENABLED', 'GEMINI_FREE_API_KEY', 'GEMINI_API_KEY',

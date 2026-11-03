@@ -21,10 +21,9 @@ checks = {
     "Collaboration": ("lexa-frontend/src/data/remote/apiCollaboration.ts", "/inbox/"),
     "Dashboard and analytics": ("lexa-frontend/src/data/remote/apiDashboard.ts", "/analytics/overview"),
     "Global search": ("lexa-frontend/src/data/remote/apiGlobalSearch.ts", "/search"),
-    "Catalogue and inventory controls": ("lexa-frontend/src/data/remote/apiCommerceFinance.ts", "/inventory/warehouses"),
-    "Finance operations": ("lexa-frontend/src/data/remote/apiCommerceFinance.ts", "/finance/cash-sessions"),
-    "People, projects and collaboration": ("lexa-frontend/src/data/remote/apiPeopleProjects.ts", "/people/"),
-    "Platform operations": ("lexa-frontend/src/data/remote/apiOperations.ts", "/operations"),
+    "Catalogue and inventory controls": ("lexa-frontend/src/data/remote/apiWorkstream03.ts", "/inventory/warehouses"),
+    "Finance operations": ("lexa-frontend/src/data/remote/apiWorkstream03.ts", "/finance/cash-sessions"),
+    "People, projects and collaboration": ("lexa-frontend/src/data/remote/apiWorkstream6.ts", "/workstream6"),
 }
 errors = []
 for label, (relative, route_marker) in checks.items():

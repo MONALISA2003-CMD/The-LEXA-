@@ -6,17 +6,6 @@ import { assertBranchAccess } from '../authorization/branch-scope';
 import { isWorkspaceAdministrator } from '../authorization/role-policy';
 import { CsrfGuard } from '../core/csrf.guard';
 
-const LEGACY_RUNBOOK_PATHS: Readonly<Record<string, string>> = {
-  'docs/workstream7/runbooks/05-clamav-and-attachment-scanning.md': 'docs/operations/runbooks/attachment-scanning.md',
-  'docs/workstream7/runbooks/10-backup-failure-and-verification.md': 'docs/operations/runbooks/backup-verification.md',
-  'docs/workstream7/runbooks/08-import-failure-and-retry.md': 'docs/operations/runbooks/import-recovery.md',
-  'docs/workstream7/runbooks/14-resend-bounce-and-webhook.md': 'docs/operations/runbooks/email-delivery-recovery.md',
-  'docs/workstream7/runbooks/04-outbox-and-dlq.md': 'docs/operations/runbooks/event-delivery-recovery.md',
-  'docs/workstream7/runbooks/02-worker-heartbeat-and-stalled-jobs.md': 'docs/operations/runbooks/background-job-monitoring.md',
-  'docs/workstream7/runbooks/15-recurring-invoice-failure.md': 'docs/operations/runbooks/recurring-billing-recovery.md',
-  'docs/workstream7/runbooks/03-redis-outage-and-recovery.md': 'docs/operations/runbooks/queue-and-cache-outage-recovery.md',
-};
-
 function cookie(request:FastifyRequest,name:string):string|undefined{for(const p of (request.headers.cookie??'').split(';')){const at=p.indexOf('=');if(at<0||p.slice(0,at).trim()!==name)continue;try{return decodeURIComponent(p.slice(at+1).trim())}catch{return undefined;}}return undefined;}
 function sha(value:string):string{return createHash('sha256').update(value).digest('hex');}
 
@@ -82,8 +71,7 @@ export class OperationsController {
   @Get('alert-rules')
   async rules(@Param('workspaceId') workspaceId:string,@Param('branchId') branchId:string,@Req() request:FastifyRequest){
     await this.operator(request,workspaceId,branchId);
-    const rules = await this.prisma.$queryRaw<any[]>`SELECT id::text,rule_key,title,severity,enabled,threshold,owner_role,runbook_path,cooldown_seconds,updated_at FROM platform_alert_rules WHERE tenant_id=${workspaceId}::uuid ORDER BY rule_key`;
-    return rules.map((rule) => ({ ...rule, runbook_path: LEGACY_RUNBOOK_PATHS[rule.runbook_path] ?? rule.runbook_path }));
+    return this.prisma.$queryRaw<any[]>`SELECT id::text,rule_key,title,severity,enabled,threshold,owner_role,runbook_path,cooldown_seconds,updated_at FROM platform_alert_rules WHERE tenant_id=${workspaceId}::uuid ORDER BY rule_key`;
   }
 
 
@@ -109,11 +97,11 @@ export class OperationsController {
     if(!/^[a-z][a-z0-9_.-]{2,80}$/.test(ruleKey))throw new BadRequestException('Alert rule key is invalid.');
     const severity=String(body?.severity??'medium');if(!['low','medium','high','critical'].includes(severity))throw new BadRequestException('Alert severity is invalid.');
     const threshold=body?.threshold;if(!threshold||typeof threshold!=='object'||Array.isArray(threshold)||JSON.stringify(threshold).length>2000)throw new BadRequestException('Alert threshold must be a small JSON object.');
-    const title=String(body?.title??'').trim();const runbook=String(body?.runbookPath??'').trim();if(!title||title.length>160||!runbook.startsWith('docs/operations/runbooks/'))throw new BadRequestException('Title or runbook path is invalid.');
+    const title=String(body?.title??'').trim();const runbook=String(body?.runbookPath??'').trim();if(!title||title.length>160||!runbook.startsWith('docs/workstream7/runbooks/'))throw new BadRequestException('Title or runbook path is invalid.');
     const cooldown=Number(body?.cooldownSeconds??900);if(!Number.isInteger(cooldown)||cooldown<60||cooldown>86400)throw new BadRequestException('Cooldown must be between 60 and 86,400 seconds.');
     const enabled=body?.enabled!==false;
     const existing=await this.prisma.$queryRaw<any[]>`UPDATE platform_alert_rules SET title=${title},severity=${severity},enabled=${enabled},threshold=${JSON.stringify(threshold)}::jsonb,runbook_path=${runbook},cooldown_seconds=${cooldown},updated_at=now() WHERE tenant_id=${workspaceId}::uuid AND rule_key=${ruleKey} RETURNING id::text,rule_key,title,severity,enabled,threshold,runbook_path,cooldown_seconds`;
-    if(!existing.length)throw new NotFoundException('Alert rule was not found. Default alert rules are provisioned by the platform operations migration.');
+    if(!existing.length)throw new NotFoundException('Alert rule was not found. Default alert rules are provisioned by the Increment 7 migration.');
     return existing[0];
   }
 }

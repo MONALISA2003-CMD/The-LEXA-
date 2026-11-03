@@ -93,8 +93,8 @@ export const WORKFLOW_EDGES: WorkflowEdge[] = [
   edge('payments', 'bank-reconciliation', 'Prepare reconciliation draft', 'Compare a recorded payment against a separately entered statement.', ['Recorded', 'Reconciled']),
   edge('cash-sessions', 'bank-reconciliation', 'Reconcile cash session', 'Carry the cash-up figures into a separate reconciliation draft.', ['Reviewed', 'Closed', 'Variance review']),
   edge('bank-reconciliation', 'money-accounts', 'Review money-account mapping', 'Prepare a follow-up account review from a reconciliation exception.', ['Needs review', 'Reopened']),
-  edge('bank-reconciliation', 'accounting', 'Prepare journal review', 'Create a separate journal-entry draft from reconciliation context; review account mapping and supporting evidence before any posting.', ['Reconciled', 'Needs review', 'Reopened']),
   edge('chart-of-accounts', 'bank-reconciliation', 'Prepare account reconciliation', 'Carry the selected account into a reconciliation draft; confirm account and balances.', ['Active']),
+  edge('accounting', 'bank-reconciliation', 'Prepare posted cash/bank journal reconciliation', 'For a posted journal with Cash or Bank on either side, prepare a separate statement reconciliation; enter statement references and compare balances manually. No bank feed or ledger posting is performed.', ['Posted']),
   edge('tax-codes', 'tax-documents', 'Prepare tax document', 'Carry the selected tax code into a tax-readiness record.', ['Active']),
   edge('tax-codes', 'sales-invoices', 'Prepare invoice with tax-code context', 'Prepare an invoice draft; the tax code must be reviewed before issue.', ['Active']),
   edge('assets', 'projects', 'Track asset under project', 'Prepare a project-cost reference for asset deployment; no depreciation posting occurs.', ['Active', 'Under maintenance']),
@@ -158,6 +158,8 @@ export function getRelatedActions(moduleId: string, record: PreviewRecord): Work
   return WORKFLOW_EDGES
     .filter((item) => item.sourceId === moduleId && moduleIds.has(item.targetId))
     .filter((item) => !item.statuses || item.statuses.includes(record.status))
+    // A journal may start bank reconciliation only when a posted cash/bank account is involved.
+    .filter((item) => item.sourceId !== 'accounting' || item.targetId !== 'bank-reconciliation' || ['Cash', 'Bank'].includes(record.debitAccount ?? '') || ['Cash', 'Bank'].includes(record.creditAccount ?? ''))
     .filter((item) => !item.positiveValueField || Number(record[item.positiveValueField] ?? 0) > 0)
     .map(({ targetId, label, description }) => ({ targetId, label, description }));
 }

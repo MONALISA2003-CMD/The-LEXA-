@@ -1,5 +1,7 @@
 # Redis outage and recovery
 
+> **Current service note (3 November 2026):** No current Render Redis/Key Value service was verified in this archive update. The previously recorded service ID `red-dakmbe9594qs73einb2g` returned `404 not found` in a read-only lookup. Verify the actual current service identifier, plan, region and persistence before attempting recovery; do not assume the older Free/non-persistent instance still exists.
+
 **Prerequisites and permissions:** Platform operator with Render Key Value and worker access.
 
 ## Safe procedure
@@ -23,7 +25,7 @@ SELECT count(*) AS stale_jobs FROM platform_jobs WHERE status IN ('queued','fail
 
 ## Stop / rollback conditions
 
-- Do not FLUSHDB, delete queue keys, change job IDs, or run destructive Redis commands. Do not use the existing Free instance with persistence off for production.
+- Do not FLUSHDB, delete queue keys, change job IDs, or run destructive Redis commands. Do not direct production jobs to an unverified or non-persistent Redis instance.
 
 ## Escalation
 

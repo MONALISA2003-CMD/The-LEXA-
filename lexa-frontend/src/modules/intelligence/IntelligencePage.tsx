@@ -17,13 +17,16 @@ const scopes: Array<{ value: IntelligenceScope; label: string }> = [
   { value: 'people', label: 'People and payroll' },
 ];
 
+function isIntelligenceScope(value: string): value is IntelligenceScope {
+  return scopes.some((item) => item.value === value);
+}
+
 export default function IntelligencePage() {
   const { workspace, branch } = useWorkspace();
   const location = useLocation();
   const params = new URLSearchParams(location.search);
-  const requestedScope = params.get('scope') as IntelligenceScope | null;
-  const allowedScopes: IntelligenceScope[] = ['overview', 'sales', 'inventory', 'finance', 'customers', 'people'];
-  const initialScope = requestedScope && allowedScopes.includes(requestedScope) ? requestedScope : 'overview';
+  const requestedScope = params.get('scope');
+  const initialScope: IntelligenceScope = requestedScope && isIntelligenceScope(requestedScope) ? requestedScope : 'overview';
   const queryClient = useQueryClient();
   const [question, setQuestion] = useState(params.get('question')?.slice(0, 2000) || 'Summarise the most important business trends and what needs my attention.');
   const [scope, setScope] = useState<IntelligenceScope>(initialScope);
@@ -64,7 +67,10 @@ export default function IntelligencePage() {
       <div className="section-card-heading"><span className="heading-icon blue-icon"><BrainCircuit size={19}/></span><div><h3>Business advice and explanations</h3><p>Ask about performance, cash flow, stock, sales or business priorities.</p></div><span className={`status-pill ${canAsk ? 'status-good' : 'status-neutral'}`}>{canAsk ? 'Available' : status?.enabled && !status.canRun ? 'Limited access' : 'Temporarily unavailable'}</span></div>
       {!canAsk && isApiProvider && !statusQuery.isError && <div className="overview-service-note"><ShieldCheck size={18}/><div><strong>{status?.enabled && !status.canRun ? 'Your account has view-only access' : 'LEXA is preparing the assistant'}</strong><span>{status?.enabled && !status.canRun ? 'Contact your business administrator to request access to business explanations.' : 'The assistant is not available at the moment. Please try again later.'}</span></div></div>}
       <form className="page-stack" onSubmit={ask}>
-        <label className="field-label">Business area<select value={scope} onChange={(event) => setScope(event.target.value as IntelligenceScope)} disabled={!canAsk}>{scopes.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>
+        <label className="field-label">Business area<select value={scope} onChange={(event) => {
+          const nextScope = event.currentTarget.value;
+          if (isIntelligenceScope(nextScope)) setScope(nextScope);
+        }} disabled={!canAsk}>{scopes.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>
         <label className="field-label">What would you like LEXA to help you understand?<textarea rows={4} maxLength={2000} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="For example: Which areas need management attention this month?" disabled={!canAsk}/></label>
         <div><button className="button button-primary" type="submit" disabled={!canAsk || explainMutation.isPending || !question.trim()}>{explainMutation.isPending ? <><LoaderCircle size={16} className="spin-icon"/> Preparing your answer…</> : <><Sparkles size={16}/> Ask LEXA</>}</button></div>
       </form>

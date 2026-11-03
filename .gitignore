@@ -1,22 +1,33 @@
-# Secrets and local configuration
+# Dependencies and generated output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+coverage/
+**/coverage/
+.vite/
+.vercel/
+playwright-report/
+test-results/
+
+# Local configuration and secrets
 .env
 .env.*
 !.env.example
-!.env.worker.example
+!.env.*.example
 
-# Dependencies and build output
-**/node_modules/
-**/dist/
-**/coverage/
-.vercel/
+# Local logs and operating-system files
+*.log
+.DS_Store
+Thumbs.db
 
-# Python and test caches
+# Downloaded archives are not repository source
+*.zip
+*.tar
+*.tar.gz
+
+# Python and test artefacts
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
-
-# Local tooling and downloaded source archives
-*.zip
-.DS_Store
-*.log

@@ -1012,7 +1012,7 @@ model TaxRule {
 }
 
 
-// People and projects operational tables. Compensation and payroll are separate
+// Workstream 6 typed operational tables. Compensation and payroll are separate
 // models so API serializers can apply field-level authorization before returning data.
 model HrShift {
   id String @id @default(uuid()) @db.Uuid

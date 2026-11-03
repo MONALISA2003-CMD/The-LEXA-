@@ -8,6 +8,7 @@ COPY backend/ ./
 # Do not rewrite source during the Docker build; CI compiles the exact reviewed files.
 # This placeholder is build-only and is not copied into the runtime image.
 ENV DATABASE_URL=postgresql://build:build@127.0.0.1:5432/lexa?schema=public
+ENV DATABASE_URL_UNPOOLED=postgresql://build:build@127.0.0.1:5432/lexa?schema=public
 RUN npx prisma generate
 RUN npm run build
 
@@ -22,5 +23,6 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build /app/scripts ./scripts
 EXPOSE 10000
-# Keep the Render Docker Command override empty. This applies all pending database migrations first.
+# Keep the Render Docker Command override empty. Prisma migrate deploy reads
+# DATABASE_URL_UNPOOLED (direct Neon host); the running API reads pooled DATABASE_URL.
 CMD ["sh", "-c", "node scripts/recover-known-failed-migration.mjs && npx prisma migrate deploy && node dist/src/main.js"]

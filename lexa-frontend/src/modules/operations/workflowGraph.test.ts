@@ -30,6 +30,12 @@ describe('cross-module workflow graph', () => {
     ]) expect(edges.has(pair), pair).toBe(true);
   });
 
+  it('connects only posted cash/bank journal entries to a reconciliation draft', () => {
+    expect(getRelatedActions('accounting', record('J-1', 'Draft', { debitAccount: 'Cash' })).some((item) => item.targetId === 'bank-reconciliation')).toBe(false);
+    expect(getRelatedActions('accounting', record('J-2', 'Posted', { debitAccount: 'Expenses', creditAccount: 'Sales income' })).some((item) => item.targetId === 'bank-reconciliation')).toBe(false);
+    expect(getRelatedActions('accounting', record('J-3', 'Posted', { debitAccount: 'Expenses', creditAccount: 'Bank' })).some((item) => item.targetId === 'bank-reconciliation')).toBe(true);
+  });
+
   it('contains the purchase-to-pay and receiving/quality hand-offs', () => {
     const edges = new Set(WORKFLOW_EDGES.map((item) => `${item.sourceId}->${item.targetId}`));
     for (const pair of [

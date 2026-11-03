@@ -214,7 +214,7 @@ export default function AccountsReceivablePanel() {
           <label className="field-label">Payment method<select required value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}><option value="cash">Cash</option><option value="mtn_momo">MTN Mobile Money (recorded)</option><option value="airtel_money">Airtel Money (recorded)</option><option value="bank_transfer">Bank transfer (recorded)</option><option value="card_recorded">Card (recorded)</option><option value="other">Other</option></select></label>
           <label className="field-label">Reference (optional)<input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder="Bank / mobile money reference" /></label>
         </div>
-        <div className="ar-form-note">The amount is allocated directly to this invoice. Each receipt must be fully allocated. Cash advances and unallocated customer credits are not supported in this workflow.</div>
+        <div className="ar-form-note">The amount is allocated directly to this invoice. For this increment, each receipt must be fully allocated; cash advances and unallocated customer credits will be added in a later phase.</div>
         <div className="ar-form-actions"><button className="button button-primary" type="submit" disabled={Boolean(busyId)}>{busyId === selectedInvoice.id ? 'Recording…' : 'Record and allocate receipt'} <ArrowDownLeft size={15} /></button></div>
       </form>}
 
@@ -225,7 +225,7 @@ export default function AccountsReceivablePanel() {
         </div>}
       </section>
 
-      <div className="ar-tax-note"><AlertCircle size={16} /><span>These are internal customer-billing invoices, not statutory tax invoices. Tax is not calculated or added here; amounts preserve the completed sale total. Statutory tax-document integration is not enabled in this workflow.</span></div>
+      <div className="ar-tax-note"><AlertCircle size={16} /><span>These are internal customer-billing invoices, not statutory tax invoices. Tax is not calculated or added in this increment; amounts preserve the completed sale total exactly. Tax setup and statutory document integration will be handled in the tax phase after current rules are verified.</span></div>
     </section>
   );
 }

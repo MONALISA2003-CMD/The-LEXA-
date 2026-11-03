@@ -234,7 +234,7 @@ export default function AppShell() {
 
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
   useEffect(() => {
-    const handleAuthRequired = () => navigate('/sign-in', { replace: true, state: { returnTo: location.pathname } });
+    const handleAuthRequired = () => navigate('/sign-in', { replace: true, state: { returnTo: location.pathname, connectionIssue: 'session' } });
     window.addEventListener('lexa:auth-required', handleAuthRequired);
     return () => window.removeEventListener('lexa:auth-required', handleAuthRequired);
   }, [navigate, location.pathname]);
@@ -268,7 +268,16 @@ export default function AppShell() {
     return { workspaces, workspace, branches, branch, setActiveWorkspace, setActiveBranch, refreshWorkspaces };
   }, [workspaces, workspace, branches, branch, setActiveWorkspace, setActiveBranch, refreshWorkspaces]);
 
-  if (loadError) return <div className="backend-block-screen"><section className="backend-block-card"><div className="backend-block-mark">LEXA</div><div className="eyebrow eyebrow-blue">WORKSPACE CONNECTION</div><h1>{loadErrorStatus === 401 ? 'Sign in to your business workspace' : isApiProvider ? 'LEXA connection required' : 'Workspace could not be opened'}</h1><p className="backend-block-message">{loadErrorStatus === 401 ? 'Your session is missing or has expired.' : 'LEXA could not open the selected business. Check your connection and try again.'}</p><p>{loadErrorStatus === 401 ? 'Sign in using the account that has access to this business. LEXA checks access to each business and branch.' : isApiProvider ? 'LEXA could not connect to the selected business. Check your internet connection and try again, or contact your LEXA administrator.' : 'Check that browser storage is available, then retry.'}</p><div className="backend-block-actions"><button className="button button-primary" onClick={() => window.location.reload()}>Retry connection</button>{loadErrorStatus === 401 ? <a className="button button-secondary" href="/sign-in">Sign in</a> : <button className="button button-secondary" onClick={() => { window.location.href = '/onboarding'; }}>Open business setup</button>}</div><small>Request failed before the workspace could be verified. No local fallback was used.</small></section></div>;
+  if (loadError) return (
+    <Navigate
+      to="/sign-in"
+      replace
+      state={{
+        returnTo: `${location.pathname}${location.search}${location.hash}`,
+        connectionIssue: loadErrorStatus === 401 ? 'session' : 'workspace',
+      }}
+    />
+  );
   if (loading || (workspace && (branchesLoading || resolvedBranchWorkspaceId !== workspace.id))) return <div className="boot-screen"><div className="brand-mark">L</div><span>Opening your workspace…</span></div>;
   if (!workspace) return <Navigate to="/onboarding" replace />;
   if (!branch) return <Navigate to="/onboarding" replace />;

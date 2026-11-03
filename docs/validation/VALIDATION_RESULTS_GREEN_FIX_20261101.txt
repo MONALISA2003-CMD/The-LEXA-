@@ -1,0 +1,32 @@
+This validation log is a 1 November 2026 snapshot. Its Render Free-plan and earlier connection assumptions are historical, not current. Use docs/deployment/current-compute-configuration.md for the 3 November production Render 1c-2g and Neon 0.5-2 CU always-on pooled endpoint configuration.
+
+LEXA deployment audit and green-build repair — 2026-11-01
+
+CURRENT SOURCE FIX
+- Vercel AuthoritativeReportsPage.tsx: removed unused AuthoritativeReports type import.
+- Corrected currency fallback to use workspace.currency (Branch has no currency field).
+- Stat.detail accepts explicit undefined with exactOptionalPropertyTypes enabled.
+
+VERCEL HISTORY
+- 164 production deployment records inspected for lexa_review.
+- READY 87; ERROR 75; CANCELED 2.
+- Latest build had 23 frontend test files / 99 tests passing, then failed tsc -b with the three report-page errors fixed above.
+- Earlier errors reviewed: apiClient/moduleReports strict optional and type mismatches; WorkspacePage context shape/unused import; AppShell/Dashboard/OperationsWorkspace unused declarations; Inbox/RecurringInvoices strict optional-property issues; older Vitest failures in StandardDataTable, apiClient download and sales-workflow tests.
+- The latest Vercel build has no runtime errors; grouped runtime error query returned none over 7 days.
+- Full frontend typecheck/Vite build has not been rerun after this fix because frontend node_modules are absent and package installation is unavailable in this workspace.
+
+RENDER
+- Existing service lexa-backend-api-live, Frankfurt, Free plan.
+- Latest Render deploy for main commit b761eb5930781307a9ad88f0a8d8f65b72a736df: dep-dbjmbfiqphnc73e547sg, live.
+- Backend build succeeded; Nest app started and routes registered; 30 migrations found; no pending migrations.
+- No warning/error-level app logs after the latest deployment interval inspected.
+- No extra Render services created. No migrations reset or rolled back.
+
+LOCAL TESTS
+- Backend Node tests: 83 passed, 0 failed.
+- Changed frontend page: targeted static checks passed for all three reported diagnostics.
+- Secrets were not placed in source or ZIP.
+
+LIMITATION / HANDOFF
+- GitHub write/branch creation is denied to the connected integration (403 Resource not accessible by integration). The source changes have not been pushed and Vercel has not built the corrected commit.
+- Commit the supplied file overlay to main, then verify the next Vercel deployment reaches READY before calling the frontend fully green.

@@ -12,9 +12,9 @@ export async function processNotificationEmail(pool: Pool, tenantId: string, del
   let row: any;
   let attempt = 0;
   let released = false;
-  const releaseClient = async () => { if (released) return; released = true; await client.query("SELECT set_config('app.tenant_id','',false)").catch(() => undefined); client.release(); };
+  const releaseClient = async () => { if (released) return; released = true; client.release(); };
   try {
-    await client.query("SELECT set_config('app.tenant_id',$1,false)", [tenantId]);
+    // The supplied tenant-scoped pool applies role and tenant settings after BEGIN.
     await client.query('BEGIN');
     const result = await client.query(
       `SELECT d.*,n.title,n.body,n.href,n.event_type,n.safe_payload

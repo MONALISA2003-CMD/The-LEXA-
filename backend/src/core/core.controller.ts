@@ -13,7 +13,7 @@ import { assertBranchAccess } from '../authorization/branch-scope';
 import { CsrfGuard } from './csrf.guard';
 import { sendTransactionalEmail } from '../notifications/email-delivery';
 import { PeopleProjectsService } from '../people-projects/people-projects.service';
-import { outstandingSaleMinor, paymentCategoryFromMethod } from '../commerce/commerce-rules';
+import { outstandingSaleMinor, paymentCategoryFromMethod } from '../commerce/increment1-rules';
 
 const scrypt = promisify(scryptCallback);
 const SESSION_SECONDS = 60 * 60 * 24 * 7;
@@ -520,7 +520,7 @@ export class CoreController {
     if (!/^[A-Z]{3}$/.test(currency)) throw new BadRequestException('Currency must be a three-letter ISO currency code.');
     const tenant = await this.prisma.$transaction(async (tx) => {
       const created = await tx.tenant.create({ data: { name: businessName, slug: `${slugify(businessName)}-${randomBytes(3).toString('hex')}`, businessType, currency, timezone } });
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${created.id}, true), set_config('app.user_id', ${session.userId}, true)`;
+      await tx.$queryRaw`SELECT set_config('app.tenant_id', ${created.id}, true), set_config('app.user_id', ${session.userId}, true)`;
       await tx.membership.create({ data: { tenantId: created.id, userId: session.userId, role: 'owner', status: 'ACTIVE' } });
       await tx.branch.create({ data: { tenantId: created.id, code: 'MAIN', name: branchName, timezone, currency } });
       await tx.auditEvent.create({ data: { tenantId: created.id, actorUserId: session.userId, action: 'workspace.created', resourceType: 'workspace', resourceId: created.id, requestId: request.headers['x-request-id'] as string | undefined } });

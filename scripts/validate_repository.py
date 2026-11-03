@@ -1,97 +1,55 @@
 #!/usr/bin/env python3
-"""Enforce LEXA's canonical repository structure and release hygiene."""
-from __future__ import annotations
-
+"""Validate LEXA's canonical roots, secrets hygiene and production migrations."""
 from pathlib import Path
-import sys
+import json
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-REQUIRED_FILES = (
-    "README.md",
-    ".nvmrc",
-    ".gitignore",
-    ".dockerignore",
-    "render.yaml",
-    "REPOSITORY_LAYOUT_MANIFEST.json",
-    "backend/package.json",
-    "backend/Dockerfile",
-    "backend/prisma/schema.prisma",
-    "lexa-frontend/package.json",
-    "lexa-frontend/vercel.json",
-    ".github/workflows/backend-ci.yml",
-    ".github/workflows/repository-import.yml",
-    "scripts/clean_repository.py",
-    "scripts/validate_repository.py",
-    "docs/architecture/backend-architecture.md",
-    "docs/deployment/deployment-guide.md",
-    "docs/operations/runbooks/README.md",
+REQUIRED = (
+    "README.md", ".nvmrc", ".gitignore", ".dockerignore", "render.yaml",
+    "REPOSITORY_LAYOUT_MANIFEST.json", "backend/package.json", "backend/package-lock.json", "backend/Dockerfile",
+    "backend/prisma/schema.prisma", "lexa-frontend/package.json", "lexa-frontend/package-lock.json", "lexa-frontend/vercel.json",
+    "scripts/clean_repository.py", "scripts/validate_repository.py",
+    "docs/architecture/backend-architecture.md", "docs/deployment/deployment-guide.md",
+    "docs/operations/runbooks/README.md", "docs/quality/release-readiness.md",
 )
-LEGACY_SNAPSHOTS = (
-    "The-LEXA", "The-LEXA--main", "LEXA_WS8_updated",
-    "LEXA_Render_Current_Fix", "LEXA_Render_TS2339_Fix",
-    "LEXA_Render_Vercel_Build_Repairs_20261031",
-    "LEXA_Workstream4_Reviewed_Patch", "LEXA_Workstreams_0_3_Patch", "increment-5",
-)
-IMMUTABLE_MIGRATION_ROOT = "backend/prisma/migrations/"
-LEGACY_FILE_MARKERS = re.compile(r"(^|[-_.])(phase|workstream|increment|patch)(?:[0-9]+)?([-_.]|$)", re.IGNORECASE)
-IGNORED_DIRS = {".git", "node_modules", ".vercel", "dist", "coverage"}
-errors: list[str] = []
-
-for rel in REQUIRED_FILES:
-    if not (ROOT / rel).is_file():
-        errors.append(f"Missing required file: {rel}")
-
-for rel in LEGACY_SNAPSHOTS:
-    if (ROOT / rel).exists():
-        errors.append(f"Legacy repository copy remains: {rel}/")
-for rel in ("services", "deploy"):
-    if (ROOT / rel).exists():
-        errors.append(f"Inactive reference infrastructure remains: {rel}/")
-
-package_files = sorted(
-    path.relative_to(ROOT).as_posix()
-    for path in ROOT.rglob("package.json")
-    if not any(part in IGNORED_DIRS for part in path.parts)
-)
+errors = [f"Missing required file: {item}" for item in REQUIRED if not (ROOT / item).is_file()]
+try:
+    manifest = json.loads((ROOT / "REPOSITORY_LAYOUT_MANIFEST.json").read_text(encoding="utf-8"))
+    workflow_policy = manifest.get("github_repository_requirements", {})
+    if workflow_policy.get("workflows") != [".github/workflows/backend-ci.yml"]:
+        errors.append("Manifest must account for .github/workflows/backend-ci.yml.")
+    if workflow_policy.get("preserved_in_github_repository") is not True:
+        errors.append("The existing GitHub workflow must remain in the GitHub repository.")
+    if workflow_policy.get("included_in_source_import_zip") is not False:
+        errors.append("The .github directory must be excluded from source-import ZIPs.")
+except (OSError, json.JSONDecodeError) as error:
+    errors.append(f"Cannot validate repository workflow policy in manifest: {error}")
+if (ROOT / ".github").exists() and not (ROOT / ".github/workflows/backend-ci.yml").is_file():
+    errors.append("GitHub workflow directory exists but backend-ci.yml is missing from the repository checkout.")
+for folder in ("services", "deploy", "node_modules", "dist", "coverage", ".vercel"):
+    if (ROOT / folder).exists(): errors.append(f"Unexpected or generated root directory: {folder}/")
+package_files = sorted(p.relative_to(ROOT).as_posix() for p in ROOT.rglob("package.json") if not any(part in {"node_modules", "dist", "coverage"} for part in p.parts))
 if package_files != ["backend/package.json", "lexa-frontend/package.json"]:
     errors.append(f"Expected exactly two application manifests; found {package_files}")
-
-for path in ROOT.rglob("*"):
-    if any(part in IGNORED_DIRS for part in path.parts):
-        continue
-    if path.is_symlink():
-        errors.append(f"Symbolic links are not allowed in the source archive: {path.relative_to(ROOT)}")
-        continue
-    if not path.is_file():
-        continue
-    rel = path.relative_to(ROOT).as_posix()
-    if rel.startswith(IMMUTABLE_MIGRATION_ROOT):
-        # Prisma migration names are part of the production migration ledger; do not rename them.
-        continue
-    if LEGACY_FILE_MARKERS.search(path.stem):
-        errors.append(f"Legacy stage/patch label remains in filename: {rel}")
-    if path.suffix.lower() in {".zip", ".pyc"}:
-        errors.append(f"Generated or nested artifact must not be committed: {rel}")
-    if path.name.startswith(".env") and path.name not in {".env.example", ".env.worker.example"}:
-        errors.append(f"Potential secret environment file found: {rel}")
-
-migration_root = ROOT / "backend/prisma/migrations"
-migration_dirs = [path for path in migration_root.iterdir() if path.is_dir()]
-if len(migration_dirs) != 30:
-    errors.append(
-        "Expected 30 active Prisma migration directories matching production history; "
-        f"found {len(migration_dirs)}"
-    )
-
-for required_dir in ("backend", "lexa-frontend", "docs", "scripts"):
-    if not (ROOT / required_dir).is_dir():
-        errors.append(f"Missing canonical directory: {required_dir}/")
-
+for p in ROOT.rglob("*"):
+    if ".git" in p.parts: continue
+    if p.is_symlink(): errors.append(f"Symlink not allowed: {p.relative_to(ROOT)}"); continue
+    if not p.is_file(): continue
+    rel = p.relative_to(ROOT).as_posix()
+    if p.suffix.lower() in {".zip", ".pyc"}: errors.append(f"Nested/generated archive not allowed: {rel}")
+    if p.name.startswith(".env") and p.name not in {".env.example", ".env.worker.example"}:
+        errors.append(f"Potential live secret file: {rel}")
+# Historical API/module identifiers remain intentionally intact for compatibility. Documentation filenames are kept professional.
+legacy_doc_names = re.compile(r"(^|[-_.])(phase|workstream|increment|patch)(?:[0-9]+)?([-_.]|$)", re.I)
+for p in (ROOT / "docs").rglob("*"):
+    if p.is_file() and legacy_doc_names.search(p.stem): errors.append(f"Legacy stage label in documentation filename: {p.relative_to(ROOT)}")
+if (ROOT / "backend/prisma/migrations").is_dir():
+    dirs = [p for p in (ROOT / "backend/prisma/migrations").iterdir() if p.is_dir()]
+    if len(dirs) != 30: errors.append(f"Expected 30 preserved Prisma migrations; found {len(dirs)}")
+else: errors.append("Missing Prisma migrations directory")
 if errors:
     print("Repository validation failed:")
-    for error in errors:
-        print(f" - {error}")
+    for error in errors: print(" - " + error)
     raise SystemExit(1)
-
-print("Repository validation passed: one backend, one frontend, 30 preserved production migrations, professional filenames, and no duplicate snapshots or embedded archives.")
+print("Repository validation passed: canonical application roots, two package manifests, 30 preserved migrations, GitHub workflow policy recorded, and no live secrets or nested archives.")

@@ -1,12 +1,12 @@
 import type { Pool } from 'pg';
+import { withTenantTransactionPool } from '../platform/tenant-pool';
 
 /** Evaluate tenant-configured operational rules; fingerprints keep repeated ticks in one incident. */
 export async function evaluateOperationalAlerts(pool:Pool):Promise<void>{
   const rules=await pool.query(`SELECT r.*,t.id::text AS tenant_id FROM platform_alert_rules r JOIN tenants t ON t.id=r.tenant_id WHERE r.enabled=true ORDER BY r.tenant_id,r.rule_key LIMIT 500`);
   for(const rule of rules.rows){
-    const tenantId=String(rule.tenant_id);const db=await pool.connect();
+    const tenantId=String(rule.tenant_id);const db=await withTenantTransactionPool(pool,tenantId).connect();
     try{
-      await db.query("SELECT set_config('app.tenant_id',$1,false)",[tenantId]);
       const threshold=rule.threshold&&typeof rule.threshold==='object'?rule.threshold:{};const minCount=Number(threshold.minCount??1);const maxAgeSeconds=Number(threshold.maxAgeSeconds??900);
       let value=0;let summary='';let evidence:any={};
       switch(String(rule.rule_key)){

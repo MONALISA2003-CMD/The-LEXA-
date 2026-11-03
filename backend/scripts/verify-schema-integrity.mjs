@@ -1,8 +1,8 @@
 import pg from 'pg';
 
 const { Client } = pg;
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) { console.error('DATABASE_URL is required for schema integrity verification.'); process.exit(2); }
+const connectionString = process.env.DATABASE_URL_UNPOOLED;
+if (!connectionString) { console.error('DATABASE_URL_UNPOOLED (direct Neon connection) is required for schema integrity verification.'); process.exit(2); }
 
 const client = new Client({ connectionString, connectionTimeoutMillis: 10_000, statement_timeout: 15_000 });
 const requiredTables = [

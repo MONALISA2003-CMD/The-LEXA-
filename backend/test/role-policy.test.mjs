@@ -87,7 +87,7 @@ test('restricted branch scope can deliberately deny every branch while all mode 
 });
 
 
-test('maps procurement, warehouse and manufacturing transactions to scoped capabilities', () => {
+test('maps Workstream 5 procurement, warehouse and manufacturing transactions to scoped capabilities', () => {
   const base = '/api/v1/workspaces/w/branches/b/supply-chain';
   assert.equal(permissionForRequest('POST', `${base}/procurement/purchase-orders/po/receipts`), 'procurement.receive');
   assert.equal(permissionForRequest('POST', `${base}/procurement/awards/award/approve`), 'approval.decide');

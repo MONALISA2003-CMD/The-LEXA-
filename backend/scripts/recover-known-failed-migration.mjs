@@ -3,10 +3,10 @@ import pg from 'pg';
 
 const { Client } = pg;
 const migrationName = '20261030320000_platform_catalog_finance_rls';
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL_UNPOOLED;
 
 if (!connectionString) {
-  console.error('DATABASE_URL is required for the migration recovery preflight.');
+  console.error('DATABASE_URL_UNPOOLED (direct Neon connection) is required for the migration recovery preflight.');
   process.exit(2);
 }
 

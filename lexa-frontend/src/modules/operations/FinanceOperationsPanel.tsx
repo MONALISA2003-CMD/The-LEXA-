@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Banknote, Building2, CircleAlert, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
-import { apiFinanceOperations } from '../../data/remote/apiCommerceFinance';
-import './finance-operations.css';
+import { apiFinanceOperations } from '../../data/remote/apiWorkstream03';
+import './workstream-finance.css';
 
 function amount(value: unknown, currency: string) { const n = Number(value ?? 0); try { return new Intl.NumberFormat('en-UG',{style:'currency',currency,maximumFractionDigits:currency==='UGX'?0:2}).format(n/100); } catch { return `${currency} ${(n/100).toLocaleString()}`; } }
 

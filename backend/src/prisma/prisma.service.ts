@@ -20,23 +20,35 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     const configuredUrl = process.env.DATABASE_URL;
     if (!configuredUrl) throw new Error('DATABASE_URL must be configured for the LEXA API.');
-    // Runtime should use a least-privileged role. Configure DATABASE_RUNTIME_ROLE
-    // only after the matching GRANT exists in PostgreSQL.
-    let connectionString = configuredUrl;
-    const runtimeRole = process.env.DATABASE_RUNTIME_ROLE?.trim();
-    if (runtimeRole) {
-      const url = new URL(configuredUrl);
-      const options = url.searchParams.get('options');
-      url.searchParams.set('options', [options, `-c role=${runtimeRole}`].filter(Boolean).join(' '));
-      connectionString = url.toString();
+    let databaseUrl: URL;
+    try { databaseUrl = new URL(configuredUrl); } catch { throw new Error('DATABASE_URL must be a valid PostgreSQL connection URL.'); }
+    const startupOptions = databaseUrl.searchParams.get('options') ?? '';
+    if (/(?:^|\s)(?:-c\s+)?role\s*=/i.test(startupOptions)) {
+      throw new Error('DATABASE_URL must not contain a PostgreSQL role startup option; use DATABASE_RUNTIME_ROLE transaction-locally.');
     }
-    super({ adapter: new PrismaPg({ connectionString }) });
+    // Keep Neon's pooled DATABASE_URL unchanged. PgBouncer rejects PostgreSQL's
+    // startup `options=-c role=...` parameter, so apply the least-privileged role
+    // transaction-locally below, after PgBouncer has pinned a connection.
+    // Configure DATABASE_RUNTIME_ROLE only after the matching GRANT exists.
+    const runtimeRole = process.env.DATABASE_RUNTIME_ROLE?.trim();
+    if (process.env.NODE_ENV === 'production' && !runtimeRole) {
+      throw new Error('DATABASE_RUNTIME_ROLE=lexa_app_runtime is required in production.');
+    }
+    if (runtimeRole && (runtimeRole !== 'lexa_app_runtime' || !/^[A-Za-z_][A-Za-z0-9_$]*$/.test(runtimeRole))) {
+      throw new Error('DATABASE_RUNTIME_ROLE must be the approved PostgreSQL role lexa_app_runtime.');
+    }
+    super({ adapter: new PrismaPg({ connectionString: configuredUrl }) });
 
     const base = this;
     const context = () => tenantDbContext.getStore();
     const setContext = async (tx: any, overrides: TenantDbContext = {}) => {
       const current = { ...(context() ?? {}), ...overrides };
-      await tx.$executeRaw`SELECT
+      if (runtimeRole) {
+        // SET LOCAL ROLE is scoped to this transaction and is compatible with
+        // Neon's transaction pooler. It is reset automatically on commit/rollback.
+        await tx.$queryRaw`SELECT set_config('role', ${runtimeRole}, true)`;
+      }
+      await tx.$queryRaw`SELECT
         set_config('app.tenant_id', ${current.tenantId ?? ''}, true),
         set_config('app.user_id', ${current.userId ?? ''}, true),
         set_config('app.session_token_hash', ${current.sessionTokenHash ?? ''}, true),
@@ -81,14 +93,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
                 const txDelegate = tx[property];
                 const whereHash = args[0]?.where?.tokenHash;
                 if (property === 'session' && ['findFirst','deleteMany'].includes(String(operation)) && typeof whereHash === 'string') {
-                  await tx.$executeRaw`SELECT set_config('app.session_token_hash', ${whereHash}, true)`;
+                  await tx.$queryRaw`SELECT set_config('app.session_token_hash', ${whereHash}, true)`;
                 }
                 if (property === 'passwordResetToken' && ['findFirst','deleteMany'].includes(String(operation)) && typeof whereHash === 'string') {
-                  await tx.$executeRaw`SELECT set_config('app.reset_token_hash', ${whereHash}, true)`;
+                  await tx.$queryRaw`SELECT set_config('app.reset_token_hash', ${whereHash}, true)`;
                 }
                 if ((property === 'session' || property === 'passwordResetToken') && operation === 'create') {
                   const userId = args[0]?.data?.userId;
-                  if (typeof userId === 'string') await tx.$executeRaw`SELECT set_config('app.user_id', ${userId}, true)`;
+                  if (typeof userId === 'string') await tx.$queryRaw`SELECT set_config('app.user_id', ${userId}, true)`;
                 }
                 return Reflect.apply(txDelegate[operation], txDelegate, args);
               });

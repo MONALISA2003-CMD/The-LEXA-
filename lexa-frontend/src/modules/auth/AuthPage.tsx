@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import {
   ArrowLeft, ArrowRight, CheckCircle2, KeyRound, Mail, ShieldCheck,
   Sparkles, Users, LockKeyhole,
@@ -9,6 +9,21 @@ import { apiBaseUrl, dataProviderMode } from '../../data/remote/runtimeConfig';
 import { PasswordField, PasswordLengthGuide } from './AuthFields';
 
 type AuthMode = 'sign-in' | 'forgot-password' | 'reset-password';
+type AuthLocationState = {
+  returnTo?: unknown;
+  connectionIssue?: unknown;
+};
+
+function safeReturnTo(value: unknown): string {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return '/';
+  try {
+    const target = new URL(value, window.location.origin);
+    if (target.origin !== window.location.origin) return '/';
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return '/';
+  }
+}
 
 const copy: Record<AuthMode, { eyebrow: string; title: string; description: string; submit: string }> = {
   'sign-in': {
@@ -36,6 +51,7 @@ function errorMessage(error: unknown): string {
   const value = error.message.toLowerCase();
   if (value.includes('incorrect') || value.includes('invalid_credentials')) return 'The email or password is incorrect. Check your details and try again.';
   if (value.includes('rate') || value.includes('too many')) return 'There have been too many attempts. Please wait a little before trying again.';
+  if (value.includes('timed out') || value.includes('could not reach') || value.includes('network')) return 'LEXA could not reach the business service. Check the connection and try again.';
   if (value.includes('recovery') && (value.includes('not configured') || value.includes('unavailable'))) return 'Password recovery email is not available yet. Please contact your LEXA administrator.';
   return error.message;
 }
@@ -66,6 +82,10 @@ function BrandPanel() {
 
 export default function AuthPage({ mode }: { mode: AuthMode }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const navigationState = (location.state ?? null) as AuthLocationState | null;
+  const returnTo = safeReturnTo(navigationState?.returnTo);
+  const connectionIssue = mode === 'sign-in' ? navigationState?.connectionIssue : null;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -118,7 +138,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
     try {
       if (mode === 'sign-in') {
         await apiAuth.signIn(email, password);
-        navigate('/', { replace: true });
+        navigate(returnTo, { replace: true });
         return;
       }
       if (mode === 'forgot-password') {
@@ -149,6 +169,8 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
             : text.description}</p>
 
           {passwordUpdated && <div className="auth-complete-panel auth-password-updated" role="status"><CheckCircle2 size={20} /><div><strong>Password updated successfully</strong><span>Sign in with your new password. Your previous sessions have been closed.</span></div></div>}
+          {mode === 'sign-in' && connectionIssue === 'session' && <div className="auth-notice" role="status">Your sign-in session has expired. Sign in again to continue to your business workspace.</div>}
+          {mode === 'sign-in' && connectionIssue === 'workspace' && <div className="auth-notice" role="status">Your business workspace could not reconnect. You can sign in here; LEXA will continue using the server for your business records and will not switch to browser-only storage.</div>}
           {!apiReady && <div className="auth-notice" role="status">LEXA account access requires an active business service connection.</div>}
 
           {!complete && <form className="auth-form" onSubmit={submit}>

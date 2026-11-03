@@ -37,7 +37,8 @@ async function postRecurringInvoiceJournal(client:any, schedule:any, invoiceId:s
 export async function processRecurringInvoice(pool:Pool,tenantId:string,scheduleId:string,scheduledDate:string):Promise<void>{
   const client=await pool.connect();let schedule:any;let occurrenceId:string|undefined;
   try{
-    await client.query('BEGIN');await client.query("SELECT set_config('app.tenant_id',$1,true)",[tenantId]);
+    // The supplied tenant-scoped pool applies role and tenant settings after BEGIN.
+    await client.query('BEGIN');
     const found=await client.query(`SELECT s.*,b.timezone AS branch_timezone FROM recurring_invoice_schedules s JOIN branches b ON b.id=s.branch_id AND b.tenant_id=s.tenant_id
       WHERE s.id=$1::uuid AND s.tenant_id=$2::uuid FOR UPDATE OF s`,[scheduleId,tenantId]);schedule=found.rows[0];
     if(!schedule||schedule.status!=='active'||toDate(schedule.next_run_date)!==scheduledDate){await client.query('COMMIT');return;}
@@ -100,7 +101,6 @@ export async function processRecurringInvoice(pool:Pool,tenantId:string,schedule
   }catch(error:any){
     await client.query('ROLLBACK').catch(()=>undefined);
     const message=String(error?.message||'Recurring invoice generation failed').slice(0,240);
-    await client.query("SELECT set_config('app.tenant_id',$1,false)",[tenantId]).catch(()=>undefined);
     if(occurrenceId){await client.query(`INSERT INTO recurring_invoice_occurrences(id,tenant_id,branch_id,schedule_id,occurrence_key,scheduled_local_date,status,snapshot,attempts,error_summary)
       SELECT $1::uuid,$2::uuid,s.branch_id,s.id,$3,$4::date,'failed','{}'::jsonb,1,$5 FROM recurring_invoice_schedules s WHERE s.id=$6::uuid AND s.tenant_id=$2::uuid
       ON CONFLICT(schedule_id,occurrence_key) DO UPDATE SET status='failed',attempts=recurring_invoice_occurrences.attempts+1,error_summary=EXCLUDED.error_summary,updated_at=now()`,[occurrenceId,tenantId,scheduledDate,scheduledDate,message,scheduleId]).catch(()=>undefined);}
@@ -117,5 +117,5 @@ export async function processRecurringInvoice(pool:Pool,tenantId:string,schedule
         ON CONFLICT(tenant_id,dedupe_key) DO NOTHING`, [randomUUID(),tenantId,scheduleRow.rows[0].branch_id,scheduleId,JSON.stringify({scheduleId,occurrenceId,scheduledDate,errorCode:error?.permanent?'PERMANENT':'RETRYABLE',notificationUserIds:schedule?.notification_user_ids||[]}),`recurring-invoice-failed:${scheduleId}:${scheduledDate}:${occurrenceId||'unstarted'}`,scheduleRow.rows[0].created_by_user_id]).catch(()=>undefined);
     }
     throw error;
-  }finally{await client.query("SELECT set_config('app.tenant_id','',false)").catch(()=>undefined);client.release();}
+  }finally{client.release();}
 }

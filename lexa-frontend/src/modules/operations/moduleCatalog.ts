@@ -549,7 +549,7 @@ export const EXISTING_MODULE_LINKS = [
   { to: '/settings', title: 'Settings', description: 'Business workspace preferences, connected services and data settings.', group: 'ADMINISTRATION', icon: Building2, state: 'Existing workflow' },
 ];
 
-export const ADDITIONAL_MODULE_LINKS = [
+export const PHASE_TWO_LINKS = [
   ...MODULE_CATALOG.map((module) => ({ to: '/modules/' + module.id, title: module.title, description: module.description, group: module.group, icon: module.icon, state: module.readOnly ? 'Read-only' : 'Available' })),
 ];
 

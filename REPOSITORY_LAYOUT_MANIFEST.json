@@ -1,7 +1,14 @@
 {
-  "name": "LEXA canonical repository",
-  "version": "2026-11-02",
-  "archive_root": "Repository root; archive contains no wrapper directory",
+  "name": "LEXA canonical source archive",
+  "version": "2026-11-03",
+  "archive_root": "Repository root; no wrapper directory",
+  "source_baseline": {
+    "repository": "MONALISA2003-CMD/The-LEXA-",
+    "branch": "main",
+    "commit": "131f986f05bef8ae62c0b3c7df514bb9ba714d18",
+    "note": "This archive includes the Prisma and worker transaction-local Neon runtime-role correction and the current Render/Neon compute configuration. It is a source archive, not a GitHub commit or deployment.",
+    "archive_basis": "Updated from the supplied 2026-11-02 source archive and reconciled with the production configuration supplied as directly verified on 2026-11-03; not a byte-for-byte export of main."
+  },
   "applications": {
     "backend": "backend/",
     "frontend": "lexa-frontend/"
@@ -10,40 +17,125 @@
     "docs/",
     "scripts/"
   ],
-  "database": {
-    "provider": "Neon PostgreSQL",
-    "project": "lexa-backend",
-    "production_branch": "production",
-    "database": "lexa",
-    "migration_policy": "Keep all production-applied Prisma migration directory names immutable."
+  "github_repository_requirements": {
+    "workflows": [
+      ".github/workflows/backend-ci.yml"
+    ],
+    "preserved_in_github_repository": true,
+    "included_in_source_import_zip": false,
+    "reason": "The repository-import workflow rejects .github/ in an incoming source ZIP. Keep the workflow in the GitHub repository; do not delete or relocate it."
   },
   "deployment": {
     "vercel_project": "lexa_review",
     "vercel_root_directory": "lexa-frontend",
     "vercel_framework": "vite",
-    "vercel_build_command": "npm run build",
-    "vercel_output_directory": "dist",
     "render_service": "lexa-backend-api-live",
+    "render_service_id": "srv-dbhp0f0m7kps73ffeqrg",
+    "render_workspace_id": "tea-d9cssgflk1mc73br1cp0",
+    "render_repository": "MONALISA2003-CMD/The-LEXA-",
+    "render_branch": "main",
+    "render_runtime": "docker",
+    "render_plan": "1c-2g",
+    "render_vcpu": 1,
+    "render_memory_gb": 2,
+    "render_price_reference_usd_month": 25,
+    "render_instances": 1,
+    "render_region": "frankfurt",
+    "render_auto_deploy": true,
     "render_dockerfile": "backend/Dockerfile",
-    "render_docker_context": "."
+    "render_docker_context": ".",
+    "render_url": "https://lexa-backend-api-live.onrender.com",
+    "render_health_check_path": null,
+    "render_health_check_note": "Do not set a healthCheckPath until deployed GET /health/ready has been verified to return HTTP 200.",
+    "separate_worker_service_deployed": false,
+    "worker_redis_status": {
+      "status": "not_verified_currently",
+      "previous_service_id": "red-dakmbe9594qs73einb2g",
+      "last_lookup_on": "2026-11-03",
+      "lookup_result": "404 not found",
+      "production_requirement": "Do not enable worker processing until a current authenticated persistent private Redis/Key Value service is verified."
+    }
   },
-  "ai": {
-    "router": "backend/src/ai/ai-router.service.ts",
-    "provider_credentials": "Render private environment variables only",
-    "paid_tier_default": false
+  "database": {
+    "provider": "Neon PostgreSQL",
+    "project": "lexa-backend",
+    "project_id": "empty-mud-76816448",
+    "subscription": "launch_v3",
+    "postgresql_version": 17,
+    "region": "aws-eu-central-1",
+    "production_branch": "production",
+    "production_branch_id": "br-snowy-hill-ba5a9ggc",
+    "database": "lexa",
+    "production_read_write_endpoint_id": "ep-patient-wind-badv5z3m",
+    "endpoint_compute_min_cu": 0.5,
+    "endpoint_compute_max_cu": 2,
+    "endpoint_state": "active",
+    "endpoint_suspend_timeout_seconds": -1,
+    "connection_pooler_enabled": true,
+    "connection_pooler_mode": "transaction",
+    "login_role": "lexa_app",
+    "runtime_role": "lexa_app_runtime",
+    "runtime_connection_variable": "DATABASE_URL",
+    "runtime_connection_host": "pooled (-pooler hostname)",
+    "migration_connection_variable": "DATABASE_URL_UNPOOLED",
+    "migration_connection_host": "direct (no -pooler hostname)",
+    "launch_compute_price_usd_per_cu_hour": 0.106,
+    "storage_price_reference_usd_per_gb_month": 0.35,
+    "compute_cost_estimates_usd_per_730_hours": {
+      "constant_0_5_cu": 38.69,
+      "constant_2_cu": 154.76,
+      "render_plus_constant_0_5_cu": 63.69,
+      "render_plus_constant_2_cu": 179.76
+    },
+    "cost_estimates_are_fixed_monthly_charges": false,
+    "project_defaults_are_separate": {
+      "min_cu": 0.25,
+      "max_cu": 8,
+      "suspend_timeout_seconds": 0
+    },
+    "migrations": "30 existing migration directories retained; no production migrations run for this archive",
+    "production_hosts": {
+      "direct": "ep-patient-wind-badv5z3m.c-8.eu-central-1.aws.neon.tech",
+      "pooled": "ep-patient-wind-badv5z3m-pooler.c-8.eu-central-1.aws.neon.tech"
+    },
+    "production_runtime_role_verification": {
+      "verified_on": "2026-11-03",
+      "method": "read-only query on production branch; no business data queried or changed",
+      "login_role": {
+        "name": "lexa_app",
+        "can_login": true,
+        "superuser": false,
+        "bypassrls": true
+      },
+      "runtime_role": {
+        "name": "lexa_app_runtime",
+        "can_login": false,
+        "superuser": false,
+        "bypassrls": false
+      },
+      "login_role_can_set_runtime_role": true,
+      "rls_migration_name": "20261030320000_platform_catalog_finance_rls",
+      "rls_migration_applied": true,
+      "worker_queue_discovery": "Uses the privileged lexa_app login for narrowly scoped queue/control metadata; hardening follow-up is constrained claim functions or a dedicated NOLOGIN NOBYPASSRLS role."
+    }
   },
   "maintenance": {
     "cleanup": "scripts/clean_repository.py",
     "validation": "scripts/validate_repository.py",
-    "archive_import_workflow": ".github/workflows/repository-import.yml",
-    "ci_workflow": ".github/workflows/backend-ci.yml"
+    "layout_validation": "scripts/check_repository_layout.py"
   },
-  "compatibility": {
-    "legacy_alert_runbook_paths": "Mapped in the API response layer to the new docs/operations/runbooks/ directory; production database rows remain unchanged.",
-    "legacy_people_projects_api_route": "Preserved to avoid breaking existing clients."
-  },
-  "security": {
-    "environment_files": "Only .env.example templates are included; live credentials are stored in platform environment settings.",
-    "production_database": "Not modified during repository cleanup."
+  "secrets": "No live .env files, database credentials, production connection strings, provider keys or tokens included.",
+  "dependency_installation": {
+    "package_manifests": [
+      "backend/package.json",
+      "lexa-frontend/package.json"
+    ],
+    "lockfiles": [
+      "backend/package-lock.json",
+      "lexa-frontend/package-lock.json"
+    ],
+    "lockfiles_in_source_import_zip": false,
+    "reason": "The source-import ZIP excludes generated/dependency artifacts. scripts/clean_repository.py generates missing npm lockfiles with npm install --package-lock-only --ignore-scripts before repository validation and npm ci.",
+    "ci_requirement": "Run scripts/clean_repository.py before scripts/validate_repository.py and before npm ci. The cleanup step verifies lockfileVersion and exact package.json root dependency metadata."
   }
 }

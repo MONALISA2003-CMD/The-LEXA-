@@ -2268,7 +2268,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/bank-accounts:
     get:
       operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceBank
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2288,7 +2288,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2314,7 +2314,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/bank-accounts/{accountId}/statement-lines/import:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2344,7 +2344,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/bank-reconciliations:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2370,7 +2370,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/bank-reconciliations/{reconciliationId}/complete:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2400,7 +2400,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/bank-reconciliations/{reconciliationId}/matches:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2430,7 +2430,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/cash-sessions:
     get:
       operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceCash
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2450,7 +2450,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2476,7 +2476,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/cash-sessions/{sessionId}/close:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2506,7 +2506,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/cash-sessions/{sessionId}/movements:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2536,7 +2536,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/cash-ups/{cashUpId}/post:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2566,7 +2566,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/cost-centres:
     get:
       operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceCost
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2586,7 +2586,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCost
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2612,7 +2612,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/credit-notes:
     get:
       operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceCred
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2633,7 +2633,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/expense-categories:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2659,7 +2659,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/expenses:
     get:
       operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceExpe
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2679,7 +2679,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2705,7 +2705,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/expenses/{expenseId}/approve:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2735,7 +2735,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/fixed-assets:
     get:
       operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceFixe
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2755,7 +2755,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceFixe
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2781,7 +2781,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/finance/fixed-assets/{assetId}/depreciate:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceFixe
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2811,7 +2811,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/inventory/lots:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryLo
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2837,7 +2837,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/inventory/lots/{lotId}/serials:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryLo
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2867,7 +2867,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/inventory/reservations:
     get:
       operationId: getWorkspacesWorkspaceidBranchesBranchidInventoryRe
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2887,7 +2887,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryRe
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2913,7 +2913,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/inventory/reservations/{reservationId}/release:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryRe
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2943,7 +2943,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/inventory/warehouses:
     get:
       operationId: getWorkspacesWorkspaceidBranchesBranchidInventoryWa
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2963,7 +2963,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryWa
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -2989,7 +2989,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/inventory/warehouses/{warehouseId}/bins:
     get:
       operationId: getWorkspacesWorkspaceidBranchesBranchidInventoryWa
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3013,7 +3013,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryWa
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3043,7 +3043,7 @@ paths:
   /workspaces/{workspaceId}/catalog/price-lists:
     get:
       operationId: getWorkspacesWorkspaceidCatalogPriceLists
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3059,7 +3059,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidCatalogPriceLists
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3081,7 +3081,7 @@ paths:
   /workspaces/{workspaceId}/catalog/price-lists/{priceListId}/items:
     post:
       operationId: postWorkspacesWorkspaceidCatalogPriceListsPricelisti
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3107,7 +3107,7 @@ paths:
   /workspaces/{workspaceId}/catalog/tax-codes:
     get:
       operationId: getWorkspacesWorkspaceidCatalogTaxCodes
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3123,7 +3123,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidCatalogTaxCodes
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3145,7 +3145,7 @@ paths:
   /workspaces/{workspaceId}/catalog/tax-rules:
     post:
       operationId: postWorkspacesWorkspaceidCatalogTaxRules
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3167,7 +3167,7 @@ paths:
   /workspaces/{workspaceId}/catalog/units:
     get:
       operationId: getWorkspacesWorkspaceidCatalogUnits
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3183,7 +3183,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidCatalogUnits
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3205,7 +3205,7 @@ paths:
   /workspaces/{workspaceId}/invitations:
     get:
       operationId: getWorkspacesWorkspaceidInvitations
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3221,7 +3221,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidInvitations
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3243,7 +3243,7 @@ paths:
   /workspaces/{workspaceId}/invitations/{invitationId}/accept:
     post:
       operationId: postWorkspacesWorkspaceidInvitationsInvitationidAcce
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3269,7 +3269,7 @@ paths:
   /workspaces/{workspaceId}/products/{productId}/variants:
     get:
       operationId: getWorkspacesWorkspaceidProductsProductidVariants
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3289,7 +3289,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: postWorkspacesWorkspaceidProductsProductidVariants
-      tags: [Core Operations]
+      tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
           in: path
@@ -3315,7 +3315,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/packages/{packageId}/packing-slip:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-inventory-packages-packageid-packing-slip
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3340,7 +3340,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/picklists:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-inventory-picklists
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3360,7 +3360,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-picklists
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3386,7 +3386,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/picklists/{picklistId}/dispatch:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-picklists-picklistid-dispatch
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3416,7 +3416,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/picklists/{picklistId}/packages:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-picklists-picklistid-packages
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3446,7 +3446,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/picklists/{picklistId}/pick:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-picklists-picklistid-pick
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3476,7 +3476,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/replenishment/policies:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-replenishment-policies
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3502,7 +3502,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/replenishment/suggestions:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-inventory-replenishment-suggestions
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3523,7 +3523,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/stock-counts:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-inventory-stock-counts
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3543,7 +3543,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-stock-counts
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3569,7 +3569,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/stock-counts/{countId}/approve:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-stock-counts-countid-approve
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3599,7 +3599,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/stock-counts/{countId}/submit:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-stock-counts-countid-submit
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3629,7 +3629,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/transfers:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-inventory-transfers
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3649,7 +3649,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-transfers
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3675,7 +3675,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/transfers/{transferId}/dispatch:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-transfers-transferid-dispatch
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3705,7 +3705,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/transfers/{transferId}/receive:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-transfers-transferid-receive
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3735,7 +3735,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/warehouses:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-inventory-warehouses
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3755,7 +3755,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-warehouses
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3781,7 +3781,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/boms:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-boms
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3801,7 +3801,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-boms
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3827,7 +3827,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/job-cards/{cardId}/steps/{stepId}/complete:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-job-cards-cardid-steps-stepid-complete
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3861,7 +3861,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/job-cards/{cardId}/steps/{stepId}/start:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-job-cards-cardid-steps-stepid-start
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3895,7 +3895,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/work-orders:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-work-orders
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3915,7 +3915,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-work-orders
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3941,7 +3941,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/work-orders/{workOrderId}/complete:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-work-orders-workorderid-complete
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3971,7 +3971,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/work-orders/{workOrderId}/job-cards:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-work-orders-workorderid-job-cards
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -3996,7 +3996,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/work-orders/{workOrderId}/release:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-work-orders-workorderid-release
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4026,7 +4026,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/approval-rules:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-approval-rules
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4046,7 +4046,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-approval-rules
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4072,7 +4072,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/awards:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-awards
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4098,7 +4098,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/awards/{awardId}/approve:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-awards-awardid-approve
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4128,7 +4128,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/awards/{awardId}/reject:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-awards-awardid-reject
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4158,7 +4158,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/purchase-orders:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-purchase-orders
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4179,7 +4179,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/purchase-orders/{purchaseOrderId}/receipts:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-purchase-orders-purchaseorderid-receipts
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4209,7 +4209,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/purchase-requests:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-purchase-requests
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4229,7 +4229,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-purchase-requests
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4255,7 +4255,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/purchase-requests/{requestId}/decision:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-purchase-requests-requestid-decision
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4285,7 +4285,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/purchase-requests/{requestId}/submit:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-purchase-requests-requestid-submit
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4315,7 +4315,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/rfqs:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-rfqs
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4341,7 +4341,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/rfqs/{rfqId}/invitations:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-rfqs-rfqid-invitations
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4371,7 +4371,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/rfqs/{rfqId}/issue:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-rfqs-rfqid-issue
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4401,7 +4401,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/rfqs/{rfqId}/quotations:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-rfqs-rfqid-quotations
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4425,7 +4425,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-rfqs-rfqid-quotations
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4455,7 +4455,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/supplier-returns:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-supplier-returns
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4475,7 +4475,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-supplier-returns
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4501,7 +4501,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/supplier-returns/{returnId}/approve:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-supplier-returns-returnid-approve
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4531,7 +4531,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/supplier-returns/{returnId}/dispatch:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-supplier-returns-returnid-dispatch
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4561,7 +4561,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/suppliers:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-suppliers
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4581,7 +4581,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-suppliers
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4607,7 +4607,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/quality/inspections:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-quality-inspections
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4633,7 +4633,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/quality/inspections/{inspectionId}/decision:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-quality-inspections-inspectionid-decision
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4663,7 +4663,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/quality/plans:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-quality-plans
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4683,7 +4683,7 @@ paths:
         '500': {description: Unexpected server error}
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-quality-plans
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - name: workspaceId
           in: path
@@ -4709,7 +4709,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/supplier-returns/{returnId}/notes:
     get:
       operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-procurement-supplier-returns-returnid-notes
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - {name: workspaceId, in: path, required: true, schema: {type: string}}
         - {name: branchId, in: path, required: true, schema: {type: string}}
@@ -4722,7 +4722,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/supplier-returns/{returnId}/credit-note:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-supplier-returns-returnid-credit-note
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - {name: workspaceId, in: path, required: true, schema: {type: string}}
         - {name: branchId, in: path, required: true, schema: {type: string}}
@@ -4747,7 +4747,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/inventory/stock-counts/{countId}/review:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-inventory-stock-counts-countid-review
-      tags: [Supply Chain]
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
       parameters:
         - {name: workspaceId, in: path, required: true, schema: {type: string}}
         - {name: branchId, in: path, required: true, schema: {type: string}}
@@ -4761,7 +4761,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/employees:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleEmployees_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4770,7 +4770,7 @@ paths:
         '409': {description: Business rule conflict}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleEmployees_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4781,7 +4781,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/employees/{employeeId}:
     patch:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleEmployeesEmployeeid_patch
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4792,7 +4792,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/employees/{employeeId}/compensation:
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleEmployeesEmployeeidCompensation_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4803,7 +4803,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/shifts:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleShifts_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4812,7 +4812,7 @@ paths:
         '409': {description: Business rule conflict}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleShifts_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4823,7 +4823,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/shift-assignments:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleShiftAssignments_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4832,7 +4832,7 @@ paths:
         '409': {description: Business rule conflict}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleShiftAssignments_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4843,7 +4843,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/attendance:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleAttendance_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4852,7 +4852,7 @@ paths:
         '409': {description: Business rule conflict}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleAttendance_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4863,7 +4863,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/attendance/{attendanceId}/review:
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleAttendanceAttendanceidReview_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4874,7 +4874,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/leave:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleLeave_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4883,7 +4883,7 @@ paths:
         '409': {description: Business rule conflict}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleLeave_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4894,7 +4894,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/leave/{leaveId}/submit:
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleLeaveLeaveidSubmit_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4905,7 +4905,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/timesheets:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleTimesheets_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4914,7 +4914,7 @@ paths:
         '409': {description: Business rule conflict}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleTimesheets_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4925,7 +4925,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/timesheets/{timesheetId}/submit:
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleTimesheetsTimesheetidSubmit_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4936,7 +4936,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRuns_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4945,7 +4945,7 @@ paths:
         '409': {description: Business rule conflict}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRuns_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4956,7 +4956,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/calculate:
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidCalculate_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4967,7 +4967,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/lines:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidLines_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4978,7 +4978,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/deductions:
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidDeductions_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -4989,7 +4989,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/submit:
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidSubmit_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -5000,7 +5000,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/payment:
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidPayment_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -5011,7 +5011,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6Projects_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -5020,7 +5020,7 @@ paths:
         '409': {description: Business rule conflict}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6Projects_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -5031,7 +5031,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects/{projectId}/tasks:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6ProjectsProjectidTasks_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -5040,7 +5040,7 @@ paths:
         '409': {description: Business rule conflict}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6ProjectsProjectidTasks_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -5051,7 +5051,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects/{projectId}/costs:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6ProjectsProjectidCosts_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -5060,7 +5060,7 @@ paths:
         '409': {description: Business rule conflict}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6ProjectsProjectidCosts_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -5071,7 +5071,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/support/cases:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6SupportCases_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -5080,7 +5080,7 @@ paths:
         '409': {description: Business rule conflict}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6SupportCases_post
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -5091,7 +5091,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/support/cases/{caseId}:
     patch:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6SupportCasesCaseid_patch
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -5102,7 +5102,7 @@ paths:
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/audit/events:
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6AuditEvents_get
-      description: Typed people and projects operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
+      description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
       responses:
         '200': {description: Successful operation response}
         '400': {description: Invalid request}
@@ -5114,7 +5114,7 @@ paths:
     get:
       operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommercePaymentReport
       summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/payment-report
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5135,7 +5135,7 @@ paths:
     get:
       operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceDeliveryReport
       summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-report
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5156,7 +5156,7 @@ paths:
     get:
       operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceDeliveryAgents
       summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-agents
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5176,7 +5176,7 @@ paths:
     post:
       operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceDeliveryAgents
       summary: POST /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-agents
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5213,7 +5213,7 @@ paths:
     patch:
       operationId: PatchWorkspacesWorkspaceIdBranchesBranchIdCommerceDeliveryAgentsAgentId
       summary: PATCH /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-agents/{agentId}
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5253,7 +5253,7 @@ paths:
     get:
       operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceDeliveryAgentsAgentIdHistory
       summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/delivery-agents/{agentId}/history
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5278,7 +5278,7 @@ paths:
     get:
       operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceSalesSaleIdDispatchableLines
       summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/sales/{saleId}/dispatchable-lines
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5303,7 +5303,7 @@ paths:
     get:
       operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceDispatches
       summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5323,7 +5323,7 @@ paths:
     post:
       operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceDispatches
       summary: POST /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5360,7 +5360,7 @@ paths:
     get:
       operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceDispatchesDeliveryId
       summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches/{deliveryId}
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5385,7 +5385,7 @@ paths:
     post:
       operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceDispatchesDeliveryIdEvents
       summary: POST /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches/{deliveryId}/events
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5426,7 +5426,7 @@ paths:
     post:
       operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceDispatchesDeliveryIdDirectReceipts
       summary: POST /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches/{deliveryId}/direct-receipts
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5467,7 +5467,7 @@ paths:
     post:
       operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceDispatchesDeliveryIdCollectionReports
       summary: POST /workspaces/{workspaceId}/branches/{branchId}/commerce/dispatches/{deliveryId}/collection-reports
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5508,7 +5508,7 @@ paths:
     get:
       operationId: GetWorkspacesWorkspaceIdBranchesBranchIdCommerceCollectionReports
       summary: GET /workspaces/{workspaceId}/branches/{branchId}/commerce/collection-reports
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path
@@ -5529,7 +5529,7 @@ paths:
     post:
       operationId: PostWorkspacesWorkspaceIdBranchesBranchIdCommerceRemittances
       summary: POST /workspaces/{workspaceId}/branches/{branchId}/commerce/remittances
-      description: Commerce workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
+      description: Increment 1 workflow endpoint. Tenant membership, branch scope, permission checks, validation, audit history and mutation idempotency are enforced server-side. Monetary values use integer minor units.
       parameters:
       - name: workspaceId
         in: path

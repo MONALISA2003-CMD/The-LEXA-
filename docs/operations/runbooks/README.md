@@ -1,6 +1,6 @@
 # Operational runbooks
 
-These procedures support deployment, recovery, security and service operations. They are not proof that an optional service has been deployed or that a restore exercise has passed. Use an isolated staging target first and retain reviewed evidence.
+Use staging for restore drills and incident exercises. These documents describe procedures; their presence is not evidence that a restore or optional service has been tested in production.
 
 - [API deployment and rollback](api-deployment-and-rollback.md)
 - [Background worker deployment and rollback](background-worker-deployment-and-rollback.md)

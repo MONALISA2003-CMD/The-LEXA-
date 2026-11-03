@@ -2,7 +2,7 @@
   "name": "@lexa/backend",
   "version": "0.1.0",
   "private": true,
-  "description": "LEXA multi-tenant business management API",
+  "description": "LEXA multi-tenant ERP API \u2014 foundation scaffold",
   "engines": {
     "node": ">=22 <23"
   },

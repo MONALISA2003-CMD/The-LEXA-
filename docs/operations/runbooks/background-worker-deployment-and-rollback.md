@@ -1,5 +1,7 @@
 # Worker deployment and rollback
 
+> **Current deployment boundary (3 November 2026):** The Render deployment currently documented for LEXA is the API service only; no separate worker service or current persistent Redis service is verified. The previously recorded Redis service ID `red-dakmbe9594qs73einb2g` returned `404 not found` in a read-only Render lookup. Do not enable the worker until a currently provisioned authenticated, persistent private Redis service and all worker dependencies are verified. See [current compute configuration](../../deployment/current-compute-configuration.md).
+
 **Prerequisites and permissions:** Release operator with Render worker access and approved runtime secrets.
 
 ## Safe procedure
@@ -22,7 +24,7 @@ SELECT status,count(*) FROM platform_jobs GROUP BY status;
 
 ## Stop / rollback conditions
 
-- Do not enable worker against Free non-persistent Redis for production. Stop if it connects using BYPASSRLS or if tenant runtime role is unavailable.
+- Do not enable the worker until a current persistent private Redis instance is confirmed. Stop if tenant business queries use the `lexa_app` login role (`BYPASSRLS=true`) instead of `lexa_app_runtime` (`NOBYPASSRLS`). The queue-discovery connection is a documented privileged exception and must stay limited to queue/control metadata.
 
 ## Escalation
 

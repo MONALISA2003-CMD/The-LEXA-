@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Boxes, Plus, RefreshCw } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
-import { apiCatalogInventory } from '../../data/remote/apiCommerceFinance';
+import { apiCatalogInventory } from '../../data/remote/apiWorkstream03';
 
 export default function CatalogInventoryPanel() {
  const {workspace,branch}=useWorkspace(); const cache=useQueryClient();
