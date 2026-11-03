@@ -37,16 +37,16 @@ const OWNER_EXTRA: Permission[] = ['saas.manage','people.private.read','people.d
 const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
   owner: ['workspace.manage', 'finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
   owner_administrator: ['workspace.manage', 'finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
-  administrator: ['workspace.manage', 'finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
-  admin: ['workspace.manage', 'finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
+  administrator: ['finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, 'projects.read', 'projects.write'],
+  admin: ['finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, 'projects.read', 'projects.write'],
   business_manager: ['finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, 'projects.read','projects.write','support.read','support.write'],
   manager: ['finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, 'projects.read','projects.write','support.read','support.write'],
   branch_manager: ['intelligence.read', 'intelligence.run', 'saas.read', 'workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'procurement.read', 'finance.read', 'crm.read', 'people.read', 'manufacturing.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'module.read', ...OPERATIONAL_WRITES],
-  cashier: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'cash.manage', 'support.read'],
-  sales: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'crm.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'sales.return', 'crm.write', 'support.read', 'support.write'],
-  sales_operator: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'crm.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'crm.write', 'support.read', 'support.write'],
-  inventory_operator: ['workspace.read', 'catalog.read', 'inventory.read', 'procurement.read', 'manufacturing.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'catalog.write', 'inventory.write', 'procurement.receive', 'fulfilment.write', 'manufacturing.write', 'module.write'],
-  warehouse_operator: ['workspace.read', 'catalog.read', 'inventory.read', 'procurement.read', 'manufacturing.read', 'fulfilment.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'inventory.write', 'procurement.receive', 'fulfilment.write', 'manufacturing.write'],
+  cashier: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'cash.manage', 'support.read'],
+  sales: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'crm.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'crm.write', 'support.read', 'support.write'],
+  sales_operator: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'crm.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'crm.write', 'support.read', 'support.write'],
+  inventory_operator: ['workspace.read', 'catalog.read', 'inventory.read', 'procurement.read', 'manufacturing.read', 'fulfilment.read', 'collaboration.read', 'collaboration.write', 'catalog.write', 'inventory.write', 'procurement.receive', 'fulfilment.write', 'manufacturing.write', 'module.write'],
+  warehouse_operator: ['workspace.read', 'catalog.read', 'inventory.read', 'procurement.read', 'manufacturing.read', 'fulfilment.read', 'collaboration.read', 'collaboration.write', 'inventory.write', 'procurement.receive', 'fulfilment.write', 'manufacturing.write'],
   accountant: ['intelligence.read', 'intelligence.run', 'saas.read', 'workspace.read', 'catalog.read', 'sales.read', 'fulfilment.read', 'procurement.read', 'finance.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'finance.write', 'procurement.write', 'approval.decide', 'module.write'],
   read_only: [...ALL_READS],
   readonly: [...ALL_READS],
@@ -58,6 +58,8 @@ const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
   employee: ['workspace.read','people.read','people.write','projects.read','collaboration.read','collaboration.write','module.read'],
   project_manager: ['workspace.read','people.read','projects.read','projects.write','collaboration.read','collaboration.write','approval.decide','module.read','module.write'],
   support_agent: ['workspace.read','crm.read','people.read','support.read','support.write','collaboration.read','collaboration.write','module.read','module.write'],
+  procurement_officer: ['workspace.read','catalog.read','inventory.read','procurement.read','procurement.write','crm.read','collaboration.read'],
+  customer_service: ['workspace.read','crm.read','crm.write','sales.read','support.read','support.write','collaboration.read'],
   auditor: ['workspace.read','reports.read','audit.read','finance.read','people.read','projects.read','support.read','module.read'],
 };
 
@@ -66,7 +68,7 @@ export function normalizeRole(role: string): string {
 }
 
 export function isWorkspaceAdministrator(role: string): boolean {
-  return ['owner', 'admin', 'administrator', 'owner_administrator'].includes(normalizeRole(role));
+  return ['owner', 'owner_administrator'].includes(normalizeRole(role));
 }
 
 /** A restricted scope may contain zero branches; administrators always retain workspace-wide access. */
@@ -83,6 +85,9 @@ export function hasPermission(role: string, permission: Permission): boolean {
   return permissions?.includes(permission) ?? false;
 }
 
+export const availablePermissions = (role: string): Permission[] => [...new Set([...(ROLE_PERMISSIONS[normalizeRole(role)] ?? []), ...(hasPermission(role, 'cash.manage') ? ['cash.manage' as Permission] : [])])];
+export const isOwnerRole = (role: string) => ['owner', 'owner_administrator'].includes(normalizeRole(role));
+
 export function permissionForRequest(method: string, pathname: string, params: Record<string, unknown> = {}): Permission | null {
   const verb = method.toUpperCase();
   if (['HEAD', 'OPTIONS'].includes(verb)) return null;
@@ -91,8 +96,9 @@ export function permissionForRequest(method: string, pathname: string, params: R
   const moduleId = typeof params.moduleId === 'string' ? params.moduleId : undefined;
   const choose = (read: Permission, mutation: Permission): Permission => write ? mutation : read;
 
+  if (/\/workspaces\/[^/]+\/access$/.test(path)) return 'workspace.read';
   if (/\/workspaces\/[^/]+\/business-setup(?:\/complete)?$/.test(path)) return write ? 'workspace.manage' : 'workspace.read';
-  if (/\/workspaces\/[^/]+\/members(?:$|\?)|\/memberships\/[^/]+\/(?:branches|role)(?:$|\?)|\/workspaces\/[^/]+\/invitations(?:$|\/)/.test(path)) return 'workspace.manage';
+  if (/\/workspaces\/[^/]+\/members(?:$|\?)|\/memberships\/[^/]+(?:\/(?:branches|role|status))?(?:$|\?)|\/workspaces\/[^/]+\/invitations(?:$|\/)/.test(path)) return 'workspace.manage';
   if (/\/recurring-invoices(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
   if (/\/intelligence\/status$/.test(path)) return 'intelligence.read';
   if (/\/intelligence\/(?:help|explain|extract)$/.test(path)) return 'intelligence.run';
@@ -155,7 +161,7 @@ export function permissionForRequest(method: string, pathname: string, params: R
       employees: ['people.read', 'people.write'], attendance: ['people.read', 'people.write'], payroll: ['payroll.read', 'payroll.write'], leave: ['people.read', 'people.write'], timesheets: ['people.read', 'people.write'], shifts: ['people.read','people.write'],
       warehouses: ['inventory.read', 'inventory.write'], 'stock-counts': ['inventory.read', 'inventory.write'], 'stock-transfers': ['inventory.read', 'inventory.write'], 'work-orders': ['manufacturing.read', 'manufacturing.write'], quality: ['manufacturing.read', 'manufacturing.write'], batches: ['inventory.read', 'inventory.write'], replenishment: ['inventory.read', 'inventory.write'], 'item-bundles': ['inventory.read', 'inventory.write'], boms: ['manufacturing.read', 'manufacturing.write'], 'job-cards': ['manufacturing.read', 'manufacturing.write'], picklists: ['fulfilment.read', 'fulfilment.write'], deliveries: ['fulfilment.read', 'fulfilment.write'], packages: ['fulfilment.read', 'fulfilment.write'],
     };
-    const pair = mapped[moduleId] ?? ['module.read', 'module.write'];
+    const pair = mapped[moduleId] ?? ['module.read', 'workspace.manage'];
     return choose(pair[0], pair[1]);
   }
 

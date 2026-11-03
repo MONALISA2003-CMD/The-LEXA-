@@ -7,7 +7,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { PrismaService } from '../prisma/prisma.service';
-import { hasPermission, isWorkspaceAdministrator, normalizeRole } from '../authorization/role-policy';
+import { availablePermissions, hasPermission, isWorkspaceAdministrator, normalizeRole } from '../authorization/role-policy';
 import { postLedgerJournal, settlementAccountKey } from '../general-ledger/ledger-posting';
 import { assertBranchAccess } from '../authorization/branch-scope';
 import { CsrfGuard } from './csrf.guard';
@@ -535,6 +535,9 @@ export class CoreController {
   async createWorkspace(@Body() raw: unknown, @Req() request: RequestWithBody) {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
+    const existingMemberships = await this.prisma.runWithTenantContext({ userId: session.userId }, () =>
+      this.prisma.membership.count({ where: { userId: session.userId, status: 'ACTIVE' } }));
+    if (existingMemberships > 0) throw new ForbiddenException({ code: 'SINGLE_BUSINESS_ACCOUNT', message: 'Your account already belongs to a business. Invite employees inside My Business instead.' });
     const businessName = requiredString(body.businessName, 'Business name', 100);
     const businessType = requiredString(body.businessType ?? 'general', 'Business type', 80);
     const branchName = requiredString(body.branchName ?? 'Main branch', 'Branch name', 80);
@@ -553,6 +556,13 @@ export class CoreController {
       return created;
     });
     return toWorkspace(tenant);
+  }
+
+  @Get('workspaces/:workspaceId/access')
+  async currentBusinessAccess(@Param('workspaceId') workspaceId: string, @Req() request: FastifyRequest) {
+    const session = await this.sessionFor(request);
+    const member = await this.membershipFor(session.userId, workspaceId);
+    return { workspaceId, role: normalizeRole(member.role), permissions: availablePermissions(member.role), isOwner: isWorkspaceAdministrator(member.role) };
   }
 
   @Get('workspaces/:workspaceId')
@@ -610,6 +620,8 @@ export class CoreController {
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
     if (!isWorkspaceAdministrator(membership.role)) throw new ForbiddenException('You do not have permission to create branches.');
+    const branchCount = await this.prisma.branch.count({ where: { tenantId: workspaceId } });
+    if (branchCount > 0) throw new ForbiddenException({ code: 'SINGLE_BUSINESS_LOCATION', message: 'LEXA uses one business location. Add team members instead of creating branches.' });
     const name = requiredString(body.name, 'Branch name', 80);
     const address = optionalString(body.address, 250);
     const code = `${slugify(name).replace(/-/g, '').toUpperCase().slice(0, 8)}${randomBytes(2).toString('hex').toUpperCase()}`;
@@ -664,7 +676,7 @@ export class CoreController {
     if (['owner', 'owner_administrator'].includes(normalizeRole(target.role))) throw new ForbiddenException('Workspace ownership cannot be changed through ordinary role management.');
     if (isWorkspaceAdministrator(target.role) && !actorIsOwner) throw new ForbiddenException('Only a workspace owner can change another administrator role.');
     const role = requiredString(body.role, 'Member role', 40).trim().toLowerCase().replace(/[\s/-]+/g, '_');
-    const allowed = new Set(['administrator','business_manager','manager','branch_manager','cashier','sales','sales_operator','inventory_operator','warehouse_operator','accountant','read_only','readonly','viewer','member']);
+    const allowed = new Set(['business_manager','manager','cashier','sales','sales_operator','inventory_operator','warehouse_operator','accountant','procurement_officer','hr_officer','payroll_officer','customer_service','support_agent','auditor','read_only','readonly','viewer','member']);
     if (!allowed.has(role)) throw new BadRequestException('Choose a supported workspace role.');
     if (role === 'administrator' && !actorIsOwner) throw new ForbiddenException('Only a workspace owner can assign administrator access.');
     await this.prisma.$transaction(async (tx) => {
@@ -672,6 +684,55 @@ export class CoreController {
       await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'membership.role_updated', resourceType: 'membership', resourceId: userId, requestId: request.headers['x-request-id'] as string | undefined, metadata: { fromRole: target.role, toRole: role } } });
     }, { isolationLevel: 'Serializable' });
     return { userId, role, previousRole: target.role };
+  }
+
+  @Put('workspaces/:workspaceId/memberships/:userId/status')
+  @UseGuards(CsrfGuard)
+  async changeMemberStatus(@Param('workspaceId') workspaceId: string, @Param('userId') userId: string,
+    @Body() raw: unknown, @Req() request: FastifyRequest) {
+    const session = await this.sessionFor(request);
+    const actor = await this.membershipFor(session.userId, workspaceId);
+    if (!isWorkspaceAdministrator(actor.role)) throw new ForbiddenException('Only the business owner manages employee access.');
+    if (session.userId === userId) throw new ForbiddenException('You cannot suspend your own owner account.');
+    const body = asObject(raw);
+    const status = requiredString(body.status, 'Account status', 12).toUpperCase();
+    if (status !== 'ACTIVE' && status !== 'SUSPENDED') throw new BadRequestException('Choose ACTIVE or SUSPENDED.');
+    return this.prisma.$transaction(async tx => {
+      const member = await tx.membership.findUnique({ where: { tenantId_userId: { tenantId: workspaceId, userId } } });
+      if (!member) throw new NotFoundException('Employee not found in your business.');
+      if (['owner', 'owner_administrator'].includes(normalizeRole(member.role))) throw new ForbiddenException('Business ownership cannot be suspended.');
+      await tx.membership.update({ where: { tenantId_userId: { tenantId: workspaceId, userId } }, data: { status: status as 'ACTIVE' | 'SUSPENDED' } });
+      if (status === 'SUSPENDED') {
+        await tx.session.deleteMany({ where: { userId } });
+        const employee = await tx.user.findUnique({ where: { id: userId }, select: { email: true } });
+        if (employee?.email) await tx.workspaceInvitation.updateMany({ where: { tenantId: workspaceId, email: employee.email, status: 'PENDING' }, data: { status: 'REVOKED' } });
+      }
+      await tx.auditEvent.create({data:{tenantId:workspaceId,actorUserId:session.userId,action:status === 'SUSPENDED' ? 'membership.suspended' : 'membership.reactivated',resourceType:'membership',resourceId:userId,requestId:request.headers['x-request-id'] as string | undefined,metadata:{previousStatus:member.status,role:member.role}}});
+      return { userId, status, role: member.role };
+    }, { isolationLevel: 'Serializable' });
+  }
+
+  @Delete('workspaces/:workspaceId/memberships/:userId')
+  @UseGuards(CsrfGuard)
+  async removeEmployeeFromBusiness(@Param('workspaceId') workspaceId: string, @Param('userId') userId: string, @Req() request: FastifyRequest) {
+    const session = await this.sessionFor(request);
+    const actor = await this.membershipFor(session.userId, workspaceId);
+    if (!isWorkspaceAdministrator(actor.role)) throw new ForbiddenException('Only the business owner can remove an employee.');
+    if (session.userId === userId) throw new ForbiddenException('You cannot remove yourself as business owner.');
+    return this.prisma.$transaction(async tx => {
+      const member = await tx.membership.findUnique({ where: { tenantId_userId: { tenantId: workspaceId, userId } } });
+      if (!member) throw new NotFoundException('Employee not found in your business.');
+      if (isWorkspaceAdministrator(member.role)) throw new ForbiddenException('Business ownership cannot be removed.');
+      // Temporarily suspend within the same transaction so the narrowly scoped
+      // session RLS policy can revoke this employee's active login sessions.
+      await tx.membership.update({ where: { tenantId_userId: { tenantId: workspaceId, userId } }, data: { status: 'SUSPENDED' } });
+      await tx.session.deleteMany({ where: { userId } });
+      const employee = await tx.user.findUnique({ where: { id: userId }, select: { email: true } });
+      if (employee?.email) await tx.workspaceInvitation.updateMany({ where: { tenantId: workspaceId, email: employee.email, status: 'PENDING' }, data: { status: 'REVOKED' } });
+      await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'membership.removed', resourceType: 'membership', resourceId: userId, requestId: request.headers['x-request-id'] as string | undefined, metadata: { previousStatus: member.status, role: member.role, historyRetained: true } } });
+      await tx.membership.delete({ where: { tenantId_userId: { tenantId: workspaceId, userId } } });
+      return { removed: true, userId, businessRecordsPreserved: true };
+    }, { isolationLevel: 'Serializable' });
   }
 
   @Get('workspaces/:workspaceId/memberships/:userId/branches')
@@ -1535,13 +1596,14 @@ export class CoreController {
     const currentStart = new Date(now.getTime() - duration);
     if (period === 'today') currentStart.setUTCHours(0, 0, 0, 0);
     const previousStart = new Date(currentStart.getTime() - duration);
-    const [tenant, currentSales, priorSales, products, stockRows, movementRows] = await Promise.all([
+    const [tenant, currentSales, priorSales, products, stockRows, movementRows, paymentsByMethod] = await Promise.all([
       this.prisma.tenant.findUnique({ where: { id: workspaceId }, select: { currency: true } }),
       this.prisma.sale.findMany({ where: { tenantId: workspaceId, branchId, createdAt: { gte: currentStart, lte: now } }, orderBy: { createdAt: 'asc' }, take: 5000 }),
       this.prisma.sale.findMany({ where: { tenantId: workspaceId, branchId, createdAt: { gte: previousStart, lt: currentStart } }, orderBy: { createdAt: 'asc' }, take: 5000 }),
       this.prisma.product.findMany({ where: { tenantId: workspaceId, active: true }, orderBy: { name: 'asc' } }),
       this.prisma.stockMovement.findMany({ where: { tenantId: workspaceId, branchId }, select: { productId: true, quantityDelta: true } }),
       this.prisma.stockMovement.findMany({ where: { tenantId: workspaceId, branchId }, orderBy: { createdAt: 'desc' }, take: 12 }),
+      this.prisma.salePayment.findMany({ where: { tenantId: workspaceId, sale: { branchId }, kind: 'receipt', recordedAt: { gte: currentStart, lte: now } }, select: { methodCategory: true, method: true, methodLabel: true, amountMinor: true }, take: 5000 }),
     ]);
     const currency = tenant?.currency ?? 'UGX';
     const factor = 10 ** (new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 0);
@@ -1572,6 +1634,12 @@ export class CoreController {
       trendMap.set(label, (trendMap.get(label) ?? 0) + sale.totalMinor / factor);
     }
     const salesTrend = [...trendMap.entries()].map(([label, value]) => ({ label, value }));
+    const receiptGroups = new Map<string, number>();
+    for (const payment of paymentsByMethod) {
+      const label = payment.methodLabel?.trim() || payment.methodCategory?.replaceAll('_', ' ') || payment.method.replaceAll('_', ' ');
+      receiptGroups.set(label, (receiptGroups.get(label) ?? 0) + payment.amountMinor / factor);
+    }
+    const receiptMix = [...receiptGroups].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
     const recentActivity = [
       ...currentSales.slice(-8).map((sale) => ({ id: sale.id, kind: 'sale', summary: `Sale ${sale.receiptNumber} recorded`, occurredAt: sale.createdAt.toISOString(), href: `/sales/${sale.id}` })),
       ...movementRows.slice(0, 8).map((movement) => ({ id: movement.id, kind: 'inventory', summary: `${Number(movement.quantityDelta) > 0 ? 'Stock increased' : 'Stock decreased'}: ${movement.reason}`, occurredAt: movement.createdAt.toISOString(), href: '/inventory' })),
@@ -1586,8 +1654,8 @@ export class CoreController {
         { key: 'low-stock', label: 'Low-stock products', value: low.length, unit: 'number' as const, description: 'Products at or below their reorder threshold.' },
       ],
       salesTrend,
-      // Sales channels are not stored in the present schema; returning an empty series is more honest than inventing a breakdown.
-      salesByChannel: [],
+      // Record-only payment methods: derived from received payments, never gateway confirmations.
+      salesByChannel: receiptMix,
       stockHealth,
       recentActivity,
       exceptions,

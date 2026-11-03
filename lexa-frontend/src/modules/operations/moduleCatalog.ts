@@ -541,7 +541,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
 
 export const EXISTING_MODULE_LINKS = [
   { to: '/', title: 'Dashboard', description: 'Sales, receipts, stock-on-hand and low-stock alerts.', group: 'WORKSPACE', icon: Activity, state: 'Existing workflow' },
-  { to: '/workspace', title: 'Business & branches', description: 'Workspace profile and branch configuration.', group: 'WORKSPACE', icon: Building2, state: 'Existing workflow' },
+  { to: '/workspace', title: 'My Business', description: 'Your business identity, payment recording and managed employees.', group: 'WORKSPACE', icon: Building2, state: 'Existing workflow' },
   { to: '/checkout', title: 'Checkout / POS', description: 'Cart, stock validation, recorded payments and receipt creation.', group: 'SELLING', icon: Banknote, state: 'Existing workflow' },
   { to: '/sales', title: 'Sales & returns', description: 'Sale history, receipt details, payment trail and linked returns.', group: 'SELLING', icon: ReceiptText, state: 'Existing workflow' },
   { to: '/products', title: 'Products', description: 'Product catalogue, prices, categories and stock thresholds.', group: 'INVENTORY', icon: ClipboardList, state: 'Existing workflow' },

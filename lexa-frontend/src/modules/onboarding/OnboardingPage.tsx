@@ -36,7 +36,7 @@ export default function OnboardingPage() {
   const [showCreation, setShowCreation] = useState(false);
   const [businessName, setBusinessName] = useState('');
   const [businessType, setBusinessType] = useState('retail');
-  const [branchName, setBranchName] = useState('Main branch');
+  const branchName = 'Main branch';
   const [currency, setCurrency] = useState('UGX');
   const [timezone, setTimezone] = useState('Africa/Kampala');
   const [saving, setSaving] = useState(false);
@@ -167,7 +167,7 @@ export default function OnboardingPage() {
   }
 
   const hasBusinesses = businesses.length > 0;
-  const showForm = entryStatus === 'ready' && (!hasBusinesses || showCreation);
+  const showForm = entryStatus === 'ready' && !hasBusinesses;
 
   return (
     <main className="onboarding-shell">
@@ -179,7 +179,7 @@ export default function OnboardingPage() {
         <section className="onboarding-intro">
           <div className="mini-label"><Sparkles size={14} /> YOUR BUSINESS, SIMPLIFIED</div>
           <h1>{entryStatus === 'guest' ? <>Welcome back to <span>LEXA.</span></> : hasBusinesses ? <>Welcome to your <span>business.</span></> : <>Your business. <span>One place.</span></>}</h1>
-          <p>{entryStatus === 'guest' ? 'Sign in to open your existing businesses, continue your work and manage your team.' : hasBusinesses ? 'Choose your business to continue working, or add another business to your account.' : 'Manage sales, stock, customers, finances and your team with confidence.'}</p>
+          <p>{entryStatus === 'guest' ? 'Sign in to open your existing businesses, continue your work and manage your team.' : hasBusinesses ? 'Open your secure business and continue where you left off.' : 'Manage sales, stock, customers, finances and your team with confidence.'}</p>
           <div className="onboarding-benefits">
             <div><span className="benefit-icon"><Check size={17} /></span><div><strong>Keep business moving</strong><p>See what needs attention and pick up where you left off.</p></div></div>
             <div><span className="benefit-icon"><Check size={17} /></span><div><strong>Everything connected</strong><p>Sales, products, stock and payments work together.</p></div></div>
@@ -200,7 +200,7 @@ export default function OnboardingPage() {
             <p>{entryError}</p>
             <button type="button" className="button button-primary button-wide business-entry-cta" onClick={() => void loadBusinesses()}><RefreshCw size={17} /> Try again</button>
             <Link to="/sign-in" className="business-entry-alt-link">Return to sign in</Link>
-            {businessRecoveryNeeded && <button type="button" className="business-entry-secondary" onClick={() => { setBusinessRecoveryNeeded(false); setEntryStatus('ready'); setShowCreation(true); setActionError(''); }}>Set up a different business</button>}
+            {businessRecoveryNeeded && <p className="business-entry-recovery">Your business still exists. Contact support if it does not reopen; do not create another business.</p>}
           </div>}
           {entryStatus === 'ready' && <>
             {hasBusinesses && !showCreation && <div className="business-entry-panel">
@@ -214,14 +214,14 @@ export default function OnboardingPage() {
               <button type="button" className="button button-primary button-wide business-entry-cta" onClick={() => void openSelectedBusiness()} disabled={opening}>
                 {opening ? 'Opening your business…' : 'Open my business'} <ArrowRight size={18} />
               </button>
-              <button type="button" className="business-entry-secondary" onClick={() => { setActionError(''); setShowCreation(true); }}>Add another business</button>
+              
             </div>}
             {showForm && <>
-              <div className="setup-card-heading"><h2>{hasBusinesses ? 'Add another business' : 'Set up your business'}</h2><p>Tell us about your business. You can change these details later.</p></div>
+              <div className="setup-card-heading"><h2>{hasBusinesses ? 'Add another business' : 'Finish your business registration'}</h2><p>Tell us about your business. You can change these details later.</p></div>
               <form onSubmit={(event) => void createBusiness(event)} className="form-stack">
                 <label className="field-label">Business name <span className="required-mark">*</span><input autoFocus required maxLength={100} value={businessName} onChange={(event) => setBusinessName(event.target.value)} placeholder="For example, My Trading Company" /></label>
                 <label className="field-label">What kind of business do you run?<select value={businessType} onChange={(event) => setBusinessType(event.target.value)}>{businessTypes.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>
-                <label className="field-label">First branch name <span className="required-mark">*</span><input required maxLength={80} value={branchName} onChange={(event) => setBranchName(event.target.value)} placeholder="For example, Main branch" /></label>
+                
                 <div className="form-two-col">
                   <label className="field-label">Currency<select value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="UGX">UGX — Uganda shilling</option><option value="KES">KES — Kenya shilling</option><option value="TZS">TZS — Tanzania shilling</option><option value="USD">USD — US dollar</option><option value="GBP">GBP — Pound sterling</option><option value="EUR">EUR — Euro</option></select></label>
                   <label className="field-label">Time zone<select value={timezone} onChange={(event) => setTimezone(event.target.value)}><option value="Africa/Kampala">Kampala (EAT)</option><option value="Africa/Nairobi">Nairobi (EAT)</option><option value="Africa/Dar_es_Salaam">Dar es Salaam (EAT)</option><option value="UTC">UTC</option><option value="Europe/London">London</option></select></label>

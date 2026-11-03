@@ -138,7 +138,7 @@ export default function OperationsWorkspacePage() {
   if (!moduleId) return <ModuleDirectoryPage />;
   if (moduleId === 'reports') return <ReportsPage />;
   if (['employees','shifts','attendance','leave','timesheets','payroll','projects','support'].includes(moduleId)) return <PeopleProjectsPage moduleId={moduleId} />;
-  if (!module) return <Navigate to="/modules" replace />;
+  if (!module) return <Navigate to="/" replace />;
   return <ModuleManager key={module.id + ':' + workspace.id + ':' + branch.id} module={module} />;
 }
 

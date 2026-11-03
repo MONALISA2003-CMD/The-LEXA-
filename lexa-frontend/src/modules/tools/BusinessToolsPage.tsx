@@ -18,7 +18,6 @@ import {
 } from '../../data/local/businessTools';
 
 type ToolTab = 'overview' | 'cash-up' | 'tax' | 'data' | 'capture' | 'profile';
-type UiMode = 'simple' | 'advanced';
 type TaxProfile = {
   tin: string; vatRegistered: boolean; sector: string; efrisOverride: 'auto' | 'yes' | 'no';
   vatThreshold: string; efrisTurnoverThreshold: string; ruleSource: string; ruleEffectiveFrom: string;
@@ -48,7 +47,6 @@ const TAX_SECTORS = [
 const PROFILE_KEY = 'lexa.tools.tax-profile.v1';
 const CASHUP_KEY = 'lexa.tools.cash-ups.v1';
 const COMPLIANCE_KEY = 'lexa.tools.compliance-notes.v1';
-const UI_MODE_KEY = 'lexa.ui.mode';
 const ATTACHMENT_DB_NAME = 'lexa-local-attachments';
 const ATTACHMENT_STORE = 'attachments';
 
@@ -153,7 +151,6 @@ export default function BusinessToolsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<ToolTab>('overview');
-  const [uiMode, setUiMode] = useState<UiMode>(() => { try { return localStorage.getItem(UI_MODE_KEY) === 'advanced' ? 'advanced' : 'simple'; } catch { return 'simple'; } });
   const [profile, setProfile] = useState<TaxProfile>(() => isApiProvider ? defaultTaxProfile : parseProfile(workspace.id));
   const [searchValue, setSearchValue] = useState('');
   const [cashDate, setCashDate] = useState(() => localDateForZone(workspace.timezone));
@@ -220,10 +217,6 @@ export default function BusinessToolsPage() {
   useEffect(() => { if (taxProfileQuery.data) setProfile(taxProfileQuery.data); }, [taxProfileQuery.data]);
   useEffect(() => { if (cashUpsQuery.data) setCashUps(cashUpsQuery.data); }, [cashUpsQuery.data]);
   useEffect(() => { if (complianceNotesQuery.data) setComplianceNotes(complianceNotesQuery.data); }, [complianceNotesQuery.data]);
-  useEffect(() => {
-    try { localStorage.setItem(UI_MODE_KEY, uiMode); } catch { /* appearance preference is optional */ }
-    window.dispatchEvent(new CustomEvent('lexa:ui-mode-change', { detail: uiMode }));
-  }, [uiMode]);
   useEffect(() => () => {
     if (scannerTimerRef.current !== null) window.clearInterval(scannerTimerRef.current);
     scannerTimerRef.current = null;
@@ -498,7 +491,6 @@ export default function BusinessToolsPage() {
     <div className="page-stack business-tools-page" data-module-accent={moduleAccentForPath("/business-tools")}>
       <div className="page-heading-row">
         <div><div className="eyebrow">WORKSPACE TOOLS</div><h2>Business tools</h2><p style={{ margin: '6px 0 0', color: '#64748b', maxWidth: 720 }}>Cash-up, compliance notes, data recovery and mobile capture for {workspace.businessName} · {branch.name}.</p></div>
-        <button className="button button-secondary" onClick={() => { setUiMode((old) => old === 'simple' ? 'advanced' : 'simple'); }}><Smartphone size={15} /> {uiMode === 'simple' ? 'Switch to Advanced' : 'Switch to Simple'}</button>
       </div>
 
       <div role="tablist" aria-label="Business tools sections" style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
@@ -592,7 +584,6 @@ export default function BusinessToolsPage() {
 
       {tab === 'profile' && <>
         <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Building2 size={18} /></div><div><h3>Business identity & tax profile</h3><p>Maintain your registered business details for this workspace.</p></div></div><form onSubmit={saveTaxProfile} style={{ padding: '0 22px 22px', display: 'grid', gap: 13 }}><label className="field-label">Business name<input value={workspace.businessName} readOnly /></label><label className="field-label">TIN / registration reference<input value={profile.tin} onChange={(event)=>setProfile({...profile,tin:event.target.value})} placeholder="Business TIN (if applicable)" /></label><label className="field-label">VAT registration status<select value={profile.vatRegistered?'yes':'no'} onChange={(event)=>setProfile({...profile,vatRegistered:event.target.value==='yes'})}><option value="no">Not registered / unsure</option><option value="yes">VAT registered</option></select></label><label className="field-label">Sector<select value={profile.sector} onChange={(event)=>setProfile({...profile,sector:event.target.value})}>{TAX_SECTORS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><button className="button button-primary" type="submit"><Check size={15} /> Save profile</button></form></section>
-        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Smartphone size={18} /></div><div><h3>Interface preferences</h3><p>Simple mode keeps the primary tasks visible; advanced mode restores all navigation sections.</p></div></div><div style={{ padding:'0 22px 22px', display:'flex', gap:10, flexWrap:'wrap' }}><button className={uiMode==='simple'?'button button-primary':'button button-secondary'} onClick={()=>setUiMode('simple')}>Simple mode</button><button className={uiMode==='advanced'?'button button-primary':'button button-secondary'} onClick={()=>setUiMode('advanced')}>Advanced mode</button></div></section>
       </>}
 
       {snapshotQuery.isLoading && <div className="local-disclaimer"><RefreshCw size={15} /> Loading your business records…</div>}

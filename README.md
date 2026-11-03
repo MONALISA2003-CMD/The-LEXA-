@@ -83,3 +83,34 @@ For local clean installs, run `python3 scripts/clean_repository.py` from the rep
 ## Latest operational integration release candidate (2026-11-03)
 
 See [Production integration release and acceptance checklist](docs/operations/production-integration-release-2026-11-03.md) for purchasing, finance, payroll, bank reconciliation and live reporting changes, test results and remaining launch gates.
+
+
+## November 2026 — CEO workspace, roles, navigation and overview release
+
+This source release retains the single-tenant data model and one internal default
+branch for compatibility with existing sales/stock/ledger foreign keys. It removes
+all branch and additional-workspace creation from regular LEXA screens.
+
+- Full, permission-filtered, collapsible business categories; all 54 module IDs
+  retain their original individual URLs. No **All modules** screen/link, Simple/
+  Advanced switch or duplicate Settings item.
+- **My Business** unifies owner profile, company identity, authorized team,
+  manual recording methods and business privacy.
+- **Team & permissions**: role-based invitation, role change, suspension,
+  reactivation and owner-only removal from this business. Employees set their
+  own password through expiring invitation links; no shared credentials.
+- Owner-only business configuration; staff writes require per-capability server
+  checks. Staff DELETE, void, clear, unlink, purge and remove actions are denied;
+  historical business records are never removed when access is revoked.
+- Overview uses actual tenant-scoped sales, receipts, stock movements and
+  audited activity; charts refetch every 45 seconds while the page is in use.
+  Empty states never fabricate sample totals.
+- Database migration `20261103230000_owner_suspended_session_revocation`
+  extends RLS narrowly to revoke suspended employees' sessions when authorized
+  by the owner in the same tenant, without weakening ordinary session isolation.
+- Recovery from stale JS-chunk versions and explicit cache headers for immutable
+  assets versus current HTML.
+
+**Release safety:** No payment gateway, no new company tenant, no deletion of
+existing business records or branches. The migration must deploy with its matching
+backend source; do not apply it to production as a standalone manual edit.

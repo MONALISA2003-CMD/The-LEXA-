@@ -7,6 +7,7 @@ import { useWorkspace } from '../../app/WorkspaceContext';
 import { sales, products, workspaces } from '../../data/repositories';
 import { apiBaseUrl, dataProviderMode } from '../../data/remote/runtimeConfig';
 import { apiAuth } from '../../data/remote/apiAuth';
+import { apiTeamAccess } from '../../data/remote/apiTeamAccess';
 import SecurityPanel from '../security/SecurityPanel'; // LEXA_AUTH_SECURITY_UI_PATCH:settings-import-v1
 import { apiClient } from '../../data/remote/apiClient';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
@@ -20,6 +21,8 @@ const businessTypes = [
 export default function SettingsPage() {
   const { workspace, refreshWorkspaces } = useWorkspace();
   const client = useQueryClient();
+  const ownerAccess = useQuery({ queryKey: ['business-access', workspace.id], queryFn: () => apiTeamAccess.access(workspace.id), enabled: dataProviderMode === 'api' });
+  const ownerOnly = dataProviderMode !== 'api' || ownerAccess.data?.isOwner === true;
   const [name, setName] = useState(workspace.businessName);
   const [businessType, setBusinessType] = useState(workspace.businessType);
   const [timezone, setTimezone] = useState(workspace.timezone);
@@ -34,8 +37,8 @@ export default function SettingsPage() {
     setBusinessType(workspace.businessType);
     setTimezone(workspace.timezone);
   }, [workspace.id, workspace.businessName, workspace.businessType, workspace.timezone]);
-  const productsQuery = useQuery({ queryKey: ['products', workspace.id], queryFn: () => products.list({ workspaceId: workspace.id, activeOnly: false }) });
-  const salesQuery = useQuery({ queryKey: ['sales', workspace.id], queryFn: () => sales.list({ workspaceId: workspace.id, limit: 500 }) });
+  const productsQuery = useQuery({ queryKey: ['products', workspace.id], queryFn: () => products.list({ workspaceId: workspace.id, activeOnly: false }), enabled: ownerOnly });
+  const salesQuery = useQuery({ queryKey: ['sales', workspace.id], queryFn: () => sales.list({ workspaceId: workspace.id, limit: 500 }), enabled: ownerOnly });
   const currencyLocked = (productsQuery.data?.length ?? 0) > 0 || (salesQuery.data?.length ?? 0) > 0;
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
@@ -72,6 +75,8 @@ export default function SettingsPage() {
   }
 
 
+
+  if (!ownerOnly) return <div className="page-stack"><section className="section-card"><h2>Business owner settings</h2><p>Only the CEO of this business can update its configuration. Your employee access is managed by the owner.</p></section></div>;
 
   return (
     <div className="page-stack">

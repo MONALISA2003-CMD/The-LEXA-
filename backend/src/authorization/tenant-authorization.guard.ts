@@ -2,7 +2,7 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable, NotFound
 import type { FastifyRequest } from 'fastify';
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { canAccessBranch, hasPermission, permissionForRequest } from './role-policy';
+import { canAccessBranch, hasPermission, isOwnerRole, permissionForRequest } from './role-policy';
 
 function cookieValue(header: string | undefined, name: string): string | undefined {
   for (const part of (header ?? '').split(';')) {
@@ -43,6 +43,13 @@ export class TenantAuthorizationGuard implements CanActivate {
       select: { role: true, status: true },
     });
     if (!membership || membership.status !== 'ACTIVE') throw new NotFoundException('Workspace not found.');
+
+    // Staff cannot delete or purge records, even when a controller has a general *.write permission.
+    // Record corrections must be audited updates or reversal workflows, never silent deletion.
+    if (!isOwnerRole(membership.role) && (request.method.toUpperCase() === 'DELETE'
+      || /\/(?:delete|purge|hard-delete|void|clear|unlink|remove)(?:\/|$)/i.test(request.url.split('?')[0] ?? ''))) {
+      throw new ForbiddenException({ code: 'STAFF_DELETION_FORBIDDEN', message: 'Only the business owner can authorize removal or voiding of records.' });
+    }
 
     const branchId = typeof params.branchId === 'string' ? params.branchId : undefined;
     if (branchId) {

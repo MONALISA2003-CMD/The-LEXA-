@@ -97,7 +97,7 @@ export default function BusinessSetupPage() {
   return <section className="bs-shell">
     <section className="bs-hero"><div className="bs-hero-icon"><Sparkles size={22}/></div><p className="bs-eyebrow">LEXA · BUSINESS FOUNDATIONS</p>
       <h1>{completed ? 'Your business profile' : 'Make LEXA yours.'}</h1>
-      <p>One secure business profile, connected to your branches, sales, products, accounts, receipts and reports.</p>
+      <p>One secure business profile, connected to sales, products, accounts, receipts and reports.</p>
       <div className="bs-hero-foot"><ShieldCheck size={16}/> Owner-controlled · Private to {workspace.businessName}</div>
     </section>
     <section className="bs-card">
@@ -105,7 +105,7 @@ export default function BusinessSetupPage() {
       <div className="bs-progress" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={4} aria-label="Business setup progress">
         {[1,2,3,4].map(n => <div key={n} className={n <= step ? 'bs-progress-active' : ''} />)}
       </div>
-      {step === 1 && <><div className="bs-step-title"><Building2/><div><h2>Introduce your business</h2><p>This information identifies your business throughout LEXA and your first location.</p></div></div>
+      {step === 1 && <><div className="bs-step-title"><Building2/><div><h2>Introduce your business</h2><p>These details identify your business throughout LEXA.</p></div></div>
       <form onSubmit={advance} className="bs-form">
         <div className="bs-grid"><label>Business name *<input required maxLength={100} value={data.businessName} onChange={e => change('businessName',e.target.value)} placeholder="e.g. My Trading Company"/></label>
           <label>Trading name (optional)<input maxLength={100} value={data.tradingName} onChange={e => change('tradingName',e.target.value)} placeholder="Name your customers know"/></label></div>
@@ -113,7 +113,7 @@ export default function BusinessSetupPage() {
         <div className="bs-grid"><label>Country *<select value={data.country} onChange={e => change('country',e.target.value)}><option value="UG">Uganda</option><option value="KE">Kenya</option><option value="TZ">Tanzania</option><option value="RW">Rwanda</option><option value="US">United States</option><option value="GB">United Kingdom</option><option value="ZZ">Other / international</option></select></label>
           <label>District / region<input value={data.district} maxLength={120} onChange={e => change('district',e.target.value)} placeholder="e.g. Kampala"/></label></div>
         <div className="bs-grid"><label>Town or city<input value={data.city} maxLength={120} onChange={e => change('city',e.target.value)} placeholder="e.g. Kampala"/></label>
-          <label>First branch name *<input required maxLength={80} value={data.branchName} onChange={e => change('branchName',e.target.value)} placeholder="Main branch"/></label></div>
+          <input type="hidden" value={data.branchName||'Main branch'} readOnly/></div>
         <label>Physical address<input value={data.physicalAddress} maxLength={250} onChange={e => change('physicalAddress',e.target.value)} placeholder="Street, building, floor, shop number"/></label>
         <label className="bs-checkline"><input type="checkbox" checked={data.onlineOnly} onChange={e => change('onlineOnly',e.target.checked)}/> I operate online / remotely without a physical location</label>
         <div className="bs-grid"><label>Business phone<input type="tel" maxLength={40} value={data.phone} onChange={e => change('phone',e.target.value)} placeholder="e.g. +256 7XX XXX XXX"/></label>

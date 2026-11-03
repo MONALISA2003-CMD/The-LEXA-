@@ -10,7 +10,8 @@ test('normalizes role labels consistently', () => {
 test('owner and business manager can operate business domains', () => {
   assert.equal(hasPermission('owner', 'finance.write'), true);
   assert.equal(hasPermission('Business Manager', 'inventory.write'), true);
-  assert.equal(hasPermission('admin', 'workspace.manage'), true);
+  assert.equal(hasPermission('admin', 'workspace.manage'), false);
+  assert.equal(hasPermission('owner', 'workspace.manage'), true);
 });
 
 test('accountant is scoped to finance and procurement rather than stock operations', () => {
@@ -74,8 +75,8 @@ test('branch administrators bypass branch grants and empty grant sets preserve l
 });
 
 test('workspace administrators normalize aliases consistently', () => {
-  assert.equal(isWorkspaceAdministrator('administrator'), true);
-  assert.equal(isWorkspaceAdministrator('admin'), true);
+  assert.equal(isWorkspaceAdministrator('administrator'), false);
+  assert.equal(isWorkspaceAdministrator('admin'), false);
   assert.equal(isWorkspaceAdministrator('business manager'), false);
 });
 

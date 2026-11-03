@@ -930,6 +930,42 @@ paths:
             Each member includes branchScopeMode, branchIds and allBranches.
         '403':
           $ref: '#/components/responses/Forbidden'
+  /workspaces/{workspaceId}/access:
+    parameters: [$ref: '#/components/parameters/workspaceId']
+    get:
+      operationId: getCurrentBusinessAccess
+      summary: Return the current user's tenant-scoped permissions and owner status
+      responses:
+        '200': {description: Authorized membership role and permissions for this business}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /workspaces/{workspaceId}/memberships/{userId}:
+    parameters: [$ref: '#/components/parameters/workspaceId', {in: path, name: userId, required: true, schema: {type: string, format: uuid}}]
+    delete:
+      operationId: removeEmployeeFromBusiness
+      summary: CEO removes employee business access and revokes sessions while retaining all business history
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      responses:
+        '200': {description: Employee detached from the business, audit retained}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /workspaces/{workspaceId}/memberships/{userId}/status:
+    parameters: [$ref: '#/components/parameters/workspaceId', {in: path, name: userId, required: true, schema: {type: string, format: uuid}}]
+    put:
+      operationId: changeEmployeeStatus
+      summary: Owner suspends/reactivates a business employee, revoking sessions on suspension
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties: {status: {type: string, enum: [ACTIVE, SUSPENDED]}}
+      responses:
+        '200': {description: Employee membership status updated and audited}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403': {$ref: '#/components/responses/Forbidden'}
   /workspaces/{workspaceId}/memberships/{userId}/role:
     put:
       operationId: PutWorkspacesWorkspaceIdMembershipsUserIdRole

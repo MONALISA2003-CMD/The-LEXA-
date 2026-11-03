@@ -648,8 +648,10 @@ def main() -> None:
       { to: '/settings', label: 'Settings', icon: Settings },
     ] },
   ];'''
-    if "const visibleNavSections = uiMode === 'advanced'" not in app_shell:
-        app_shell = replace_once(app_shell, mobile_state, mode_state, "simple/advanced menu state")
+    # CEO-navigation release: old simple/advanced source injection must not resurrect
+    # a second navigation state, duplicate theme hooks or a hidden-module sidebar.
+    if "const visibleNavSections = navSections.map(section" not in app_shell and "const visibleNavSections = uiMode === 'advanced'" not in app_shell:
+        app_shell = replace_once(app_shell, mobile_state, mode_state, "legacy simple/advanced menu state")
     if "{visibleNavSections.map((section) => (" not in app_shell:
         app_shell = replace_once(app_shell, "{navSections.map((section) => (", "{visibleNavSections.map((section) => (", "visible navigation sections")
 

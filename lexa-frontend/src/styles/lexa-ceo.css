@@ -1,0 +1,8 @@
+.lexa-nav-hint{color:#829ab6;font-size:11px;letter-spacing:.015em;padding:8px 17px 6px;margin:0;line-height:1.45}
+.lexa-nav-group-toggle{display:flex;width:100%;justify-content:space-between;align-items:center;cursor:pointer;background:transparent;border:0;text-align:left;color:inherit;padding-top:12px;padding-bottom:12px}
+.lexa-nav-group-toggle:hover{color:#e8f4ff}.lexa-nav-group-toggle svg{transition:transform .18s ease}.lexa-nav-arrow-open{transform:rotate(180deg)}
+.lexa-current-business{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border,#d9e0e9);border-radius:12px;font-size:12px;font-weight:700;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar .nav-section{padding-bottom:4px}.sidebar .nav-link:focus-visible,.sidebar .lexa-nav-group-toggle:focus-visible{outline:2px solid #22b8f0;outline-offset:2px}.sidebar .nav-groups{scrollbar-gutter:stable}
+@media(max-width:650px){.lexa-current-business{display:none}}
+
+.overview-activity-list{display:grid;gap:5px}.overview-activity-list>button{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:13px 8px;border:0;border-bottom:1px solid var(--border,#e3e9f1);background:transparent;text-align:left;color:inherit;cursor:pointer}.overview-activity-list>button:hover{background:var(--surface-subtle,#f4f8fc)}.overview-activity-list time{font-size:11px;color:var(--text-secondary,#667085)}@media(max-width:560px){.overview-activity-list>button{grid-template-columns:minmax(0,1fr) 20px}.overview-activity-list time{grid-column:1/2;grid-row:2}}

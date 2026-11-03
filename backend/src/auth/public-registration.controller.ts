@@ -202,6 +202,8 @@ export class PublicRegistrationController {
       }
       const existingMembership = await tx.membership.findUnique({ where: { tenantId_userId: { tenantId: workspaceId, userId } } });
       if (existingMembership?.status === 'ACTIVE') throw new ConflictException('You already belong to this business.');
+      const previousAccess = await tx.membership.findUnique({ where: { tenantId_userId: { tenantId: workspaceId, userId } }, select: { status: true } });
+      if (previousAccess?.status === 'SUSPENDED') throw new ForbiddenException('This employee has been suspended. Only the business owner may reactivate access.');
       await tx.membership.upsert({
         where: { tenantId_userId: { tenantId: workspaceId, userId } },
         create: { tenantId: workspaceId, userId, role: invitation.role, status: 'ACTIVE', branchScopeMode: invitation.branch_scope_mode },
