@@ -518,9 +518,12 @@ export class CoreController {
     const currency = requiredString(body.currency ?? 'UGX', 'Currency', 3).toUpperCase();
     const timezone = requiredString(body.timezone ?? 'Africa/Kampala', 'Timezone', 80);
     if (!/^[A-Z]{3}$/.test(currency)) throw new BadRequestException('Currency must be a three-letter ISO currency code.');
+    // Preallocate the tenant UUID so PostgreSQL RLS can authorize INSERT RETURNING
+    // and the automatic subscription seed trigger before any tenant-scoped writes.
+    const tenantId = randomUUID();
     const tenant = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.tenant.create({ data: { name: businessName, slug: `${slugify(businessName)}-${randomBytes(3).toString('hex')}`, businessType, currency, timezone } });
-      await tx.$queryRaw`SELECT set_config('app.tenant_id', ${created.id}, true), set_config('app.user_id', ${session.userId}, true)`;
+      await tx.$queryRaw`SELECT set_config('app.tenant_id', ${tenantId}, true), set_config('app.user_id', ${session.userId}, true)`;
+      const created = await tx.tenant.create({ data: { id: tenantId, name: businessName, slug: `${slugify(businessName)}-${randomBytes(3).toString('hex')}`, businessType, currency, timezone } });
       await tx.membership.create({ data: { tenantId: created.id, userId: session.userId, role: 'owner', status: 'ACTIVE' } });
       await tx.branch.create({ data: { tenantId: created.id, code: 'MAIN', name: branchName, timezone, currency } });
       await tx.auditEvent.create({ data: { tenantId: created.id, actorUserId: session.userId, action: 'workspace.created', resourceType: 'workspace', resourceId: created.id, requestId: request.headers['x-request-id'] as string | undefined } });
