@@ -46,10 +46,10 @@ for p in (ROOT / "docs").rglob("*"):
     if p.is_file() and legacy_doc_names.search(p.stem): errors.append(f"Legacy stage label in documentation filename: {p.relative_to(ROOT)}")
 if (ROOT / "backend/prisma/migrations").is_dir():
     dirs = [p for p in (ROOT / "backend/prisma/migrations").iterdir() if p.is_dir()]
-    if len(dirs) != 30: errors.append(f"Expected 30 preserved Prisma migrations; found {len(dirs)}")
+    if len(dirs) < 30: errors.append(f"Expected at least 30 preserved Prisma migrations; found {len(dirs)}")
 else: errors.append("Missing Prisma migrations directory")
 if errors:
     print("Repository validation failed:")
     for error in errors: print(" - " + error)
     raise SystemExit(1)
-print("Repository validation passed: canonical application roots, two package manifests, 30 preserved migrations, GitHub workflow policy recorded, and no live secrets or nested archives.")
+print("Repository validation passed: canonical application roots, two package manifests, 30+ preserved migrations, GitHub workflow policy recorded, and no live secrets or nested archives.")

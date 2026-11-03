@@ -846,6 +846,12 @@
     "rationale": "Live sessions are never restored"
   },
   {
+    "table": "signup_verifications",
+    "disposition": "excluded",
+    "domain": "identity",
+    "rationale": "Unverified signup tokens and temporary password hashes expire; must never be backed up or restored."
+  },
+  {
     "table": "stock_movements",
     "disposition": "authoritative",
     "domain": "inventory",

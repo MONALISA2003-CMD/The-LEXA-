@@ -4,11 +4,11 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { currentCorrelationId } from '../request-correlation';
 
-type TenantDbContext = { tenantId?: string; userId?: string; sessionTokenHash?: string; resetTokenHash?: string };
+type TenantDbContext = { tenantId?: string; userId?: string; sessionTokenHash?: string; resetTokenHash?: string; signupEmail?: string; signupTokenHash?: string };
 const tenantDbContext = new AsyncLocalStorage<TenantDbContext>();
 const MODEL_DELEGATES = new Set([
   'tenant','user','membership','branch','branchMembership','ledgerAccount','accountingPeriod','ledgerJournal','ledgerJournalLine',
-  'auditEvent','idempotencyRecord','session','passwordResetToken','category','product','moduleRecord','stockMovement','sale','saleLine',
+  'auditEvent','idempotencyRecord','session','passwordResetToken','signupVerification','category','product','moduleRecord','stockMovement','sale','saleLine',
   'salePayment','saleReturn','saleReturnLine','workspaceInvitation','unitOfMeasure','productVariant','taxCode','priceList','priceListItem',
   'warehouse','storageBin','inventoryLot','inventorySerial','stockReservation','creditNote','creditNoteLine','cashSession','cashMovement',
   'cashUp','bankAccount','bankStatementLine','bankReconciliation','bankReconciliationMatch','expenseCategory','expense','fixedAsset',
@@ -53,6 +53,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         set_config('app.user_id', ${current.userId ?? ''}, true),
         set_config('app.session_token_hash', ${current.sessionTokenHash ?? ''}, true),
         set_config('app.reset_token_hash', ${current.resetTokenHash ?? ''}, true),
+        set_config('app.signup_email', ${current.signupEmail ?? ''}, true),
+        set_config('app.signup_token_hash', ${current.signupTokenHash ?? ''}, true),
         set_config('app.correlation_id', ${currentCorrelationId() ?? ''}, true)`;
     };
     const runInTenantTransaction = async (operation: (tx: any) => Promise<any>) => {

@@ -30,6 +30,52 @@ paths:
               application/json: {schema: {type: object, required: [status], 
                   properties: {status: {type: string, enum: [ok, healthy]}, 
                     version: {type: string}}}}}}
+  /auth/signup:
+    post:
+      operationId: requestPublicSignup
+      security: []
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: Request a one-time verification email; no account or business is created yet.
+      responses:
+        '202': {description: Verification requested without revealing whether email is registered}
+        '503': {description: Email delivery is not configured}
+  /auth/signup/verify:
+    post:
+      operationId: verifyPublicSignup
+      security: []
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: Consume a one-time email token; atomically create user, private business, owner membership and first branch.
+      responses:
+        '201': {description: Verified account created and session cookie issued}
+        '400': {description: Verification link expired or invalid}
+  /auth/invitations/preview:
+    post:
+      operationId: previewEmployeeInvitation
+      security: []
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: Show a tenant-bound invitation when the caller possesses its private token.
+      responses:
+        '201': {description: Invitation details}
+        '400': {description: Invitation invalid, expired or used}
+  /auth/invitations/accept:
+    post:
+      operationId: acceptExistingEmployeeInvitation
+      security: []
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: Validate a signed-in user and private invitation token; grant only the invited tenant and branch scope.
+      responses:
+        '201': {description: Existing user added to the invited workspace}
+        '401': {description: Sign-in required}
+        '403': {description: Session email does not match invitation email}
+  /auth/invitations/join:
+    post:
+      operationId: joinEmployeeInvitation
+      security: []
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: Create an employee identity and attach only its invited tenant and branch scope.
+      responses:
+        '201': {description: Employee created; session cookie issued}
+        '409': {description: Existing account must sign in to accept}
   /auth/csrf:
     get:
       operationId: getCsrfToken

@@ -30,7 +30,7 @@ const copy: Record<AuthMode, { eyebrow: string; title: string; description: stri
   'sign-in': {
     eyebrow: 'SECURE BUSINESS ACCESS',
     title: 'Welcome back to LEXA.',
-    description: 'Sign in to continue managing your business, sales, finances and team.',
+    description: 'Your workspace for sales, operations, finance and everything in between.',
     submit: 'Sign in securely',
   },
   'forgot-password': {
@@ -60,7 +60,7 @@ function BrandPanel() {
         <div className="auth-brand-orbit auth-orbit-one" />
         <div className="auth-brand-orbit auth-orbit-two" />
         <div className="auth-brand-kicker"><Sparkles size={15} /> Clarity for every business decision</div>
-        <h2>Your business.<br /><span>Clearly managed.</span></h2>
+        <h2>Your business.<br /><span>Without limits.</span></h2>
         <p>Manage your people, customers, finances and daily work in one professional workspace.</p>
         <div className="auth-feature-list">
           <div><span className="auth-feature-icon"><Users size={17} /></span><div><strong>Access for your team</strong><small>Each team member sees the information and tasks assigned to their role.</small></div></div>
@@ -192,10 +192,14 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
 
           {complete && <div className="auth-complete-panel"><CheckCircle2 size={22} /><div><strong>Recovery request submitted</strong><span>For security, this page does not reveal whether an account exists.</span></div></div>}
 
-          {mode === 'sign-in' && !complete && <div className="auth-support-row"><Link to="/forgot-password">Forgot password?</Link><span>New to LEXA? Ask your business administrator for an invitation.</span></div>}
+          {mode === 'sign-in' && !complete && <>
+            <div className="auth-support-row"><Link to="/forgot-password">Forgot password?</Link><span>Protected by secure sign-in</span></div>
+            <Link className="auth-create-account-link" to="/create-account">Create your LEXA account <ArrowRight size={17}/></Link>
+            <p className="auth-invite-hint">Joining a team? Use the private invitation link sent to your email.</p>
+          </>}
           {mode === 'forgot-password' && <div className="auth-support-row"><Link to="/sign-in"><ArrowLeft size={14} /> Back to sign in</Link></div>}
           {mode === 'reset-password' && <div className="auth-support-row"><Link to="/forgot-password">Request a new recovery link</Link></div>}
-          {mode === 'sign-in' && bootstrapAvailable && <Link className="auth-first-admin" to="/create-account">Create the first administrator account <ArrowRight size={15} /></Link>}
+          {mode === 'sign-in' && bootstrapAvailable && <Link className="auth-first-admin" to="/first-admin-setup">Create the first administrator account <ArrowRight size={15} /></Link>}
           {complete && <Link className="auth-submit auth-return-button" to="/sign-in">Return to sign in <ArrowRight size={17} /></Link>}
 
           <div className="auth-security-footnote"><ShieldCheck size={16} /><span>Your account and business information are protected. Keep your password private.</span></div>
@@ -210,7 +214,7 @@ export function SignInPage() { return <AuthPage mode="sign-in" />; }
 export function ForgotPasswordPage() { return <AuthPage mode="forgot-password" />; }
 export function ResetPasswordPage() { return <AuthPage mode="reset-password" />; }
 
-export function CreateAccountPage() {
+export function FirstAdministratorPage() {
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState('');
   const [bootstrapSecret, setBootstrapSecret] = useState('');

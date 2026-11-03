@@ -76,7 +76,7 @@ npm run build
 - Operations: `docs/operations/runbooks/`
 ## Clean CI dependency installation
 
-The source-import ZIP intentionally excludes npm lockfiles along with generated/dependency artifacts. The GitHub repository-import workflow runs `python3 scripts/clean_repository.py` before repository validation and before either `npm ci` command. That preparation step creates a missing `package-lock.json` in each application using `npm install --package-lock-only --ignore-scripts --no-audit --no-fund`, then verifies lockfile format and that the lockfile root exactly matches the corresponding `package.json`. It does not install `node_modules` or execute package lifecycle scripts. If generation fails or a lockfile is stale, the workflow stops before running `npm ci`.
+The production release ZIP includes the two matching npm lockfiles and excludes only generated/dependency artifacts. The GitHub repository-import workflow runs `python3 scripts/clean_repository.py` before repository validation and before either `npm ci` command. That preparation step creates a missing `package-lock.json` in each application using `npm install --package-lock-only --ignore-scripts --no-audit --no-fund`, then verifies lockfile format and that the lockfile root exactly matches the corresponding `package.json`. It does not install `node_modules` or execute package lifecycle scripts. If generation fails or a lockfile is stale, the workflow stops before running `npm ci`.
 
 For local clean installs, run `python3 scripts/clean_repository.py` from the repository root before `npm ci` in `backend/` or `lexa-frontend/`.
 

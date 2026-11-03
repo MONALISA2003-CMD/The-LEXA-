@@ -194,7 +194,7 @@ export const apiClient = createApiClient({
   baseUrl: normalizedBase,
   onUnauthorized: () => {
     if (typeof window === 'undefined') return;
-    const publicAuthRoutes = ['/sign-in', '/forgot-password', '/reset-password', '/onboarding'];
+    const publicAuthRoutes = ['/sign-in', '/forgot-password', '/reset-password', '/onboarding', '/create-account', '/verify-email', '/accept-invitation', '/first-admin-setup'];
     if (!publicAuthRoutes.includes(window.location.pathname)) window.dispatchEvent(new CustomEvent('lexa:auth-required'));
   },
 });

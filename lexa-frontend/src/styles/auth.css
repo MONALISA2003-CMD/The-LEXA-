@@ -162,3 +162,63 @@
   .security-form-footer { align-items: stretch; }
   .security-form-footer button { width: 100%; justify-content: center; }
 }
+
+/* LEXA customer onboarding — refined, accessible design for mobile and desktop. */
+.auth-premium .auth-brand-panel,
+.auth-page:not(.auth-page-setup) .auth-brand-panel {
+  background: radial-gradient(ellipse at 80% 12%, rgba(35,168,250,.27), transparent 38%),
+              radial-gradient(ellipse at 4% 86%, rgba(34,207,172,.13), transparent 46%),
+              linear-gradient(150deg, #071329 0%, #082a61 55%, #073da0 100%);
+}
+.auth-premium .auth-brand-panel::before,
+.auth-page:not(.auth-page-setup) .auth-brand-panel::before {
+  content: ''; pointer-events: none; position: absolute; inset: 0;
+  background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px), linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size: 54px 54px; mask-image: linear-gradient(0deg, transparent, #000 60%);
+}
+.auth-premium .auth-brand-kicker { color: #77e7e9; }
+.auth-premium .auth-brand-content h2 span { color: #6ae1fa; }
+.auth-premium .auth-main-panel { background: linear-gradient(150deg,#fbfdff 0%,#fff 50%,#f4f8fe 100%); }
+.auth-card-registration { padding-top: 30px; padding-bottom: 30px; }
+.auth-card-registration .auth-intro { margin-bottom: 24px; }
+.auth-card-registration .auth-form { gap: 14px; }
+.auth-card-registration .auth-password-guide { margin-top: -5px; }
+.auth-card-registration .auth-field > label { font-size: 12px; }
+.auth-card-registration .auth-input-wrap { min-height: 52px; }
+.auth-create-account-link { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; padding: 15px 18px; border: 1px solid #c9dafb; border-radius: 13px; color: #075cf5; background: linear-gradient(125deg, #f6f9ff, #ebf4ff); font-size: 13px; font-weight: 800; text-decoration: none; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.auth-create-account-link:hover { transform: translateY(-1px); border-color: #7cadfc; box-shadow: 0 9px 24px rgba(7,92,245,.10); }
+.auth-create-account-link:focus-visible, .auth-submit:focus-visible, .auth-back-link:focus-visible { outline: 3px solid #58a5ff; outline-offset: 3px; }
+.auth-invite-hint { font-size: 11px; line-height: 1.6; color: #7e8ea5; margin: 12px 0 0; }
+.auth-premium-switch { display: flex; justify-content: center; gap: 5px; margin-top: 20px; font-size: 12px; color: #71839d; }
+.auth-premium-switch a { text-decoration: none; color: #075cf5; font-weight: 800; }
+.auth-result-icon { width: 58px; height: 58px; margin: 0 0 24px; border-radius: 17px; display: grid; place-items: center; background: linear-gradient(135deg,#eaf2ff,#dce9ff); color: #075cf5; box-shadow: 0 12px 26px rgba(7,92,245,.10); }
+.auth-simple-page { min-height: 100vh; display: grid; place-items: center; padding: 28px 16px; background: radial-gradient(ellipse at 20% 12%, #dceaff, transparent 42%), radial-gradient(ellipse at 85% 90%, #e5f6f6, transparent 43%), #f8faff; color: #10264a; }
+.auth-simple-card { width: min(100%, 492px); padding: clamp(25px, 6vw, 48px); border: 1px solid #e5ebf6; border-radius: 25px; background: #fff; box-shadow: 0 20px 90px rgba(24,52,103,.09); }
+.auth-simple-logo { width: 150px; max-height: 72px; object-fit: contain; object-position: left; display: block; margin: 0 0 32px; }
+.auth-simple-card h1 { margin: 0; font-size: clamp(27px,5vw,37px); letter-spacing: -.045em; line-height: 1.15; }
+.auth-simple-card > p { margin: 16px 0 27px; color: #667b9a; font-size: 14px; line-height: 1.8; }
+.auth-simple-security { display: flex; align-items: center; gap: 8px; border-top: 1px solid #e9eff7; margin-top: 30px; padding-top: 20px; font-size: 11px; color: #6c809d; }
+.auth-simple-security svg { color: #149b76; flex-shrink: 0; }
+.auth-invite-card .auth-form { gap: 16px; }
+.auth-invite-email { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 15px; margin: 0 0 22px; border: 1px solid #d8e6f8; border-radius: 13px; background: #f5f9ff; color: #36557d; font-size: 12px; font-weight: 700; }
+.auth-invite-email span { flex: 1; overflow-wrap: anywhere; }
+.auth-invite-email svg:last-child { color: #1a9b7b; }
+.auth-invite-small { margin: 10px 0 18px !important; font-size: 12px !important; }
+.auth-invite-signin { display: inline-flex; margin-top: 19px; }
+.auth-spin { animation: auth-spin .9s linear infinite; }
+@keyframes auth-spin { to { transform: rotate(360deg); } }
+:root[data-theme='dark'] .auth-simple-page { background: #071329; }
+:root[data-theme='dark'] .auth-simple-card { background: #0e2240; border-color: #26466e; color: #e8f2ff; }
+:root[data-theme='dark'] .auth-simple-card h1 { color: #f3f7ff; }
+:root[data-theme='dark'] .auth-simple-card > p { color: #a8bcd7; }
+:root[data-theme='dark'] .auth-invite-email { background: #132f54; border-color: #2a4770; color: #d9e7f8; }
+@media(max-width: 760px) {
+  .auth-premium .auth-main-panel { background: linear-gradient(180deg,#eff5ff 0%,#fff 190px,#f8fbff 100%); }
+  .auth-card-registration { padding: 28px 0 36px; }
+  .auth-create-account-link { margin-top: 18px; }
+  .auth-simple-card { border-radius: 19px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .auth-spin { animation: none; }
+  .auth-submit, .auth-create-account-link { transition: none; }
+}

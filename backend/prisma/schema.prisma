@@ -288,6 +288,23 @@ model Session {
   @@map("sessions")
 }
 
+/** Email possession is established before any user, tenant, or owner membership exists. */
+model SignupVerification {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  displayName  String   @map("display_name")
+  businessName String   @map("business_name")
+  businessType String   @default("general") @map("business_type")
+  passwordHash String   @map("password_hash")
+  tokenHash    String   @unique @map("token_hash")
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@map("signup_verifications")
+}
+
 model PasswordResetToken {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @map("user_id") @db.Uuid

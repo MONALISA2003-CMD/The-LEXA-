@@ -16,8 +16,26 @@ function objectResponse<T>(value: unknown, label: string): T {
   return value as T;
 }
 
+export interface InvitationLink { workspaceId: string; invitationId: string; token: string }
+export interface InvitationPreview { email: string; role: string; businessName: string; existingAccount: boolean; expiresAt: string }
+
 /** Cookie-session auth adapter. Credentials and reset tokens are never persisted in browser storage. */
 export const apiAuth = {
+  async requestPublicSignup(input: { email: string; displayName: string; businessName: string; password: string }): Promise<void> {
+    await apiClient.post('/auth/signup', { ...input, email: input.email.trim().toLowerCase(), displayName: input.displayName.trim(), businessName: input.businessName.trim() });
+  },
+  async verifyPublicSignup(token: string): Promise<void> {
+    await apiClient.post('/auth/signup/verify', { token });
+  },
+  async previewInvitation(input: InvitationLink): Promise<InvitationPreview> {
+    return objectResponse<InvitationPreview>(await apiClient.post('/auth/invitations/preview', input), 'invitation details');
+  },
+  async joinInvitation(input: InvitationLink & { displayName: string; password: string }): Promise<void> {
+    await apiClient.post('/auth/invitations/join', input);
+  },
+  async acceptExistingInvitation(input: InvitationLink): Promise<void> {
+    await apiClient.post('/auth/invitations/accept', input);
+  },
   async bootstrapAvailable(): Promise<boolean> {
     const response = objectResponse<{ available: unknown }>(await apiClient.get('/auth/bootstrap/status'), 'account setup status');
     return response.available === true;

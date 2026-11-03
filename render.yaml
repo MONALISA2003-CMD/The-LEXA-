@@ -17,6 +17,13 @@ services:
         sync: false
       - key: DATABASE_RUNTIME_ROLE
         value: lexa_app_runtime
+      - key: FRONTEND_PUBLIC_URL
+        value: https://lexaaamaal.com
+      # Set these two secrets in Render dashboard after verifying the sender in Resend.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
       - key: LEXA_AI_ENABLED
         value: "true"
       - key: LEXA_AI_PAID_TIER_ENABLED

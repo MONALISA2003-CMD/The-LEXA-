@@ -5,7 +5,10 @@ import OnboardingPage from '../modules/onboarding/OnboardingPage';
 
 export const router = createBrowserRouter([
   { path: '/sign-in', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).SignInPage }), errorElement: <RouteErrorBoundary /> },
-  { path: '/create-account', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).CreateAccountPage }), errorElement: <RouteErrorBoundary /> },
+  { path: '/create-account', lazy: async () => ({ Component: (await import('../modules/auth/SignupPage')).default }), errorElement: <RouteErrorBoundary /> },
+  { path: '/verify-email', lazy: async () => ({ Component: (await import('../modules/auth/VerifyEmailPage')).default }), errorElement: <RouteErrorBoundary /> },
+  { path: '/accept-invitation', lazy: async () => ({ Component: (await import('../modules/auth/AcceptInvitationPage')).default }), errorElement: <RouteErrorBoundary /> },
+  { path: '/first-admin-setup', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).FirstAdministratorPage }), errorElement: <RouteErrorBoundary /> },
   { path: '/forgot-password', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).ForgotPasswordPage }), errorElement: <RouteErrorBoundary /> },
   { path: '/reset-password', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).ResetPasswordPage }), errorElement: <RouteErrorBoundary /> },
   { path: '/inbox', element: <Navigate to="/" replace />, errorElement: <RouteErrorBoundary /> },

@@ -120,8 +120,8 @@ if not migration_dir.is_dir():
     errors.append("Missing backend/prisma/migrations/")
 else:
     migrations = [path for path in migration_dir.iterdir() if path.is_dir()]
-    if len(migrations) != 30:
-        errors.append(f"Expected 30 preserved Prisma migration directories; found {len(migrations)}")
+    if len(migrations) < 30:
+        errors.append(f"Expected at least 30 preserved Prisma migration directories; found {len(migrations)}")
 
 for path in ROOT.rglob("*"):
     if path.is_symlink():
@@ -147,7 +147,7 @@ if errors:
 
 print(
     "LEXA source-import layout passed: canonical root, required backend/frontend/docs/scripts, "
-    "exactly two package manifests, optional validated lockfiles, 30 Prisma migrations, "
+    "exactly two package manifests, optional validated lockfiles, at least 30 Prisma migrations, "
     "no nested copies/build artifacts/secrets, .github/ excluded, and GitHub workflow "
     "retained as an explicit repository-side requirement."
 )
