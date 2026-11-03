@@ -20,6 +20,80 @@ servers:
 security:
 - sessionCookie: []
 paths:
+  /workspaces/{workspaceId}/branches/{branchId}/saas/features/{featureKey}:
+    put:
+      operationId: lexaSaasFeaturesFeaturekeyPut
+      description: Existing tenant-scoped LEXA operation
+      responses:
+        '200': {description: Completed}
+  /workspaces/{workspaceId}/branches/{branchId}/saas/support-diagnostics:
+    get:
+      operationId: lexaSaasSupportDiagnosticsGet
+      description: Existing tenant-scoped LEXA operation
+      responses:
+        '200': {description: Completed}
+  /workspaces/{workspaceId}/branches/{branchId}/saas/entitlements:
+    get:
+      operationId: lexaSaasEntitlementsGet
+      description: Existing tenant-scoped LEXA operation
+      responses:
+        '200': {description: Completed}
+  /workspaces/{workspaceId}/branches/{branchId}/saas/usage:
+    get:
+      operationId: lexaSaasUsageGet
+      description: Existing tenant-scoped LEXA operation
+      responses:
+        '200': {description: Completed}
+  /workspaces/{workspaceId}/branches/{branchId}/saas/plans:
+    get:
+      operationId: lexaSaasPlansGet
+      description: Existing tenant-scoped LEXA operation
+      responses:
+        '200': {description: Completed}
+  /workspaces/{workspaceId}/branches/{branchId}/reports/authoritative:
+    get:
+      operationId: lexaReportsAuthoritativeGet
+      description: Existing tenant-scoped LEXA operation
+      responses:
+        '200': {description: Completed}
+  /workspaces/{workspaceId}/branches/{branchId}/intelligence/extract:
+    post:
+      operationId: lexaIntelligenceExtractPost
+      description: Existing tenant-scoped LEXA operation
+      responses:
+        '200': {description: Completed}
+  /workspaces/{workspaceId}/branches/{branchId}/intelligence/help:
+    post:
+      operationId: lexaIntelligenceHelpPost
+      description: Existing tenant-scoped LEXA operation
+      responses:
+        '200': {description: Completed}
+  /workspaces/{workspaceId}/branches/{branchId}/intelligence/explain:
+    post:
+      operationId: lexaIntelligenceExplainPost
+      description: Existing tenant-scoped LEXA operation
+      responses:
+        '200': {description: Completed}
+  /workspaces/{workspaceId}/branches/{branchId}/intelligence/status:
+    get:
+      operationId: lexaIntelligenceStatusGet
+      description: Existing tenant-scoped LEXA operation
+      responses:
+        '200': {description: Completed}
+  /workspaces/{workspaceId}/branches/{branchId}/reports/library:
+    get:
+      operationId: lexaBusinessReportLibrary
+      description: Twelve role-filtered LEXA business reporting families with real SQL sources, trend and comparison data
+      responses:
+        '200': {description: Business reports}
+        '403': {description: Role or plan denies access}
+  /workspaces/{workspaceId}/branches/{branchId}/intelligence/brief:
+    get:
+      operationId: lexaDeterministicIntelligenceSnapshot
+      description: Non-AI business overview derived from authorized operational aggregates
+      responses:
+        '200': {description: Verified snapshot}
+        '403': {description: Role or plan denies access}
   /auth/change-initial-password:
     post:
       operationId: changeEmployeeInitialPassword

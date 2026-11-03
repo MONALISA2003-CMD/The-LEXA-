@@ -16,7 +16,21 @@ export interface AuthoritativeReports {
   assurance: string;
 }
 
+export interface Library {
+  currency:string;
+  period:{from:string;to:string;timezone:string;days:number;previousFrom:string;previousTo:string};
+  generatedAt:string;
+  families:Array<{key:string;title:string;available:boolean;source:string;link:string;metrics:Array<{label:string;value:number;unit:'money'|'count'|'units';basis:'period'|'current'}>}>;
+  trend:Array<{label:string;salesMinor:number;receiptsMinor:number}>;
+  paymentMethods:Array<{label:string;amountMinor:number}>;
+  comparison:{previousGrossMinor:number;currentGrossMinor:number;changePercent:number|null};
+  alerts:Array<{title:string;detail:string;link:string}>;
+  sourceNotes:string[];
+  assurance:string;
+}
+
 export const apiReports = {
+  library(workspaceId:string,branchId:string,from:string,to:string):Promise<Library> { return apiClient.get<Library>(`/workspaces/${encodeURIComponent(workspaceId)}/branches/${encodeURIComponent(branchId)}/reports/library?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`); },
   authoritative(workspaceId: string, branchId: string, from?: string, to?: string) {
     return apiClient.get<AuthoritativeReports>(
       `/workspaces/${encodeURIComponent(workspaceId)}/branches/${encodeURIComponent(branchId)}/reports/authoritative`,

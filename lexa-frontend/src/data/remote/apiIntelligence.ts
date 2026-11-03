@@ -43,7 +43,10 @@ function encodeBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+export interface BusinessBrief {mode:'automated';generatedAt:string;observations:string[];sources:string[];notice:string}
 export const apiIntelligence = {
+  brief(workspaceId:string,branchId:string):Promise<BusinessBrief> {return apiClient.get<BusinessBrief>(`/workspaces/${encodeURIComponent(workspaceId)}/branches/${encodeURIComponent(branchId)}/intelligence/brief`);},
+
   status(workspaceId: string, branchId: string) {
     return apiClient.get<IntelligenceStatus>(`/workspaces/${encodeURIComponent(workspaceId)}/branches/${encodeURIComponent(branchId)}/intelligence/status`);
   },

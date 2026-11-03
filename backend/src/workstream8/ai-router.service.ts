@@ -41,6 +41,7 @@ function parseContent(value: unknown): string {
 
 export class AiRouterService {
   private readonly cooldownUntil = new Map<string, number>();
+  private preferred: string | null = null;
 
   private providers(): Provider[] {
     if (env('LEXA_AI_ENABLED').toLowerCase() !== 'true') return [];
@@ -76,7 +77,7 @@ export class AiRouterService {
     // Use the preferred free provider first. Temporarily skip throttled providers, then try
     // the remaining free services in order; never silently fall back to a paid model.
     const available = candidates.filter((provider) => (this.cooldownUntil.get(provider.name) ?? 0) <= Date.now());
-    const attempts = available.length ? available : candidates;
+    const attempts = (available.length ? available : candidates).slice().sort((a,b)=>Number(b.name===this.preferred)-Number(a.name===this.preferred));
     const system = [
       'You are LEXA, a professional business operations and management assistant for business owners.',
       'Answer clearly, accurately, and practically. Use concise headings or numbered actions when helpful.',
@@ -107,7 +108,7 @@ export class AiRouterService {
             max_tokens: 900,
             stream: false,
           }),
-          signal: AbortSignal.timeout(12_000),
+          signal: AbortSignal.timeout(9_000),
         });
         const payload = await response.json().catch(() => null) as any;
         if (!response.ok) {
@@ -124,6 +125,7 @@ export class AiRouterService {
         }
         const usage = payload?.usage ?? {};
         this.cooldownUntil.delete(provider.name);
+        this.preferred=provider.name;
         return {
           answer,
           provider: provider.name,

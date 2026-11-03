@@ -9,6 +9,7 @@ import { assertBranchAccess } from '../authorization/branch-scope';
 import { hasPermission, isWorkspaceAdministrator, type Permission } from '../authorization/role-policy';
 import { CsrfGuard } from '../core/csrf.guard';
 import { AiRouterService } from './ai-router.service';
+import { ReportInsightsService, daysInPeriod } from './report-insights.service';
 
 const AI_RESERVATION_MICROS = 50_000; // $0.05 reservation; the current free/developer router settles successful calls to zero cost
 const AI_MAX_INPUT_CHARS = 2_000;
@@ -40,7 +41,7 @@ function providerForAlias(_alias: string): string { return 'lexa_native_free_rou
 
 @Controller('workspaces/:workspaceId/branches/:branchId')
 export class Workstream8Controller {
-  constructor(private readonly prisma: PrismaService, private readonly aiRouter: AiRouterService) {}
+  constructor(private readonly prisma: PrismaService, private readonly aiRouter: AiRouterService, private readonly reportInsights: ReportInsightsService) {}
 
   private async access(request: FastifyRequest, workspaceId: string, branchId: string, permission: Permission) {
     const token = cookie(request, 'lexa_session');
@@ -48,13 +49,13 @@ export class Workstream8Controller {
     const session = await this.prisma.session.findFirst({ where: { tokenHash: sha(token), expiresAt: { gt: new Date() } }, select: { userId: true } });
     if (!session) throw new UnauthorizedException({ code: 'SESSION_EXPIRED', message: 'Your session has expired. Sign in again.' });
     this.prisma.enterTenantContext(workspaceId, session.userId);
-    const [membership, branch] = await Promise.all([
+    const [membership, branch] = await this.prisma.runWithTenantContext({tenantId:workspaceId,userId:session.userId},()=>Promise.all([
       this.prisma.membership.findUnique({ where: { tenantId_userId: { tenantId: workspaceId, userId: session.userId } }, select: { status: true, role: true } }),
       this.prisma.branch.findFirst({ where: { id: branchId, tenantId: workspaceId }, select: { id: true, currency: true, timezone: true } }),
-    ]);
+    ]));
     if (!membership || membership.status !== 'ACTIVE') throw new UnauthorizedException({ code: 'WORKSPACE_ACCESS_DENIED', message: 'Workspace access is unavailable.' });
     if (!branch) throw new UnauthorizedException({ code: 'BRANCH_ACCESS_DENIED', message: 'Branch access is unavailable.' });
-    await assertBranchAccess(this.prisma, workspaceId, branchId, session.userId, membership.role);
+    await this.prisma.runWithTenantContext({tenantId:workspaceId,userId:session.userId},()=>assertBranchAccess(this.prisma, workspaceId, branchId, session.userId, membership.role));
     if (!hasPermission(membership.role, permission)) throw new ForbiddenException({ code: 'PERMISSION_DENIED', message: 'Your workspace role does not permit this operation.', permission });
     return { userId: session.userId, role: membership.role, branch };
   }
@@ -91,6 +92,7 @@ export class Workstream8Controller {
   }
 
   private async aggregate(workspaceId: string, branchId: string, from?: string, to?: string, role?: string, advancedAnalytics = false) {
+    return this.prisma.runWithTenantContext({tenantId:workspaceId},async()=>{
     const fromValue = from ?? null;
     const toValue = to ?? null;
     const [salesRows, stockRows, arRows, apRows, glRows, crmRows, controlRows] = await Promise.all([
@@ -191,6 +193,7 @@ export class Workstream8Controller {
       result.people = { activeEmployees: number(hr[0]?.active_employees), employeeRecords: number(hr[0]?.employee_records), attendanceRecords: number(hr[0]?.attendance_records), presentRecords: number(hr[0]?.present_records) };
     }
     return result;
+    });
   }
 
   @Get('reports/authoritative')
@@ -203,6 +206,33 @@ export class Workstream8Controller {
     const branch = actor.branch;
     const advancedAnalytics = await this.hasFeature(workspaceId, 'analytics.advanced');
     return { ...(await this.aggregate(workspaceId, branchId, from, to, actor.role, advancedAnalytics)), currency: branch.currency, timezone: branch.timezone, assurance: 'Calculated from LEXA operational and posted-ledger records. No generic module JSON amount fields are used.' };
+  }
+
+  @Get('reports/library')
+  async reportLibrary(@Param('workspaceId') workspaceId:string,@Param('branchId') branchId:string,
+    @Query('from') fromInput:string|undefined,@Query('to') toInput:string|undefined,@Req() request:FastifyRequest){
+    const actor=await this.access(request,workspaceId,branchId,'reports.read');
+    if(!(await this.hasFeature(workspaceId,'analytics.authoritative')))throw new ForbiddenException({code:'FEATURE_NOT_ENTITLED',message:'Reports not included for this workspace.'});
+    const now=new Intl.DateTimeFormat('sv-SE',{timeZone:actor.branch.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    const from=dateOnly(fromInput,'from')??new Date(Date.parse(now+'T00:00:00Z')-29*86400000).toISOString().slice(0,10);
+    const to=dateOnly(toInput,'to')??now;
+    try{daysInPeriod(from,to);}catch{throw new BadRequestException('Choose 1–366 days for your report.');}
+    const base=await this.aggregate(workspaceId,branchId,from,to,actor.role,await this.hasFeature(workspaceId,'analytics.advanced'));
+    return this.reportInsights.build(workspaceId,branchId,from,to,actor.branch.timezone,actor.branch.currency,actor.role,base);
+  }
+  @Get('intelligence/brief')
+  async brief(@Param('workspaceId') workspaceId:string,@Param('branchId') branchId:string,@Req() request:FastifyRequest){
+    const actor=await this.access(request,workspaceId,branchId,'intelligence.read');
+    if(!(await this.hasFeature(workspaceId,'analytics.authoritative')))throw new ForbiddenException({code:'FEATURE_NOT_ENTITLED'});
+    const facts=await this.aggregate(workspaceId,branchId,undefined,undefined,actor.role,false);
+    const s=facts.sales as Record<string,unknown>??{},i=facts.inventory as Record<string,unknown>??{};
+    const observations:string[]=[];
+    if(Number(s.count??0)>0)observations.push('Completed sales: '+Number(s.count).toLocaleString('en-UG')+'. Net sales: '+actor.branch.currency+' '+Number(s.netSalesMinor??0).toLocaleString('en-UG')+'.');
+    else observations.push('No completed sales are recorded yet. Record genuine transactions to unlock sales insights.');
+    if(hasPermission(actor.role,'inventory.read')&&Number(i.atOrBelowReorder??0)>0)observations.push(Number(i.atOrBelowReorder)+' products are at or below reorder levels.');
+    const ar=facts.receivables as Record<string,unknown>|undefined;
+    if(hasPermission(actor.role,'finance.read')&&Number(ar?.overdueMinor??0)>0)observations.push('Some customer invoices are overdue; review receivables and payment dates.');
+    return {mode:'automated',generatedAt:new Date().toISOString(),observations,sources:['Completed sales and returns','Stock movements','Authorized outstanding balances'],notice:'Calculated directly from LEXA records; not a response generated by an AI model.'};
   }
 
   @Get('saas/plans')

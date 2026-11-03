@@ -108,7 +108,8 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/recurring-invoices(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
   if (/\/intelligence\/status$/.test(path)) return 'intelligence.read';
   if (/\/intelligence\/(?:help|explain|extract)$/.test(path)) return 'intelligence.run';
-  if (/\/reports\/authoritative$/.test(path)) return 'reports.read';
+  if (/\/reports\/(?:authoritative|library)$/.test(path)) return 'reports.read';
+  if (/\/intelligence\/brief$/.test(path)) return 'intelligence.read';
   if (/\/saas\/entitlements$|\/saas\/usage$/.test(path)) return 'saas.read';
   if (/\/saas\/support-diagnostics$/.test(path)) return 'support.read';
   if (/\/saas\/plans$/.test(path)) return 'saas.read';
