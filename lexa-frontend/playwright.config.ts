@@ -13,7 +13,8 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
   },
   webServer: {
-    command: 'pnpm dev -- --port 4173 --strictPort',
+    command: 'npm run dev -- --port 4173 --strictPort',
+    env: { VITE_DATA_PROVIDER: 'local', VITE_API_BASE_URL: '' },
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

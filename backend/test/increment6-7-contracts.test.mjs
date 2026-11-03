@@ -131,7 +131,10 @@ test('retired operations centre is not exposed while protected alert controls re
   assert.match(controller, /alert-rules\/:ruleKey/);
   assert.match(router, /path: 'operations', element: <Navigate to=\"\/\" replace \/>/);
   assert.doesNotMatch(router, /OperationsCentrePage/);
-  assert.doesNotMatch(appShell, /Operations centre|Activity and audit logs|Integration status|Inbox and collaboration|All modules/i);
+  // The retired operations centre stays hidden, but the supported module directory is available.
+  assert.doesNotMatch(appShell, /Operations centre|Activity and audit logs|Integration status|Inbox and collaboration/i);
+  assert.match(appShell, /\{ to: '\/modules', label: 'All modules', icon: Boxes \}/);
+  assert.match(router, /path: 'modules', lazy:/);
   assert.match(api, /updateRule/);
   assert.match(evaluator, /redis\.unavailable/);
   assert.match(evaluator, /import_export\.stalled/);

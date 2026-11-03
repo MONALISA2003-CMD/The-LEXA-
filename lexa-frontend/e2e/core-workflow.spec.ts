@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
 
 test('workspace → product → opening stock → sale → return workflow', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/onboarding');
 
   await page.getByLabel(/Business name/).fill('LEXA E2E Traders');
   await page.getByLabel(/First branch name/).fill('Main branch');
-  await page.getByRole('button', { name: /Create workspace/ }).click();
-  await expect(page.getByRole('heading', { name: /clear records/i })).toBeVisible();
+  await page.getByRole('button', { name: /Create and open my business/ }).click();
+  await expect(page.getByRole('heading', { name: /Your business, in focus/i })).toBeVisible();
 
   await page.getByRole('link', { name: 'Products' }).click();
   await page.getByRole('button', { name: 'Add product', exact: true }).click();
