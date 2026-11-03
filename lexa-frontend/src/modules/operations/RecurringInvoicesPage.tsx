@@ -39,7 +39,7 @@ export default function RecurringInvoicesPage(){
     else delete next[field];
     return next;
   }));
-  if(!isApiProvider)return <div className="page-stack"><div className="overview-service-note"><CalendarClock size={18}/><div><strong>Server-backed recurring billing</strong><span>Connect LEXA to its backend to create and run recurring invoice schedules.</span></div></div></div>;
+  if(!isApiProvider)return <div className="page-stack"><div className="overview-service-note"><CalendarClock size={18}/><div><strong>Recurring business billing</strong><span>Connect your LEXA business account to schedule recurring invoices.</span></div></div></div>;
   return <div className="page-stack recurring-invoices-page">
     <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">ACCOUNTS RECEIVABLE</div><h2>Recurring billing</h2><p>Create invoice schedules with safe draft-by-default generation. No payment collection is initiated.</p></div><button className="button button-primary" onClick={()=>{if(showForm){setShowForm(false);resetForm();}else{resetForm();setShowForm(true);}}}><Plus size={16}/>{showForm?'Close schedule form':'New schedule'}</button></div>
     <div className="overview-service-note"><CalendarClock size={18}/><div><strong>Invoices are drafts by default</strong><span>Automatic issue is an explicit administrator-only setting. LEXA does not charge customers or mark invoices paid.</span></div></div>

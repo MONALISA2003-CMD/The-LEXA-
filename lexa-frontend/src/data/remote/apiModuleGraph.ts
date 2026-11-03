@@ -55,7 +55,7 @@ const base = (scope: ModuleRecordScope) => `/workspaces/${enc(scope.workspaceId)
 
 function listPayload<T>(value: unknown, label: string): T[] {
   const rows = Array.isArray(value) ? value : value && typeof value === 'object' && Array.isArray((value as { items?: unknown }).items) ? (value as { items: unknown[] }).items : null;
-  if (!rows) throw new Error(`The backend returned an invalid ${label} collection.`);
+  if (!rows) throw new Error(`We could not load the ${label} information. Please try again.`);
   return rows as T[];
 }
 

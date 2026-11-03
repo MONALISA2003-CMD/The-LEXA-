@@ -230,7 +230,7 @@ export function buildPreviewReportSnapshot(
     'Purchases & payables': { unit: 'currency', entries: [
       { label: 'Purchase-order estimates', value: purchaseValue }, { label: 'Supplier-bill totals', value: billValue }, { label: 'Outstanding supplier bills', value: payableDue }, { label: 'Recorded money out', value: paidOut },
     ], note: 'Purchase orders, physical receipts, supplier bills and payments are distinct documents. Values here are calculated estimates, not a posted payable ledger.' },
-    'Receivables ageing': { unit: 'currency', entries: ageing(invoicesAsOf, range), note: 'Ageing uses invoice due dates and entered amount-due fields. It is not an account statement from the connected backend.' },
+    'Receivables ageing': { unit: 'currency', entries: ageing(invoicesAsOf, range), note: 'Ageing uses invoice due dates and entered amount-due fields. It is an estimated overview, not an official customer account statement.' },
     'Payables ageing': { unit: 'currency', entries: ageing(supplierBillsAsOf, range), note: 'Ageing uses supplier-bill due dates and entered amount-due fields. Reconcile with posted supplier balances before relying on this figure.' },
     'Expenses': { unit: 'currency', entries: sumBy(expenses.filter((row) => ['Approved', 'Paid'].includes(row.status)), 'category', 'total').slice(0, 6), note: 'Grouped from saved expense records by category. No general-ledger posting is performed.' },
     'Profit & loss': { unit: 'currency', entries: [
@@ -325,7 +325,7 @@ export function buildPreviewReportSnapshot(
     filteredRecordCounts: Object.fromEntries(Object.entries(records).map(([id, items]) => [id, items.length])),
     generatedAt: now.toISOString(),
     persistenceMode,
-    sourceLabel: persistenceMode === 'server' ? 'Backend records' : persistenceMode === 'browser-local' ? 'Device records' : 'Temporary session records',
+    sourceLabel: persistenceMode === 'server' ? 'Business account records' : persistenceMode === 'browser-local' ? 'Device records' : 'Temporary session records',
     interpretationNote: selected.note,
   };
 }

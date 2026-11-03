@@ -16,7 +16,7 @@ export interface TeamMember {
 const enc = (value: string) => encodeURIComponent(value);
 const base = (workspaceId: string) => `/workspaces/${enc(workspaceId)}`;
 function list<T>(value: unknown, label: string): T[] {
-  if (!Array.isArray(value)) throw new Error(`The backend returned an invalid ${label} collection.`);
+  if (!Array.isArray(value)) throw new Error(`We could not load the ${label} information. Please try again.`);
   return value as T[];
 }
 

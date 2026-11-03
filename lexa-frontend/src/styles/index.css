@@ -683,3 +683,25 @@ a { color: inherit; text-decoration: none; }
 
 .return-line-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .return-line-controls select { min-width: 120px; max-width: 150px; }
+
+/* Account-first business entry: visible on mobile and desktop. */
+.business-entry-header { justify-content: space-between; gap: 18px; }
+.business-entry-header > a:first-child { display: inline-flex; align-items: center; }
+.business-entry-signin { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 9px 12px; border: 1px solid #d3e2f8; border-radius: 10px; background: #fff; color: #075fd1; font-size: 12px; font-weight: 750; text-decoration: none; }
+.business-entry-signin:hover { background: #eff6ff; }
+.business-entry-panel { display: grid; gap: 16px; }
+.business-entry-panel > h2, .business-entry-status h2 { margin: 0; color: #20334f; font-size: 22px; letter-spacing: -.035em; }
+.business-entry-panel > p, .business-entry-status p { margin: 0; color: #6a809e; font-size: 13px; line-height: 1.65; }
+.business-entry-panel .setup-card-heading p { margin-bottom: 4px; }
+.business-entry-select { width: 100%; min-height: 48px; padding: 0 13px; border: 1px solid #c9daed; border-radius: 10px; background: #fff; color: #253858; font-size: 14px; }
+.business-entry-cta { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 51px; text-align: center; text-decoration: none; font-size: 13px; }
+.business-entry-secondary { min-height: 42px; border: 1px solid #d7e5f8; border-radius: 10px; background: #f6f9ff; color: #1263bb; font-size: 12px; font-weight: 750; cursor: pointer; }
+.business-entry-alt-link { color: #075fd1; font-size: 12px; font-weight: 750; text-align: center; text-decoration: none; }
+.business-entry-help { display: grid; gap: 6px; margin-top: 5px; padding: 17px; border: 1px solid #e2ebf7; border-radius: 12px; background: #f7faff; }
+.business-entry-help strong { color: #20334f; font-size: 13px; }
+.business-entry-help span { color: #6b809e; font-size: 12px; line-height: 1.6; }
+.business-entry-error { padding: 12px; border: 1px solid #f2c4c9; border-radius: 10px; background: #fff4f4; color: #983242 !important; font-size: 12px !important; line-height: 1.6; }
+.business-entry-recovery { padding: 12px; border: 1px solid #b7e4cb; border-radius: 10px; background: #effaf3; color: #126b4c !important; font-size: 12px !important; }
+@media (max-width: 560px) { .business-entry-header { align-items: flex-start; } .business-entry-signin { font-size: 10px; } .onboarding-brand-logo { width: min(48vw, 200px); } .business-entry-panel > h2 { font-size: 19px; } }
+
+.business-entry-error-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 12px; }

@@ -156,7 +156,7 @@ export default function AccountsReceivablePanel() {
   }
 
   if (!isApiProvider) {
-    return <section className="ar-panel"><div className="ar-unavailable"><AlertCircle size={19} /><div><strong>Accounts Receivable requires the connected LEXA backend.</strong><p>Connect the live API provider to issue invoices and allocate receipts. No device-local or preview invoice will be treated as an accounting transaction.</p></div></div></section>;
+    return <section className="ar-panel"><div className="ar-unavailable"><AlertCircle size={19} /><div><strong>Customer accounts require a connected LEXA business.</strong><p>Sign in to your connected business to issue invoices and record customer payments. Drafts saved on this device are not posted accounting transactions.</p></div></div></section>;
   }
 
   return (

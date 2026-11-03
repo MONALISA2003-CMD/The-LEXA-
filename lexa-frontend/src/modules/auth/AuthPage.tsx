@@ -5,6 +5,7 @@ import {
   Sparkles, Users, LockKeyhole,
 } from 'lucide-react';
 import { apiAuth } from '../../data/remote/apiAuth';
+import { businessErrorMessage } from '../../data/remote/businessMessages';
 import { apiBaseUrl, dataProviderMode } from '../../data/remote/runtimeConfig';
 import { PasswordField, PasswordLengthGuide } from './AuthFields';
 
@@ -28,8 +29,8 @@ function safeReturnTo(value: unknown): string {
 const copy: Record<AuthMode, { eyebrow: string; title: string; description: string; submit: string }> = {
   'sign-in': {
     eyebrow: 'SECURE BUSINESS ACCESS',
-    title: 'Sign in to LEXA.',
-    description: 'Access your business, team and daily operations from one secure workspace.',
+    title: 'Welcome back to LEXA.',
+    description: 'Sign in to continue managing your business, sales, finances and team.',
     submit: 'Sign in securely',
   },
   'forgot-password': {
@@ -46,15 +47,7 @@ const copy: Record<AuthMode, { eyebrow: string; title: string; description: stri
   },
 };
 
-function errorMessage(error: unknown): string {
-  if (!(error instanceof Error)) return 'Please check your connection and try again.';
-  const value = error.message.toLowerCase();
-  if (value.includes('incorrect') || value.includes('invalid_credentials')) return 'The email or password is incorrect. Check your details and try again.';
-  if (value.includes('rate') || value.includes('too many')) return 'There have been too many attempts. Please wait a little before trying again.';
-  if (value.includes('timed out') || value.includes('could not reach') || value.includes('network')) return 'LEXA could not reach the business service. Check the connection and try again.';
-  if (value.includes('recovery') && (value.includes('not configured') || value.includes('unavailable'))) return 'Password recovery email is not available yet. Please contact your LEXA administrator.';
-  return error.message;
-}
+function errorMessage(error: unknown): string { return businessErrorMessage(error); }
 
 function BrandPanel() {
   return (
@@ -138,6 +131,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
     try {
       if (mode === 'sign-in') {
         await apiAuth.signIn(email, password);
+        // The business shell opens the saved business or guides first-time users to setup.
         navigate(returnTo, { replace: true });
         return;
       }
@@ -159,7 +153,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
     <main className="auth-page">
       <BrandPanel />
       <section className="auth-main-panel">
-        <div className="auth-main-top"><Link to="/onboarding" className="auth-back-link"><ArrowLeft size={15} /> Back to LEXA</Link><span className="auth-top-secure"><ShieldCheck size={15} /> Protected sign-in</span></div>
+        <div className="auth-main-top"><Link to="/onboarding" className="auth-back-link"><ArrowLeft size={15} /> Choose your business</Link><span className="auth-top-secure"><ShieldCheck size={15} /> Protected sign-in</span></div>
         <div className="auth-card">
           <div className="auth-mobile-brand"><img src="/lexa-logo.png" alt="LEXA" /></div>
           <div className="auth-eyebrow">{complete ? 'REQUEST RECEIVED' : text.eyebrow}</div>
@@ -170,8 +164,8 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
 
           {passwordUpdated && <div className="auth-complete-panel auth-password-updated" role="status"><CheckCircle2 size={20} /><div><strong>Password updated successfully</strong><span>Sign in with your new password. Your previous sessions have been closed.</span></div></div>}
           {mode === 'sign-in' && connectionIssue === 'session' && <div className="auth-notice" role="status">Your sign-in session has expired. Sign in again to continue to your business workspace.</div>}
-          {mode === 'sign-in' && connectionIssue === 'workspace' && <div className="auth-notice" role="status">Your business workspace could not reconnect. You can sign in here; LEXA will continue using the server for your business records and will not switch to browser-only storage.</div>}
-          {!apiReady && <div className="auth-notice" role="status">LEXA account access requires an active business service connection.</div>}
+          {mode === 'sign-in' && connectionIssue === 'workspace' && <div className="auth-notice" role="status">We could not reopen your business. Sign in again and choose your business to continue.</div>}
+          {!apiReady && <div className="auth-notice" role="status">Your business account is temporarily unavailable. Please contact your administrator.</div>}
 
           {!complete && <form className="auth-form" onSubmit={submit}>
             {mode !== 'reset-password' && <div className="auth-field">
@@ -198,15 +192,15 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
 
           {complete && <div className="auth-complete-panel"><CheckCircle2 size={22} /><div><strong>Recovery request submitted</strong><span>For security, this page does not reveal whether an account exists.</span></div></div>}
 
-          {mode === 'sign-in' && !complete && <div className="auth-support-row"><Link to="/forgot-password">Forgot password?</Link><span>Need access? Contact your workspace administrator.</span></div>}
+          {mode === 'sign-in' && !complete && <div className="auth-support-row"><Link to="/forgot-password">Forgot password?</Link><span>New to LEXA? Ask your business administrator for an invitation.</span></div>}
           {mode === 'forgot-password' && <div className="auth-support-row"><Link to="/sign-in"><ArrowLeft size={14} /> Back to sign in</Link></div>}
           {mode === 'reset-password' && <div className="auth-support-row"><Link to="/forgot-password">Request a new recovery link</Link></div>}
           {mode === 'sign-in' && bootstrapAvailable && <Link className="auth-first-admin" to="/create-account">Create the first administrator account <ArrowRight size={15} /></Link>}
           {complete && <Link className="auth-submit auth-return-button" to="/sign-in">Return to sign in <ArrowRight size={17} /></Link>}
 
-          <div className="auth-security-footnote"><ShieldCheck size={16} /><span>Your password is checked by the LEXA service. Session credentials are held in secure cookies, not browser storage.</span></div>
+          <div className="auth-security-footnote"><ShieldCheck size={16} /><span>Your account and business information are protected. Keep your password private.</span></div>
         </div>
-        <div className="auth-main-footer"><span>© {new Date().getFullYear()} LEXA</span><span>Keep your account details private.</span></div>
+        <div className="auth-main-footer"><span>© {new Date().getFullYear()} LEXA</span><span>Your business information matters. Keep your sign-in details private.</span></div>
       </section>
     </main>
   );
@@ -278,7 +272,7 @@ export function CreateAccountPage() {
           {!available && !checking && <Link className="auth-submit auth-return-button" to="/sign-in">Return to sign in <ArrowRight size={17} /></Link>}
           <div className="auth-security-footnote"><ShieldCheck size={16} /><span>The setup code is used once. The password is stored as a salted hash, and the public setup route closes after the first account is created.</span></div>
         </div>
-        <div className="auth-main-footer"><span>© {new Date().getFullYear()} LEXA</span><span>Keep your account details private.</span></div>
+        <div className="auth-main-footer"><span>© {new Date().getFullYear()} LEXA</span><span>Your business information matters. Keep your sign-in details private.</span></div>
       </section>
     </main>
   );

@@ -1,3 +1,4 @@
+import { httpBusinessMessage } from './businessMessages';
 import { apiBaseUrl } from './runtimeConfig';
 
 export type ApiMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -6,7 +7,7 @@ export type ApiQuery = Record<string, ApiQueryValue>;
 
 export class ApiConfigurationError extends Error {
   readonly code = 'API_NOT_CONFIGURED';
-  constructor(message = 'The LEXA backend URL is not configured.') {
+  constructor(message = 'LEXA cannot connect to your business account right now. Please contact your administrator.') {
     super(message);
     this.name = 'ApiConfigurationError';
   }
@@ -99,7 +100,7 @@ export function createApiClient(options: ApiClientOptions) {
       throw new ApiRequestError(parsed.message ?? `Could not obtain a CSRF token (${response.status}).`, { status: response.status, code: parsed.code ?? 'CSRF_TOKEN_FAILED', requestId: parsed.requestId, details: parsed.details });
     }
     const unwrapped = unwrapEnvelope<{ token?: unknown }>(payload);
-    if (!unwrapped || typeof unwrapped.token !== 'string' || unwrapped.token.length < 16) throw new ApiRequestError('The backend did not return a valid CSRF token.', { status: 0, code: 'INVALID_CSRF_TOKEN' });
+    if (!unwrapped || typeof unwrapped.token !== 'string' || unwrapped.token.length < 16) throw new ApiRequestError('We could not verify this request. Please refresh and try again.', { status: 0, code: 'INVALID_CSRF_TOKEN' });
     cachedCsrfToken = unwrapped.token;
     return cachedCsrfToken;
   }
@@ -153,7 +154,7 @@ export function createApiClient(options: ApiClientOptions) {
           cachedCsrfToken = null;
           if (!path.startsWith('/auth/login') && !path.startsWith('/auth/password/')) options.onUnauthorized?.();
         }
-        const message = parsed.message ?? (typeof payload === 'string' && payload.trim() ? payload : `LEXA API request failed (${response.status}).`);
+        const message = httpBusinessMessage(response.status, parsed.message ?? (typeof payload === 'string' ? payload : ''), parsed.code);
         throw new ApiRequestError(message, { status: response.status, code: parsed.code, requestId: parsed.requestId ?? id, details: parsed.details });
       }
       if (unsafe && (path.endsWith('/auth/login') || path.endsWith('/auth/logout') || path.endsWith('/auth/password/reset') || path.endsWith('/auth/password/change'))) cachedCsrfToken = null; // LEXA_AUTH_SECURITY_UI_PATCH:csrf-refresh-v1
@@ -162,9 +163,9 @@ export function createApiClient(options: ApiClientOptions) {
     } catch (error) {
       if (error instanceof ApiRequestError || error instanceof ApiConfigurationError) throw error;
       if (controller.signal.aborted) {
-        throw new ApiRequestError('The backend request timed out or was cancelled. Check the connection and retry.', { status: 0, code: 'REQUEST_ABORTED', requestId: id });
+        throw new ApiRequestError('The request took too long. Check your connection and try again.', { status: 0, code: 'REQUEST_ABORTED', requestId: id });
       }
-      throw new ApiRequestError('Could not reach the LEXA backend. Check the API URL, network and server CORS configuration.', { status: 0, code: 'NETWORK_ERROR', requestId: id, details: error instanceof Error ? error.message : undefined });
+      throw new ApiRequestError('LEXA could not connect to your business account. Check your internet connection and try again.', { status: 0, code: 'NETWORK_ERROR', requestId: id, details: error instanceof Error ? error.message : undefined });
     } finally {
       clearTimeout(timer);
       callerSignal?.removeEventListener('abort', abortFromCaller);

@@ -3,7 +3,7 @@ import { apiClient } from './apiClient';
 const enc = (value: string) => encodeURIComponent(value);
 function list<T>(value: unknown, label: string): T[] {
   const result = Array.isArray(value) ? value : value && typeof value === 'object' && Array.isArray((value as { items?: unknown }).items) ? (value as { items: unknown[] }).items : null;
-  if (!result) throw new Error(`Backend returned an invalid ${label} collection.`);
+  if (!result) throw new Error(`We could not load the ${label} information. Please try again.`);
   return result as T[];
 }
 export const apiCollaboration = {

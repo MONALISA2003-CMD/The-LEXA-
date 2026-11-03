@@ -36,8 +36,8 @@ export interface LedgerSourceReconciliation {
 }
 
 const base = (scope: LedgerScope) => `/workspaces/${encodeURIComponent(scope.workspaceId)}/branches/${encodeURIComponent(scope.branchId)}/ledger`;
-function list<T>(value: unknown, label: string): T[] { if (!Array.isArray(value)) throw new Error(`The backend returned an invalid ${label} collection.`); return value as T[]; }
-function record<T>(value: unknown, label: string): T { if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`The backend returned an invalid ${label} response.`); return value as T; }
+function list<T>(value: unknown, label: string): T[] { if (!Array.isArray(value)) throw new Error(`We could not load the ${label} information. Please try again.`); return value as T[]; }
+function record<T>(value: unknown, label: string): T { if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`We could not load the ${label} information. Please try again.`); return value as T; }
 
 export const apiGeneralLedger = {
   async accounts(scope: LedgerScope) { return list<LedgerAccount>(await apiClient.get(`${base(scope)}/accounts`), 'ledger account'); },

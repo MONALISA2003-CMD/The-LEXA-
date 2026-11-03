@@ -98,11 +98,11 @@ function base(scope: CommerceScope) {
   return `/workspaces/${enc(scope.workspaceId)}/branches/${enc(scope.branchId)}/commerce`;
 }
 function record<T>(value: unknown, label: string): T {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`The backend returned an invalid ${label} response.`);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`We could not load the ${label} information. Please try again.`);
   return value as T;
 }
 function list<T>(value: unknown, label: string): T[] {
-  if (!Array.isArray(value)) throw new Error(`The backend returned an invalid ${label} collection.`);
+  if (!Array.isArray(value)) throw new Error(`We could not load the ${label} information. Please try again.`);
   return value as T[];
 }
 export const apiCommerce = {

@@ -60,6 +60,16 @@ describe('LEXA API client', () => {
     }
   });
 
+  it('shows a professional message instead of a raw internal server error', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      statusCode: 500, message: 'Internal server error',
+    }), { status: 500, headers: { 'content-type': 'application/json' } }));
+    const client = createApiClient({ baseUrl: 'https://api.example.test/api/v1', fetchImpl, csrfProtection: false });
+    await expect(client.get('/workspaces')).rejects.toMatchObject({
+      status: 500, message: expect.stringContaining('LEXA could not complete your request'),
+    });
+  });
+
   it('signals expired sessions to the app shell on protected API calls', async () => {
     const onUnauthorized = vi.fn();
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED', message: 'Sign in required' } }), {

@@ -36,7 +36,7 @@ export interface ApiComplianceNote {
 const enc = (value: string) => encodeURIComponent(value);
 function list<T>(value: unknown, name: string): T[] {
   const candidate = Array.isArray(value) ? value : value && typeof value === 'object' && Array.isArray((value as { items?: unknown }).items) ? (value as { items: unknown[] }).items : null;
-  if (!candidate) throw new Error(`The backend returned an invalid ${name} list.`);
+  if (!candidate) throw new Error(`We could not load your ${name} information. Please try again.`);
   return candidate as T[];
 }
 export const apiBusinessTools = {

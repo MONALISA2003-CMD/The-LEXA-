@@ -12,6 +12,8 @@ import { WorkspaceContext } from '../WorkspaceContext';
 import type { Branch, Workspace } from '../../domain/shared/types';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import GlobalSearch from '../../components/GlobalSearch';
+import { businessErrorMessage } from '../../data/remote/businessMessages';
+import { Link } from 'react-router';
 
 const ACTIVE_WORKSPACE_KEY = 'lexa.ui.activeWorkspaceId';
 const ACTIVE_BRANCH_KEY = 'lexa.ui.activeBranchId';
@@ -19,7 +21,7 @@ const ACTIVE_BRANCH_KEY = 'lexa.ui.activeBranchId';
 function readPreference(key: string): string | null { try { return window.localStorage.getItem(key); } catch { return null; } }
 function writePreference(key: string, value: string): void { try { window.localStorage.setItem(key, value); } catch { /* Server-backed data must not depend on preferences being writable. */ } }
 function removePreference(key: string): void { try { window.localStorage.removeItem(key); } catch { /* Preferences are non-critical. */ } }
-function errorMessage(error: unknown): string { return error instanceof Error ? error.message : 'The request could not be completed.'; }
+function errorMessage(error: unknown): string { return businessErrorMessage(error); }
 function errorStatus(error: unknown): number | null { return error && typeof error === 'object' && 'status' in error && typeof (error as { status?: unknown }).status === 'number' ? (error as { status: number }).status : null; }
 
 const navSections = [
@@ -27,11 +29,11 @@ const navSections = [
     { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
     { to: '/workspace', label: 'Business & branches', icon: Building2 },
   ] },
-  { title: 'REPORTS & ADVICE', items: [
-    { to: '/reports', label: 'Authoritative reports', icon: BarChart3 },
+  { title: 'BUSINESS REPORTS & ADVICE', items: [
+    { to: '/reports', label: 'Business reports', icon: BarChart3 },
     { to: '/intelligence', label: 'LEXA Assistant', icon: Sparkles },
   ] },
-  { title: 'CRM & GROWTH', items: [
+  { title: 'CUSTOMERS & GROWTH', items: [
     { to: '/modules/leads', label: 'Leads & prospects', icon: Users },
     { to: '/modules/opportunities', label: 'Opportunities', icon: Target },
     { to: '/modules/contacts', label: 'Contacts & addresses', icon: Users },
@@ -60,7 +62,7 @@ const navSections = [
   { title: 'LOGISTICS', items: [
     { to: '/modules/deliveries', label: 'Deliveries & fulfilment', icon: Truck },
   ] },
-  { title: 'PROCUREMENT', items: [
+  { title: 'PURCHASING', items: [
     { to: '/modules/purchase-requests', label: 'Purchase requests', icon: ClipboardList },
     { to: '/modules/rfqs', label: 'Requests for quotation', icon: FileText },
     { to: '/modules/supplier-quotes', label: 'Supplier quotations', icon: FileText },
@@ -82,7 +84,7 @@ const navSections = [
     { to: '/modules/recurring-invoices', label: 'Recurring billing', icon: ReceiptText },
     { to: '/modules/tax-documents', label: 'Tax documents / EFRIS', icon: BookOpen },
   ] },
-  { title: 'PEOPLE & PAYROLL', items: [
+  { title: 'TEAM & PAYROLL', items: [
     { to: '/modules/employees', label: 'Employees & HR', icon: Users },
     { to: '/modules/attendance', label: 'Attendance & shifts', icon: Activity },
     { to: '/modules/payroll', label: 'Payroll', icon: Wallet },
@@ -148,7 +150,7 @@ export default function AppShell() {
       { to: '/inventory', label: 'Stock', icon: Package },
       { to: '/modules/customers', label: 'Money owed', icon: Users },
       { to: '/business-tools', label: 'Business tools', icon: Settings },
-      { to: '/reports', label: 'Authoritative reports', icon: BarChart3 },
+      { to: '/reports', label: 'Business reports', icon: BarChart3 },
       { to: '/intelligence', label: 'LEXA Assistant', icon: Sparkles },
       { to: '/settings', label: 'Settings', icon: Settings },
     ] },
@@ -268,19 +270,23 @@ export default function AppShell() {
     return { workspaces, workspace, branches, branch, setActiveWorkspace, setActiveBranch, refreshWorkspaces };
   }, [workspaces, workspace, branches, branch, setActiveWorkspace, setActiveBranch, refreshWorkspaces]);
 
-  if (loadError) return (
-    <Navigate
-      to="/sign-in"
-      replace
-      state={{
-        returnTo: `${location.pathname}${location.search}${location.hash}`,
-        connectionIssue: loadErrorStatus === 401 ? 'session' : 'workspace',
-      }}
-    />
+  if (loadError && loadErrorStatus === 401) return (
+    <Navigate to="/sign-in" replace state={{ returnTo: `${location.pathname}${location.search}${location.hash}`, connectionIssue: 'session' }} />
   );
-  if (loading || (workspace && (branchesLoading || resolvedBranchWorkspaceId !== workspace.id))) return <div className="boot-screen"><div className="brand-mark">L</div><span>Opening your workspace…</span></div>;
+  if (loadError) return <main className="error-screen" role="alert">
+    <div className="eyebrow eyebrow-blue">BUSINESS ACCESS</div>
+    <h1>We couldn't open your business.</h1>
+    <p>{loadError}</p>
+    <div className="business-entry-error-actions"><button type="button" className="button button-primary" onClick={() => window.location.reload()}>Try again</button><Link to="/onboarding" className="button button-secondary">Choose a business</Link></div>
+  </main>;
+  if (loading || (workspace && (branchesLoading || resolvedBranchWorkspaceId !== workspace.id))) return <div className="boot-screen"><div className="brand-mark">L</div><span>Opening your business…</span></div>;
   if (!workspace) return <Navigate to="/onboarding" replace />;
-  if (!branch) return <Navigate to="/onboarding" replace />;
+  if (!branch) return <main className="error-screen" role="alert">
+    <div className="eyebrow eyebrow-blue">BUSINESS SETUP</div>
+    <h1>Your business is saved.</h1>
+    <p>We couldn't open its first branch. Your business is still on your account. Choose your business to continue or try again.</p>
+    <div className="business-entry-error-actions"><Link className="button button-primary" to="/onboarding">Choose my business</Link><button className="button button-secondary" type="button" onClick={() => window.location.reload()}>Try again</button></div>
+  </main>;
   if (!contextValue) return null;
 
   return (

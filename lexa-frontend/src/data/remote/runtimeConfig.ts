@@ -20,6 +20,6 @@ export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').trim().repla
 
 export function describeDataProvider(): string {
   if (dataProviderMode === 'local') return 'Development-only device storage — records stay in this browser and do not sync across devices.';
-  if (!apiBaseUrl) return 'Backend API is not configured. Set VITE_API_BASE_URL in the deployment environment.';
-  return 'API mode selected. Backend availability is verified by actual API requests.';
+  if (!apiBaseUrl) return 'The business service is not connected. Please contact your administrator.';
+  return 'Your business information is connected to your LEXA account.';
 }

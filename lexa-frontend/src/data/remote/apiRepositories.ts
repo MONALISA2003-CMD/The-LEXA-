@@ -12,12 +12,12 @@ function listPayload<T>(value: unknown, label: string): T[] {
     : value && typeof value === 'object' && Array.isArray((value as { items?: unknown }).items)
       ? (value as { items: unknown[] }).items
       : null;
-  if (!collection) throw new Error(`The backend returned an invalid ${label} collection. Expected an array or { items: [] }.`);
+  if (!collection) throw new Error(`We could not load the ${label} information. Please try again.`);
   return collection as T[];
 }
 
 function objectPayload<T>(value: unknown, label: string): T {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`The backend returned an invalid ${label} response.`);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`We could not load the ${label} information. Please try again.`);
   return value as T;
 }
 
