@@ -40,6 +40,7 @@ export const router = createBrowserRouter([
       { path: 'modules/:moduleId', lazy: async () => ({ Component: (await import('../modules/operations/OperationsWorkspacePage')).default }) },
       { path: 'data-operations', lazy: async () => ({ Component: (await import('../modules/operations/ImportExportCentrePage')).default }) },
       { path: 'business-tools', lazy: async () => ({ Component: (await import('../modules/tools/BusinessToolsPage')).default }) },
+      { path: 'business-setup', lazy: async () => ({ Component: (await import('../modules/business-setup/BusinessSetupPage')).default }) },
       { path: 'settings', lazy: async () => ({ Component: (await import('../modules/settings/SettingsPage')).default }) },
       { path: '*', element: <Navigate to="/" replace /> },
     ],

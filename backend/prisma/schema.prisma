@@ -48,6 +48,8 @@ model Tenant {
   updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
   memberships        Membership[]
   branches           Branch[]
+  businessProfile    BusinessProfile?
+  businessPaymentMethods BusinessPaymentMethod[]
   ledgerAccounts     LedgerAccount[]
   accountingPeriods  AccountingPeriod[]
   ledgerJournals     LedgerJournal[]
@@ -66,6 +68,51 @@ model Tenant {
   saleReturnLines    SaleReturnLine[]
 
   @@map("tenants")
+}
+
+
+// One verified business identity per tenant. This is not a second workspace.
+model BusinessProfile {
+  tenantId                   String    @id @map("tenant_id") @db.Uuid
+  tradingName                String?   @map("trading_name")
+  legalName                  String?   @map("legal_name")
+  country                    String    @default("UG")
+  district                   String? 
+  city                       String?
+  physicalAddress            String?   @map("physical_address")
+  onlineOnly                 Boolean   @default(false) @map("online_only")
+  email                      String?
+  phone                      String?
+  website                    String?
+  registrationNumber         String?   @map("registration_number")
+  taxIdentificationNumber    String?   @map("tax_identification_number")
+  industry                   String?
+  businessModels             String[]  @default([]) @map("business_models")
+  offeringTypes              String[]  @default([]) @map("offering_types")
+  offeringsDescription       String?   @map("offerings_description")
+  sellingChannels            String[]  @default([]) @map("selling_channels")
+  setupStep                  Int       @default(1) @map("setup_step")
+  completedAt                DateTime? @map("completed_at") @db.Timestamptz(3)
+  manualPaymentsConfirmedAt  DateTime? @map("manual_payments_confirmed_at") @db.Timestamptz(3)
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant                     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("business_profiles")
+}
+
+// Payment options only: neither this table nor its API initiates or verifies transfers.
+model BusinessPaymentMethod {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  code      String
+  label     String
+  enabled   Boolean  @default(false)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, code])
+  @@index([tenantId, enabled])
+  @@map("business_payment_methods")
 }
 
 model User {

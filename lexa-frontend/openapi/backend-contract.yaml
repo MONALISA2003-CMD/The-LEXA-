@@ -168,6 +168,27 @@ paths:
         '200': {description: Updated workspace, content: {application/json: {
                 schema: {$ref: '#/components/schemas/Workspace'}}}}
         '403': {$ref: '#/components/responses/Forbidden'}
+  /workspaces/{workspaceId}/business-setup:
+    get:
+      operationId: getBusinessSetup
+      description: Tenant-scoped business identity, operations, and manual payment recording preferences. No gateways.
+      responses:
+        '200': {description: Business setup profile including payment method configuration}
+    patch:
+      operationId: saveBusinessSetupStep
+      description: Owner-only, CSRF protected and audit logged. Save one setup step without creating a new tenant.
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      responses:
+        '200': {description: Saved setup step}
+        '403': {description: Owner permission required}
+  /workspaces/{workspaceId}/business-setup/complete:
+    post:
+      operationId: completeBusinessSetup
+      description: Owner-only confirmation that required profile and manual payment details are present.
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      responses:
+        '201': {description: Business setup completed}
+        '400': {description: Required setup information missing}
   /workspaces/{workspaceId}/branches:
     parameters: [$ref: '#/components/parameters/workspaceId']
     get:

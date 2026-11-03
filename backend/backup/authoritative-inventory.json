@@ -114,6 +114,18 @@
     "rationale": "Recipient-scoped in-app notification records and safe source event links"
   },
   {
+    "table": "business_payment_methods",
+    "disposition": "authoritative",
+    "domain": "payments",
+    "rationale": "Owner-confirmed accepted methods for manually recording received payments; never contains gateway credentials, PINs or OTPs"
+  },
+  {
+    "table": "business_profiles",
+    "disposition": "authoritative",
+    "domain": "business_identity",
+    "rationale": "Tenant-owned official business identity, activity classification, setup completion and compliance identifiers; must be backed up with tenant records"
+  },
+  {
     "table": "cash_movements",
     "disposition": "authoritative",
     "domain": "cash",

@@ -91,6 +91,7 @@ export function permissionForRequest(method: string, pathname: string, params: R
   const moduleId = typeof params.moduleId === 'string' ? params.moduleId : undefined;
   const choose = (read: Permission, mutation: Permission): Permission => write ? mutation : read;
 
+  if (/\/workspaces\/[^/]+\/business-setup(?:\/complete)?$/.test(path)) return write ? 'workspace.manage' : 'workspace.read';
   if (/\/workspaces\/[^/]+\/members(?:$|\?)|\/memberships\/[^/]+\/(?:branches|role)(?:$|\?)|\/workspaces\/[^/]+\/invitations(?:$|\/)/.test(path)) return 'workspace.manage';
   if (/\/recurring-invoices(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
   if (/\/intelligence\/status$/.test(path)) return 'intelligence.read';

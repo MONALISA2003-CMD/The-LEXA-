@@ -360,6 +360,20 @@ export class CoreController {
     return rows.reduce((sum: number, row: any) => sum + Number(row.quantityDelta), 0);
   }
 
+  // The payment catalog is an owner-approved recording policy, not an integration
+  // with providers. Existing businesses without a completed setup retain their
+  // historic methods until the owner explicitly confirms a policy.
+  private async assertRecordedMethodsEnabled(tenantId: string, methodCodes: string[]): Promise<void> {
+    if (methodCodes.length === 0) return;
+    const profile = await this.prisma.businessProfile.findUnique({ where: { tenantId } });
+    if (!profile?.completedAt) return;
+    const enabled = await this.prisma.businessPaymentMethod.findMany({ where: { tenantId, enabled: true }, select: { code: true } });
+    const selected = new Set(enabled.map(value => value.code));
+    if (methodCodes.some(code => !selected.has(code) && !(code === 'card' && selected.has('card_recorded')) && !(code === 'card_recorded' && selected.has('card')))) {
+      throw new BadRequestException('The business owner has not enabled that payment recording method. Update Business setup first.');
+    }
+  }
+
   private async idempotentResponse(tenantId: string, key: string, requestHash: string): Promise<any | null> {
     const existing = await this.prisma.idempotencyRecord.findUnique({ where: { tenantId_key: { tenantId, key } } });
     if (!existing) return null;
@@ -1070,6 +1084,7 @@ export class CoreController {
         reportedReceivedAt: reportedDateTime(row.reportedReceivedAt),
       };
     }) : [];
+    await this.assertRecordedMethodsEnabled(workspaceId, payments.map(payment => payment.method));
     const idempotencyKey = request.headers['idempotency-key'];
     const key = Array.isArray(idempotencyKey) ? idempotencyKey[0] : idempotencyKey;
     if (!key || key.length > 200) throw new BadRequestException('Idempotency-Key header is required for completing a sale.');
@@ -1247,6 +1262,7 @@ export class CoreController {
     const amountMinor = moneyMinor(body.amountMinor, 'Payment amount', false);
     const method = requiredString(body.method, 'Payment method', 40);
     if (!PAYMENT_METHODS.has(method)) throw new BadRequestException('Unsupported payment method.');
+    await this.assertRecordedMethodsEnabled(workspaceId, [method]);
     const reference = optionalString(body.reference, 200);
     const methodLabel = optionalString(body.methodLabel, 120);
     const notes = optionalString(body.notes, 500);

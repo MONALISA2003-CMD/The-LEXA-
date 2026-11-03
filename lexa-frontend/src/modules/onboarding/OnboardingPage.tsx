@@ -3,6 +3,7 @@ import { ArrowRight, Check, LogIn, ShieldCheck, Sparkles, Building2, RefreshCw }
 import { Link, useNavigate } from 'react-router';
 import { workspaces } from '../../data/repositories';
 import { apiAuth } from '../../data/remote/apiAuth';
+import { businessSetupApi } from '../../data/remote/businessSetup';
 import { apiBaseUrl, isApiProvider } from '../../data/remote/runtimeConfig';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import { resolveBusinessSelection } from '../../app/resolveBusinessSelection';
@@ -101,7 +102,16 @@ export default function OnboardingPage() {
     // Carry the verified selection into the business shell even when the next
     // business-list response is delayed or the browser blocks local preferences.
     // The shell still checks authorization and branch availability with the server.
-    navigate('/', { replace: true, state: { openBusinessId: business.id, openBranchId: chosen.id } });
+    // An existing signup already owns this tenant. Configure the existing business,
+    // never create a duplicate workspace on first sign-in. Employees skip owner setup.
+    let destination = '/';
+    if (isApiProvider) {
+      try {
+        const profile = await businessSetupApi.read(business.id);
+        if (profile.isOwner && !profile.completedAt) destination = '/business-setup';
+      } catch { /* A temporary setup API outage must not block opening existing records. */ }
+    }
+    navigate(destination, { replace: true, state: { openBusinessId: business.id, openBranchId: chosen.id } });
   }
 
   async function openSelectedBusiness() {

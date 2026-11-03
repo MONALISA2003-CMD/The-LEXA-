@@ -29,6 +29,7 @@ const navSections = [
   { title: 'WORKSPACE', items: [
     { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
     { to: '/workspace', label: 'Business & branches', icon: Building2 },
+    { to: '/business-setup', label: 'Business profile setup', icon: Sparkles },
     { to: '/modules', label: 'All modules', icon: Boxes },
   ] },
   { title: 'BUSINESS REPORTS & ADVICE', items: [
@@ -148,7 +149,7 @@ export default function AppShell() {
     return () => window.removeEventListener('lexa:ui-mode-change', handleModeChange);
   }, []);
   const visibleNavSections = uiMode === 'advanced' ? navSections : [
-    { title: 'WORKSPACE', items: (navSections[0]?.items ?? []).filter((item) => item.to === '/' || item.to === '/workspace' || item.to === '/modules') },
+    { title: 'WORKSPACE', items: (navSections[0]?.items ?? []).filter((item) => item.to === '/' || item.to === '/workspace' || item.to === '/business-setup' || item.to === '/modules') },
     { title: 'QUICK ACTIONS', items: [
       { to: '/checkout', label: 'Sell', icon: ShoppingCart },
       { to: '/modules/purchases', label: 'Buy', icon: ShoppingCart },
