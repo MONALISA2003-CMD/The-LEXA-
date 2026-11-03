@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ArrowRight, Check, LogIn, ShieldCheck, Sparkles, Building2, RefreshCw } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
-import { toast } from 'sonner';
 import { workspaces } from '../../data/repositories';
 import { apiAuth } from '../../data/remote/apiAuth';
 import { apiBaseUrl, isApiProvider } from '../../data/remote/runtimeConfig';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
+import { resolveBusinessSelection } from '../../app/resolveBusinessSelection';
 import type { Workspace } from '../../domain/shared/types';
 
 const WORKSPACE_KEY = 'lexa.ui.activeWorkspaceId';
@@ -29,6 +29,7 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const [entryStatus, setEntryStatus] = useState<EntryStatus>(isApiProvider ? 'checking' : 'ready');
   const [entryError, setEntryError] = useState('');
+  const [businessRecoveryNeeded, setBusinessRecoveryNeeded] = useState(false);
   const [businesses, setBusinesses] = useState<Workspace[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState('');
   const [showCreation, setShowCreation] = useState(false);
@@ -45,6 +46,7 @@ export default function OnboardingPage() {
   const loadBusinesses = useCallback(async () => {
     setEntryStatus('checking');
     setEntryError('');
+    setBusinessRecoveryNeeded(false);
     if (isApiProvider && !apiBaseUrl) {
       setEntryError('LEXA cannot connect to your business account right now. Please contact your administrator.');
       setEntryStatus('error');
@@ -64,9 +66,18 @@ export default function OnboardingPage() {
     }
     try {
       const items = await workspaces.list();
-      setBusinesses(items);
       const savedId = readPreference(WORKSPACE_KEY);
-      setSelectedBusinessId(items.find((item) => item.id === savedId)?.id ?? items[0]?.id ?? '');
+      const recovered = await resolveBusinessSelection(items, savedId, workspaces.getById);
+      setBusinesses(recovered.businesses);
+      setSelectedBusinessId(recovered.selected?.id ?? '');
+      if (isApiProvider && savedId && recovered.businesses.length === 0) {
+        // Do not encourage a duplicate when the user already opened a business
+        // on this device but the service briefly fails to return its membership.
+        setBusinessRecoveryNeeded(true);
+        setEntryError('We could not find the business you opened previously. Try again, or sign in with the account that owns it. Your records have not been deleted.');
+        setEntryStatus('error');
+        return;
+      }
       setEntryStatus('ready');
     } catch (error) {
       setEntryError(businessErrorMessage(error));
@@ -87,8 +98,10 @@ export default function OnboardingPage() {
     if (!chosen?.id) throw new Error('Your business is saved, but its first branch could not be opened. Please try again.');
     writePreference(WORKSPACE_KEY, business.id);
     writePreference(BRANCH_KEY, chosen.id);
-    toast.success(`Opening ${business.businessName}`, { description: `Welcome to ${chosen.name}.` });
-    navigate('/', { replace: true });
+    // Carry the verified selection into the business shell even when the next
+    // business-list response is delayed or the browser blocks local preferences.
+    // The shell still checks authorization and branch availability with the server.
+    navigate('/', { replace: true, state: { openBusinessId: business.id, openBranchId: chosen.id } });
   }
 
   async function openSelectedBusiness() {
@@ -129,8 +142,9 @@ export default function OnboardingPage() {
         // A delayed response may have saved the business; reload the list before any further attempt.
         try {
           const latest = await workspaces.list();
-          setBusinesses(latest);
-          const matching = latest.find((item) => item.businessName.trim().toLocaleLowerCase() === businessName.trim().toLocaleLowerCase());
+          const recovered = await resolveBusinessSelection(latest, readPreference(WORKSPACE_KEY), workspaces.getById);
+          setBusinesses(recovered.businesses);
+          const matching = recovered.businesses.find((item) => item.businessName.trim().toLocaleLowerCase() === businessName.trim().toLocaleLowerCase());
           if (matching) {
             setSelectedBusinessId(matching.id);
             setShowCreation(false);
@@ -176,6 +190,7 @@ export default function OnboardingPage() {
             <p>{entryError}</p>
             <button type="button" className="button button-primary button-wide business-entry-cta" onClick={() => void loadBusinesses()}><RefreshCw size={17} /> Try again</button>
             <Link to="/sign-in" className="business-entry-alt-link">Return to sign in</Link>
+            {businessRecoveryNeeded && <button type="button" className="business-entry-secondary" onClick={() => { setBusinessRecoveryNeeded(false); setEntryStatus('ready'); setShowCreation(true); setActionError(''); }}>Set up a different business</button>}
           </div>}
           {entryStatus === 'ready' && <>
             {hasBusinesses && !showCreation && <div className="business-entry-panel">

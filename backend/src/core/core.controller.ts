@@ -503,8 +503,17 @@ export class CoreController {
   @Get('workspaces')
   async listWorkspaces(@Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
-    const memberships = await this.prisma.membership.findMany({ where: { userId: session.userId, status: 'ACTIVE' }, include: { tenant: true }, orderBy: { createdAt: 'asc' } });
-    return memberships.map((membership) => toWorkspace(membership.tenant));
+    // Bind the authenticated identity to this entire database read. A context
+    // entered inside sessionFor() may not survive every async request boundary;
+    // without it, RLS can silently return [] (HTTP 200) for existing businesses.
+    return this.prisma.runWithTenantContext({ userId: session.userId }, async () => {
+      const memberships = await this.prisma.membership.findMany({
+        where: { userId: session.userId, status: 'ACTIVE' },
+        include: { tenant: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      return memberships.map((membership) => toWorkspace(membership.tenant));
+    });
   }
 
   @Post('workspaces')
@@ -535,8 +544,12 @@ export class CoreController {
   @Get('workspaces/:workspaceId')
   async getWorkspace(@Param('workspaceId') workspaceId: string, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
-    const membership = await this.membershipFor(session.userId, workspaceId);
-    return toWorkspace(membership.tenant);
+    // Direct business recovery must use the same explicit RLS scope as listing.
+    // Never trust an ID stored in the browser without checking membership.
+    return this.prisma.runWithTenantContext({ tenantId: workspaceId, userId: session.userId }, async () => {
+      const membership = await this.membershipFor(session.userId, workspaceId);
+      return toWorkspace(membership.tenant);
+    });
   }
 
   @Patch('workspaces/:workspaceId')
@@ -559,19 +572,21 @@ export class CoreController {
   @Get('workspaces/:workspaceId/branches')
   async listBranches(@Param('workspaceId') workspaceId: string, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
-    const member = await this.membershipFor(session.userId, workspaceId);
-    if (isWorkspaceAdministrator(member.role)) {
-      const rows = await this.prisma.branch.findMany({ where: { tenantId: workspaceId }, orderBy: { createdAt: 'asc' } });
+    return this.prisma.runWithTenantContext({ tenantId: workspaceId, userId: session.userId }, async () => {
+      const member = await this.membershipFor(session.userId, workspaceId);
+      if (isWorkspaceAdministrator(member.role)) {
+        const rows = await this.prisma.branch.findMany({ where: { tenantId: workspaceId }, orderBy: { createdAt: 'asc' } });
+        return rows.map(toBranch);
+      }
+      const where: any = { tenantId: workspaceId };
+      if (member.branchScopeMode === 'restricted') {
+        const grants = await this.prisma.$queryRaw<Array<{ branchId: string }>>`
+          SELECT branch_id AS "branchId" FROM branch_memberships WHERE tenant_id=${workspaceId}::uuid AND user_id=${session.userId}::uuid`;
+        where.id = { in: grants.map((row) => row.branchId) };
+      }
+      const rows = await this.prisma.branch.findMany({ where, orderBy: { createdAt: 'asc' } });
       return rows.map(toBranch);
-    }
-    const where: any = { tenantId: workspaceId };
-    if (member.branchScopeMode === 'restricted') {
-      const grants = await this.prisma.$queryRaw<Array<{ branchId: string }>>`
-        SELECT branch_id AS "branchId" FROM branch_memberships WHERE tenant_id=${workspaceId}::uuid AND user_id=${session.userId}::uuid`;
-      where.id = { in: grants.map((row) => row.branchId) };
-    }
-    const rows = await this.prisma.branch.findMany({ where, orderBy: { createdAt: 'asc' } });
-    return rows.map(toBranch);
+    });
   }
 
   @Post('workspaces/:workspaceId/branches')

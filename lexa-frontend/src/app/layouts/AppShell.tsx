@@ -13,6 +13,7 @@ import type { Branch, Workspace } from '../../domain/shared/types';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import GlobalSearch from '../../components/GlobalSearch';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
+import { resolveBusinessSelection } from '../resolveBusinessSelection';
 import { Link } from 'react-router';
 
 const ACTIVE_WORKSPACE_KEY = 'lexa.ui.activeWorkspaceId';
@@ -111,6 +112,10 @@ function routeTitle(pathname: string): string {
 export default function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
+  const requestedBusinessId = typeof (location.state as { openBusinessId?: unknown } | null)?.openBusinessId === 'string'
+    ? (location.state as { openBusinessId: string }).openBusinessId : null;
+  const requestedBranchId = typeof (location.state as { openBranchId?: unknown } | null)?.openBranchId === 'string'
+    ? (location.state as { openBranchId: string }).openBranchId : null;
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -159,29 +164,29 @@ export default function AppShell() {
   const refreshWorkspaces = useCallback(async () => {
     try {
     const items = await workspaceRepository.list();
+    const recovered = await resolveBusinessSelection(items, requestedBusinessId ?? readPreference(ACTIVE_WORKSPACE_KEY), workspaceRepository.getById);
     setLoadError(null);
     setLoadErrorStatus(null);
-    setWorkspaces(items);
-    const savedId = readPreference(ACTIVE_WORKSPACE_KEY);
-    const chosen = items.find((item) => item.id === savedId) ?? items[0] ?? null;
+    setWorkspaces(recovered.businesses);
+    const chosen = recovered.selected;
     if (chosen) {
       writePreference(ACTIVE_WORKSPACE_KEY, chosen.id);
       setWorkspace(chosen);
     } else setWorkspace(null);
     } catch (error) { setLoadError(errorMessage(error)); setLoadErrorStatus(errorStatus(error)); throw error; }
-  }, []);
+  }, [requestedBusinessId]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const items = await workspaceRepository.list();
+        const recovered = await resolveBusinessSelection(items, requestedBusinessId ?? readPreference(ACTIVE_WORKSPACE_KEY), workspaceRepository.getById);
         if (cancelled) return;
-        setWorkspaces(items);
+        setWorkspaces(recovered.businesses);
         setLoadError(null);
         setLoadErrorStatus(null);
-        const savedId = readPreference(ACTIVE_WORKSPACE_KEY);
-        const chosen = items.find((item) => item.id === savedId) ?? items[0] ?? null;
+        const chosen = recovered.selected;
         setWorkspace(chosen);
         if (chosen) writePreference(ACTIVE_WORKSPACE_KEY, chosen.id);
       } catch (error) {
@@ -192,7 +197,7 @@ export default function AppShell() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [requestedBusinessId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -216,7 +221,7 @@ export default function AppShell() {
         setLoadError(null);
         setLoadErrorStatus(null);
         setBranches(items);
-        const savedId = readPreference(ACTIVE_BRANCH_KEY);
+        const savedId = requestedBusinessId === workspace.id ? requestedBranchId : readPreference(ACTIVE_BRANCH_KEY);
         const chosen = items.find((item) => item.id === savedId) ?? items[0] ?? null;
         setBranch(chosen);
         if (chosen) writePreference(ACTIVE_BRANCH_KEY, chosen.id);
@@ -232,7 +237,7 @@ export default function AppShell() {
       }
     })();
     return () => { cancelled = true; };
-  }, [workspace]);
+  }, [workspace, requestedBusinessId, requestedBranchId]);
 
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
   useEffect(() => {
@@ -280,6 +285,12 @@ export default function AppShell() {
     <div className="business-entry-error-actions"><button type="button" className="button button-primary" onClick={() => window.location.reload()}>Try again</button><Link to="/onboarding" className="button button-secondary">Choose a business</Link></div>
   </main>;
   if (loading || (workspace && (branchesLoading || resolvedBranchWorkspaceId !== workspace.id))) return <div className="boot-screen"><div className="brand-mark">L</div><span>Opening your business…</span></div>;
+  if (!workspace && (requestedBusinessId || readPreference(ACTIVE_WORKSPACE_KEY))) return <main className="error-screen" role="alert">
+    <div className="eyebrow eyebrow-blue">YOUR BUSINESS</div>
+    <h1>We couldn't reopen your business.</h1>
+    <p>Your details are safely saved. Please try again, or return to your business list. You don't need to create another business.</p>
+    <div className="business-entry-error-actions"><button type="button" className="button button-primary" onClick={() => window.location.reload()}>Try again</button><Link to="/onboarding" className="button button-secondary">Choose my business</Link></div>
+  </main>;
   if (!workspace) return <Navigate to="/onboarding" replace />;
   if (!branch) return <main className="error-screen" role="alert">
     <div className="eyebrow eyebrow-blue">BUSINESS SETUP</div>

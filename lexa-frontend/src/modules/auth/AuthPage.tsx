@@ -16,13 +16,13 @@ type AuthLocationState = {
 };
 
 function safeReturnTo(value: unknown): string {
-  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return '/';
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return '/onboarding';
   try {
     const target = new URL(value, window.location.origin);
-    if (target.origin !== window.location.origin) return '/';
+    if (target.origin !== window.location.origin) return '/onboarding';
     return `${target.pathname}${target.search}${target.hash}`;
   } catch {
-    return '/';
+    return '/onboarding';
   }
 }
 
