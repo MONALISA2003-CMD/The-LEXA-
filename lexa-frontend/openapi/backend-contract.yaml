@@ -20,6 +20,37 @@ servers:
 security:
 - sessionCookie: []
 paths:
+  /workspaces/{workspaceId}/branches/{branchId}/selling/insights:
+    get:
+      operationId: listVerifiedSellingInsights
+      description: Real tenant-scoped sales, receipts, returns, product rankings and current customer balances.
+      responses:
+        '200': {description: Verified selling performance}
+        '403': {description: Business role cannot access sales}
+  /workspaces/{workspaceId}/branches/{branchId}/selling/lookup:
+    get:
+      operationId: lookupOriginalSaleForReturn
+      description: Find original receipts by number or customer for safe recorded returns.
+      responses:
+        '200': {description: Original sale matches}
+  /workspaces/{workspaceId}/catalog/price-lists/active:
+    get:
+      operationId: listApprovedCheckoutPrices
+      description: Currently effective owner-approved selling prices.
+      responses:
+        '200': {description: Approved price lists and linked product prices}
+  /workspaces/{workspaceId}/catalog/price-lists/{priceListId}/activate:
+    post:
+      operationId: approveSellingPriceList
+      description: Owner-only approval after products are priced.
+      responses:
+        '201': {description: Approved prices available for future sales}
+  /workspaces/{workspaceId}/catalog/price-lists/{priceListId}/deactivate:
+    post:
+      operationId: withdrawSellingPriceList
+      description: Owner-only withdrawal, leaving historical receipts unchanged.
+      responses:
+        '201': {description: Price list withdrawn}
   /workspaces/{workspaceId}/branches/{branchId}/crm/summary:
     get:
       operationId: getCustomerGrowthSummary

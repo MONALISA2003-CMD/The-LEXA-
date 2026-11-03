@@ -47,20 +47,74 @@ export class CatalogInventoryController {
     VALUES(${randomUUID()}::uuid,${w}::uuid,${code},${taxCodeId}::uuid,${appliesTo},${b.productId?uuid(b.productId,'Product'):null}::uuid,${b.categoryId?uuid(b.categoryId,'Category'):null}::uuid,${b.customerType?txt(b.customerType,'Customer type',50):null},${num(b.priority??100,'Priority',0,10000)},${txt(b.effectiveFrom??new Date().toISOString().slice(0,10),'Effective from',10)}::date,${b.effectiveTo?txt(b.effectiveTo,'Effective to',10):null}::date,true) RETURNING *`;
   await this.prisma.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'finance.tax_rule.created',resourceType:'tax_rule',resourceId:row[0]!.id}}); return row[0];
  }
- @Get('catalog/price-lists') async priceLists(@Param('workspaceId') w:string,@Req() req:FastifyRequest) { await this.actor(req,w); return this.prisma.priceList.findMany({where:{tenantId:w},orderBy:{name:'asc'}}); }
+ @Get('catalog/price-lists/active') async activePriceLists(@Param('workspaceId') w:string,@Req() req:FastifyRequest) {
+  await this.actor(req,w);
+  const tenant=await this.prisma.tenant.findUnique({where:{id:w},select:{currency:true}});
+  const now=new Date();
+  const lists=await this.prisma.priceList.findMany({where:{tenantId:w,currency:tenant?.currency??'UGX',active:true,
+    OR:[{startsAt:null},{startsAt:{lte:now}}],AND:[{OR:[{endsAt:null},{endsAt:{gte:now}}]}]},orderBy:{name:'asc'},take:100});
+  const items=lists.length?await this.prisma.priceListItem.findMany({where:{tenantId:w,priceListId:{in:lists.map(list=>list.id)}}}):[];
+  return lists.map(list=>({...list,items:items.filter(item=>item.priceListId===list.id).map(item=>({
+    productId:item.productId,variantId:item.variantId,unitPriceMinor:item.unitPriceMinor,taxCodeId:item.taxCodeId
+  }))}));
+ }
+ @Get('catalog/price-lists') async priceLists(@Param('workspaceId') w:string,@Req() req:FastifyRequest) {
+  await this.actor(req,w);
+  const lists=await this.prisma.priceList.findMany({where:{tenantId:w},orderBy:{name:'asc'},take:200});
+  const items=lists.length?await this.prisma.priceListItem.findMany({where:{tenantId:w,priceListId:{in:lists.map(list=>list.id)}}}):[];
+  return lists.map(list=>({...list,items:items.filter(item=>item.priceListId===list.id).map(item=>({
+   productId:item.productId,variantId:item.variantId,unitPriceMinor:item.unitPriceMinor,taxCodeId:item.taxCodeId
+  }))}));
+ }
  @Post('catalog/price-lists') @UseGuards(CsrfGuard) async createPriceList(@Param('workspaceId') w:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
-  const actor=await this.actor(req,w),b=obj(raw); return this.prisma.$transaction(async tx=>{const row=await tx.priceList.create({data:{tenantId:w,code:txt(b.code,'Code',40).toUpperCase(),name:txt(b.name,'Name',120),currency:txt(b.currency??'UGX','Currency',3).toUpperCase(),startsAt:b.startsAt?new Date(String(b.startsAt)):null,endsAt:b.endsAt?new Date(String(b.endsAt)):null}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.price_list.created',resourceType:'price_list',resourceId:row.id}}); return row;});
+  const actor=await this.actor(req,w),b=obj(raw); return this.prisma.$transaction(async tx=>{
+    const tenant=await tx.tenant.findUnique({where:{id:w},select:{currency:true}});
+    const currency=txt(b.currency??tenant?.currency??'UGX','Currency',3).toUpperCase();
+    if(currency!==tenant?.currency)throw new BadRequestException('Use your business currency for checkout prices.');
+    const starts=b.startsAt?new Date(String(b.startsAt)):null,ends=b.endsAt?new Date(String(b.endsAt)):null;
+    if((starts&&!Number.isFinite(starts.getTime()))||(ends&&!Number.isFinite(ends.getTime()))||(starts&&ends&&starts>ends))throw new BadRequestException('Choose valid price-list dates.');
+    const row=await tx.priceList.create({data:{tenantId:w,code:txt(b.code,'Code',40).toUpperCase(),name:txt(b.name,'Name',120),currency,startsAt:starts,endsAt:ends,active:false}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.price_list.created',resourceType:'price_list',resourceId:row.id}}); return row;});
  }
  @Post('catalog/price-lists/:priceListId/items') @UseGuards(CsrfGuard) async setPriceListItem(@Param('workspaceId') w:string,@Param('priceListId') id:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
   const actor=await this.actor(req,w),b=obj(raw),productId=uuid(b.productId,'Product'),variantId=b.variantId?uuid(b.variantId,'Variant'):null,taxCodeId=b.taxCodeId?uuid(b.taxCodeId,'Tax code'):null,unitPriceMinor=num(b.unitPriceMinor,'Unit price');
   return this.prisma.$transaction(async tx=>{
-   if(!await tx.priceList.findFirst({where:{id,tenantId:w,active:true}})) throw new NotFoundException('Price list not found.');
+   const list=await tx.priceList.findFirst({where:{id,tenantId:w}});
+   if(!list)throw new NotFoundException('Price list not found.');
+   if(list.active)throw new ConflictException('Active prices cannot be edited. Create a new price list for changes.');
    if(!await tx.product.findFirst({where:{id:productId,tenantId:w,active:true}})) throw new NotFoundException('Product not found.');
    if(variantId&&!await tx.productVariant.findFirst({where:{id:variantId,tenantId:w,productId,active:true}})) throw new NotFoundException('Variant does not belong to this product.');
    if(taxCodeId&&!await tx.taxCode.findFirst({where:{id:taxCodeId,tenantId:w,active:true}})) throw new NotFoundException('Tax code not found.');
    const prior=await tx.priceListItem.findFirst({where:{tenantId:w,priceListId:id,productId,variantId}});
    const row=prior?await tx.priceListItem.update({where:{id:prior.id},data:{unitPriceMinor,taxCodeId}}):await tx.priceListItem.create({data:{tenantId:w,priceListId:id,productId,variantId,unitPriceMinor,taxCodeId}});
    await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.price_list_item.saved',resourceType:'price_list_item',resourceId:row.id}}); return row;
+  });
+ }
+ @Post('catalog/price-lists/:priceListId/activate') @UseGuards(CsrfGuard)
+ async activatePriceList(@Param('workspaceId') w:string,@Param('priceListId') id:string,@Req() req:FastifyRequest) {
+  const actor=await this.actor(req,w);
+  return this.prisma.$transaction(async tx=>{
+   const member=await tx.membership.findUnique({where:{tenantId_userId:{tenantId:w,userId:actor}},select:{role:true}});
+   if(!member||!['owner','owner_administrator'].includes(member.role))throw new UnauthorizedException('Only the business owner can approve selling prices.');
+   const list=await tx.priceList.findFirst({where:{id,tenantId:w}});
+   if(!list)throw new NotFoundException('Price list not found.');
+   if(list.endsAt&&list.endsAt<new Date())throw new ConflictException('This price list has expired.');
+   const items=await tx.priceListItem.count({where:{tenantId:w,priceListId:id}});
+   if(!items)throw new ConflictException('Add at least one product price before activation.');
+   const row=await tx.priceList.update({where:{id},data:{active:true}});
+   await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.price_list.approved',resourceType:'price_list',resourceId:id}});
+   return {...row,itemsCount:items};
+  });
+ }
+ @Post('catalog/price-lists/:priceListId/deactivate') @UseGuards(CsrfGuard)
+ async deactivatePriceList(@Param('workspaceId') w:string,@Param('priceListId') id:string,@Req() req:FastifyRequest) {
+  const actor=await this.actor(req,w);
+  return this.prisma.$transaction(async tx=>{
+   const member=await tx.membership.findUnique({where:{tenantId_userId:{tenantId:w,userId:actor}},select:{role:true}});
+   if(!member||!['owner','owner_administrator'].includes(member.role))throw new UnauthorizedException('Only the owner can change active selling prices.');
+   const row=await tx.priceList.updateMany({where:{tenantId:w,id},data:{active:false}});
+   if(!row.count)throw new NotFoundException('Price list not found.');
+   await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.price_list.deactivated',resourceType:'price_list',resourceId:id}});
+   return {saved:true};
   });
  }
  @Post('products/:productId/variants') @UseGuards(CsrfGuard) async createVariant(@Param('workspaceId') w:string,@Param('productId') id:string,@Body() raw:unknown,@Req() req:FastifyRequest) {

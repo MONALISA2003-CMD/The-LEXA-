@@ -12,6 +12,7 @@ import {
   getModuleDefinition, type ModuleDefinition, type ModuleField, type PreviewRecord,
 } from './moduleCatalog';
 import { getCoreScreenShortcuts, getRelatedActions, isDuplicateSensitiveHandoff } from './workflowGraph';
+import SellingNav,{SellingPerformance} from '../selling/SellingNav';
 import { calculateRecord, nextStatus, safeNumber, validateRecord, type FormValues } from './previewRules';
 import { useModuleRecordService } from '../../data/providers/ModuleRecordServiceProvider';
 import type { DataPersistenceMode, ModuleRecordScope } from '../../data/contracts/previewData';
@@ -536,13 +537,14 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
 
   return (
     <div className="page-stack phase-two-page" data-module-accent={moduleAccentForPath("/modules/" + module.id)}>
-      <div className="page-heading-row module-heading"><div><div className="eyebrow eyebrow-blue">{module.group} / MODULE REGISTER</div><h2>{module.title}</h2><p>{module.description}</p></div><div className="phase-two-heading-actions"><span className="module-persistence-badge"><span />{storageMode === 'server' ? 'Saved to LEXA' : storageMode === 'browser-local' ? 'Saved on this device' : 'Not saved'}</span>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={16} /> New {module.singular}</button>}</div></div>
-      <div className="module-workflow-strip"><span className="module-workflow-icon"><Activity size={17} /></span><div><strong>Typical workflow</strong><p>{module.workflow}</p></div></div>
+      {module.group==='SELLING'&&<><SellingNav compact/>{module.id==='sales-orders'&&<SellingPerformance/>}</>}
+      <div className="page-heading-row module-heading"><div><div className="eyebrow eyebrow-blue">{module.group==='SELLING'?'YOUR SALES & CUSTOMERS':module.group+' / YOUR BUSINESS RECORDS'}</div><h2>{module.title}</h2><p>{module.description}</p></div><div className="phase-two-heading-actions"><span className="module-persistence-badge"><span />{storageMode === 'server' ? 'Saved to LEXA' : storageMode === 'browser-local' ? 'Saved on this device' : 'Not saved'}</span>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={16} /> New {module.singular}</button>}</div></div>
+      <div className="module-workflow-strip"><span className="module-workflow-icon"><Activity size={17} /></span><div><strong>What happens next</strong><p>{module.workflow}</p></div></div>
       <CommerceWorkflowPanel moduleId={module.id} />
       <div className="metric-strip three-metrics phase-two-metrics">
         <div className="mini-metric"><span>Total {recordCountLabel}</span><strong>{rows.length.toLocaleString()}</strong><small>In this register</small></div>
         <div className="mini-metric"><span>Needs attention</span><strong className={attentionCount ? 'warning-value' : ''}>{attentionCount.toLocaleString()}</strong><small>Draft, pending or review states</small></div>
-        <div className="mini-metric"><span>{trackedValue === null ? 'Visible data types' : 'Tracked value'}</span><strong className="phase-two-value">{amountText}</strong><small>{trackedValue === null ? 'Available after records are added' : 'Calculated from this register; not a ledger balance'}</small></div>
+        <div className="mini-metric"><span>{trackedValue === null ? 'Your records' : 'Recorded value'}</span><strong className="phase-two-value">{amountText}</strong><small>{trackedValue === null ? 'Available when you add records' : 'Calculated from this register; not a ledger balance'}</small></div>
       </div>
 
       <section className="section-card table-card phase-two-table-card">

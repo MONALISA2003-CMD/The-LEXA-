@@ -67,6 +67,14 @@ export interface Sale {
   receiptNumber: string;
   workspaceId: Id;
   branchId: Id;
+  cashierUserId?: string;
+  cashTenderedMinor?: number;
+  cashChangeMinor?: number;
+  receiptBusinessSnapshot?: {
+    businessName:string;legalName:string;address:string;city:string;district:string;
+    phone:string;email:string;website:string;taxIdentificationNumber:string;
+    registrationNumber:string;timezone:string;currency:string;cashierName:string;
+  };
   customerName?: string;
   customerPhone?: string;
   promisedPaymentDate?: string;
@@ -81,9 +89,17 @@ export interface SaleLine {
   saleId: Id;
   productId: Id;
   productNameSnapshot: string;
+  skuSnapshot?:string|null;
+  barcodeSnapshot?:string|null;
   quantity: number;
   unitPriceMinor: number;
   lineTotalMinor: number;
+  taxMinor?:number;
+  taxableMinor?:number;
+  taxRateBasisPoints?:number;
+  taxCodeSnapshot?:string|null;
+  serialIds?:string[];
+  unitOfMeasureId?:string|null;
 }
 
 export interface PaymentRecord {
@@ -183,6 +199,7 @@ export interface CompleteSaleInput {
   workspaceId: Id;
   branchId: Id;
   items: SaleItemInput[];
+  cashTenderedMinor?:number;
   payments: PaymentInput[];
   customerRecordId?: string;
   opportunityRecordId?: string;

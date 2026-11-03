@@ -3,8 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "engines": { "node": ">=22.12.0 <23" },
-  "allowScripts": { "esbuild@0.28.2": true },
+  "engines": {
+    "node": ">=22.12.0 <23"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "prebuild": "node scripts/apply_auth_security_ui.mjs && python3 scripts/complete_modules.py && python3 scripts/apply_lexa_palette.py && npm test",
@@ -20,6 +24,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.2",
+    "@zxing/browser": "^0.1.5",
     "dexie": "^4.2.1",
     "lucide-react": "^0.468.0",
     "react": "^19.1.1",

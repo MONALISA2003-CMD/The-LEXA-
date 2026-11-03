@@ -6,6 +6,7 @@ import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiReceivables, type EligibleSale, type ReceivablesInvoice } from '../../data/remote/apiReceivables';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
 import './accounts-receivable.css';
+import SellingNav,{SellingPerformance} from '../selling/SellingNav';
 
 function localDate() {
   const now = new Date();
@@ -156,18 +157,18 @@ export default function AccountsReceivablePanel() {
   }
 
   if (!isApiProvider) {
-    return <section className="ar-panel"><div className="ar-unavailable"><AlertCircle size={19} /><div><strong>Customer accounts require a connected LEXA business.</strong><p>Sign in to your connected business to issue invoices and record customer payments. Drafts saved on this device are not posted accounting transactions.</p></div></div></section>;
+    return <section className="ar-panel"><SellingNav compact/><SellingPerformance/><div className="ar-unavailable"><AlertCircle size={19} /><div><strong>Customer accounts require a connected LEXA business.</strong><p>Sign in to your connected business to issue invoices and record customer payments. Drafts saved on this device are not posted accounting transactions.</p></div></div></section>;
   }
 
   return (
-    <section className="ar-panel">
+    <section className="ar-panel"><SellingNav compact/><SellingPerformance/>
       <header className="ar-heading">
         <div className="ar-heading-icon"><Wallet size={20} /></div>
-        <div className="ar-heading-copy"><span className="eyebrow eyebrow-blue">CUSTOMER CREDIT CONTROL</span><h3>Accounts receivable</h3><p>Issue invoices from completed sales, record receipts, allocate cash and monitor overdue customer balances.</p></div>
+        <div className="ar-heading-copy"><span className="eyebrow eyebrow-blue">CUSTOMER BILLING</span><h3>Invoices & customer payments</h3><p>Issue invoices from completed sales, record receipts, allocate cash and monitor overdue customer balances.</p></div>
         <button type="button" className="button button-secondary button-small" onClick={() => void refresh()} disabled={Boolean(busyId)}><RefreshCw size={14} /> Refresh</button>
       </header>
 
-      <div className="ar-integrity-note"><CheckCircle2 size={16} /><span>Invoices snapshot completed sale lines. Receipts mirror into the existing sales-payment ledger. This screen records payments already received; it does not initiate bank or mobile-money transfers.</span></div>
+      <div className="ar-integrity-note"><CheckCircle2 size={16} /><span>Your invoices stay connected to completed sales. Customer payments update their balances and sales history. LEXA records money you confirm receiving; it does not transfer it.</span></div>
 
       {summaryQuery.isError ? <div className="inline-error">Could not load the receivables summary. {summaryQuery.error instanceof Error ? summaryQuery.error.message : ''}</div> : <div className="ar-summary-grid">
         <article><span>Outstanding</span><strong>{money(summary?.outstandingMinor ?? 0, workspace.currency)}</strong><small>{summary?.openCount ?? 0} open invoices</small></article>
@@ -225,7 +226,7 @@ export default function AccountsReceivablePanel() {
         </div>}
       </section>
 
-      <div className="ar-tax-note"><AlertCircle size={16} /><span>These are internal customer-billing invoices, not statutory tax invoices. Tax is not calculated or added in this increment; amounts preserve the completed sale total exactly. Tax setup and statutory document integration will be handled in the tax phase after current rules are verified.</span></div>
+      <div className="ar-tax-note"><AlertCircle size={16} /><span>These business invoices are not official URA EFRIS documents. When your business must issue an EFRIS invoice, also provide the valid URA document. Invoice totals preserve the original completed sale.</span></div>
     </section>
   );
 }

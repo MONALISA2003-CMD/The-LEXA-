@@ -69,8 +69,8 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   },
   {
     id: 'sales-orders', title: 'Sales orders', singular: 'sales order', group: 'SELLING', icon: ShoppingCart, readOnly: true,
-    description: 'Create a customer commitment with product lines and expected delivery. Confirmed orders reserve available stock; dispatched quantities post to the stock and sales ledgers.',
-    workflow: 'Draft → confirm and reserve stock → fulfil/dispatch selected quantities → issue a sales transaction → track delivery and proof of delivery. Dispatch is atomic with stock movements.',
+    description: 'Take customer orders, reserve available products and record deliveries when goods leave your business.',
+    workflow: 'Prepare an order → confirm availability → send goods → track delivery and customer payment.',
     dateKey: 'orderDate', amountKey: 'total',
     fields: [],
     detailFields: [text('orderNumber', 'Sales order number'), text('customer', 'Customer'), date('orderDate', 'Order date'), date('expectedDate', 'Expected delivery date'), text('itemSummary', 'Item / service description'), amount('quantity', 'Quantity'), amount('unitPrice', 'Unit selling price before tax'), amount('discountPercent', 'Discount (%)'), select('taxTreatment', 'Tax treatment', ['Standard rated', 'Zero-rated', 'Exempt', 'Outside scope']), amount('taxRate', 'Tax rate (%)'), status(['Draft', 'Confirmed', 'Partially fulfilled', 'Fulfilled', 'Invoiced', 'Cancelled'])],
@@ -79,7 +79,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   },
   {
     id: 'sales-invoices', title: 'Customer invoices & receivables', singular: 'sales invoice', group: 'SELLING', icon: ReceiptText,
-    description: 'Track invoice references, customer, issue and due dates, billable lines, tax estimate, received amount and remaining amount due.',
+    description: 'Issue business invoices, follow up on unpaid customers and record money received.',
     workflow: 'Invoice draft → issue from an approved sales workflow → allocate customer receipt → reconcile → customer statement. Only validated and issued invoices should be included in statutory records.',
     dateKey: 'issueDate', amountKey: 'total',
     fields: [text('invoiceNumber', 'Invoice number'), text('customer', 'Customer'), text('salesOrderReference', 'Sales order reference', false), date('issueDate', 'Issue date'), date('dueDate', 'Due date'), text('itemSummary', 'Item / service description'), amount('quantity', 'Quantity'), amount('unitPrice', 'Unit price before tax'), select('taxTreatment', 'Tax treatment', ['Standard rated', 'Zero-rated', 'Exempt', 'Outside scope']), amount('taxRate', 'Tax rate (%)'), amount('amountReceived', 'Amount received'), status(['Draft', 'Issued', 'Partially paid', 'Paid', 'Overdue', 'Void'])],
@@ -88,8 +88,8 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   },
   {
     id: 'quotations', title: 'Quotations', singular: 'quotation', group: 'SELLING', icon: FileText,
-    description: 'Prepare an offer with customer, validity dates, quantity, unit price, discounts, taxes and a calculated total.',
-    workflow: 'Draft → send to customer → accept / decline → convert to an order or sale. No live email, invoice, or stock posting is triggered until the responsible workflow is confirmed.',
+    description: 'Prepare a professional customer offer with agreed products, prices and a validity date.',
+    workflow: 'Prepare the offer → share with customer → record their answer → create a sales order after acceptance.',
     dateKey: 'issueDate', amountKey: 'total',
     fields: [text('quoteNumber', 'Quotation number'), text('customer', 'Customer'), date('issueDate', 'Issue date'), date('validUntil', 'Valid until'), text('itemSummary', 'Item / service description'), amount('quantity', 'Quantity'), amount('unitPrice', 'Unit price before tax'), amount('discountPercent', 'Discount (%)', true), select('taxTreatment', 'Tax treatment', ['Standard rated', 'Zero-rated', 'Exempt', 'Outside scope']), amount('taxRate', 'Tax rate (%)', true), status(['Draft', 'Sent', 'Accepted', 'Declined', 'Expired'])],
     columns: [{ key: 'quoteNumber', label: 'QUOTE' }, { key: 'customer', label: 'CUSTOMER' }, { key: 'issueDate', label: 'ISSUED', kind: 'date' }, { key: 'validUntil', label: 'VALID UNTIL', kind: 'date' }, { key: 'total', label: 'TOTAL', kind: 'money' }, { key: 'status', label: 'STATUS', kind: 'status' }],
@@ -206,8 +206,8 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   },
   {
     id: 'price-lists', title: 'Price lists & pricing', singular: 'price list', group: 'SELLING', icon: Tag,
-    description: 'Prepare customer-group or product-specific pricing with valid dates, discounts and an explicit currency.',
-    workflow: 'Draft price list → review prices and dates → activate for a selling channel/customer group. Checkout prices change only after the price list is approved and activated.',
+    description: 'Create retail, wholesale and promotional prices for the CEO to approve before checkout.',
+    workflow: 'Create a price list → add product prices → CEO approves → select approved prices at Checkout.',
     dateKey: 'validFrom',
     fields: [text('priceListCode', 'Price-list code'), text('listName', 'Price-list name'), select('appliesTo', 'Applies to', ['All customers', 'Retail', 'Wholesale', 'Named customer', 'Branch promotion']), text('customerOrGroup', 'Customer / group', false), text('productOrCategory', 'Product, SKU or category'), select('currency', 'Currency', ['UGX', 'USD', 'KES']), amount('basePrice', 'Reference / base price'), amount('sellingPrice', 'Price to charge'), amount('discountPercent', 'Discount (%)'), date('validFrom', 'Valid from'), date('validUntil', 'Valid until'), status(['Draft', 'Review', 'Active', 'Expired', 'Inactive'])],
     columns: [{ key: 'priceListCode', label: 'CODE' }, { key: 'listName', label: 'PRICE LIST' }, { key: 'appliesTo', label: 'CUSTOMER SCOPE' }, { key: 'productOrCategory', label: 'PRODUCT / CATEGORY' }, { key: 'sellingPrice', label: 'SELLING PRICE', kind: 'money' }, { key: 'validFrom', label: 'VALID FROM', kind: 'date' }, { key: 'status', label: 'STATUS', kind: 'status' }],
@@ -323,7 +323,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   },
   {
     id: 'sales-returns', title: 'Sales returns & credit notes', singular: 'sales return', group: 'SELLING', icon: RotateCcw,
-    description: 'Record return reason, source invoice, returned quantity, tax estimate and proposed customer credit/refund for review.',
+    description: 'Find a sold item, record why it came back and choose its inspection, refund or replacement.',
     workflow: 'Link the original sale/invoice → inspect returned goods → approve credit → allocate refund or customer credit. Inventory changes and statutory credit notes must be confirmed through the corresponding workflows.',
     dateKey: 'returnDate', amountKey: 'creditAmount',
     fields: [text('returnNumber', 'Return reference'), text('sourceInvoice', 'Original sales invoice / receipt'), text('customer', 'Customer'), date('returnDate', 'Return date'), select('reason', 'Return reason', ['Damaged', 'Wrong item', 'Quality issue', 'Over-supplied', 'Customer changed mind', 'Other']), text('itemDescription', 'Item / SKU and condition'), amount('quantity', 'Quantity returned'), amount('unitPrice', 'Original unit selling price'), select('taxTreatment', 'Tax treatment', ['Standard rated', 'Zero-rated', 'Exempt', 'Outside scope']), amount('taxRate', 'Tax rate (%)'), select('resolution', 'Proposed resolution', ['Customer credit', 'Refund review', 'Replacement', 'Inspect first']), status(['Draft', 'Needs inspection', 'Reviewed', 'Approved', 'Credited', 'Rejected'])],

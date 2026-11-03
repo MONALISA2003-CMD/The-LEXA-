@@ -32,6 +32,7 @@ export interface CommerceOrder {
 }
 export interface CommerceScope { workspaceId: string; branchId: string; }
 export interface CommerceCreateOrderInput {
+  sourceQuotationId?:string;
   customerRecordId?: string;
   customerName?: string;
   deliveryAddress?: string;

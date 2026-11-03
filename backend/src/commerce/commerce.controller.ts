@@ -142,6 +142,7 @@ export class CommerceController {
   @UseGuards(CsrfGuard)
   async createSalesOrder(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Body() raw: unknown, @Req() req: ReqBody) {
     const actor = await this.access(req, workspaceId, branchId); const body = object(raw);
+    const sourceQuotationId=text(body.sourceQuotationId,'Accepted quotation',160,true)??null;
     const customerId = text(body.customerRecordId, 'Customer record', 160, true) ?? null;
     const customerName = text(body.customerName, 'Customer name', 180, true) ?? null;
     const deliveryAddress = text(body.deliveryAddress, 'Delivery address', 500, true) ?? null;
@@ -149,18 +150,48 @@ export class CommerceController {
     const expectedDate = dateValue(body.expectedDate, 'Expected delivery date');
     const parsed = await this.prisma.$transaction(async (tx) => {
       if (customerId) { const customer = await this.moduleRecordExists(tx, workspaceId, branchId, 'customers', customerId); if (customer.status && customer.status !== 'Active') throw new ConflictException('The selected customer is not active.'); }
+      const quote=sourceQuotationId?await this.moduleRecordExists(tx,workspaceId,branchId,'quotations',sourceQuotationId):null;
+      if(quote){
+        if(quote.status!=='Accepted')throw new ConflictException('The customer must accept this quotation before an order is created.');
+        if(!customerId||quote.customerRecordId!==customerId)throw new ConflictException('The quotation and order must belong to the same customer.');
+        if(typeof quote.validUntil==='string'&&quote.validUntil<new Date().toISOString().slice(0,10))throw new ConflictException('This quotation has expired. Prepare a new one.');
+        const prior=await tx.$queryRaw<Array<{targetId:string}>>`
+          SELECT target_record_id AS "targetId" FROM module_record_links
+          WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid
+          AND source_module_id='quotations' AND source_record_id=${sourceQuotationId} AND target_module_id='sales-orders' LIMIT 1`;
+        if(prior.length)throw new ConflictException('An order already exists for this quotation. Open your orders instead.');
+      }
       const values = await this.productsFor(tx, workspaceId, body.lines, 'sell');
+      let quoteLines:any=quote?.quoteProductLines;
+      if(quote&&typeof quote.quoteProductLinesJson==='string'){
+        try{quoteLines=JSON.parse(quote.quoteProductLinesJson);}catch{throw new ConflictException('The quotation products could not be read.');}
+      }
+      if(quote&&!Array.isArray(quoteLines))throw new ConflictException('This quotation does not have confirmed products.');
+      if(quote&&quoteLines.length!==values.lines.length)throw new ConflictException('Quotation and order lines do not match.');
+      const pricedLines=values.lines.map(line=>{
+        if(!quote)return {...line,unitPriceMinor:line.product.sellingPriceMinor};
+        const q=quoteLines.find((item:any)=>item&&item.productId===line.product.id);
+        if(!q||Number(q.quantity)!==line.quantity||!Number.isSafeInteger(Number(q.unitPriceMinor))||
+           Number(q.unitPriceMinor)<0||Number(q.unitPriceMinor)>2_000_000_000)
+          throw new ConflictException('Products, quantities and agreed prices must match the accepted quotation.');
+        const unitPriceMinor=Number(q.unitPriceMinor);
+        return {...line,unitPriceMinor,lineTotal:money(Math.round(unitPriceMinor*line.quantity),'Quotation total')};
+      });
+      const confirmedTotal=pricedLines.reduce((total,line)=>money(total+line.lineTotal,'Order total'),0);
+      if(quote&&Number(quote.totalMinor)!==confirmedTotal)throw new ConflictException('Quotation value changed. Review and accept a new quotation.');
+
       const tenant = await tx.tenant.findUnique({ where: { id: workspaceId }, select: { currency: true } }); const currency = tenant?.currency ?? 'UGX';
       const id = randomUUID(); const orderNumber = doc('SO'); const createdAt = new Date().toISOString();
       await tx.$executeRaw`INSERT INTO commerce_sales_orders (id,tenant_id,branch_id,order_number,customer_record_id,customer_name,delivery_address,courier,expected_date,status,total_minor,created_by_user_id)
-        VALUES (${id}::uuid,${workspaceId}::uuid,${branchId}::uuid,${orderNumber},${customerId},${customerName},${deliveryAddress},${courier},${expectedDate}::date,'draft',${values.totalMinor},${actor.userId}::uuid)`;
-      for (const line of values.lines) await tx.$executeRaw`INSERT INTO commerce_sales_order_lines (id,tenant_id,order_id,product_id,product_name_snapshot,sku_snapshot,quantity,unit_price_minor,line_total_minor)
-        VALUES (${randomUUID()}::uuid,${workspaceId}::uuid,${id}::uuid,${line.product.id}::uuid,${line.product.name},${line.product.sku},${String(line.quantity)}::numeric,${line.product.sellingPriceMinor},${line.lineTotal})`;
-      await this.moduleRecord(tx,workspaceId,branchId,'sales-orders',id,{ id, orderNumber, customer: customerName ?? '', customerRecordId: customerId ?? '', deliveryAddress: deliveryAddress ?? '', courier: courier ?? '', orderDate: createdAt.slice(0,10), expectedDate: expectedDate ?? '', itemSummary: values.lines.map(l=>l.product.name).join(', '), quantity: String(values.lines.reduce((sum,l)=>sum+l.quantity,0)), unitPrice: values.lines.length ? majorAmount(values.lines[0]!.product.sellingPriceMinor, currency) : '0', total: majorAmount(values.totalMinor, currency), totalMinor: String(values.totalMinor), currency, status:'Draft', createdAt });
+        VALUES (${id}::uuid,${workspaceId}::uuid,${branchId}::uuid,${orderNumber},${customerId},${customerName},${deliveryAddress},${courier},${expectedDate}::date,'draft',${confirmedTotal},${actor.userId}::uuid)`;
+      for (const line of pricedLines) await tx.$executeRaw`INSERT INTO commerce_sales_order_lines (id,tenant_id,order_id,product_id,product_name_snapshot,sku_snapshot,quantity,unit_price_minor,line_total_minor)
+        VALUES (${randomUUID()}::uuid,${workspaceId}::uuid,${id}::uuid,${line.product.id}::uuid,${line.product.name},${line.product.sku},${String(line.quantity)}::numeric,${line.unitPriceMinor},${line.lineTotal})`;
+      if(sourceQuotationId)await this.link(tx,workspaceId,branchId,'quotations',sourceQuotationId,'sales-orders',id,actor.userId);
+      await this.moduleRecord(tx,workspaceId,branchId,'sales-orders',id,{ id, orderNumber, customer: customerName ?? '', customerRecordId: customerId ?? '', sourceQuotationId:sourceQuotationId??'', deliveryAddress: deliveryAddress ?? '', courier: courier ?? '', orderDate: createdAt.slice(0,10), expectedDate: expectedDate ?? '', itemSummary: values.lines.map(l=>l.product.name).join(', '), quantity: String(values.lines.reduce((sum,l)=>sum+l.quantity,0)), unitPrice: values.lines.length ? majorAmount(values.lines[0]!.product.sellingPriceMinor, currency) : '0', total: majorAmount(values.totalMinor, currency), totalMinor: String(values.totalMinor), currency, status:'Draft', createdAt });
       if (customerId) await this.link(tx,workspaceId,branchId,'customers',customerId,'sales-orders',id,actor.userId);
-      await this.event(tx,workspaceId,branchId,'sales-orders',id,'sales_order.created',{ orderNumber, totalMinor:values.totalMinor },actor.userId,`sales-order-created:${id}`);
+      await this.event(tx,workspaceId,branchId,'sales-orders',id,'sales_order.created',{ orderNumber, totalMinor:confirmedTotal },actor.userId,`sales-order-created:${id}`);
       await this.audit(tx,workspaceId,actor.userId,'sales_order.created','sales_order',id);
-      return { id, orderNumber, customerRecordId:customerId ?? undefined, customerName:customerName ?? undefined, deliveryAddress:deliveryAddress ?? undefined, courier:courier ?? undefined, expectedDate:expectedDate ?? undefined, status:'draft', totalMinor:values.totalMinor, createdAt, lines:values.lines.map((l)=>({ productId:l.product.id,productName:l.product.name,sku:l.product.sku,quantity:l.quantity,quantityFulfilled:0,unitPriceMinor:l.product.sellingPriceMinor,lineTotalMinor:l.lineTotal })) };
+      return { id, orderNumber, customerRecordId:customerId ?? undefined, customerName:customerName ?? undefined, deliveryAddress:deliveryAddress ?? undefined, courier:courier ?? undefined, expectedDate:expectedDate ?? undefined, status:'draft', totalMinor:confirmedTotal, createdAt, lines:values.lines.map((l)=>({ productId:l.product.id,productName:l.product.name,sku:l.product.sku,quantity:l.quantity,quantityFulfilled:0,unitPriceMinor:l.product.sellingPriceMinor,lineTotalMinor:l.lineTotal })) };
     },{isolationLevel:'Serializable'});
     return parsed;
   }

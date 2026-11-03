@@ -142,6 +142,8 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/supply-chain\/procurement\/purchase-orders\/[^/]+\/receipts$/.test(path)) return choose('procurement.read', 'procurement.receive');
   if (/\/supply-chain\/procurement\/approval-rules(?:$|\/)/.test(path)) return choose('procurement.read', 'workspace.manage');
   if (/\/supply-chain\/procurement\/awards\/[^/]+\/(?:approve|reject)$|\/supply-chain\/procurement\/purchase-requests\/[^/]+\/decision$|\/supply-chain\/inventory\/stock-counts\/[^/]+\/approve$|\/supply-chain\/procurement\/supplier-returns\/[^/]+\/approve$|\/supply-chain\/quality\/inspections\/[^/]+\/decision$/.test(path)) return 'approval.decide';
+  if (/\/branches\/[^/]+\/selling\/insights$/.test(path)) return 'sales.read';
+  if (/\/branches\/[^/]+\/selling\/lookup$/.test(path)) return 'sales.read';
   if (/\/supply-chain\/procurement(?:\/|$)/.test(path)) return choose('procurement.read', 'procurement.write');
   if (/\/supply-chain\/inventory(?:\/|$)/.test(path)) return choose('inventory.read', 'inventory.write');
   if (/\/supply-chain\/manufacturing(?:\/|$)|\/supply-chain\/quality(?:\/|$)/.test(path)) return choose('manufacturing.read', 'manufacturing.write');

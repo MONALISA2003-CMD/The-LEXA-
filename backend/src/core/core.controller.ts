@@ -149,6 +149,10 @@ function toSale(sale: any) {
     ...(sale.customerName ? { customerName: sale.customerName } : {}),
     ...(sale.customerPhone ? { customerPhone: sale.customerPhone } : {}),
     ...(sale.promisedPaymentDate ? { promisedPaymentDate: sale.promisedPaymentDate.toISOString().slice(0, 10) } : {}),
+    ...(sale.cashierUserId ? { cashierUserId: sale.cashierUserId } : {}),
+    ...(sale.receiptBusinessSnapshot ? { receiptBusinessSnapshot: sale.receiptBusinessSnapshot } : {}),
+    ...(sale.cashTenderedMinor !== null && sale.cashTenderedMinor !== undefined ? { cashTenderedMinor: sale.cashTenderedMinor } : {}),
+    ...(sale.cashChangeMinor !== null && sale.cashChangeMinor !== undefined ? { cashChangeMinor: sale.cashChangeMinor } : {}),
     totalMinor: sale.totalMinor,
     status: 'completed' as const,
     createdAt: sale.createdAt.toISOString(),
@@ -1127,12 +1131,141 @@ export class CoreController {
     const paymentActorNames = new Map(paymentActors.map((actor) => [actor.id, actor.displayName || actor.email]));
     return {
       sale: toSale(sale),
-      lines: sale.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, saleId: line.saleId, productId: line.productId, productNameSnapshot: line.productNameSnapshot, quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor })),
+      lines: sale.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, saleId: line.saleId, productId: line.productId, productNameSnapshot: line.productNameSnapshot,skuSnapshot:line.skuSnapshot,barcodeSnapshot:line.barcodeSnapshot,quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor,
+        taxMinor:line.taxMinor, taxableMinor:line.taxableMinor,taxRateBasisPoints:line.taxRateBasisPoints,taxCodeSnapshot:line.taxCodeSnapshot,serialIds:line.serialIds,unitOfMeasureId:line.unitOfMeasureId })), 
       returns: sale.returns.map((r: any) => ({ id: r.id, workspaceId: r.tenantId, branchId: r.branchId, saleId: r.saleId, returnNumber: r.returnNumber, totalMinor: r.totalMinor, reason: r.reason, refundRecorded: r.refundRecorded, createdAt: r.createdAt.toISOString() })),
       returnLines: sale.returns.flatMap((r: any) => r.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, returnId: line.returnId, originalSaleLineId: line.originalSaleLineId, productId: line.productId, productNameSnapshot: line.productNameSnapshot, quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor, disposition: line.disposition }))),
       payments: sale.payments.map((p: any) => ({ id: p.id, workspaceId: p.tenantId, saleId: p.saleId, kind: p.kind, method: p.method, methodCategory: p.methodCategory ?? paymentCategoryFromMethod(p.method), ...(p.methodLabel ? { methodLabel: p.methodLabel } : {}), amountMinor: p.amountMinor, ...(p.reference ? { reference: p.reference } : {}), ...(p.notes ? { notes: p.notes } : {}), ...(p.reportedReceivedAt ? { reportedReceivedAt: p.reportedReceivedAt.toISOString() } : {}), ...(p.recordedByUserId ? { recordedByUserId: p.recordedByUserId, recordedByName: paymentActorNames.get(p.recordedByUserId) ?? 'Unknown / legacy actor' } : { recordedByName: 'Unknown / legacy actor' }), ...(p.reversalOfPaymentId ? { reversalOfPaymentId: p.reversalOfPaymentId } : {}), recordedAt: (p.recordedAt ?? p.createdAt).toISOString(), ...(p.sourceType ? { sourceType: p.sourceType } : {}), createdAt: p.createdAt.toISOString() })),
     };
   }
+
+
+  @Get('workspaces/:workspaceId/branches/:branchId/selling/insights')
+  async sellingInsights(@Param('workspaceId') workspaceId:string,@Param('branchId') branchId:string,
+    @Query('from') requestedFrom:string|undefined,@Query('to') requestedTo:string|undefined,@Req() request:FastifyRequest) {
+    const session=await this.sessionFor(request);
+    await this.membershipFor(session.userId,workspaceId);
+    await this.branchFor(workspaceId,branchId,session.userId);
+    const dates=(value:string|undefined,label:string)=>{
+      if(value===undefined)return undefined;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||Number.isNaN(Date.parse(value+'T00:00:00Z'))||
+         new Date(value+'T00:00:00Z').toISOString().slice(0,10)!==value)throw new BadRequestException('Choose a valid '+label+' date.');
+      return value;
+    };
+    const to=dates(requestedTo,'end')??new Date().toISOString().slice(0,10);
+    const from=dates(requestedFrom,'start')??new Date(Date.parse(to+'T00:00:00Z')-29*86400_000).toISOString().slice(0,10);
+    if(from>to||Date.parse(to+'T00:00:00Z')-Date.parse(from+'T00:00:00Z')>366*86400_000)
+      throw new BadRequestException('Choose a sales period of no more than one year.');
+    return this.prisma.runWithTenantContext({tenantId:workspaceId,userId:session.userId},async()=>{
+      const tenant=await this.prisma.tenant.findUnique({where:{id:workspaceId},select:{timezone:true,currency:true}});
+      if(!tenant)throw new NotFoundException('Business not found.');
+      const tz=tenant.timezone;
+      const [daily,receipts,returns,methods,topProducts,returnReasons,credit,quoteCounts,orderCounts]=await Promise.all([
+        this.prisma.$queryRaw<Array<{day:string;salesCount:number;grossMinor:bigint}>>`
+          SELECT to_char(s.created_at AT TIME ZONE ${tz},'YYYY-MM-DD') AS day,
+                 COUNT(*)::int AS "salesCount",COALESCE(SUM(s.total_minor),0)::bigint AS "grossMinor"
+          FROM sales s WHERE s.tenant_id=${workspaceId}::uuid AND s.branch_id=${branchId}::uuid AND s.status='completed'
+          AND s.created_at>=(${from}::date AT TIME ZONE ${tz})
+          AND s.created_at<((${to}::date+1) AT TIME ZONE ${tz})
+          GROUP BY 1 ORDER BY 1`,
+        this.prisma.$queryRaw<Array<{day:string;kind:string;amountMinor:bigint}>>`
+          SELECT to_char(p.recorded_at AT TIME ZONE ${tz},'YYYY-MM-DD') AS day,p.kind,
+                 COALESCE(SUM(p.amount_minor),0)::bigint AS "amountMinor"
+          FROM sale_payments p JOIN sales s ON s.id=p.sale_id AND s.tenant_id=p.tenant_id
+          WHERE p.tenant_id=${workspaceId}::uuid AND s.branch_id=${branchId}::uuid
+          AND p.recorded_at>=(${from}::date AT TIME ZONE ${tz})
+          AND p.recorded_at<((${to}::date+1) AT TIME ZONE ${tz})
+          GROUP BY 1,2 ORDER BY 1`,
+        this.prisma.$queryRaw<Array<{day:string;amountMinor:bigint;count:number}>>`
+          SELECT to_char(r.created_at AT TIME ZONE ${tz},'YYYY-MM-DD') AS day,
+                 COALESCE(SUM(r.total_minor),0)::bigint AS "amountMinor",COUNT(*)::int AS count
+          FROM sale_returns r
+          WHERE r.tenant_id=${workspaceId}::uuid AND r.branch_id=${branchId}::uuid
+          AND r.created_at>=(${from}::date AT TIME ZONE ${tz})
+          AND r.created_at<((${to}::date+1) AT TIME ZONE ${tz})
+          GROUP BY 1 ORDER BY 1`,
+        this.prisma.$queryRaw<Array<{method:string;amountMinor:bigint;count:number}>>`
+          SELECT COALESCE(p.method_category,p.method,'other') AS method,
+                 COALESCE(SUM(p.amount_minor),0)::bigint AS "amountMinor",COUNT(*)::int AS count
+          FROM sale_payments p JOIN sales s ON s.id=p.sale_id AND s.tenant_id=p.tenant_id
+          WHERE p.tenant_id=${workspaceId}::uuid AND s.branch_id=${branchId}::uuid AND p.kind='receipt'
+          AND p.recorded_at>=(${from}::date AT TIME ZONE ${tz})
+          AND p.recorded_at<((${to}::date+1) AT TIME ZONE ${tz})
+          GROUP BY 1 ORDER BY 2 DESC`,
+        this.prisma.$queryRaw<Array<{productId:string;name:string;units:any;grossMinor:bigint}>>`
+          SELECT l.product_id::text AS "productId",MAX(l.product_name_snapshot) AS name,
+                 COALESCE(SUM(l.quantity),0) AS units,COALESCE(SUM(l.line_total_minor),0)::bigint AS "grossMinor"
+          FROM sale_lines l JOIN sales s ON s.id=l.sale_id AND s.tenant_id=l.tenant_id
+          WHERE s.tenant_id=${workspaceId}::uuid AND s.branch_id=${branchId}::uuid AND s.status='completed'
+          AND s.created_at>=(${from}::date AT TIME ZONE ${tz})
+          AND s.created_at<((${to}::date+1) AT TIME ZONE ${tz})
+          GROUP BY l.product_id ORDER BY 4 DESC LIMIT 12`,
+        this.prisma.$queryRaw<Array<{reason:string;count:number;amountMinor:bigint}>>`
+          SELECT r.reason,COUNT(*)::int AS count,COALESCE(SUM(r.total_minor),0)::bigint AS "amountMinor"
+          FROM sale_returns r WHERE r.tenant_id=${workspaceId}::uuid AND r.branch_id=${branchId}::uuid
+          AND r.created_at>=(${from}::date AT TIME ZONE ${tz})
+          AND r.created_at<((${to}::date+1) AT TIME ZONE ${tz})
+          GROUP BY r.reason ORDER BY count DESC LIMIT 12`,
+        this.prisma.$queryRaw<Array<{outstandingMinor:bigint;overdueMinor:bigint;openCount:number}>>`
+          WITH balances AS (
+            SELECT s.promised_payment_date, GREATEST(0,s.total_minor
+              -COALESCE((SELECT SUM(p.amount_minor) FROM sale_payments p WHERE p.sale_id=s.id AND p.tenant_id=s.tenant_id AND p.kind='receipt'),0)
+              -COALESCE((SELECT SUM(r.total_minor) FROM sale_returns r WHERE r.sale_id=s.id AND r.tenant_id=s.tenant_id),0)
+            ) AS remaining
+            FROM sales s WHERE s.tenant_id=${workspaceId}::uuid AND s.branch_id=${branchId}::uuid AND s.status='completed'
+          )
+          SELECT COALESCE(SUM(remaining),0)::bigint AS "outstandingMinor",
+                 COALESCE(SUM(remaining) FILTER(WHERE promised_payment_date<CURRENT_DATE),0)::bigint AS "overdueMinor",
+                 COUNT(*) FILTER(WHERE remaining>0)::int AS "openCount"
+          FROM balances`,
+        this.prisma.$queryRaw<Array<{status:string;count:number}>>`
+          SELECT COALESCE(data->>'status','Draft') AS status,COUNT(*)::int AS count
+          FROM module_records WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND module_id='quotations'
+          GROUP BY 1`,
+        this.prisma.$queryRaw<Array<{status:string;count:number}>>`
+          SELECT COALESCE(data->>'status','draft') AS status,COUNT(*)::int AS count
+          FROM module_records WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND module_id='sales-orders'
+          GROUP BY 1`
+      ]);
+      const dayMap=new Map<string,{day:string;salesCount:number;grossMinor:number;receivedMinor:number;refundMinor:number;returnsMinor:number}>();
+      const addDay=(day:string)=>{let item=dayMap.get(day);if(!item){item={day,salesCount:0,grossMinor:0,receivedMinor:0,refundMinor:0,returnsMinor:0};dayMap.set(day,item);}return item;};
+      for(const x of daily){const item=addDay(x.day);item.salesCount=x.salesCount;item.grossMinor=Number(x.grossMinor);}
+      for(const x of receipts){const item=addDay(x.day);if(x.kind==='receipt')item.receivedMinor+=Number(x.amountMinor);else if(x.kind==='refund')item.refundMinor+=Number(x.amountMinor);}
+      for(const x of returns)addDay(x.day).returnsMinor+=Number(x.amountMinor);
+      const days=Array.from(dayMap.values()).sort((a,b)=>a.day.localeCompare(b.day));
+      const grossMinor=days.reduce((n,x)=>n+x.grossMinor,0),returnedMinor=days.reduce((n,x)=>n+x.returnsMinor,0);
+      return {from,to,asOf:new Date().toISOString(),timezone:tz,currency:tenant.currency,
+        totals:{salesCount:days.reduce((n,x)=>n+x.salesCount,0),grossMinor,returnedMinor,netMinor:grossMinor-returnedMinor,
+          receivedMinor:days.reduce((n,x)=>n+x.receivedMinor,0),refundMinor:days.reduce((n,x)=>n+x.refundMinor,0),
+          outstandingMinor:Number(credit[0]?.outstandingMinor??0),overdueMinor:Number(credit[0]?.overdueMinor??0),
+          openCreditSales:credit[0]?.openCount??0},
+        days,methods:methods.map(x=>({method:x.method,amountMinor:Number(x.amountMinor),count:x.count})),
+        topProducts:topProducts.map(x=>({productId:x.productId,name:x.name,units:Number(x.units),grossMinor:Number(x.grossMinor)})),
+        returnReasons:returnReasons.map(x=>({reason:x.reason,count:x.count,amountMinor:Number(x.amountMinor)})),
+        quotations:quoteCounts,orders:orderCounts,
+        note:'Sales and returns are dated to their recorded transaction; payments are dated to when recorded. Current customer balances are not restricted to the chart period. No values are inferred from unverified receipts.'};
+    });
+  }
+
+
+
+  @Get('workspaces/:workspaceId/branches/:branchId/selling/lookup')
+  async sellingLookup(@Param('workspaceId') workspaceId:string,@Param('branchId') branchId:string,
+    @Query('receipt') receipt:string|undefined,@Req() request:FastifyRequest) {
+    const session=await this.sessionFor(request);
+    await this.membershipFor(session.userId,workspaceId);
+    await this.branchFor(workspaceId,branchId,session.userId);
+    const needle=(receipt??'').trim();
+    if(needle.length<3||needle.length>100)throw new BadRequestException('Enter at least three characters to find a sale.');
+    return this.prisma.runWithTenantContext({tenantId:workspaceId,userId:session.userId},async()=>{
+      const found=await this.prisma.sale.findMany({where:{tenantId:workspaceId,branchId,status:'completed',OR:[
+        {receiptNumber:{contains:needle,mode:'insensitive'}},{customerName:{contains:needle,mode:'insensitive'}},
+        {customerPhone:{contains:needle,mode:'insensitive'}}
+      ]},take:40,orderBy:{createdAt:'desc'}});
+      return found.map(row=>toSale(row));
+    });
+  }
+
 
   @Post('workspaces/:workspaceId/branches/:branchId/sales/complete')
   @UseGuards(CsrfGuard)
@@ -1174,8 +1307,9 @@ export class CoreController {
     const customerRecordId=optionalString(body.customerRecordId,160);
     const opportunityRecordId=optionalString(body.opportunityRecordId,160);
     const salespersonEmployeeId=optionalString(body.salespersonEmployeeId,60);
+    const cashTenderedMinor=body.cashTenderedMinor===undefined?undefined:moneyMinor(body.cashTenderedMinor,'Cash tendered',false);
     const requestHash = sha256(JSON.stringify({ items, payments, customerName: body.customerName ?? null, customerPhone: body.customerPhone ?? null,
-      customerRecordId, opportunityRecordId, salespersonEmployeeId, promisedPaymentDate: promisedPaymentDateValue ?? null }));
+      customerRecordId, opportunityRecordId, salespersonEmployeeId, cashTenderedMinor:cashTenderedMinor??null, promisedPaymentDate: promisedPaymentDateValue ?? null }));
     const duplicate = await this.idempotentResponse(workspaceId, key, requestHash);
     if (duplicate) return duplicate;
     try {
@@ -1285,19 +1419,44 @@ export class CoreController {
           if (!Number.isSafeInteger(totalMinor) || totalMinor > 2_000_000_000) throw new BadRequestException('Sale total exceeds the supported amount.');
         }
         const paidMinor = payments.reduce((sum, p) => sum + p.amountMinor, 0);
+        const appliedCashMinor=payments.filter(p=>p.method==='cash').reduce((sum,p)=>sum+p.amountMinor,0);
+        if(cashTenderedMinor!==undefined&&cashTenderedMinor<appliedCashMinor)throw new BadRequestException('Cash tendered cannot be less than the cash amount due.');
+        if(cashTenderedMinor!==undefined&&appliedCashMinor===0&&cashTenderedMinor!==0)throw new BadRequestException('Choose cash as a payment method to record cash received.');
+        const cashChangeMinor=cashTenderedMinor===undefined?0:cashTenderedMinor-appliedCashMinor;
+        if(cashChangeMinor>2_000_000_000)throw new BadRequestException('Change exceeds the supported amount.');
         if (paidMinor > totalMinor) throw new BadRequestException('Recorded payments cannot exceed the sale total.');
         if (paidMinor < totalMinor && (!effectiveCustomerName || !effectiveCustomerPhone)) {
           throw new BadRequestException('Credit sales require the customer name and phone number.');
         }
         const receiptNumber = `LX-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomBytes(4).toString('hex').toUpperCase()}`;
+        const business=await tx.tenant.findUnique({where:{id:workspaceId},include:{businessProfile:true}});
+        if(!business)throw new NotFoundException('Business not found.');
+        const b=business.businessProfile;
+        const cashier=await tx.user.findUnique({where:{id:session.userId},select:{displayName:true}});
+        const receiptBusinessSnapshot={
+          businessName:b?.tradingName?.trim()||business.name,
+          legalName:b?.legalName?.trim()||business.name,
+          address:b?.physicalAddress?.trim()||'',
+          city:b?.city?.trim()||'',
+          district:b?.district?.trim()||'',
+          phone:b?.phone?.trim()||'',
+          email:b?.email?.trim()||'',
+          website:b?.website?.trim()||'',
+          taxIdentificationNumber:b?.taxIdentificationNumber?.trim()||'',
+          registrationNumber:b?.registrationNumber?.trim()||'',
+          timezone:business.timezone,currency:business.currency,
+          cashierName:cashier?.displayName?.trim()||'Staff member',
+        };
         const sale = await tx.sale.create({ data: {
-          tenantId: workspaceId, branchId, receiptNumber, customerName: effectiveCustomerName, customerPhone: effectiveCustomerPhone,
+          tenantId: workspaceId, branchId, receiptNumber,
+          cashierUserId:session.userId,receiptBusinessSnapshot,
+          cashTenderedMinor:cashTenderedMinor??null,cashChangeMinor:cashTenderedMinor===undefined?null:cashChangeMinor, customerName: effectiveCustomerName, customerPhone: effectiveCustomerPhone,
           customerRecordId:customerRecordId??(typeof dealDetails.customerRecordId==='string'?dealDetails.customerRecordId:null),opportunityRecordId:opportunityRecordId??null,salespersonEmployeeId:salespersonEmployeeId??null,
           promisedPaymentDate: promisedPaymentDateValue ? new Date(`${promisedPaymentDateValue}T00:00:00.000Z`) : null,
           totalMinor, status: 'completed',
         } });
         for (const line of createdLines) {
-          await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, variantId: line.variant?.id ?? null, unitOfMeasureId: line.product.unitOfMeasureId ?? null, taxCodeId: line.taxCodeId, taxRateBasisPoints: line.taxRateBasisPoints, taxMinor: line.taxMinor, taxableMinor: line.netMinor, taxCodeSnapshot: line.taxCodeSnapshot, taxDescriptionSnapshot: line.taxDescriptionSnapshot, taxRuleVersionId: line.taxRuleVersionId, taxCalculationMethod: line.taxCalculationMethod, taxRoundingMethod: line.taxRoundingMethod, taxReferenceDocumentVersionId: line.taxReferenceDocumentVersionId, taxReferenceDocumentVersion: line.taxReferenceDocumentVersion, priceListId: line.priceListId, lotId: line.lot?.id ?? null, serialIds: line.serialIds, productNameSnapshot: line.product.name, quantity: String(line.quantity), unitCostMinor: line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
+          await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, variantId: line.variant?.id ?? null, unitOfMeasureId: line.product.unitOfMeasureId ?? null, taxCodeId: line.taxCodeId, taxRateBasisPoints: line.taxRateBasisPoints, taxMinor: line.taxMinor, taxableMinor: line.netMinor, taxCodeSnapshot: line.taxCodeSnapshot, taxDescriptionSnapshot: line.taxDescriptionSnapshot, taxRuleVersionId: line.taxRuleVersionId, taxCalculationMethod: line.taxCalculationMethod, taxRoundingMethod: line.taxRoundingMethod, taxReferenceDocumentVersionId: line.taxReferenceDocumentVersionId, taxReferenceDocumentVersion: line.taxReferenceDocumentVersion, priceListId: line.priceListId, lotId: line.lot?.id ?? null, serialIds: line.serialIds, productNameSnapshot: line.product.name, skuSnapshot:line.product.sku,barcodeSnapshot:line.product.barcode??null,quantity: String(line.quantity), unitCostMinor: line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
           if (line.product.trackStock) {
             if (line.lot) {
               const updatedLot = await tx.inventoryLot.updateMany({ where: { id: line.lot.id, tenantId: workspaceId, branchId, quantityOnHand: { gte: line.quantity + Number(line.lot.quantityReserved) } }, data: { quantityOnHand: { decrement: line.quantity }, status: Number(line.lot.quantityOnHand)-line.quantity<=0?'depleted':'available' } });

@@ -470,6 +470,10 @@ model Sale {
   customerRecordId    String?         @map("customer_record_id")
   opportunityRecordId String?         @map("opportunity_record_id")
   salespersonEmployeeId String?       @map("salesperson_employee_id") @db.Uuid
+  cashierUserId        String?         @map("cashier_user_id") @db.Uuid
+  receiptBusinessSnapshot Json?       @map("receipt_business_snapshot")
+  cashTenderedMinor     Int?           @map("cash_tendered_minor")
+  cashChangeMinor       Int?           @map("cash_change_minor")
   promisedPaymentDate DateTime?       @map("promised_payment_date") @db.Date
   totalMinor          Int             @map("total_minor")
   status              String          @default("completed")
@@ -510,6 +514,8 @@ model SaleLine {
   lotId               String?  @map("lot_id") @db.Uuid
   serialIds           String[] @default([]) @map("serial_ids") @db.Uuid
   productNameSnapshot String   @map("product_name_snapshot")
+  skuSnapshot         String?  @map("sku_snapshot")
+  barcodeSnapshot     String?  @map("barcode_snapshot")
   quantity            Decimal  @db.Decimal(12, 3)
   unitCostMinor       Int      @default(0) @map("unit_cost_minor")
   unitPriceMinor      Int      @map("unit_price_minor")
