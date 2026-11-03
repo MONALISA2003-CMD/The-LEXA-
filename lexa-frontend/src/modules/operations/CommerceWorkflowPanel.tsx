@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowDownToLine, ArrowUpRight, CheckCircle2, PackageCheck, Plus, Truck, UserRoundCheck, X } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
+import { refreshBusinessProjections } from '../../data/remote/businessRefresh';
 import { useModuleRecordService } from '../../data/providers/ModuleRecordServiceProvider';
 import { products } from '../../data/repositories';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
@@ -87,6 +88,7 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
       client.invalidateQueries({ queryKey: ['dashboard', workspace.id, branch.id] }),
       client.invalidateQueries({ queryKey: ['sales', workspace.id] }),
     ]);
+    await refreshBusinessProjections(client, workspace.id, branch.id);
   }
 
   function updateLine(index: number, key: keyof DraftLine, value: string) {

@@ -37,7 +37,7 @@ export default function AuthoritativeReportsPage() {
   const navigate = useNavigate();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const query = useQuery({ queryKey: ['authoritative-reports', workspace.id, branch.id, from, to], queryFn: () => apiReports.authoritative(workspace.id, branch.id, from || undefined, to || undefined), enabled: isApiProvider && (!from || !to || from <= to), retry: false, staleTime: 30_000 });
+  const query = useQuery({ queryKey: ['authoritative-reports', workspace.id, branch.id, from, to], queryFn: () => apiReports.authoritative(workspace.id, branch.id, from || undefined, to || undefined), enabled: isApiProvider && (!from || !to || from <= to), retry: false, staleTime: 15_000, refetchInterval: 60_000, refetchIntervalInBackground: false, refetchOnWindowFocus: true });
   const report = query.data;
   const generatedAt = useMemo(() => report?.generatedAt ? new Date(report.generatedAt).toLocaleString() : '', [report?.generatedAt]);
   const currency = report?.currency ?? workspace.currency ?? 'UGX';

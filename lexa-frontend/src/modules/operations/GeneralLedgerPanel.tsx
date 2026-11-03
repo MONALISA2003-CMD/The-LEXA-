@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { BookOpenCheck, CalendarClock, Check, CircleAlert, Plus, RefreshCw, RotateCcw, ShieldCheck, X } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiGeneralLedger, type LedgerAccount, type LedgerJournalInput } from '../../data/remote/apiGeneralLedger';
+import { refreshBusinessProjections } from '../../data/remote/businessRefresh';
 import './general-ledger.css';
 
 type DraftLine = { key: string; accountId: string; debit: string; credit: string; description: string };
@@ -81,6 +82,7 @@ export default function GeneralLedgerPanel() {
       client.invalidateQueries({ queryKey: ['general-ledger-source-reconciliation', workspace.id, branch.id] }),
       client.invalidateQueries({ queryKey: ['module-register', workspace.id, branch.id, 'accounting'] }),
     ]);
+    await refreshBusinessProjections(client, workspace.id, branch.id);
   }
 
   function updateLine(key: string, patch: Partial<DraftLine>) {

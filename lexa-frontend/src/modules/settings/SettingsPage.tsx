@@ -26,6 +26,7 @@ export default function SettingsPage() {
   const [signingOut, setSigningOut] = useState(false);
   const [healthState, setHealthState] = useState<'not-checked' | 'checking' | 'healthy' | 'unavailable'>('not-checked');
   const [healthMessage, setHealthMessage] = useState('Not tested yet');
+  const [connectionDetails, setConnectionDetails] = useState<{database:string;sentry:string;otel:string}|null>(null);
 
   useEffect(() => {
     setName(workspace.businessName);
@@ -49,14 +50,17 @@ export default function SettingsPage() {
   }
 
   async function testBackend() {
-    if (!apiBaseUrl) { setHealthState('unavailable'); setHealthMessage('Business service is not connected'); return; }
-    setHealthState('checking'); setHealthMessage('Checking service availability…');
+    if (!apiBaseUrl) { setHealthState('unavailable'); setHealthMessage('LEXA cannot reach your business records'); setConnectionDetails(null); return; }
+    setHealthState('checking'); setHealthMessage('Checking business data and service readiness…');
     try {
-      const health = await apiClient.get<{ status?: string; version?: string }>('/health');
-      if (!health || typeof health !== 'object' || typeof health.status !== 'string') throw new Error('Service could not be reached.');
-      setHealthState(health.status.toLowerCase() === 'ok' || health.status.toLowerCase() === 'healthy' ? 'healthy' : 'unavailable');
-      setHealthMessage(health.status.toLowerCase() === 'ok' || health.status.toLowerCase() === 'healthy' ? 'Available' : 'Not available');
-    } catch (error) { setHealthState('unavailable'); setHealthMessage('Service could not be reached'); }
+      const result = await apiClient.get<{ status?: string; dependencies?: { database?: string; sentry?: string; otel?: string } }>('/health/ready');
+      const connected = result?.status === 'ready' && result.dependencies?.database === 'ok';
+      setHealthState(connected ? 'healthy' : 'unavailable');
+      setHealthMessage(connected ? 'Business records connected' : 'Business records are not yet available');
+      setConnectionDetails({ database: connected ? 'Connected' : 'Not available',
+        sentry: result.dependencies?.sentry === 'configured' ? 'Configured' : 'Not configured',
+        otel: result.dependencies?.otel === 'configured' ? 'Configured' : 'Not configured' });
+    } catch { setHealthState('unavailable'); setHealthMessage('Business records could not be reached'); setConnectionDetails(null); }
   }
 
   async function signOut() {
@@ -76,7 +80,10 @@ export default function SettingsPage() {
       {/* LEXA_AUTH_SECURITY_UI_PATCH:security-panel-v1 */}
       <SecurityPanel />
 
-      {dataProviderMode === 'api' && <section className="section-card"><div className="section-card-heading"><div className="heading-icon blue-icon"><Database size={18} /></div><div><h3>LEXA availability</h3><p>Check that your business service is available.</p></div></div><div className="backend-health-row"><div><strong>Business service</strong><span className={'health-state ' + healthState}>{healthMessage}</span></div><button className="button button-secondary" type="button" disabled={healthState === 'checking'} onClick={() => void testBackend()}>{healthState === 'checking' ? 'Checking…' : 'Check availability'}</button></div></section>}
+      {dataProviderMode === 'api' && <section className="section-card"><div className="section-card-heading"><div className="heading-icon blue-icon"><Database size={18} /></div><div><h3>LEXA availability</h3><p>Check that your business service is available.</p></div></div><div className="backend-health-row"><div><strong>Business service</strong><span className={'health-state ' + healthState}>{healthMessage}</span></div><button className="button button-secondary" type="button" disabled={healthState === 'checking'} onClick={() => void testBackend()}>{healthState === 'checking' ? 'Checking…' : 'Check availability'}</button></div>
+        {connectionDetails && <div className="privacy-grid" aria-label="Connected service checks"><div className="privacy-item"><Database size={17}/><div><strong>Business records</strong><span>{connectionDetails.database}</span></div></div><div className="privacy-item"><ShieldCheck size={17}/><div><strong>Error monitoring</strong><span>{connectionDetails.sentry}</span></div></div><div className="privacy-item"><ShieldCheck size={17}/><div><strong>Performance tracing</strong><span>{connectionDetails.otel}</span></div></div></div>}
+        <p className="text-muted">Background jobs, encrypted backups, external payment services and email delivery need separate verified checks before live use. A connected database alone does not certify those services.</p>
+      </section>}
 
       <section className="section-card privacy-card"><div className="section-card-heading"><div className="heading-icon green-icon"><ShieldCheck size={18} /></div><div><h3>Data & privacy</h3><p>Review where business records are stored and which services are available.</p></div></div><div className="privacy-grid"><div className="privacy-item"><Database size={17} /><div><strong>{dataProviderMode === 'api' ? 'Shared business records' : 'This device'}</strong><p>{dataProviderMode === 'api' ? (apiBaseUrl ? 'Business information is accessed through your authorised LEXA account.' : 'The shared business service is not connected. Contact your LEXA administrator.') : 'Business records stay on this device and do not sync to a shared server.'}</p></div></div><div className="privacy-item"><Users size={17} /><div><strong>{dataProviderMode === 'api' ? 'Shared business access' : 'No cross-device sync'}</strong><p>{dataProviderMode === 'api' ? 'Your authorised team members can access shared business information.' : 'Other devices and staff do not receive these records automatically.'}</p></div></div><div className="privacy-item"><LockKeyhole size={17} /><div><strong>Account security</strong><p>Each team member should have the correct access for their responsibilities.</p></div></div></div>{dataProviderMode === 'local' && <div className="warning-note"><strong>Important:</strong> Keep a separate backup of important business records.</div>}</section>
       <div className="settings-version-row"><span>LEXA business settings</span><strong>Account</strong><span>Business service: {dataProviderMode === 'api' ? 'Shared account' : 'This device only'}</span></div>

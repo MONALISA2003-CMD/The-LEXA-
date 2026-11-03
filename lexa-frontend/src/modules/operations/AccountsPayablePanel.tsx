@@ -1,5 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router';
+import { refreshBusinessProjections } from '../../data/remote/businessRefresh';
 import { toast } from 'sonner';
 import { BadgeCheck, CalendarDays, CheckCircle2, FilePlus2, ReceiptText, Wallet } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
@@ -76,6 +78,7 @@ export default function AccountsPayablePanel() {
       client.invalidateQueries({ queryKey: ['module-register', workspace.id, branch.id, 'purchase-invoices'] }),
       client.invalidateQueries({ queryKey: ['module-register', workspace.id, branch.id, 'purchases'] }),
     ]);
+    await refreshBusinessProjections(client, workspace.id, branch.id);
   }
 
   function chooseOrder(id: string) {
@@ -136,6 +139,16 @@ export default function AccountsPayablePanel() {
     <section className="ap-workspace">
       <header className="ap-header"><div><span className="eyebrow eyebrow-blue">PROCUREMENT & FINANCE</span><h3>Supplier invoices & accounts payable</h3><p>Manage supplier bills, approvals, payment allocations and purchase reconciliation.</p></div><div className="ap-header-actions"><button className="button button-secondary" type="button" onClick={openPayment} disabled={!payableInvoices.length}><Wallet size={15}/> Record payment</button><button className="button button-primary" type="button" onClick={() => setCreateOpen(value => !value)} disabled={!orders.length}><FilePlus2 size={15}/> New supplier bill</button></div></header>
 
+      <nav className="ap-card" aria-label="Supplier purchasing to payment journey">
+        <div className="ap-section-heading"><div><h4>Supplier → order → receipt → bill → payment</h4><p>Complete each business step in order. Payments affect approved supplier bills and the posted ledger.</p></div></div>
+        <div className="ap-form-footer" style={{display:'flex',gap:'0.7rem',flexWrap:'wrap',justifyContent:'flex-start'}}>
+          <Link className="button button-secondary button-small" to="/modules/suppliers">1. Suppliers</Link>
+          <Link className="button button-secondary button-small" to="/modules/purchases">2. Orders & receipts</Link>
+          <button className="button button-secondary button-small" type="button" onClick={()=>setCreateOpen(true)}>3. Match supplier bill</button>
+          <button className="button button-secondary button-small" type="button" onClick={openPayment} disabled={!payableInvoices.length}>4. Allocate payment</button>
+          <Link className="button button-secondary button-small" to="/modules/accounting">5. Posted accounting</Link>
+        </div>
+      </nav>
       {error && <div className="inline-error" role="alert">{error instanceof Error ? error.message : 'Could not load supplier payables.'}</div>}
       {loading ? <div className="loading-state">Loading supplier accounts…</div> : <>
         <div className="ap-metrics">

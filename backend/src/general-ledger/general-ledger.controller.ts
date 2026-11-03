@@ -512,6 +512,38 @@ export class GeneralLedgerController {
         SELECT id::text AS id,amount_minor::bigint AS "expectedDebitMinor" FROM ap_supplier_payments
         WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND amount_minor>0
       `,
+      expense_approved: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT id::text AS id,total_minor::bigint AS "expectedDebitMinor" FROM expenses
+        WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid
+          AND status IN ('approved','paid') AND total_minor>0
+      `,
+      expense_payment: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT id::text AS id,total_minor::bigint AS "expectedDebitMinor" FROM expenses
+        WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid
+          AND status='paid' AND total_minor>0
+      `,
+      payroll_payment: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT id::text AS id,gross_minor::bigint AS "expectedDebitMinor" FROM hr_payroll_runs
+        WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid
+          AND status='paid' AND gross_minor>0
+      `,
+      cash_up_posted: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT c.id::text AS id,GREATEST(c.counted_minor,c.expected_minor)::bigint AS "expectedDebitMinor"
+        FROM cash_ups c JOIN cash_sessions s ON s.id=c.cash_session_id AND s.tenant_id=c.tenant_id
+        WHERE c.tenant_id=${workspaceId}::uuid AND s.branch_id=${branchId}::uuid
+          AND c.status='posted' AND GREATEST(c.counted_minor,c.expected_minor)>0
+      `,
+      fixed_asset_acquired: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT id::text AS id,acquisition_cost_minor::bigint AS "expectedDebitMinor" FROM fixed_assets
+        WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND acquisition_cost_minor>0
+      `,
+      fixed_asset_depreciation: await this.prisma.$queryRaw<ExpectedSource[]>`
+        SELECT (d.asset_id::text || ':' || d.accounting_period_id::text) AS id,
+          d.amount_minor::bigint AS "expectedDebitMinor"
+        FROM fixed_asset_depreciations d JOIN fixed_assets a ON a.id=d.asset_id AND a.tenant_id=d.tenant_id
+        WHERE d.tenant_id=${workspaceId}::uuid AND a.branch_id=${branchId}::uuid
+          AND d.status='posted' AND d.amount_minor>0
+      `,
     };
     const sourceTypes = Object.keys(expected);
     const expectedKeys = new Set(sourceTypes.flatMap((sourceType) => (expected[sourceType] ?? []).map((source) => `${sourceType}:${source.id}`)));

@@ -79,3 +79,7 @@ npm run build
 The source-import ZIP intentionally excludes npm lockfiles along with generated/dependency artifacts. The GitHub repository-import workflow runs `python3 scripts/clean_repository.py` before repository validation and before either `npm ci` command. That preparation step creates a missing `package-lock.json` in each application using `npm install --package-lock-only --ignore-scripts --no-audit --no-fund`, then verifies lockfile format and that the lockfile root exactly matches the corresponding `package.json`. It does not install `node_modules` or execute package lifecycle scripts. If generation fails or a lockfile is stale, the workflow stops before running `npm ci`.
 
 For local clean installs, run `python3 scripts/clean_repository.py` from the repository root before `npm ci` in `backend/` or `lexa-frontend/`.
+
+## Latest operational integration release candidate (2026-11-03)
+
+See [Production integration release and acceptance checklist](docs/operations/production-integration-release-2026-11-03.md) for purchasing, finance, payroll, bank reconciliation and live reporting changes, test results and remaining launch gates.

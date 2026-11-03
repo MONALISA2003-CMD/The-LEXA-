@@ -9,6 +9,8 @@ import { hasPermission, normalizeRole } from '../authorization/role-policy';
 import { assertBranchAccess } from '../authorization/branch-scope';
 import { CsrfGuard } from '../core/csrf.guard';
 import { PeopleProjectsService } from './people-projects.service';
+import { postLedgerJournal } from '../general-ledger/ledger-posting';
+import { payrollPaymentJournalLines } from './payroll-ledger';
 
 type Obj = Record<string, unknown>;
 function obj(value: unknown): Obj {
@@ -632,11 +634,17 @@ export class PeopleProjectsController {
     return this.prisma.$transaction(async tx=>{
       const rows=await tx.$queryRaw<any[]>`UPDATE hr_payroll_runs SET status='paid',payment_reference=${reference},paid_by_user_id=${a.userId}::uuid,paid_at=${paidAt},updated_at=now()
         WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${id}::uuid AND status='approved'
-        RETURNING id,run_number,net_minor`;
+        RETURNING id,run_number,gross_minor,deductions_minor,net_minor`;
       const r=rows[0];if(!r){const exists=await tx.$queryRaw<any[]>`SELECT status FROM hr_payroll_runs WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${id}::uuid`;if(!exists.length)throw new NotFoundException('Payroll run not found.');throw new ConflictException('Only an approved payroll run can be recorded as paid.');}
+      // The bank settlement and accounting entry commit atomically with payroll status.
+      // Deductions are a liability, not revenue; they require separate remittance.
+      const lines = payrollPaymentJournalLines(Number(r.gross_minor), Number(r.deductions_minor), Number(r.net_minor));
+      const ledgerJournalId = await postLedgerJournal(tx, { tenantId: w, branchId: b, actorUserId: a.userId,
+        sourceType: 'payroll_payment', sourceId: id, memo: `Approved payroll ${r.run_number} paid · ${reference}`,
+        entryDate: paidAt.toISOString().slice(0, 10), lines });
       await this.mirror(tx,w,b,'payroll',id,{id,payrollReference:r.run_number,status:'Paid'});
-      await this.audit(tx,w,b,a.userId,'people.payroll.payment_recorded','payroll_run',id,{paymentReference:reference,netMinor:String(r.net_minor)});
-      return {id,status:'paid',paymentReference:reference,paidAt:paidAt.toISOString(),netMinor:String(r.net_minor)};
+      await this.audit(tx,w,b,a.userId,'people.payroll.payment_recorded','payroll_run',id,{paymentReference:reference,netMinor:String(r.net_minor),ledgerJournalId});
+      return {id,status:'paid',paymentReference:reference,paidAt:paidAt.toISOString(),netMinor:String(r.net_minor),ledgerJournalId};
     },{isolationLevel:'Serializable'});
   }
 

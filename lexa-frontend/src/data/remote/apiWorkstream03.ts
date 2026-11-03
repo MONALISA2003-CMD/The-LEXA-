@@ -21,15 +21,30 @@ export const apiCatalogInventory = {
   reserve: (w: string, b: string, input: Record<string, unknown>) => apiClient.post(`${branch(w,b)}/inventory/reservations`, input, key()),
 };
 
+export type BankReconciliationRecord = {id:string;bankAccountId:string;accountName?:string;statementDate:string;openingBalanceMinor:string;closingBalanceMinor:string;reconciledBalanceMinor:string;status:string;completedAt?:string};
+export type BankStatementRecord = {id:string;bankAccountId:string;transactionDate:string;description:string;reference?:string;amountMinor:string;direction:'credit'|'debit';reconciliationStatus:string};
+export type PostedBankLedgerLine = {id:string;journalId:string;journalNumber:string;entryDate:string;description?:string;debitMinor:string;creditMinor:string;ledgerAccountName:string};
+
 export const apiFinanceOperations = {
   cashSessions: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/finance/cash-sessions`),
   openCashSession: (w: string, b: string, openingFloatMinor: number) => apiClient.post(`${branch(w,b)}/finance/cash-sessions`, {openingFloatMinor}, key()),
   closeCashSession: (w: string, b: string, sessionId: string, countedClosingMinor: number) => apiClient.post(`${branch(w,b)}/finance/cash-sessions/${enc(sessionId)}/close`, {countedClosingMinor}, key()),
+  expenseCategories: (w:string,b:string) => apiClient.get<Record<string,unknown>[]>(`${branch(w,b)}/finance/expense-categories`),
+  createExpenseCategory: (w:string,b:string,input:{code:string;name:string;ledgerAccountId:string}) => apiClient.post(`${branch(w,b)}/finance/expense-categories`,input,key()),
   expenses: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/finance/expenses`),
   createExpense: (w: string, b: string, input: Record<string, unknown>) => apiClient.post(`${branch(w,b)}/finance/expenses`, input, key()),
   approveExpense: (w: string, b: string, expenseId: string) => apiClient.post(`${branch(w,b)}/finance/expenses/${enc(expenseId)}/approve`, {}, key()),
+  payApprovedExpense: (w:string,b:string,expenseId:string,input:{method:string;reference:string}) => apiClient.post(`${branch(w,b)}/finance/expenses/${enc(expenseId)}/payment`,input,key()),
   fixedAssets: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/finance/fixed-assets`),
   creditNotes: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/finance/credit-notes`),
   bankAccounts: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/finance/bank-accounts`),
+  createBankAccount: (w: string, b: string, input: {accountName:string;bankName:string;accountNumberMasked:string;currency:string;ledgerAccountId?:string}) => apiClient.post(`${branch(w,b)}/finance/bank-accounts`, input, key()),
+  bankReconciliations: (w:string,b:string) => apiClient.get<BankReconciliationRecord[]>(`${branch(w,b)}/finance/bank-reconciliations`),
+  bankStatementLines: (w:string,b:string,accountId:string) => apiClient.get<BankStatementRecord[]>(`${branch(w,b)}/finance/bank-accounts/${enc(accountId)}/statement-lines`),
+  postedBankLedgerLines: (w:string,b:string,accountId:string) => apiClient.get<PostedBankLedgerLine[]>(`${branch(w,b)}/finance/bank-accounts/${enc(accountId)}/posted-ledger-lines`),
+  importBankStatement: (w:string,b:string,accountId:string,lines:Array<{transactionDate:string;direction:'credit'|'debit';amountMinor:number;description:string;reference?:string;externalId?:string}>) => apiClient.post<{inserted:number;duplicates:number}>(`${branch(w,b)}/finance/bank-accounts/${enc(accountId)}/statement-lines/import`, {lines}, key()),
+  startBankReconciliation: (w:string,b:string,input:{bankAccountId:string;statementDate:string;openingBalanceMinor:number;closingBalanceMinor:number}) => apiClient.post<BankReconciliationRecord>(`${branch(w,b)}/finance/bank-reconciliations`, input, key()),
+  matchBankLine: (w:string,b:string,reconciliationId:string,statementLineId:string,journalLineId:string) => apiClient.post(`${branch(w,b)}/finance/bank-reconciliations/${enc(reconciliationId)}/matches`, {statementLineId,journalLineId}, key()),
+  completeBankReconciliation: (w:string,b:string,reconciliationId:string) => apiClient.post(`${branch(w,b)}/finance/bank-reconciliations/${enc(reconciliationId)}/complete`, {}, key()),
   costCentres: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/finance/cost-centres`),
 };

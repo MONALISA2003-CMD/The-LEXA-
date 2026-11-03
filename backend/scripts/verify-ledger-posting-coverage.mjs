@@ -7,6 +7,8 @@ const files = {
   commerce: readFileSync(resolve(root, 'src/commerce/commerce.controller.ts'), 'utf8'),
   receivables: readFileSync(resolve(root, 'src/receivables/receivables.controller.ts'), 'utf8'),
   payables: readFileSync(resolve(root, 'src/payables/payables.controller.ts'), 'utf8'),
+  finance: readFileSync(resolve(root, 'src/finance/finance-operations.controller.ts'), 'utf8'),
+  people: readFileSync(resolve(root, 'src/people-projects/people-projects.controller.ts'), 'utf8'),
   ledger: readFileSync(resolve(root, 'src/general-ledger/ledger-posting.ts'), 'utf8'),
 };
 
@@ -20,6 +22,12 @@ const requiredPostingSources = [
   ['receivables', 'customer_receipt_recorded'],
   ['payables', 'supplier_invoice_approved'],
   ['payables', 'supplier_payment_recorded'],
+  ['finance', 'cash_up_posted'],
+  ['finance', 'expense_approved'],
+  ['finance', 'expense_payment'],
+  ['finance', 'fixed_asset_acquired'],
+  ['finance', 'fixed_asset_depreciation'],
+  ['people', 'payroll_payment'],
 ];
 const missing = requiredPostingSources.filter(([file, sourceType]) =>
   !new RegExp(`sourceType\\s*:\\s*['\"]${sourceType}['\"]`).test(files[file]),
@@ -42,7 +50,7 @@ for (const invariant of [
   }
 }
 
-const branchScopedControllers = ['commerce', 'receivables', 'payables'];
+const branchScopedControllers = ['commerce', 'receivables', 'payables', 'finance', 'people'];
 for (const controller of branchScopedControllers) {
   const source = files[controller];
   if (!source.includes("import { assertBranchAccess } from '../authorization/branch-scope'") || !source.includes('await assertBranchAccess(')) {

@@ -2311,6 +2311,32 @@ paths:
         '404': {description: Resource not found}
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/bank-accounts/{accountId}/statement-lines:
+    get:
+      operationId: listBankStatementLines
+      tags: [Finance]
+      description: Read tenant- and branch-scoped imported statement movements.
+      parameters:
+        - {name: workspaceId, in: path, required: true, schema: {type: string}}
+        - {name: branchId, in: path, required: true, schema: {type: string}}
+        - {name: accountId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Recent verified bank statement lines}
+        '401': {description: Sign-in required}
+        '404': {description: Bank account unavailable}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/bank-accounts/{accountId}/posted-ledger-lines:
+    get:
+      operationId: listUnmatchedPostedBankLedgerLines
+      tags: [Finance]
+      description: Unmatched posted bank-control ledger lines in the selected branch.
+      parameters:
+        - {name: workspaceId, in: path, required: true, schema: {type: string}}
+        - {name: branchId, in: path, required: true, schema: {type: string}}
+        - {name: accountId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Matching-eligible posted journal lines}
+        '401': {description: Sign-in required}
+        '404': {description: Bank account unavailable}
   /workspaces/{workspaceId}/branches/{branchId}/finance/bank-accounts/{accountId}/statement-lines/import:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
@@ -2342,6 +2368,15 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/finance/bank-reconciliations:
+    get:
+      operationId: listBranchBankReconciliations
+      tags: [Finance]
+      parameters:
+        - {name: workspaceId, in: path, required: true, schema: {type: string}}
+        - {name: branchId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Reconciliation history for the current branch}
+        '401': {description: Sign-in required}
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
       tags: [Workstream 0-3]
@@ -2631,6 +2666,15 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/finance/expense-categories:
+    get:
+      operationId: listExpenseCategories
+      tags: [Finance]
+      parameters:
+        - {name: workspaceId, in: path, required: true, schema: {type: string}}
+        - {name: branchId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Expense categories for the authenticated business}
+        '401': {description: Sign-in required}
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
       tags: [Workstream 0-3]
@@ -2702,6 +2746,31 @@ paths:
         '404': {description: Resource not found}
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/expenses/{expenseId}/payment:
+    post:
+      operationId: payApprovedExpense
+      tags: [Finance]
+      description: Settle an approved and accrued expense, posting an atomic ledger entry.
+      parameters:
+        - {name: workspaceId, in: path, required: true, schema: {type: string}}
+        - {name: branchId, in: path, required: true, schema: {type: string}}
+        - {name: expenseId, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [method, reference]
+              properties:
+                method: {type: string, enum: [cash, bank_transfer, mtn_momo, airtel_money, cheque, card_recorded]}
+                reference: {type: string, minLength: 1, maxLength: 120}
+      responses:
+        '200': {description: Approved expense settled and recorded in the ledger}
+        '400': {description: Invalid details}
+        '401': {description: Sign-in required}
+        '403': {description: Permission denied}
+        '409': {description: Expense is not eligible for payment}
   /workspaces/{workspaceId}/branches/{branchId}/finance/expenses/{expenseId}/approve:
     post:
       operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe

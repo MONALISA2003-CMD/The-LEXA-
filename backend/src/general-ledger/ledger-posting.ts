@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 type LedgerLineInput = {
   accountKey: string;
+  /** Optional explicit tenant-owned expense ledger account for approved expense categories. */
+  accountId?: string;
   debitMinor?: number;
   creditMinor?: number;
   description?: string;
@@ -32,6 +34,8 @@ const DEFAULT_ACCOUNTS: Array<[string, string, string, string, string]> = [
   ['2050', 'Goods received not invoiced', 'liability', 'credit', 'goods_received_not_invoiced'],
   ['2100', 'Tax payable', 'liability', 'credit', 'tax_payable'],
   ['2200', 'Customer credit balances', 'liability', 'credit', 'customer_credit_liability'],
+  ['2300', 'Payroll deductions payable', 'liability', 'credit', 'payroll_withholdings'],
+  ['2150', 'Approved operating expenses payable', 'liability', 'credit', 'accrued_expenses'],
   ['3000', 'Owner equity', 'equity', 'credit', 'owner_equity'],
   ['4000', 'Sales revenue', 'revenue', 'credit', 'sales_revenue'],
   ['4050', 'Sales returns and allowances', 'revenue', 'debit', 'sales_returns'],
@@ -111,6 +115,20 @@ export async function postLedgerJournal(tx: any, input: LedgerPostingInput): Pro
   const missing = keys.filter((key) => !accountIds.has(key));
   if (missing.length) throw new Error(`Required ledger account(s) are missing or inactive: ${missing.join(', ')}.`);
 
+  // Explicit category accounts must belong to this tenant and be active expense accounts.
+  // Never silently redirect category expense postings to a catch-all system ledger.
+  const customIds = [...new Set(lines.map((line) => line.accountId).filter((value): value is string => Boolean(value)))];
+  if (customIds.some((id) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))) throw new Error('Expense ledger account identifier is invalid.');
+  if (customIds.length) {
+    const customAccounts = await tx.$queryRaw<Array<{ id: string; account_type: string }>>`
+      SELECT id, account_type FROM ledger_accounts
+      WHERE tenant_id=${tenantId}::uuid AND is_active=true AND id=ANY(${customIds}::uuid[])
+      FOR SHARE`;
+    if (customAccounts.length !== customIds.length || customAccounts.some((account: { id: string; account_type: string }) => account.account_type !== 'expense')) {
+      throw new Error('Selected expense ledger account is missing, inactive or outside this business.');
+    }
+  }
+
   const journalId = randomUUID();
   const number = `AUTO-${entryDate.replace(/-/g, '')}-${journalId.slice(0, 8).toUpperCase()}`;
   await tx.$executeRaw`
@@ -122,7 +140,7 @@ export async function postLedgerJournal(tx: any, input: LedgerPostingInput): Pro
     await tx.$executeRaw`
       INSERT INTO ledger_journal_lines
         (id,tenant_id,journal_id,line_number,account_id,description,debit_minor,credit_minor)
-      VALUES (${randomUUID()}::uuid,${tenantId}::uuid,${journalId}::uuid,${index + 1},${accountIds.get(line.accountKey)}::uuid,${line.description?.slice(0,300) ?? null},${line.debitMinor},${line.creditMinor})`;
+      VALUES (${randomUUID()}::uuid,${tenantId}::uuid,${journalId}::uuid,${index + 1},${line.accountId ?? accountIds.get(line.accountKey)}::uuid,${line.description?.slice(0,300) ?? null},${line.debitMinor},${line.creditMinor})`;
   }
   await tx.$executeRaw`
     UPDATE ledger_journals SET status='posted',posted_by_user_id=${input.actorUserId}::uuid,posted_at=CURRENT_TIMESTAMP

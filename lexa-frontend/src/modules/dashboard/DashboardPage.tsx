@@ -22,12 +22,15 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<DashboardPeriod>('30d');
   const [overviewMode, setOverviewMode] = useState<OverviewMode>('owner');
-  const snapshotQuery = useQuery({ queryKey: ['dashboard', workspace.id, branch.id], queryFn: () => reports.getDashboardSnapshot({ workspaceId: workspace.id, branchId: branch.id }) });
+  const snapshotQuery = useQuery({ queryKey: ['dashboard', workspace.id, branch.id], queryFn: () => reports.getDashboardSnapshot({ workspaceId: workspace.id, branchId: branch.id }), refetchInterval: 45_000, refetchIntervalInBackground: false, refetchOnWindowFocus: true });
   const analyticsQuery = useQuery({
     queryKey: ['dashboard-analytics', workspace.id, branch.id, period],
     queryFn: ({ signal }) => apiDashboard.getOverview(workspace.id, branch.id, period, signal),
     enabled: isApiProvider,
-    staleTime: 60_000,
+    staleTime: 15_000,
+    refetchInterval: 45_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
     retry: 1,
   });
   const snapshot = snapshotQuery.data;
