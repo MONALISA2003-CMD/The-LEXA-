@@ -56,9 +56,9 @@ export default function DashboardPage() {
 
   return <div className="page-stack dashboard-page modern-overview" data-module-accent={moduleAccentForPath("/")}>
     <section className="overview-hero">
-      <div className="overview-hero-copy"><div className="overview-kicker"><span /> BUSINESS OVERVIEW <i /> {dateLabel(workspace.timezone).toLocaleUpperCase()}</div>
-        <h2>Your business, <span>in focus.</span></h2>
-        <p>{workspace.businessName}. A decision-ready view of sales, stock, exceptions and day-to-day activity.</p>
+      <div className="overview-hero-copy"><div className="overview-kicker"><span /> {accessQuery.data?.isOwner ? 'CEO EXECUTIVE OVERVIEW' : 'BUSINESS OVERVIEW'} <i /> {dateLabel(workspace.timezone).toLocaleUpperCase()}</div>
+        <h2>Your business <span>at a glance.</span></h2>
+        <p>{workspace.businessName}. Your verified performance, important exceptions and next actions in one place.</p>
         <div className="overview-hero-actions">{canSell && <button className="button button-white" onClick={() => navigate('/checkout')}><ShoppingCart size={16} /> New sale</button>}{canViewReports && <button className="button button-outline-light" onClick={() => navigate('/reports')}><BarChart3 size={16} /> View reports</button>}</div>
       </div>
       <div className="overview-hero-art" aria-hidden="true"><div className="overview-hero-orb"/><div className="overview-hero-grid"><span/><span/><span/><span/><span/><span/><span/><span/><span/><span/><span/><span/></div><div className="overview-hero-mini overview-hero-brand-card"><span>LEXA BUSINESS WORKSPACE</span><strong>One workspace.<br/>Every workflow.</strong><small>Built for operational clarity</small></div></div>

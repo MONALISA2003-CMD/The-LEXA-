@@ -114,3 +114,7 @@ all branch and additional-workspace creation from regular LEXA screens.
 **Release safety:** No payment gateway, no new company tenant, no deletion of
 existing business records or branches. The migration must deploy with its matching
 backend source; do not apply it to production as a standalone manual edit.
+
+## Bright Executive Blue CEO release — 3 November 2026
+
+The bright executive design polishes Overview, My Business, owner-only team administration, navigation and shared card styles. It preserves verified financial data, tenant isolation, auth, schema and migrations. See `docs/release/bright-executive-ceo-2026-11-03.md`.

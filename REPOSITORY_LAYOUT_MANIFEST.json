@@ -1,13 +1,13 @@
 {
   "name": "LEXA canonical source archive",
-  "version": "2026-11-03",
+  "version": "2026-11-03-bright-executive-blue",
   "archive_root": "Repository root; no wrapper directory",
   "source_baseline": {
     "repository": "MONALISA2003-CMD/The-LEXA-",
     "branch": "main",
-    "commit": "131f986f05bef8ae62c0b3c7df514bb9ba714d18",
-    "note": "This archive includes the Prisma and worker transaction-local Neon runtime-role correction and the current Render/Neon compute configuration. It is a source archive, not a GitHub commit or deployment.",
-    "archive_basis": "Updated from the supplied 2026-11-02 source archive and reconciled with the production configuration supplied as directly verified on 2026-11-03; not a byte-for-byte export of main."
+    "commit": "052f265c71c284b45e9b84acee6b556a345f9f67",
+    "note": "Bright Executive Blue presentation release based on verified source commit; no production data or migration edits.",
+    "archive_basis": "Existing main source at 052f265 plus audited presentation files and CEO policy regression tests."
   },
   "applications": {
     "backend": "backend/",

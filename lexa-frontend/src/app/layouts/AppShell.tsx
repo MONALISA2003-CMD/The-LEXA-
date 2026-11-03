@@ -373,7 +373,7 @@ export default function AppShell() {
               <span className="lexa-current-business"><Building2 size={15}/>{workspace.businessName}</span>
               <div className="topbar-divider" />
               <button className="icon-button theme-toggle" type="button" aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
-              <div className="user-avatar" aria-label="Workspace operator">L</div>
+              <div className="user-avatar" aria-label={isOwner ? "CEO account" : "Team member account"}>{isOwner ? "CEO" : "TM"}</div>
             </div>
           </header>
           <div className="page-content"><Outlet /></div>
