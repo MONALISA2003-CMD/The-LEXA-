@@ -12,7 +12,7 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/src/main.js",
     "db:generate": "prisma generate",
-    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:deploy": "node scripts/migrate-with-guard.mjs",
     "db:validate": "prisma validate",
     "test": "node --experimental-strip-types --test test/*.test.mjs",
     "db:migrate:status": "prisma migrate status",

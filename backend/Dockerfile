@@ -23,6 +23,7 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build /app/scripts ./scripts
 EXPOSE 10000
-# Keep the Render Docker Command override empty. Prisma migrate deploy reads
-# DATABASE_URL_UNPOOLED (direct Neon host); the running API reads pooled DATABASE_URL.
-CMD ["sh", "-c", "node scripts/recover-known-failed-migration.mjs && npx prisma migrate deploy && node dist/src/main.js"]
+# Keep the Render Docker Command override empty. One direct-connection
+# migration coordinator serializes migrations, even when an idle PgBouncer
+# session holds Prisma's legacy advisory lock. Runtime uses pooled DATABASE_URL.
+CMD ["sh", "-c", "node scripts/migrate-with-guard.mjs && exec node dist/src/main.js"]
