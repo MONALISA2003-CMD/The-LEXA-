@@ -129,6 +129,8 @@ export class ModuleGraphController {
       attendance: ['people.private.read','people.write'], leave: ['people.private.read','people.write'], timesheets: ['people.private.read','people.write'],
       payroll: ['payroll.read','payroll.write'], projects: ['projects.read','projects.write'],
       'project-tasks': ['projects.read','projects.write'], 'project-costs': ['projects.read','projects.write'],
+      leads:['crm.read','crm.write'], opportunities:['crm.read','crm.write'], contacts:['crm.read','crm.write'],
+      campaigns:['crm.read','crm.write'], 'sales-teams':['crm.read','crm.write'], customers:['crm.read','crm.write'],
       support: ['support.read','support.write'], audit: ['audit.read','audit.read'], 'audit-log': ['audit.read','audit.read'],
     };
     return map[moduleId]?.[write ? 1 : 0] ?? (write ? 'module.write' : 'module.read');

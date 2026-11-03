@@ -147,7 +147,7 @@ export class Workstream8Controller {
         FROM ledger_journals j JOIN ledger_journal_lines l ON l.tenant_id=j.tenant_id AND l.journal_id=j.id
         JOIN ledger_accounts a ON a.tenant_id=l.tenant_id AND a.id=l.account_id
         WHERE j.tenant_id=${workspaceId}::uuid AND j.branch_id=${branchId}::uuid AND j.status='posted'` : Promise.resolve([]),
-      advancedAnalytics && role && hasPermission(role, 'crm.read') ? this.prisma.$queryRaw<any[]>`
+      role && hasPermission(role, 'crm.read') ? this.prisma.$queryRaw<any[]>`
         SELECT count(*) FILTER(WHERE module_id='customers')::int AS customer_records,
           count(*) FILTER(WHERE module_id='leads')::int AS leads,
           count(*) FILTER(WHERE module_id='opportunities')::int AS opportunities
@@ -180,7 +180,7 @@ export class Workstream8Controller {
       const inventoryControl = number(controls.inventory_control_minor);
       result.generalLedger = { postedJournals: number(gl.posted_journals), revenueMinor: number(gl.revenue_minor), expenseMinor: number(gl.expense_minor), debitsMinor: number(gl.debits_minor), creditsMinor: number(gl.credits_minor), trialBalanceDifferenceMinor: number(gl.debits_minor)-number(gl.credits_minor), inventoryControlBalanceMinor: inventoryControl, inventoryValuationReferenceDifferenceMinor: inventoryControl-number(st.inventory_cost_minor), balanceBasis: 'Current posted-ledger balances for this branch. Inventory difference is indicative only because the operational valuation uses current product cost, not a historical cost-layer reconstruction.' };
     }
-    if (advancedAnalytics && role && hasPermission(role, 'crm.read')) result.crm = { customerRecords: number(crm.customer_records), leads: number(crm.leads), opportunities: number(crm.opportunities) };
+    if (role && hasPermission(role, 'crm.read')) result.crm = { customerRecords: number(crm.customer_records), leads: number(crm.leads), opportunities: number(crm.opportunities) };
     if (advancedAnalytics && role && hasPermission(role, 'people.read')) {
       const hr = await this.prisma.$queryRaw<any[]>`
         SELECT count(*) FILTER(WHERE employment_status='active')::int AS active_employees,

@@ -105,6 +105,9 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/workspaces\/[^/]+\/access$/.test(path)) return 'workspace.read';
   if (/\/workspaces\/[^/]+\/business-setup(?:\/complete)?$/.test(path)) return write ? 'workspace.manage' : 'workspace.read';
   if (/\/workspaces\/[^/]+\/members(?:$|\?)|\/memberships\/[^/]+(?:\/(?:branches|role|status))?(?:$|\?)|\/workspaces\/[^/]+\/invitations(?:$|\/)/.test(path)) return 'workspace.manage';
+  if (/\/crm\/choices$/.test(path)) return 'sales.write';
+  if (/\/crm(?:\/|$)/.test(path)) return choose('crm.read', 'crm.write');
+  if (/\/modules\/(?:leads|opportunities|contacts|campaigns|sales-teams|customers)\/records(?:\/|$)/.test(path)) return choose('crm.read','crm.write');
   if (/\/recurring-invoices(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
   if (/\/intelligence\/status$/.test(path)) return 'intelligence.read';
   if (/\/intelligence\/(?:help|explain|extract)$/.test(path)) return 'intelligence.run';

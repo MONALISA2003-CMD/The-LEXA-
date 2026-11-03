@@ -1171,7 +1171,11 @@ export class CoreController {
     const idempotencyKey = request.headers['idempotency-key'];
     const key = Array.isArray(idempotencyKey) ? idempotencyKey[0] : idempotencyKey;
     if (!key || key.length > 200) throw new BadRequestException('Idempotency-Key header is required for completing a sale.');
-    const requestHash = sha256(JSON.stringify({ items, payments, customerName: body.customerName ?? null, customerPhone: body.customerPhone ?? null, promisedPaymentDate: promisedPaymentDateValue ?? null }));
+    const customerRecordId=optionalString(body.customerRecordId,160);
+    const opportunityRecordId=optionalString(body.opportunityRecordId,160);
+    const salespersonEmployeeId=optionalString(body.salespersonEmployeeId,60);
+    const requestHash = sha256(JSON.stringify({ items, payments, customerName: body.customerName ?? null, customerPhone: body.customerPhone ?? null,
+      customerRecordId, opportunityRecordId, salespersonEmployeeId, promisedPaymentDate: promisedPaymentDateValue ?? null }));
     const duplicate = await this.idempotentResponse(workspaceId, key, requestHash);
     if (duplicate) return duplicate;
     try {
@@ -1183,6 +1187,30 @@ export class CoreController {
           throw new ConflictException({ code: 'REQUEST_IN_PROGRESS', message: 'This sale request is already being processed.' });
         }
         await tx.idempotencyRecord.create({ data: { tenantId: workspaceId, key, requestHash, status: 'IN_PROGRESS', expiresAt: new Date(Date.now() + IDEMPOTENCY_SECONDS * 1000) } });
+        const customerRecord=customerRecordId?await tx.moduleRecord.findUnique({
+          where:{tenantId_branchId_moduleId_recordId:{tenantId:workspaceId,branchId,moduleId:'customers',recordId:customerRecordId}}
+        }):null;
+        if(customerRecordId&&!customerRecord)throw new BadRequestException('The selected customer is not available in this business.');
+        const customerDetails=customerRecord?.data&&typeof customerRecord.data==='object'&&!Array.isArray(customerRecord.data)?
+          customerRecord.data as Record<string,unknown>:{};
+        const linkedName=typeof customerDetails.name==='string'?customerDetails.name.trim():'';
+        const linkedPhone=typeof customerDetails.phone==='string'?customerDetails.phone.trim():'';
+        const opportunity=opportunityRecordId?await tx.moduleRecord.findUnique({
+          where:{tenantId_branchId_moduleId_recordId:{tenantId:workspaceId,branchId,moduleId:'opportunities',recordId:opportunityRecordId}}
+        }):null;
+        if(opportunityRecordId&&!opportunity)throw new BadRequestException('The selected deal does not belong to this business.');
+        const dealDetails=opportunity?.data&&typeof opportunity.data==='object'&&!Array.isArray(opportunity.data)?opportunity.data as Record<string,unknown>:{};
+        if(opportunity&&dealDetails.status!=='Won')throw new BadRequestException('Only a won deal may be linked to a completed sale.');
+        if(opportunity&&typeof dealDetails.customerRecordId==='string'&&dealDetails.customerRecordId&&!customerRecordId)throw new BadRequestException('Select the customer linked to this won deal before completing the sale.');
+        if(opportunity&&typeof dealDetails.customerRecordId==='string'&&dealDetails.customerRecordId&&customerRecordId&&dealDetails.customerRecordId!==customerRecordId) {
+          throw new BadRequestException('The selected deal belongs to a different customer.');
+        }
+        const salesperson=salespersonEmployeeId?await tx.hrEmployee.findFirst({
+          where:{tenantId:workspaceId,branchId,id:salespersonEmployeeId,employmentStatus:'active'},select:{id:true}
+        }):null;
+        if(salespersonEmployeeId&&!salesperson)throw new BadRequestException('Select an active salesperson in this business.');
+        const effectiveCustomerName=linkedName||optionalString(body.customerName,150);
+        const effectiveCustomerPhone=linkedPhone||optionalString(body.customerPhone,80);
         const productIds = [...new Set(items.map((item) => item.productId))].sort();
         if (productIds.some((id) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))) throw new BadRequestException('A product ID is invalid.');
         await tx.$queryRaw`SELECT id FROM products WHERE tenant_id = ${workspaceId}::uuid AND id = ANY(${productIds}::uuid[]) ORDER BY id FOR UPDATE`;
@@ -1258,12 +1286,13 @@ export class CoreController {
         }
         const paidMinor = payments.reduce((sum, p) => sum + p.amountMinor, 0);
         if (paidMinor > totalMinor) throw new BadRequestException('Recorded payments cannot exceed the sale total.');
-        if (paidMinor < totalMinor && (!optionalString(body.customerName, 150) || !optionalString(body.customerPhone, 80))) {
+        if (paidMinor < totalMinor && (!effectiveCustomerName || !effectiveCustomerPhone)) {
           throw new BadRequestException('Credit sales require the customer name and phone number.');
         }
         const receiptNumber = `LX-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomBytes(4).toString('hex').toUpperCase()}`;
         const sale = await tx.sale.create({ data: {
-          tenantId: workspaceId, branchId, receiptNumber, customerName: optionalString(body.customerName, 150), customerPhone: optionalString(body.customerPhone, 80),
+          tenantId: workspaceId, branchId, receiptNumber, customerName: effectiveCustomerName, customerPhone: effectiveCustomerPhone,
+          customerRecordId:customerRecordId??(typeof dealDetails.customerRecordId==='string'?dealDetails.customerRecordId:null),opportunityRecordId:opportunityRecordId??null,salespersonEmployeeId:salespersonEmployeeId??null,
           promisedPaymentDate: promisedPaymentDateValue ? new Date(`${promisedPaymentDateValue}T00:00:00.000Z`) : null,
           totalMinor, status: 'completed',
         } });

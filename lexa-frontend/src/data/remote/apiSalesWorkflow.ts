@@ -15,7 +15,7 @@ export const apiSalesWorkflow: SalesWorkflow = {
     return unwrap<SalePaymentReport>(await apiClient.get(`/workspaces/${enc(input.workspaceId)}/branches/${enc(input.branchId)}/commerce/payment-report`, params), 'sales payment report');
   },
   async completeSale(input: CompleteSaleInput) {
-    const body = { items: input.items, payments: input.payments, ...(input.customerName ? { customerName: input.customerName } : {}), ...(input.customerPhone ? { customerPhone: input.customerPhone } : {}), ...(input.promisedPaymentDate ? { promisedPaymentDate: input.promisedPaymentDate } : {}) };
+    const body = { items: input.items, payments: input.payments, ...(input.customerName ? { customerName: input.customerName } : {}), ...(input.customerPhone ? { customerPhone: input.customerPhone } : {}), ...(input.customerRecordId ? { customerRecordId:input.customerRecordId } : {}), ...(input.opportunityRecordId ? { opportunityRecordId:input.opportunityRecordId } : {}), ...(input.salespersonEmployeeId ? { salespersonEmployeeId:input.salespersonEmployeeId } : {}), ...(input.promisedPaymentDate ? { promisedPaymentDate: input.promisedPaymentDate } : {}) };
     const result = unwrap<{ sale: Sale }>(await apiClient.post(`/workspaces/${enc(input.workspaceId)}/branches/${enc(input.branchId)}/sales/complete`, body, crypto.randomUUID()), 'sale completion');
     return { sale: result.sale };
   },

@@ -20,6 +20,47 @@ servers:
 security:
 - sessionCookie: []
 paths:
+  /workspaces/{workspaceId}/branches/{branchId}/crm/summary:
+    get:
+      operationId: getCustomerGrowthSummary
+      description: Role-filtered lead, deal, campaign, follow-up and linked-sales overview using actual tenant-owned records.
+      responses:
+        '200': {description: Customer and growth metrics}
+        '403': {description: Customer information is restricted for this role}
+  /workspaces/{workspaceId}/branches/{branchId}/crm/people:
+    get:
+      operationId: getAssignedSalesPeople
+      description: Active sales-capable employees linked to the same business; no private payroll fields.
+      responses:
+        '200': {description: Sales-capable employees}
+  /workspaces/{workspaceId}/branches/{branchId}/crm/choices:
+    get:
+      operationId: getCheckoutCustomerGrowthChoices
+      description: Verified customers, won deals and active employees available for explicit checkout attribution.
+      responses:
+        '200': {description: Customer, opportunity and salesperson choices}
+        '403': {description: Sales authorization required}
+  /workspaces/{workspaceId}/branches/{branchId}/crm/activities/{moduleId}/{recordId}:
+    get:
+      operationId: getCustomerInteractions
+      description: Read scoped customer conversations and follow-up notes for an existing CRM record.
+      responses:
+        '200': {description: Customer interactions}
+    post:
+      operationId: recordCustomerInteraction
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: Record a call, WhatsApp conversation, meeting, note, email or follow-up; does not send messages.
+      responses:
+        '201': {description: Customer activity recorded}
+        '403': {description: CRM write permission required}
+  /workspaces/{workspaceId}/branches/{branchId}/crm/convert/{moduleId}/{recordId}:
+    post:
+      operationId: convertQualifiedCustomerJourney
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: Convert qualified leads to deals or won deals/contacts to customers without merging duplicates.
+      responses:
+        '201': {description: Created or returned an existing linked customer journey record}
+        '409': {description: Duplicate record or invalid conversion stage}
   /workspaces/{workspaceId}/branches/{branchId}/saas/features/{featureKey}:
     put:
       operationId: lexaSaasFeaturesFeaturekeyPut

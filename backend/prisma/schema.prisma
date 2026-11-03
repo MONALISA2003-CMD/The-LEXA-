@@ -467,6 +467,9 @@ model Sale {
   receiptNumber       String          @map("receipt_number")
   customerName        String?         @map("customer_name")
   customerPhone       String?         @map("customer_phone")
+  customerRecordId    String?         @map("customer_record_id")
+  opportunityRecordId String?         @map("opportunity_record_id")
+  salespersonEmployeeId String?       @map("salesperson_employee_id") @db.Uuid
   promisedPaymentDate DateTime?       @map("promised_payment_date") @db.Date
   totalMinor          Int             @map("total_minor")
   status              String          @default("completed")
@@ -479,6 +482,9 @@ model Sale {
 
   @@unique([tenantId, receiptNumber])
   @@index([tenantId, branchId, createdAt])
+  @@index([tenantId, branchId, customerRecordId])
+  @@index([tenantId, branchId, opportunityRecordId])
+  @@index([tenantId, branchId, salespersonEmployeeId])
   @@map("sales")
 }
 

@@ -276,6 +276,12 @@
     "rationale": "Credit notes"
   },
   {
+    "table": "crm_activities",
+    "disposition": "authoritative",
+    "domain": "crm",
+    "rationale": "Tenant-owned customer interactions and follow-up commitments; retained in encrypted business backups"
+  },
+  {
     "table": "expense_categories",
     "disposition": "authoritative",
     "domain": "finance",

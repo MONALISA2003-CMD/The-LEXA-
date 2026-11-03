@@ -184,6 +184,9 @@ export interface CompleteSaleInput {
   branchId: Id;
   items: SaleItemInput[];
   payments: PaymentInput[];
+  customerRecordId?: string;
+  opportunityRecordId?: string;
+  salespersonEmployeeId?: string;
   customerName?: string;
   customerPhone?: string;
   promisedPaymentDate?: string;

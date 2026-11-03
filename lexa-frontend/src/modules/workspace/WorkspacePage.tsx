@@ -37,7 +37,7 @@ export default function WorkspacePage() {
 
   return <div className="page-stack my-business-page" data-module-accent="navy">
     <section className="my-business-hero" aria-labelledby="my-business-title">
-      <div className="my-business-kicker"><ShieldCheck size={16} /> VERIFIED BUSINESS WORKSPACE</div>
+      <div className="my-business-kicker"><ShieldCheck size={16} /> YOUR BUSINESS WORKSPACE</div>
       <div className="my-business-hero-layout">
         <div className="my-business-hero-row">
           <div className="my-business-avatar"><Building2 size={29} /></div>
@@ -83,10 +83,10 @@ export default function WorkspacePage() {
 
       <section className="section-card my-business-info" aria-labelledby="my-business-team-heading">
         <div className="section-card-heading"><span className="heading-icon green-icon"><Users size={18} /></span>
-          <div><h3 id="my-business-team-heading">Team & permissions</h3><p>Only the CEO can invite employees and assign roles.</p></div></div>
+          <div><h3 id="my-business-team-heading">Team & permissions</h3><p>As CEO, you choose who joins your team and what each person can do.</p></div></div>
         {owner ? <>
           <div className="my-business-team-count"><strong>{activeMembers ?? '—'}</strong>
-            <span>Active business memberships, including the CEO</span></div>
+            <span>People with access to your business, including you</span></div>
           {teamQuery.isError && <p className="text-muted" role="status">Team count is unavailable. Access settings remain protected.</p>}
           <p className="text-muted">Give each employee their own login and the permissions needed for their work. You can suspend access while preserving business history.</p>
           <Link to="/team" className="button button-primary my-business-link"><Users size={16} /> Manage team & roles <ArrowRight size={16} /></Link>
@@ -96,20 +96,20 @@ export default function WorkspacePage() {
 
       <section className="section-card my-business-info" aria-labelledby="my-business-payments-heading">
         <div className="section-card-heading"><span className="heading-icon amber-icon"><CreditCard size={18} /></span>
-          <div><h3 id="my-business-payments-heading">Payment recording</h3><p>Methods used to record independently confirmed payments.</p></div></div>
+          <div><h3 id="my-business-payments-heading">Payment methods</h3><p>Choose how your business records payments from customers.</p></div></div>
         <div className="my-business-methods">{enabledMethods.length ? enabledMethods.map(method => <span key={method.code}>{method.label}</span>) :
           <p className="text-muted">No payment recording methods are configured yet.</p>}</div>
-        <p className="my-business-help-note">LEXA records receipts; it does not verify or transfer funds through a payment gateway.</p>
+        <p className="my-business-help-note">LEXA helps you record payments you’ve received. It doesn’t collect or transfer money for you.</p>
         {owner && <Link to="/business-setup" className="button button-secondary my-business-link"><Settings2 size={16} /> Configure methods <ArrowRight size={16} /></Link>}
       </section>
 
       <section className="section-card my-business-info" aria-labelledby="my-business-security-heading">
         <div className="section-card-heading"><span className="heading-icon blue-icon"><ShieldCheck size={18} /></span>
-          <div><h3 id="my-business-security-heading">Security & governance</h3><p>Protect sensitive business data and ownership.</p></div></div>
-        <div className="my-business-feature"><LockKeyhole size={18} /><span>Membership and permissions are checked by the backend for protected operations.</span></div>
-        <div className="my-business-feature"><Mail size={18} /><span>Employees use individual accounts and time-limited invitation links.</span></div>
-        <div className="my-business-feature"><MapPin size={18} /><span>One business workspace with an internal accounting location for record compatibility.</span></div>
-        {owner && <Link to="/team" className="button button-secondary my-business-link"><ShieldCheck size={16} /> Review employee access <ArrowRight size={16} /></Link>}
+          <div><h3 id="my-business-security-heading">Your business & security</h3><p>Keep your business information safe and control who can access it.</p></div></div>
+        <div className="my-business-feature"><LockKeyhole size={18} /><span>Your business is protected. Only people you authorize can access or change its information.</span></div>
+        <div className="my-business-feature"><Mail size={18} /><span>Each employee has their own secure account. You decide what they can see and do.</span></div>
+        <div className="my-business-feature"><MapPin size={18} /><span>One business, fully under your control. Manage sales, customers, stock, employees and finances together.</span></div>
+        {owner && <Link to="/team" className="button button-secondary my-business-link"><ShieldCheck size={16} /> Manage employee access <ArrowRight size={16} /></Link>}
       </section>
     </div>
   </div>;
