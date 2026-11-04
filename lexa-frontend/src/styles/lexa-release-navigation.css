@@ -1,0 +1,21 @@
+/* LEXA release navigation: actionable groups, searchable modules and compact mobile layout. */
+.lexa-sidebar-filter{display:flex;gap:9px;align-items:center;margin:9px 10px 12px;padding:10px 12px;background:rgba(126,159,202,.13);border:1px solid rgba(122,165,224,.23);border-radius:12px;color:#a4c3e9}
+.lexa-sidebar-filter input{background:transparent;border:0;outline:0;color:inherit;min-width:0;width:100%;font-size:13px}.lexa-sidebar-filter input::placeholder{color:#94a9c6}
+.lexa-nav-subheading{font-size:10px;font-weight:800;letter-spacing:.095em;text-transform:uppercase;color:#8ea5c3;padding:14px 10px 5px;border-top:1px solid rgba(148,163,184,.1)}
+.lexa-nav-module-link{display:flex;gap:3px;align-items:center;min-width:0}
+.lexa-nav-module-link>.nav-link{flex:1;min-width:0}
+.lexa-nav-pin{display:grid;place-items:center;flex:0 0 25px;width:25px;height:28px;margin-right:3px;border:0;background:transparent;color:#91a5c7;border-radius:8px;opacity:0;cursor:pointer}
+.lexa-nav-module-link:hover .lexa-nav-pin,.lexa-nav-pin:focus-visible,.lexa-nav-pin.is-pinned{opacity:1}
+.lexa-nav-pin.is-pinned{color:#f5c84b}
+.lexa-nav-pinned{margin:0 8px 12px;padding:9px 4px;background:rgba(109,148,198,.08);border:1px solid rgba(109,148,198,.14);border-radius:12px}
+.lexa-nav-pinned-heading{display:flex;align-items:center;gap:8px;padding:7px 12px;color:#b5c7e1;font-weight:800;text-transform:uppercase;letter-spacing:.09em;font-size:10px}
+.nav-section[data-module-accent]{border-left:3px solid var(--module-nav-accent);margin:5px 7px 8px;padding-left:4px;border-radius:4px}
+.nav-section[data-module-accent]>.nav-section-title{font-size:11px;font-weight:800;letter-spacing:.07em;margin:0;padding:12px 8px;color:var(--module-nav-accent)}
+.nav-section[data-module-accent] .nav-link-active{box-shadow:inset 3px 0 var(--module-nav-accent)!important}
+@media (max-width:960px){.lexa-nav-pin{opacity:1;min-width:32px;min-height:36px}.lexa-sidebar-filter{margin-top:4px}.nav-section[data-module-accent]>.nav-section-title{min-height:44px}}
+:root:not([data-theme=dark]) .lexa-sidebar-filter{background:#eef3fc;color:#243d63;border-color:#cbd8e8}
+:root:not([data-theme=dark]) .lexa-nav-subheading{color:#526783;border-color:#dce6f3}
+:root:not([data-theme=dark]) .lexa-nav-pin{color:#506b91}
+:root:not([data-theme=dark]) .nav-section[data-module-accent]>.nav-section-title{color:var(--module-accent-strong)}
+:root:not([data-theme=dark]) .lexa-nav-pinned{background:#f5f8fd;border-color:#e1e7f1}
+:root:not([data-theme=dark]) .lexa-nav-pinned-heading{color:#496181}

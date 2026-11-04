@@ -20,6 +20,20 @@ export const apiCollaboration = {
     await apiClient.post(`/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/platform/attachments/${enc(signed.attachmentId)}/complete`,{},crypto.randomUUID());
     return signed.attachmentId;
   },
+  async uploadBusinessDocument(workspaceId: string, branchId: string, file: File, kind: string, reference: string) {
+    if (!['product','receipt','other'].includes(kind) || !reference.trim() || reference.length > 120) throw new Error('Provide a document type and reference.');
+    if (!file.type.startsWith('image/') || file.size > 12 * 1024 * 1024 || file.size === 0) throw new Error('Choose an image smaller than 12 MB.');
+    const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    const sha256 = Array.from(new Uint8Array(digest), (v) => v.toString(16).padStart(2, '0')).join('');
+    const displayName = `${kind}-${reference.trim().replace(/[^A-Za-z0-9 _.-]/g, '_').slice(0, 80)}-${file.name}`.slice(0, 220);
+    const prefix = `/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/platform/attachments`;
+    const signed = await apiClient.post<{attachmentId:string;uploadUrl:string;requiredHeaders:Record<string,string>}>(`${prefix}/upload-url`,
+      { fileName: displayName, mimeType: file.type, sizeBytes: file.size, sha256, recordType:'business_document', recordId:branchId }, crypto.randomUUID());
+    const upload = await fetch(signed.uploadUrl, { method:'PUT', headers:signed.requiredHeaders, body:file });
+    if (!upload.ok) throw new Error(`Private document upload failed (${upload.status}).`);
+    await apiClient.post(`${prefix}/${enc(signed.attachmentId)}/complete`, {}, crypto.randomUUID());
+    return signed.attachmentId;
+  },
   async attachments(workspaceId:string,branchId:string) { return list<{id:string;original_name:string;display_name?:string;mime_type:string;size_bytes:number;status:string;created_at:string}>(await apiClient.get(`/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/platform/attachments`), 'attachment'); },
   async attachmentDownloadUrl(workspaceId:string,branchId:string,attachmentId:string) { return apiClient.get<{downloadUrl:string}>(`/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/platform/attachments/${enc(attachmentId)}/download-url`); },
   async reactToMessage(workspaceId: string, threadId: string, messageId: string, emoji: string) { return apiClient.post<{ reactions: InboxMessage['reactions'] }>(`/workspaces/${enc(workspaceId)}/inbox/threads/${enc(threadId)}/messages/${enc(messageId)}/reactions`, { emoji }, crypto.randomUUID()); },

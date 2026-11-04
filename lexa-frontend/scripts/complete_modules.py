@@ -652,8 +652,20 @@ def main() -> None:
     # a second navigation state, duplicate theme hooks or a hidden-module sidebar.
     if "const visibleNavSections = navSections.map(section" not in app_shell and "const visibleNavSections = uiMode === 'advanced'" not in app_shell:
         app_shell = replace_once(app_shell, mobile_state, mode_state, "legacy simple/advanced menu state")
-    if "{visibleNavSections.map((section) => (" not in app_shell:
-        app_shell = replace_once(app_shell, "{navSections.map((section) => (", "{visibleNavSections.map((section) => (", "visible navigation sections")
+    # The release sidebar renders a permission-filtered/searchable list.  Do not
+    # replace it with the old simple/advanced navigator during source generation.
+    # Keep support for older clean imports that still render navSections directly.
+    modern_nav = (
+        "const visibleNavSections = navSections.map(section" in app_shell
+        and "const filteredNav =" in app_shell
+        and "{filteredNav.map((section) => (" in app_shell
+    )
+    legacy_visible_nav = "{visibleNavSections.map((section) => (" in app_shell
+    if not modern_nav and not legacy_visible_nav:
+        app_shell = replace_once(
+            app_shell, "{navSections.map((section) => (",
+            "{visibleNavSections.map((section) => (", "visible navigation sections",
+        )
 
     old_banner = """<div className="local-status-banner phase-two-shell-banner"><span className="status-dot" /><span><strong>Phase 2 frontend build</strong> — core records retain their existing behaviour; new modules use clearly labelled preview data until connected to your existing backend.</span><button onClick={() => navigate('/modules')}>Module map <Command size={12} /></button></div>"""
     new_banner = ""
@@ -691,8 +703,8 @@ def main() -> None:
         fail("workflow graph import/delegation/core shortcuts/duplicate protection are missing")
     if "function genericRelatedValues(" not in page or "sourceReference };" not in page:
         fail("generic mapping or source reference metadata is missing")
-    if "path: 'business-tools'" not in router or "to: '/business-tools'" not in app_shell or "visibleNavSections.map((section) => (" not in app_shell:
-        fail("Business Tools route or Simple/Advanced navigation changes are missing")
+    if "path: 'business-tools'" not in router or "to: '/business-tools'" not in app_shell or not (modern_nav or legacy_visible_nav or "{visibleNavSections.map((section) => (" in app_shell):
+        fail("Business Tools route or active sidebar navigation is missing")
     if "const [paymentLines, setPaymentLines]" not in checkout or "Add split-payment line" not in checkout or "REQUIRED FOR CREDIT" not in checkout:
         fail("core checkout split-tender / credit requirements are missing")
     if "async receivePayment(input: ReceivePaymentInput)" not in sales_workflow or "Record instalment" not in sale_detail:

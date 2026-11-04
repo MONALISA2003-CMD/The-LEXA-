@@ -1,9 +1,10 @@
+import { apiCollaboration } from '../../data/remote/apiCollaboration';
 import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import {
-  Activity, AlertTriangle, ArrowRight, Barcode, Building2, Camera, Check, Clock3,
+  Activity, AlertTriangle, ArrowRight, Barcode, Building2, Camera, Check,
   DatabaseBackup, Download, FileSpreadsheet, FileText, History, Printer, RefreshCw,
   Search, ShieldCheck, Smartphone, Upload, Wallet, X,
 } from 'lucide-react';
@@ -190,6 +191,11 @@ export default function BusinessToolsPage() {
   const taxProfileQuery = useQuery({ queryKey: ['business-tools-tax-profile', workspace.id], enabled: isApiProvider, queryFn: () => apiBusinessTools.getTaxProfile(workspace.id) });
   const cashUpsQuery = useQuery({ queryKey: ['business-tools-cash-ups', workspace.id, branch.id], enabled: isApiProvider, queryFn: () => apiBusinessTools.listCashUps(workspace.id, branch.id) });
   const complianceNotesQuery = useQuery({ queryKey: ['business-tools-compliance-notes', workspace.id], enabled: isApiProvider, queryFn: () => apiBusinessTools.listComplianceNotes(workspace.id) });
+  const remoteAttachments = useQuery({
+    queryKey: ['business-documents', workspace.id, branch.id],
+    queryFn: () => apiCollaboration.attachments(workspace.id, branch.id),
+    enabled: isApiProvider && tab === 'capture',
+  });
   const snapshot = snapshotQuery.data;
   const refreshSnapshot = async () => {
     await queryClient.invalidateQueries({ queryKey: ['business-tools', workspace.id, branch.id] });
@@ -211,6 +217,7 @@ export default function BusinessToolsPage() {
   }, [workspace.id]);
   useEffect(() => {
     let alive = true;
+    if (isApiProvider) return () => { alive = false; };
     void listAttachments(workspace.id).then((items) => { if (alive) setAttachments(items); }).catch(() => { if (alive) setAttachments([]); });
     return () => { alive = false; };
   }, [workspace.id]);
@@ -459,14 +466,22 @@ export default function BusinessToolsPage() {
     if (pickedFile.size > 12 * 1024 * 1024) { toast.error('Photo is larger than 12 MB', { description: 'Choose a smaller image to reduce upload time and mobile data use.' }); return; }
     setBusy(true);
     try {
-      const attachment: LocalAttachment = {
-        id: safeId('attachment'), workspaceId: workspace.id, branchId: branch.id, reference: attachmentReference.trim(),
-        kind: attachmentKind, name: pickedFile.name || `${attachmentKind}-${Date.now()}.jpg`, mimeType: pickedFile.type || 'image/jpeg',
-        size: pickedFile.size, capturedAt: new Date().toISOString(), blob: pickedFile,
-      };
-      await storeAttachment(attachment); setAttachments(await listAttachments(workspace.id)); setPickedFile(null); setAttachmentReference('');
+      if (isApiProvider) {
+        await apiCollaboration.uploadBusinessDocument(workspace.id, branch.id, pickedFile, attachmentKind, attachmentReference);
+        await queryClient.invalidateQueries({queryKey:['business-documents', workspace.id, branch.id]});
+        toast.success('Document uploaded', {description:'The file will be available after the security scan.'});
+      } else {
+        const attachment: LocalAttachment = {
+          id: safeId('attachment'), workspaceId: workspace.id, branchId: branch.id, reference: attachmentReference.trim(),
+          kind: attachmentKind, name: pickedFile.name || `${attachmentKind}-${Date.now()}.jpg`, mimeType: pickedFile.type || 'image/jpeg',
+          size: pickedFile.size, capturedAt: new Date().toISOString(), blob: pickedFile,
+        };
+        await storeAttachment(attachment);
+        setAttachments(await listAttachments(workspace.id));
+        toast.success('Photo saved on this device');
+      }
+      setPickedFile(null); setAttachmentReference('');
       if (attachmentInputRef.current) attachmentInputRef.current.value = '';
-      toast.success('Photo saved on this device', { description: 'The photo is linked to your reference in local attachment storage; it is not uploaded or synced.' });
     } catch (error) { toast.error('Photo was not saved', { description: error instanceof Error ? error.message : 'The browser could not persist the image.' }); }
     finally { setBusy(false); }
   }
@@ -510,7 +525,6 @@ export default function BusinessToolsPage() {
           <button className="button button-secondary" onClick={() => setTab('data')} style={{ minHeight: 64, justifyContent: 'flex-start' }}><DatabaseBackup size={18} /> Back up or restore data <ArrowRight size={15} /></button>
           <button className="button button-secondary" onClick={() => setTab('capture')} style={{ minHeight: 64, justifyContent: 'flex-start' }}><Barcode size={18} /> Search / scan / add photo <ArrowRight size={15} /></button>
         </div></section>
-        <div className="local-disclaimer"><span className="disclaimer-icon"><AlertTriangle size={16} /></span><div><strong>{isApiProvider ? 'Connected business services' : 'Device-only capability notice'}</strong><span>{isApiProvider ? 'LEXA helps you manage your business information here. Direct payments and official tax submissions are available only when the relevant services have been connected and enabled.' : 'These tools persist only on this browser/device. They do not synchronize across users, process payments, submit EFRIS documents, or enforce server-side permissions.'}</span></div></div>
       </>}
 
       {tab === 'cash-up' && <>
@@ -577,9 +591,10 @@ export default function BusinessToolsPage() {
       </>}
 
       {tab === 'capture' && <>
-        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Search size={18} /></div><div><h3>Universal search · core records</h3><p>Search product names, SKUs, barcodes, brands, receipt numbers and customer names currently saved in this browser.</p></div></div><div style={{ padding: '0 22px 22px', display: 'grid', gap: 14 }}><label className="field-label">Search<input value={searchValue} onChange={(event)=>setSearchValue(event.target.value)} placeholder="Product, SKU, barcode, customer or receipt number" /></label>{searchValue.trim() && <><p style={{ margin: 0, color: '#64748b', fontSize: 12 }}>{matchesCount} result(s) from core products and sales.</p><div style={{ display: 'grid', gap: 8 }}>{matchedProducts.map((product)=> <div key={product.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 12, border: '1px solid #e2e8f0', borderRadius: 9 }}><div><strong>{product.name}</strong><div style={{ color: '#64748b', fontSize: 12 }}>SKU {product.sku} · barcode {product.barcode || '—'} · {product.active ? 'Active' : 'Inactive'}</div></div><button className="button button-secondary" onClick={()=>navigate('/products')}><ArrowRight size={14} /> Open products</button></div>)}{matchedSales.map((sale)=> <div key={sale.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 12, border: '1px solid #e2e8f0', borderRadius: 9 }}><div><strong>{sale.receiptNumber}</strong><div style={{ color: '#64748b', fontSize: 12 }}>{sale.customerName || 'Walk-in customer'}{sale.customerPhone ? ` · ${sale.customerPhone}` : ''} · {new Date(sale.createdAt).toLocaleString()} · {formatMinorAmount(sale.totalMinor,workspace.currency)}</div></div><button className="button button-secondary" onClick={()=>navigate('/sales/'+sale.id)}><ArrowRight size={14} /> Open receipt</button></div>)}</div></>}</div></section>
+        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Search size={18} /></div><div><h3>Business record search</h3><p>Find products and sales recorded in the selected business and branch.</p></div></div><div style={{ padding: '0 22px 22px', display: 'grid', gap: 14 }}><label className="field-label">Search<input value={searchValue} onChange={(event)=>setSearchValue(event.target.value)} placeholder="Product, SKU, barcode, customer or receipt number" /></label>{searchValue.trim() && <><p style={{ margin: 0, color: '#64748b', fontSize: 12 }}>{matchesCount} result(s) from core products and sales.</p><div style={{ display: 'grid', gap: 8 }}>{matchedProducts.map((product)=> <div key={product.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 12, border: '1px solid #e2e8f0', borderRadius: 9 }}><div><strong>{product.name}</strong><div style={{ color: '#64748b', fontSize: 12 }}>SKU {product.sku} · barcode {product.barcode || '—'} · {product.active ? 'Active' : 'Inactive'}</div></div><button className="button button-secondary" onClick={()=>navigate('/products')}><ArrowRight size={14} /> Open products</button></div>)}{matchedSales.map((sale)=> <div key={sale.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 12, border: '1px solid #e2e8f0', borderRadius: 9 }}><div><strong>{sale.receiptNumber}</strong><div style={{ color: '#64748b', fontSize: 12 }}>{sale.customerName || 'Walk-in customer'}{sale.customerPhone ? ` · ${sale.customerPhone}` : ''} · {new Date(sale.createdAt).toLocaleString()} · {formatMinorAmount(sale.totalMinor,workspace.currency)}</div></div><button className="button button-secondary" onClick={()=>navigate('/sales/'+sale.id)}><ArrowRight size={14} /> Open receipt</button></div>)}</div></>}</div></section>
         <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Barcode size={18} /></div><div><h3>Camera barcode scanner</h3><p>Uses the device camera when supported and permission is granted.</p></div></div><div style={{ padding: '0 22px 22px', display: 'grid', gap: 12 }}><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="button button-primary" onClick={()=>void startCamera()} disabled={cameraOpen}><Camera size={15} /> Start live scanner</button><button className="button button-secondary" onClick={stopCamera} disabled={!cameraOpen}><X size={15} /> Stop camera</button></div>{cameraOpen && <video ref={videoRef} muted playsInline style={{ width: '100%', maxHeight: 360, background: '#0f172a', borderRadius: 10, objectFit: 'cover' }} />}{cameraMessage && <div className="warning-note"><span>{cameraMessage}</span></div>}<label className="field-label">Barcode / code captured<input value={scanValue} onChange={(event)=>{setScanValue(event.target.value);setSearchValue(event.target.value);}} placeholder="Scan or type a code" /></label><button className="button button-secondary" onClick={()=>{setSearchValue(scanValue);setTab('capture');}}><Search size={14} /> Search code in products</button><p style={{ margin: 0, color: '#64748b', fontSize: 11 }}>Live detection depends on the browser's BarcodeDetector support. Nothing is sent to an external service.</p></div></section>
-        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Camera size={18} /></div><div><h3>Product / receipt photo capture</h3><p>Save a supporting photo in this browser only. It is not shared with other users or devices.</p></div></div><form onSubmit={(event)=>void saveAttachment(event)} style={{ padding: '0 22px 20px', display: 'grid', gap: 12 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}><label className="field-label">Attachment type<select value={attachmentKind} onChange={(event)=>setAttachmentKind(event.target.value as LocalAttachment['kind'])}><option value="receipt">Receipt / supplier document</option><option value="product">Product photo</option><option value="other">Other evidence</option></select></label><label className="field-label">Reference (SKU / invoice / receipt)<input value={attachmentReference} onChange={(event)=>setAttachmentReference(event.target.value)} required placeholder="For example, SKU-001 or RCPT-100" /></label></div><label className="field-label">Capture photo / choose image<input ref={attachmentInputRef} type="file" accept="image/*" capture="environment" onChange={(event)=>setPickedFile(event.target.files?.[0] ?? null)} /></label>{pickedFile && <p style={{ margin: 0, fontSize: 12, color: '#475569' }}>{pickedFile.name} · {(pickedFile.size / 1024).toFixed(0)} KB</p>}<button className="button button-primary" type="submit" disabled={busy || !pickedFile}><Camera size={15} /> Save photo on this device</button></form><div style={{ padding: '0 22px 22px' }}><strong>Recent photo attachments</strong>{attachments.length===0 ? <p style={{ color:'#64748b',fontSize:12 }}>No photo attachments saved in this browser yet.</p> : <div style={{ display:'grid', gap:8, marginTop:10 }}>{attachments.map((item)=><div key={item.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, padding:10, border:'1px solid #e2e8f0', borderRadius:9 }}><div><strong>{item.reference}</strong><div style={{ color:'#64748b',fontSize:11 }}>{item.kind} · {item.name} · {new Date(item.capturedAt).toLocaleString()}</div></div><button className="button button-secondary" onClick={()=>openAttachment(item)}><Download size={14} /> Download</button></div>)}</div>}</div></section>
+        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Camera size={18} /></div><div><h3>Business document capture</h3><p>Upload a receipt or product image to your business's private documents.</p></div></div><form onSubmit={(event)=>void saveAttachment(event)} style={{ padding: '0 22px 20px', display: 'grid', gap: 12 }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}><label className="field-label">Attachment type<select value={attachmentKind} onChange={(event)=>setAttachmentKind(event.target.value as LocalAttachment['kind'])}><option value="receipt">Receipt / supplier document</option><option value="product">Product photo</option><option value="other">Other evidence</option></select></label><label className="field-label">Reference (SKU / invoice / receipt)<input value={attachmentReference} onChange={(event)=>setAttachmentReference(event.target.value)} required placeholder="For example, SKU-001 or RCPT-100" /></label></div><label className="field-label">Capture photo / choose image<input ref={attachmentInputRef} type="file" accept="image/*" capture="environment" onChange={(event)=>setPickedFile(event.target.files?.[0] ?? null)} /></label>{pickedFile && <p style={{ margin: 0, fontSize: 12, color: '#475569' }}>{pickedFile.name} · {(pickedFile.size / 1024).toFixed(0)} KB</p>}<button className="button button-primary" type="submit" disabled={busy || !pickedFile}><Camera size={15} /> {isApiProvider ? 'Upload document' : 'Save on this device'}</button></form><div style={{ padding: '0 22px 22px' }}><strong>{isApiProvider ? 'Recent business documents' : 'Recent photos'}</strong>
+          {isApiProvider ? (remoteAttachments.isError ? <p role="alert">Could not load documents. <button type="button" className="button button-secondary" onClick={()=>void remoteAttachments.refetch()}>Retry</button></p> : remoteAttachments.isPending ? <p>Loading documents…</p> : <div style={{display:'grid',gap:8,marginTop:10}}>{(remoteAttachments.data??[]).filter(file=>file.status==='clean'||file.status==='pending_scan'||file.status==='pending_upload').map(file=><div key={file.id} style={{display:'flex',justifyContent:'space-between',gap:12,padding:10,border:'1px solid #e2e8f0',borderRadius:9}}><div><strong>{file.display_name??file.original_name}</strong><div style={{fontSize:12,color:'#64748b'}}>{file.status==='clean'?'Available':'Security review pending'}</div></div><button type="button" className="button button-secondary" disabled={file.status!=='clean'} onClick={()=>void apiCollaboration.attachmentDownloadUrl(workspace.id,branch.id,file.id).then(({downloadUrl})=>{const link=document.createElement('a');link.href=downloadUrl;link.rel='noopener noreferrer';link.click();}).catch(()=>toast.error('Document download is unavailable'))}>Download</button></div>)}</div>) : attachments.length===0 ? <p style={{ color:'#64748b',fontSize:12 }}>No photo attachments saved in this browser yet.</p> : <div style={{ display:'grid', gap:8, marginTop:10 }}>{attachments.map((item)=><div key={item.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, padding:10, border:'1px solid #e2e8f0', borderRadius:9 }}><div><strong>{item.reference}</strong><div style={{ color:'#64748b',fontSize:11 }}>{item.kind} · {item.name} · {new Date(item.capturedAt).toLocaleString()}</div></div><button className="button button-secondary" onClick={()=>openAttachment(item)}><Download size={14} /> Download</button></div>)}</div>}</div></section>
       </>}
 
       {tab === 'profile' && <>
@@ -588,7 +603,6 @@ export default function BusinessToolsPage() {
 
       {snapshotQuery.isLoading && <div className="local-disclaimer"><RefreshCw size={15} /> Loading your business records…</div>}
       {snapshotQuery.isError && <div className="warning-note"><AlertTriangle size={16} /> Could not read business records. {snapshotQuery.error instanceof Error ? snapshotQuery.error.message : 'Please refresh and retry.'}</div>}
-      <div className="local-disclaimer"><span className="disclaimer-icon"><Clock3 size={16} /></span><div><strong>Storage and trust boundary</strong><span>{isApiProvider ? 'Business records use the configured API. Photo captures in this panel are stored locally in this browser only; they are not uploaded, backed up or shared. Private shared attachments are not enabled.' : 'Core records and supporting tool entries are stored only in this browser. They are not shared with staff or other devices and do not provide a tamper-resistant audit trail.'}</span></div></div>
     </div>
   );
 }

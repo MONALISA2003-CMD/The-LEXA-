@@ -280,7 +280,19 @@ def wire_accent_metadata() -> None:
     shell = replace_idempotent(shell, '<div className="nav-section" key={section.title}>', '<div className="nav-section" key={section.title} data-module-accent={moduleAccentForGroup(section.title)}>', 'sidebar group accent')
     old_link = "return <NavLink key={item.to} to={item.to} end={'end' in item ? item.end : false} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>"
     new_link = "return <NavLink key={item.to} to={item.to} end={'end' in item ? item.end : false} data-module-accent={moduleAccentForPath(item.to)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>"
-    shell = replace_idempotent(shell, old_link, new_link, 'sidebar item accents')
+    # The redesigned sidebar wraps each module link in a pin-friendly row and
+    # displays a permission-filtered `filteredNav`.  Its links already carry
+    # the accent attribute, but no longer match the legacy `return <NavLink...`
+    # anchor.  Preserve the new JSX instead of breaking the prebuild generator.
+    if old_link in shell or new_link in shell:
+        shell = replace_idempotent(shell, old_link, new_link, 'sidebar item accents')
+    elif not (
+        'className="lexa-nav-module-link"' in shell
+        and '<NavLink to={item.to}' in shell
+        and 'data-module-accent={moduleAccentForPath(item.to)}' in shell
+        and '{filteredNav.map((section) => (' in shell
+    ):
+        fail('sidebar item accents: no supported accented navigation link found')
     old_settings = '<NavLink to="/settings" className={({ isActive }) => `nav-link settings-link ${isActive ? \'nav-link-active\' : \'\'}`}>'
     new_settings = '<NavLink to="/settings" data-module-accent={moduleAccentForPath(\'/settings\')} className={({ isActive }) => `nav-link settings-link ${isActive ? \'nav-link-active\' : \'\'}`}>'
     if old_settings in shell or 'data-module-accent={moduleAccentForPath(\'/settings\')}' in shell:

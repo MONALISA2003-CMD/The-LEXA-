@@ -22,7 +22,7 @@ export interface InvitationPreview { email: string; role: string; businessName: 
 
 /** Cookie-session auth adapter. Credentials and reset tokens are never persisted in browser storage. */
 export const apiAuth = {
-  async requestPublicSignup(input: { email: string; displayName: string; businessName: string; password: string }): Promise<void> {
+  async requestPublicSignup(input: { email: string; displayName: string; businessName: string; password: string; turnstileToken?: string }): Promise<void> {
     await apiClient.post('/auth/signup', { ...input, email: input.email.trim().toLowerCase(), displayName: input.displayName.trim(), businessName: input.businessName.trim() });
   },
   async verifyPublicSignup(token: string): Promise<void> {

@@ -3,7 +3,7 @@ import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-route
 import {
   Activity, ArrowDownUp, Banknote, BookOpen, Building2, BarChart3, ChevronDown, Target, Boxes, Landmark,
   CircleHelp, ClipboardList, CreditCard, FileText, LayoutDashboard, Menu,
-  Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X, Moon, Sun, Sparkles,
+  Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X, Moon, Sun, Sparkles, Pin, Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
@@ -42,6 +42,7 @@ const navSections = [
     { to: '/intelligence', label: 'LEXA Assistant', icon: Sparkles },
   ] },
   { title: 'CUSTOMERS & GROWTH', items: [
+    { to: '/modules/customers', label: 'Customers', icon: Users },
     { to: '/modules/leads', label: 'Leads & prospects', icon: Users },
     { to: '/modules/opportunities', label: 'Opportunities', icon: Target },
     { to: '/modules/contacts', label: 'Contacts & addresses', icon: Users },
@@ -56,8 +57,7 @@ const navSections = [
     { to: '/modules/sales-invoices', label: 'Sales invoices', icon: ReceiptText },
     { to: '/modules/quotations', label: 'Quotations', icon: FileText },
     { to: '/modules/price-lists', label: 'Price lists & pricing', icon: Tag },
-    { to: '/modules/customers', label: 'Customers', icon: Users },
-  ] },
+      ] },
   { title: 'INVENTORY', items: [
     { to: '/products', label: 'Products', icon: Package },
     { to: '/inventory', label: 'Stock & movements', icon: ArrowDownUp },
@@ -152,7 +152,15 @@ export default function AppShell() {
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [resolvedBranchWorkspaceId, setResolvedBranchWorkspaceId] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<string[]>(['WORKSPACE','SELLING','INVENTORY']);
+  const [expandedSections, setExpandedSections] = useState<string[]>(['WORKSPACE']);
+  const [moduleSearch, setModuleSearch] = useState('');
+  const [pinnedPaths, setPinnedPaths] = useState<string[]>([]);
+  useEffect(() => {
+    const active = navSections.find(section => section.items.some(item => location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to + '/'))));
+    if (active) setExpandedSections(current => current.includes(active.title) ? current : [...current, active.title]);
+    setMobileNavOpen(false);
+  }, [location.pathname]);
+
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try { return readPreference('lexa.ui.theme') === 'dark' ? 'dark' : 'light'; }
     catch { return 'light'; }
@@ -198,6 +206,15 @@ export default function AppShell() {
     if(item.to==='/modules/cash-sessions')return allowed.has('cash.manage') || allowed.has('finance.read');
     return allowed.has(sectionPermission[section.title]??'workspace.read');
   })})).filter(section=>section.items.length>0);
+  // Navigation preferences never contain record data and reset when switching businesses.
+  useEffect(() => { setPinnedPaths([]); setModuleSearch(''); }, [workspace?.id]);
+  const filteredNav = moduleSearch.trim()
+    ? visibleNavSections.map(section => ({...section,items:section.items.filter(item =>
+        `${section.title} ${item.label}`.toLowerCase().includes(moduleSearch.trim().toLowerCase()))}))
+        .filter(section => section.items.length > 0)
+    : visibleNavSections;
+  const favorites = visibleNavSections.flatMap(section => section.items).filter(item => pinnedPaths.includes(item.to));
+  const togglePin = (path: string) => setPinnedPaths(current => current.includes(path) ? current.filter(value => value !== path) : [...current, path]);
   const toggleNavSection = (title:string) => setExpandedSections(current=>current.includes(title)?current.filter(item=>item!==title):[...current,title]);
   const refreshWorkspaces = useCallback(async () => {
     try {
@@ -352,15 +369,19 @@ export default function AppShell() {
             <div className="workspace-avatar"><Store size={18} /></div>
             <div className="workspace-mini-copy"><strong>{workspace.businessName}</strong><span>{isOwner ? 'CEO / Business owner' : accessQuery.data?.role?.replaceAll('_', ' ') || 'Team member'}</span></div>
           </div>
-          <nav className="nav-groups"><p className="lexa-nav-hint">Explore your business tools by category</p>
-            {visibleNavSections.map((section) => (
+          <nav className="nav-groups">
+            <label className="lexa-sidebar-filter"><Search size={15} aria-hidden="true"/><span className="sr-only">Find a module</span><input value={moduleSearch} onChange={event => setModuleSearch(event.target.value)} placeholder="Find a module" aria-label="Find a module" autoComplete="off"/></label>
+            {favorites.length > 0 && !moduleSearch && <div className="lexa-nav-pinned" aria-label="Pinned modules"><div className="lexa-nav-pinned-heading"><Pin size={14}/> Pinned</div>{favorites.map(item => { const Icon = item.icon;return <NavLink key={item.to} to={item.to} data-module-accent={moduleAccentForPath(item.to)} onClick={() => setMobileNavOpen(false)} className={({isActive})=>`nav-link ${isActive?'nav-link-active':''}`}><Icon size={17}/><span>{item.label}</span></NavLink>; })}</div>}
+            <p className="lexa-nav-hint">Business modules</p>
+            {filteredNav.map((section) => (
               <div className="nav-section" key={section.title} data-module-accent={moduleAccentForGroup(section.title)}>
-                <button type="button" className="nav-section-title lexa-nav-group-toggle" aria-expanded={expandedSections.includes(section.title)} onClick={() => toggleNavSection(section.title)}><span>{section.title}</span><ChevronDown size={14} className={expandedSections.includes(section.title) ? 'lexa-nav-arrow-open' : ''} /></button>
-                {expandedSections.includes(section.title) && section.items.map((item) => {
+                <button type="button" className="nav-section-title lexa-nav-group-toggle" aria-expanded={Boolean(moduleSearch) || expandedSections.includes(section.title)} onClick={() => toggleNavSection(section.title)}><span>{section.title}</span><ChevronDown size={14} className={moduleSearch || expandedSections.includes(section.title) ? 'lexa-nav-arrow-open' : ''} /></button>
+                {(moduleSearch || expandedSections.includes(section.title)) && section.items.map((item) => {
                   const Icon = item.icon;
-                  return <NavLink key={item.to} to={item.to} end={'end' in item ? item.end : false} data-module-accent={moduleAccentForPath(item.to)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
+                  const financeSubsection = section.title === 'FINANCE' ? ({'/modules/finance-overview':'OVERVIEW','/modules/expenses':'TRANSACTIONS','/modules/accounting':'ACCOUNTING & LEDGER','/modules/bank-reconciliation':'BANKING & PLANNING','/modules/tax-codes':'TAX & COMPLIANCE'} as Record<string,string>)[item.to] : undefined;
+                  return <div className="lexa-nav-module-row" key={item.to}>{financeSubsection && <div className="lexa-nav-subheading">{financeSubsection}</div>}<div className="lexa-nav-module-link"><NavLink to={item.to} end={'end' in item ? item.end : false} data-module-accent={moduleAccentForPath(item.to)} onClick={() => setMobileNavOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
                     <Icon size={18} strokeWidth={1.8} /><span>{item.label}</span>
-                  </NavLink>;
+                  </NavLink><button type="button" className={`lexa-nav-pin ${pinnedPaths.includes(item.to)?'is-pinned':''}`} onClick={() => togglePin(item.to)} aria-label={`${pinnedPaths.includes(item.to)?'Unpin':'Pin'} ${item.label}`} title={`${pinnedPaths.includes(item.to)?'Unpin':'Pin'} ${item.label}`}><Pin size={14} fill={pinnedPaths.includes(item.to)?'currentColor':'none'}/></button></div></div>;
                 })}
               </div>
             ))}

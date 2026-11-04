@@ -7,6 +7,7 @@ import { createHash, randomBytes, randomUUID, scrypt as scryptCallback } from 'n
 import { promisify } from 'node:util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CsrfGuard } from '../core/csrf.guard';
+import { verifySignupChallenge } from './turnstile-verification';
 import { sendTransactionalEmail } from '../notifications/email-delivery';
 import { sendLexaWelcomeEmail } from '../notifications/welcome-email';
 
@@ -76,6 +77,18 @@ export class PublicRegistrationController {
   @HttpCode(202)
   async signup(@Body() raw: unknown): Promise<{ accepted: true }> {
     const data = object(raw);
+    try {
+      await verifySignupChallenge(data.turnstileToken, {
+        secret:process.env.TURNSTILE_SECRET_KEY,
+        enforced:process.env.TURNSTILE_ENFORCE_SIGNUP==='true',
+        allowedHosts:['lexaaamaal.com','www.lexaaamaal.com','lexareview.vercel.app'],
+      });
+    } catch (error) {
+      if ((error as Error).message==='TURNSTILE_VERIFICATION_UNAVAILABLE' || (error as Error).message==='TURNSTILE_CONFIGURATION_MISSING') {
+        throw new ServiceUnavailableException('Human verification is unavailable. Please try again later.');
+      }
+      throw new BadRequestException('Complete the security check before continuing.');
+    }
     const address = email(data.email);
     const displayName = field(data.displayName, 'Full name', 100);
     const businessName = field(data.businessName, 'Business name', 100);

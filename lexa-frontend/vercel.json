@@ -14,11 +14,40 @@
       "destination": "https://lexa-backend-api-live.onrender.com/api/v1/:path*"
     },
     {
+      "source": "/lexa",
+      "destination": "/lexa.html"
+    },
+    {
+      "source": "/features",
+      "destination": "/features.html"
+    },
+    {
+      "source": "/security",
+      "destination": "/security.html"
+    },
+    {
+      "source": "/help",
+      "destination": "/help.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
+    {
+      "source": "/api/v1/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
     {
       "source": "/index.html",
       "headers": [

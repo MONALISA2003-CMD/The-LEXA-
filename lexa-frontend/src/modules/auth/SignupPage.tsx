@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Building2, CheckCircle2, LockKeyhole, Mail, Shie
 import { apiAuth } from '../../data/remote/apiAuth';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import { PasswordField, PasswordLengthGuide } from './AuthFields';
+import TurnstileWidget, { publicTurnstileSiteKey } from './TurnstileWidget';
 
 export default function SignupPage() {
   const [displayName, setDisplayName] = useState('');
@@ -12,6 +13,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -19,9 +21,10 @@ export default function SignupPage() {
     setError('');
     if (Array.from(password).length < 15) { setError('Use a unique password or passphrase with at least 15 characters.'); return; }
     if (password !== confirmPassword) { setError('The passwords do not match.'); return; }
+    if (publicTurnstileSiteKey && !turnstileToken) { setError('Complete the security check before continuing.'); return; }
     setSaving(true);
     try {
-      await apiAuth.requestPublicSignup({ email, displayName, businessName, password });
+      await apiAuth.requestPublicSignup({ email, displayName, businessName, password, ...(turnstileToken ? {turnstileToken} : {}) });
       setSent(true);
       setPassword(''); setConfirmPassword('');
     } catch (cause) { setError(businessErrorMessage(cause)); }
@@ -66,8 +69,9 @@ export default function SignupPage() {
               <PasswordField id="signup-password" label="Create password" value={password} onChange={setPassword} autoComplete="new-password" placeholder="At least 15 characters" />
               <PasswordLengthGuide value={password} />
               <PasswordField id="signup-confirm" label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" placeholder="Repeat your password" />
+              <TurnstileWidget onToken={setTurnstileToken} />
               {error && <div className="auth-error" role="alert">{error}</div>}
-              <button className="auth-submit" type="submit" disabled={saving}>{saving?'Sending verification link…':'Create my account'} <ArrowRight size={19}/></button>
+              <button className="auth-submit" type="submit" disabled={saving || (Boolean(publicTurnstileSiteKey) && !turnstileToken)}>{saving?'Sending verification link…':'Create my account'} <ArrowRight size={19}/></button>
             </form>
             <div className="auth-premium-switch">Already part of LEXA? <Link to="/sign-in">Sign in</Link></div>
           </>}

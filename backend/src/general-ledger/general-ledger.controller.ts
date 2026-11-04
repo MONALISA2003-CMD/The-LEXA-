@@ -120,8 +120,11 @@ export class GeneralLedgerController {
     return rowsToJournal(journal[0], lines);
   }
 
-  private async ensureLedgerDefaults(workspaceId: string) {
-    await this.prisma.$executeRaw`INSERT INTO ledger_accounts (id,tenant_id,account_code,account_name,account_type,normal_balance,system_key)
+  private async initializeLedgerDefaults(workspaceId: string) {
+    // Serialize a tenant's setup to prevent concurrent overlapping period creation.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${workspaceId}::text, 41294))`;
+    await tx.$executeRaw`INSERT INTO ledger_accounts (id,tenant_id,account_code,account_name,account_type,normal_balance,system_key)
       SELECT gen_random_uuid(),${workspaceId}::uuid,a.code,a.name,a.kind,a.normal,a.system_key FROM (VALUES
         ('1000','Cash on hand','asset','debit','cash'),('1010','Bank accounts','asset','debit','bank'),
         ('1020','Mobile money clearing','asset','debit','mobile_money'),('1030','Other payment clearing','asset','debit','other_clearing'),
@@ -134,18 +137,35 @@ export class GeneralLedgerController {
         ('5000','Cost of goods sold','expense','debit','cost_of_goods_sold'),('5100','Purchase price variance','expense','debit','purchase_price_variance'),
         ('5200','Inventory shrinkage and write-offs','expense','debit','inventory_shrinkage'),('6000','Operating expenses','expense','debit','operating_expenses')
       ) AS a(code,name,kind,normal,system_key) ON CONFLICT (tenant_id,account_code) DO NOTHING`;
-    await this.prisma.$executeRaw`INSERT INTO accounting_periods (id,tenant_id,period_key,starts_on,ends_on,status,closed_at)
+    await tx.$executeRaw`INSERT INTO accounting_periods (id,tenant_id,period_key,starts_on,ends_on,status,closed_at)
       SELECT gen_random_uuid(),${workspaceId}::uuid,to_char(m.start_date,'YYYY-MM'),m.start_date::date,(m.start_date+interval '1 month - 1 day')::date,
         CASE WHEN m.start_date < date_trunc('month',CURRENT_DATE)::date THEN 'closed' ELSE 'open' END,
         CASE WHEN m.start_date < date_trunc('month',CURRENT_DATE)::date THEN CURRENT_TIMESTAMP ELSE NULL END
       FROM generate_series((date_trunc('month',CURRENT_DATE)-interval '60 months')::date,(date_trunc('month',CURRENT_DATE)+interval '24 months')::date,interval '1 month') AS m(start_date)
+      WHERE NOT EXISTS (
+        SELECT 1 FROM accounting_periods existing
+        WHERE existing.tenant_id=${workspaceId}::uuid
+          AND daterange(existing.starts_on,existing.ends_on,'[]') &&
+              daterange(m.start_date::date,(m.start_date+interval '1 month - 1 day')::date,'[]')
+      )
       ON CONFLICT (tenant_id,period_key) DO NOTHING`;
+    });
+  }
+
+  /** Setup is an explicit, administrator-only write; normal ledger reads never create periods. */
+  @Post('initialize')
+  @UseGuards(CsrfGuard)
+  async initialize(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Req() req: FastifyRequest) {
+    const actor = await this.access(req, workspaceId, branchId);
+    if (!isWorkspaceAdministrator(actor.role)) throw new ForbiddenException('Only the business owner or administrator can initialize accounting.');
+    await this.initializeLedgerDefaults(workspaceId);
+    await this.prisma.auditEvent.create({data:{tenantId:workspaceId,actorUserId:actor.userId,action:'ledger.defaults.initialized',resourceType:'ledger_account',resourceId:workspaceId}});
+    return { initialized: true };
   }
 
   @Get('accounts')
   async accounts(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Req() req: FastifyRequest) {
     await this.access(req, workspaceId, branchId);
-    await this.ensureLedgerDefaults(workspaceId);
     return this.prisma.$queryRaw<any[]>`
       SELECT id,account_code AS "accountCode",account_name AS "accountName",account_type AS "accountType",
              normal_balance AS "normalBalance",system_key AS "systemKey",is_active AS "isActive"
@@ -179,7 +199,6 @@ export class GeneralLedgerController {
   @Get('periods')
   async periods(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Req() req: FastifyRequest) {
     await this.access(req, workspaceId, branchId);
-    await this.ensureLedgerDefaults(workspaceId);
     return this.prisma.$queryRaw<any[]>`
       SELECT id,period_key AS "periodKey",starts_on AS "startsOn",ends_on AS "endsOn",status,closed_at AS "closedAt"
       FROM accounting_periods WHERE tenant_id=${workspaceId}::uuid ORDER BY starts_on DESC LIMIT 36`;

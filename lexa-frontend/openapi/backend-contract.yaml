@@ -1120,6 +1120,16 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '403': {$ref: '#/components/responses/Forbidden'}
       summary: Replace a member branch allow-list or grant all branches
+  /workspaces/{workspaceId}/branches/{branchId}/ledger/initialize:
+    parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
+    post:
+      operationId: initializeLedgerDefaults
+      summary: Initialize tenant ledger accounts and missing non-overlapping accounting periods
+      description: Explicit owner/administrator action. Idempotent and serialized per tenant; GET requests never initialize accounting.
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      responses:
+        '201': {description: Financial accounts and periods initialized}
+        '403': {$ref: '#/components/responses/Forbidden'}
   /workspaces/{workspaceId}/branches/{branchId}/ledger/accounts:
     parameters: [$ref: '#/components/parameters/workspaceId', $ref: '#/components/parameters/branchId']
     get:

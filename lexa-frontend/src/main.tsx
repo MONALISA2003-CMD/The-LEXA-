@@ -12,6 +12,7 @@ import './styles/auth.css'; // LEXA_AUTH_SECURITY_UI_PATCH:auth-css-v1
 import './styles/module-graph.css';
 import './styles/business-setup.css';
 import './styles/lexa-executive-premium.css';
+import './styles/lexa-release-navigation.css';
 
 // A device can retain an old HTML shell after an update while Vite chunk names change.
 // Refresh once on a missing chunk, then let the route error boundary show a retry

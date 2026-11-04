@@ -40,6 +40,7 @@ function list<T>(value: unknown, label: string): T[] { if (!Array.isArray(value)
 function record<T>(value: unknown, label: string): T { if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`We could not load the ${label} information. Please try again.`); return value as T; }
 
 export const apiGeneralLedger = {
+  async initialize(scope: LedgerScope) { return record<{ initialized: boolean }>(await apiClient.post(`${base(scope)}/initialize`, {}), 'ledger initialization'); },
   async accounts(scope: LedgerScope) { return list<LedgerAccount>(await apiClient.get(`${base(scope)}/accounts`), 'ledger account'); },
   async createAccount(scope: LedgerScope, input: { accountCode: string; accountName: string; accountType: string; normalBalance: 'debit' | 'credit' }) { return record<LedgerAccount>(await apiClient.post(`${base(scope)}/accounts`, input), 'created ledger account'); },
   async periods(scope: LedgerScope) { return list<{ id: string; periodKey: string; startsOn: string; endsOn: string; status: string }>(await apiClient.get(`${base(scope)}/periods`), 'accounting period'); },

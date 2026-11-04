@@ -37,9 +37,13 @@ export class PlatformController {
   const recordType=typeof body.recordType==='string'?body.recordType:null,recordId=typeof body.recordId==='string'?body.recordId:null;
   if(Boolean(recordType)!==Boolean(recordId))throw new BadRequestException('A complete record owner reference is required.');
   if(body.conversationId){if(!hasPermission(a.role,'collaboration.write'))throw new ForbiddenException('Inbox attachment permission is required.');const thread=await this.prisma.moduleRecord.findFirst({where:{tenantId:w,branchId:b,moduleId:'inbox-threads',recordId:String(body.conversationId)}});const td=thread?.data&&typeof thread.data==='object'&&!Array.isArray(thread.data)?thread.data as Record<string,unknown>:{};if(!thread||!Array.isArray(td.participants)||!td.participants.includes(a.userId))throw new NotFoundException('Conversation not found.');}
+  if(recordType==='business_document'){
+    if(recordId!==b)throw new BadRequestException('Business documents must belong to the active branch.');
+    if(!hasPermission(a.role,'collaboration.write'))throw new ForbiddenException('Document upload permission is required.');
+  }
   if(recordType==='sale'){if(!hasPermission(a.role,'sales.write'))throw new ForbiddenException('Sale attachment permission is required.');const owner=await this.prisma.sale.findFirst({where:{id:recordId!,tenantId:w,branchId:b},select:{id:true}});if(!owner)throw new NotFoundException('Sale not found.');}
   if(recordType==='delivery'){if(!hasPermission(a.role,'fulfilment.write'))throw new ForbiddenException('Delivery attachment permission is required.');const owner=await this.prisma.$queryRaw<any[]>`SELECT id FROM commerce_deliveries WHERE id=${recordId!}::uuid AND tenant_id=${w}::uuid AND branch_id=${b}::uuid`;if(!owner.length)throw new NotFoundException('Delivery not found.');}
-  if(recordType&&!['sale','delivery','tax_reference'].includes(recordType))throw new BadRequestException('Unsupported attachment owner type.');
+  if(recordType&&!['sale','delivery','tax_reference','business_document'].includes(recordType))throw new BadRequestException('Unsupported attachment owner type.');
   const id=randomUUID(),key=`quarantine/${randomUUID()}`;const expiresAt=new Date(Date.now()+10*60*1000);const {client,bucket}=this.storage();
   const putUrl=await getSignedUrl(client,new PutObjectCommand({Bucket:bucket,Key:key,ContentType:type,Metadata:{'lexa-sha256':hash},IfNoneMatch:'*'}),{expiresIn:600});
   await this.prisma.$executeRaw`INSERT INTO platform_attachments(id,tenant_id,branch_id,uploaded_by_user_id,object_key,original_name,display_name,mime_type,declared_mime_type,size_bytes,sha256,status,record_type,record_id,conversation_id,upload_expires_at,visibility) VALUES(${id}::uuid,${w}::uuid,${b}::uuid,${a.userId}::uuid,${key},${name},${safeFilename(name)},${type},${type},${size},${hash},'pending_upload',${recordType},${recordId},${body.conversationId?String(body.conversationId):null}::uuid,${expiresAt},'owner_and_record_participants')`;
@@ -57,6 +61,7 @@ export class PlatformController {
  }
  private async canReadAttachment(f:any,actor:{userId:string;role:string},w:string,b:string){
   if(f.conversation_id){if(!hasPermission(actor.role,'collaboration.read'))return false;const thread=await this.prisma.moduleRecord.findFirst({where:{tenantId:w,branchId:b,moduleId:'inbox-threads',recordId:f.conversation_id}});const td=thread?.data&&typeof thread.data==='object'&&!Array.isArray(thread.data)?thread.data as Record<string,unknown>:{};return Array.isArray(td.participants)&&td.participants.includes(actor.userId);}
+  if(f.record_type==='business_document')return f.record_id===b && hasPermission(actor.role,'collaboration.read');
   if(f.record_type==='sale'){if(!hasPermission(actor.role,'sales.read'))return false;return Boolean(await this.prisma.sale.findFirst({where:{id:f.record_id,tenantId:w,branchId:b},select:{id:true}}));}
   if(f.record_type==='delivery'){if(!hasPermission(actor.role,'fulfilment.read'))return false;const q=await this.prisma.$queryRaw<any[]>`SELECT id FROM commerce_deliveries WHERE id=${f.record_id}::uuid AND tenant_id=${w}::uuid AND branch_id=${b}::uuid`;return q.length>0;}
   if(f.record_type==='tax_reference'){if(!hasPermission(actor.role,'finance.read'))return false;const q=await this.prisma.$queryRaw<any[]>`SELECT id FROM tax_reference_documents WHERE id=${f.record_id}::uuid AND tenant_id=${w}::uuid`;return q.length>0;}
