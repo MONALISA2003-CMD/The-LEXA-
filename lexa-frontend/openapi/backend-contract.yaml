@@ -3577,6 +3577,25 @@ paths:
         '404': {description: Resource not found}
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/lots/available:
+    get:
+      operationId: listAvailableInventoryLots
+      summary: List checkout-eligible inventory lots for one product
+      description: >-
+        Returns only tenant- and branch-scoped, unexpired, available lots for the
+        requested product and optional variant. This endpoint is distinct from
+        the complete inventory-lot register at /inventory/lots.
+      parameters:
+        - {name: workspaceId, in: path, required: true, schema: {type: string}}
+        - {name: branchId, in: path, required: true, schema: {type: string}}
+        - {name: productId, in: query, required: true, schema: {type: string, format: uuid}}
+        - {name: variantId, in: query, required: false, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Checkout-eligible lots with available quantities}
+        '400': {description: Missing or invalid product identifier}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Workspace or branch not found}
   /workspaces/{workspaceId}/branches/{branchId}/inventory/lots/{lotId}/serials:
     post:
       operationId: registerInventoryLotSerial

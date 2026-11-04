@@ -8,6 +8,9 @@ services:
     region: frankfurt
     branch: main
     autoDeployTrigger: commit
+    # HTTP readiness probes fail new deploys before they receive production traffic.
+    # HealthController.ready verifies the database, not merely an open TCP port.
+    healthCheckPath: /health/ready
     numInstances: 1
     dockerfilePath: backend/Dockerfile
     dockerContext: .

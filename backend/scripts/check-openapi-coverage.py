@@ -38,6 +38,7 @@ METHOD_RE = re.compile(r'^    (get|post|put|patch|delete):\s*$')
 
 def controller_routes():
     routes = {}
+    registrations = {}
     for filename in CONTROLLERS:
         source = filename.read_text(encoding='utf-8')
         controller = re.search(r"@Controller\((?:'([^']*)'|\"([^\"]*)\")?\)", source)
@@ -47,7 +48,18 @@ def controller_routes():
             path = match.group(2) or match.group(3) or ''
             combined = '/'.join(part.strip('/') for part in (prefix, path) if part.strip('/'))
             full = '/' + re.sub(r':([A-Za-z][A-Za-z0-9]*)', r'{\1}', combined)
+            # Compare registration patterns, not param labels: Fastify treats
+            # :workspaceId and :tenantId as the same path segment.
+            signature = re.sub(r'\{[^/}]+\}', '{param}', full)
+            line = source.count('\n', 0, match.start()) + 1
+            registrations.setdefault((method, signature), []).append(f'{filename.relative_to(ROOT)}:{line}')
             routes.setdefault(full, set()).add(method)
+    collisions = [(method, path, sources) for (method, path), sources in registrations.items() if len(sources) > 1]
+    if collisions:
+        print('Controller routes collide and would crash Fastify during startup:')
+        for method, path, sources in collisions:
+            print(f' - {method.upper()} {path}: {", ".join(sources)}')
+        sys.exit(1)
     return routes
 
 def contract_routes():

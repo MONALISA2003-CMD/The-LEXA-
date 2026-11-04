@@ -128,7 +128,7 @@ export class CatalogInventoryController {
    const rows=await this.prisma.stockMovement.groupBy({by:['productId','variantId'],where:{tenantId:w,branchId:branch},_sum:{quantityDelta:true}});
    return rows.map(row=>({productId:row.productId,variantId:row.variantId,quantity:Number(row._sum.quantityDelta??0)}));
  }
- @Get('branches/:branchId/inventory/lots') async availableLots(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Req() req:FastifyRequest){
+ @Get('branches/:branchId/inventory/lots/available') async availableLots(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Req() req:FastifyRequest){
    await this.actor(req,w,branch);
    const url=new URL(req.url,'https://lexa.local');
    const productId=uuid(url.searchParams.get('productId'),'Product');
