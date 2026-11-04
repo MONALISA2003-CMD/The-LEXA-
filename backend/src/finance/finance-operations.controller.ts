@@ -56,9 +56,17 @@ export class FinanceOperationsController {
    await this.audit(tx,w,actor,'finance.cash_session.closed','cash_session',sid,{cashUpId:cashUp.id,expectedMinor:String(expected),countedMinor:String(counted),varianceMinor:String(variance)}); return {cashSession:updated,cashUp};
   },{isolationLevel:'Serializable'});
  }
+ @Get('cash-ups') async cashUps(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
+  await this.actor(req,w,b);
+  const rows=await this.prisma.cashUp.findMany({where:{tenantId:w,branchId:b},orderBy:{createdAt:'desc'},take:200});
+  return rows.map(row=>({...row,countedMinor:String(row.countedMinor),expectedMinor:String(row.expectedMinor),varianceMinor:String(row.varianceMinor)}));
+ }
  @Post('cash-ups/:cashUpId/post') @UseGuards(CsrfGuard) async postCashUp(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('cashUpId') id:string,@Req() req:FastifyRequest) {
-  const actor=await this.actor(req,w,b); return this.prisma.$transaction(async tx=>{const rows=await tx.$queryRaw<Array<{id:string;counted_minor:bigint;expected_minor:bigint;status:string}>>`SELECT id,counted_minor,expected_minor,status FROM cash_ups WHERE id=${id}::uuid AND tenant_id=${w}::uuid AND branch_id=${b}::uuid FOR UPDATE`;
+  const actor=await this.actor(req,w,b); return this.prisma.$transaction(async tx=>{const rows=await tx.$queryRaw<Array<{id:string;cash_session_id:string;counted_minor:bigint;expected_minor:bigint;status:string}>>`SELECT id,cash_session_id,counted_minor,expected_minor,status FROM cash_ups WHERE id=${id}::uuid AND tenant_id=${w}::uuid AND branch_id=${b}::uuid FOR UPDATE`;
    const row=rows[0]; if(!row) throw new NotFoundException('Cash-up not found.'); if(row.status==='posted') return {posted:true}; if(row.status!=='pending') throw new ConflictException('Cash-up is not pending approval.');
+   const originatingSession=await tx.cashSession.findFirst({where:{id:row.cash_session_id,tenantId:w,branchId:b},select:{closedByUserId:true}});
+   if(!originatingSession) throw new NotFoundException('Cash-up source session was not found.');
+   if(originatingSession.closedByUserId===actor) throw new ConflictException('A different authorized finance user must approve this cash-up.');
    const counted=Number(row.counted_minor),expected=Number(row.expected_minor),variance=counted-expected,lines:any[]=[]; if(counted>0)lines.push({accountKey:'cash',debitMinor:counted,description:'Counted cash at close'}); if(expected>0)lines.push({accountKey:'cash',creditMinor:expected,description:'Expected cash at close'}); if(variance>0)lines.push({accountKey:'other_income',creditMinor:variance,description:'Cash overage'}); if(variance<0)lines.push({accountKey:'operating_expenses',debitMinor:-variance,description:'Cash shortage'});
    const journalId=lines.length?await postLedgerJournal(tx,{tenantId:w,branchId:b,actorUserId:actor,sourceType:'cash_up_posted',sourceId:id,memo:`Cash-up ${id}`,lines}):null; await tx.cashUp.update({where:{id},data:{status:'posted',postedJournalId:journalId,approvedByUserId:actor,approvedAt:new Date()}}); await this.audit(tx,w,actor,'finance.cash_up.posted','cash_up',id,{journalId}); return {posted:true,journalId};
   },{isolationLevel:'Serializable'});

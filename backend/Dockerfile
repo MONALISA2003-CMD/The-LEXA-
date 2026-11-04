@@ -14,7 +14,7 @@ RUN npm run build
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates python3 && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/node_modules ./node_modules
@@ -22,6 +22,7 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build /app/scripts ./scripts
+COPY --from=build /app/analytics ./analytics
 EXPOSE 10000
 # Keep the Render Docker Command override empty. One direct-connection
 # migration coordinator serializes migrations, even when an idle PgBouncer

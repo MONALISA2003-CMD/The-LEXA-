@@ -7,7 +7,7 @@ import type { FastifyRequest } from 'fastify';
 const WORKFLOW_OWNED_MODULES = new Set([
   'sales-invoices', 'purchase-invoices', 'payments', 'expenses', 'money-accounts',
   'cash-sessions', 'cash-ups', 'bank-reconciliation', 'fixed-assets', 'assets',
-  'tax-codes', 'tax-documents', 'cost-centres', 'cost-centers', 'chart-of-accounts',
+  'budgets', 'recurring-invoices', 'finance-operations', 'tax-codes', 'tax-documents', 'cost-centres', 'cost-centers', 'chart-of-accounts',
   'accounting-periods', 'journals', 'payroll', 'employees', 'attendance', 'leave',
   'timesheets', 'approvals', 'audit-log', 'audit', 'supplier-invoices', 'customer-invoices',
   'projects', 'project-tasks', 'project-costs', 'support', 'shifts',

@@ -306,6 +306,12 @@
     "rationale": "Expense records"
   },
   {
+    "table": "finance_budgets",
+    "disposition": "authoritative",
+    "domain": "finance",
+    "rationale": "Tenant- and branch-scoped cost-centre budget plans, approval history, and version state; preserve in encrypted tenant backups"
+  },
+  {
     "table": "fixed_asset_depreciations",
     "disposition": "authoritative",
     "domain": "finance",

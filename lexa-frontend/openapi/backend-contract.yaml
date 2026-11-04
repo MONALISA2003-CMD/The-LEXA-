@@ -2734,6 +2734,70 @@ paths:
         '200':
           description: Successful response; see the domain DTO returned by this 
             operation.
+  /workspaces/{workspaceId}/branches/{branchId}/finance/overview:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+    get:
+      operationId: getAuthoritativeFinanceOverview
+      description: Tenant-scoped, branch-scoped, posted-ledger metrics; no seeded financial figures.
+      responses:
+        '200': {description: Posted journal count, recorded cash position and monthly ledger totals}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/budgets:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+    get:
+      operationId: listGovernedFinanceBudgets
+      description: Approved or draft cost-centre budget plans and posted expense allocations.
+      responses:
+        '200': {description: Real plans, actual ledger amounts and explicitly unavailable commitments}
+    post:
+      operationId: createGovernedFinanceBudget
+      description: Create an auditable cost-centre plan for an open accounting period.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [costCentreId, accountingPeriodId, plannedMinor]
+              properties:
+                costCentreId: {type: string, format: uuid}
+                accountingPeriodId: {type: string, format: uuid}
+                plannedMinor: {type: integer, minimum: 1}
+      responses:
+        '201': {description: New draft cost-centre budget}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/budgets/{budgetId}/submit:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: budgetId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: submitGovernedFinanceBudget
+      description: Submit a draft budget for independent approval.
+      responses:
+        '201': {description: Submitted budget}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/budgets/{budgetId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: budgetId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: approveGovernedFinanceBudget
+      description: Independent finance approval; a creator cannot approve their own budget.
+      responses:
+        '201': {description: Approved budget}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/analysis/cash-forecast:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+    get:
+      operationId: calculateTenantCashForecast
+      description: Deterministic Python analysis of posted branch cash-ledger aggregates, read-only and opt-in.
+      responses:
+        '200': {description: Historical monthly cash totals and optional statistical forecast}
+        '503': {description: Forecasting unavailable; accounting data unaffected}
   /workspaces/{workspaceId}/branches/{branchId}/finance/bank-accounts:
     get:
       operationId: getWorkspacesWorkspaceidBranchesBranchidFinanceBank
@@ -3037,6 +3101,15 @@ paths:
         '404': {description: Resource not found}
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/finance/cash-ups:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+    get:
+      operationId: listVerifiedCashUps
+      description: Tenant and branch scoped cashier cash-ups, including approved posted values.
+      responses:
+        '200': {description: Cash-up register}
   /workspaces/{workspaceId}/branches/{branchId}/finance/cash-ups/{cashUpId}/post:
     post:
       operationId: postFinanceCashUp

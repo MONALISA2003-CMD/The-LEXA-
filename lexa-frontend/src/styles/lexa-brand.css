@@ -653,3 +653,12 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 :root[data-theme=dark] [data-module-accent=bronze]{--module-accent:#f3b77c;--module-accent-strong:#facf9f;--module-accent-soft:#382517;--module-accent-border:#77553a;--module-nav-accent:#f3b77c;--module-nav-wash:rgba(243,183,124,.14);--module-accent-rgb:243,183,124}
 :root[data-theme=dark] [data-module-accent=indigo]{--module-accent:#b2b4ff;--module-accent-strong:#d0d2ff;--module-accent-soft:#292a52;--module-accent-border:#54578a;--module-nav-accent:#b2b4ff;--module-nav-wash:rgba(178,180,255,.14);--module-accent-rgb:178,180,255}
 :root[data-theme=dark] [data-module-accent=teal]{--module-accent:#76dccd;--module-accent-strong:#a0eee1;--module-accent-soft:#173a3b;--module-accent-border:#386767;--module-nav-accent:#76dccd;--module-nav-wash:rgba(118,220,205,.13);--module-accent-rgb:118,220,205}
+
+
+/* Financial control, workforce and manufacturing identities — production themes. */
+[data-module-accent=sapphire]{--module-accent:#174a9c;--module-accent-strong:#0f2a56;--module-accent-soft:#ecf3fd;--module-accent-border:#bdd4f5;--module-nav-accent:#4da3ff;--module-nav-wash:rgba(23,74,156,.13);--module-accent-rgb:23,74,156;--module-accent-wash:rgba(23,74,156,.08)}
+[data-module-accent=mulberry]{--module-accent:#8b225a;--module-accent-strong:#641540;--module-accent-soft:#fbeaf2;--module-accent-border:#edc4d5;--module-nav-accent:#cd6092;--module-nav-wash:rgba(139,34,90,.13);--module-accent-rgb:139,34,90;--module-accent-wash:rgba(139,34,90,.08)}
+[data-module-accent=industrial]{--module-accent:#c2410c;--module-accent-strong:#8b2c06;--module-accent-soft:#fff1e6;--module-accent-border:#f5c5a4;--module-nav-accent:#ff7a1a;--module-nav-wash:rgba(194,65,12,.13);--module-accent-rgb:194,65,12;--module-accent-wash:rgba(194,65,12,.08)}
+:root[data-theme=dark] [data-module-accent=sapphire]{--module-accent:#84b6ff;--module-accent-strong:#bfd8ff;--module-accent-soft:#11294e;--module-accent-border:#385b87;--module-nav-accent:#84b6ff;--module-nav-wash:rgba(132,182,255,.13)}
+:root[data-theme=dark] [data-module-accent=mulberry]{--module-accent:#f2a5c9;--module-accent-strong:#ffcade;--module-accent-soft:#3a1d33;--module-accent-border:#764265;--module-nav-accent:#f2a5c9;--module-nav-wash:rgba(242,165,201,.13)}
+:root[data-theme=dark] [data-module-accent=industrial]{--module-accent:#ffb178;--module-accent-strong:#ffd0a8;--module-accent-soft:#452719;--module-accent-border:#895339;--module-nav-accent:#ffb178;--module-nav-wash:rgba(255,177,120,.13)}

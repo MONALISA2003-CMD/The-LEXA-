@@ -1400,3 +1400,25 @@ model SupportCase {
   @@unique([tenantId, branchId, caseNumber])
   @@map("support_cases")
 }
+
+// Budget amounts are plans. Actual expenses are NEVER entered here:
+// they are derived from posted expense-ledger allocations in FinanceBudgetController.
+model FinanceBudget {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  accountingPeriodId String @map("accounting_period_id") @db.Uuid
+  costCentreId String @map("cost_centre_id") @db.Uuid
+  plannedMinor BigInt @map("planned_minor")
+  status String @default("draft")
+  version Int @default(1)
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  approvedByUserId String? @map("approved_by_user_id") @db.Uuid
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  @@unique([tenantId,branchId,accountingPeriodId,costCentreId])
+  @@index([tenantId,branchId,accountingPeriodId,status])
+  @@map("finance_budgets")
+}

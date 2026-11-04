@@ -149,6 +149,8 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/supply-chain\/inventory(?:\/|$)/.test(path)) return choose('inventory.read', 'inventory.write');
   if (/\/supply-chain\/manufacturing(?:\/|$)|\/supply-chain\/quality(?:\/|$)/.test(path)) return choose('manufacturing.read', 'manufacturing.write');
   if (/\/commerce\/crm\//.test(path)) return choose('crm.read', 'crm.write');
+  // Cashiers can close shifts but cannot approve and post their own cash-up adjustment.
+  if (/\/branches\/[^/]+\/finance\/cash-ups\/[^/]+\/post$/.test(path)) return 'finance.write';
   if (/\/branches\/[^/]+\/finance\/cash-sessions(?:\/|$)|\/branches\/[^/]+\/finance\/cash-ups(?:\/|$)/.test(path)) return choose('finance.read', 'cash.manage');
   if (/\/ledger(?:\/|$)|\/receivables(?:\/|$)|\/payables(?:\/|$)|\/finance(?:\/|$)|\/business-tools\/tax-profile$|\/cash-ups(?:\/|$)/.test(path)) return choose('finance.read', 'finance.write');
   if (/\/catalog(?:\/|$)|\/tax-codes(?:\/|$)|\/price-lists(?:\/|$)/.test(path)) return choose('catalog.read', 'catalog.write');

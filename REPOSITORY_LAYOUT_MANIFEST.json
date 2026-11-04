@@ -1,13 +1,13 @@
 {
   "name": "LEXA canonical source archive",
-  "version": "2026-11-03-bright-executive-blue",
+  "version": "2026-11-04-finance-sapphire-controlled-ledger",
   "archive_root": "Repository root; no wrapper directory",
   "source_baseline": {
     "repository": "MONALISA2003-CMD/The-LEXA-",
     "branch": "main",
-    "commit": "052f265c71c284b45e9b84acee6b556a345f9f67",
-    "note": "Bright Executive Blue presentation release based on verified source commit; no production data or migration edits.",
-    "archive_basis": "Existing main source at 052f265 plus audited presentation files and CEO policy regression tests."
+    "commit": "4d7b37a42304c9636c4804d673d3886b8ec338d1",
+    "note": "Financial control, sourced reporting, budget approvals, Python analysis; no production records modified.",
+    "archive_basis": "Clean LEXA import source from prior successful CI package with Finance changes."
   },
   "applications": {
     "backend": "backend/",
@@ -137,5 +137,12 @@
     "lockfiles_in_source_import_zip": false,
     "reason": "The source-import ZIP excludes generated/dependency artifacts. scripts/clean_repository.py generates missing npm lockfiles with npm install --package-lock-only --ignore-scripts before repository validation and npm ci.",
     "ci_requirement": "Run scripts/clean_repository.py before scripts/validate_repository.py and before npm ci. The cleanup step verifies lockfileVersion and exact package.json root dependency metadata."
+  },
+  "finance_release": {
+    "dashboard": "Executive Sapphire from posted GL, accounts receivable and payable",
+    "tenant_isolation": "business/branch scoped requests, enforced RLS budget table",
+    "budget_control": "Draft, submitted, independent approval; actual spending from posted cost-centre ledger allocations",
+    "python_analytics": "Read-only in Docker, no URA linkage, no synthetic transactions",
+    "data_handling": "No destructive SQL or fabricated business transaction seeds"
   }
 }

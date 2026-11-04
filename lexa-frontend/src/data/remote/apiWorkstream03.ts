@@ -26,6 +26,8 @@ export type BankStatementRecord = {id:string;bankAccountId:string;transactionDat
 export type PostedBankLedgerLine = {id:string;journalId:string;journalNumber:string;entryDate:string;description?:string;debitMinor:string;creditMinor:string;ledgerAccountName:string};
 
 export const apiFinanceOperations = {
+  cashUps: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/finance/cash-ups`),
+  postCashUp: (w: string, b: string, id: string) => apiClient.post(`${branch(w,b)}/finance/cash-ups/${enc(id)}/post`, {}, key()),
   cashSessions: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/finance/cash-sessions`),
   openCashSession: (w: string, b: string, openingFloatMinor: number) => apiClient.post(`${branch(w,b)}/finance/cash-sessions`, {openingFloatMinor}, key()),
   closeCashSession: (w: string, b: string, sessionId: string, countedClosingMinor: number) => apiClient.post(`${branch(w,b)}/finance/cash-sessions/${enc(sessionId)}/close`, {countedClosingMinor}, key()),
@@ -35,6 +37,8 @@ export const apiFinanceOperations = {
   createExpense: (w: string, b: string, input: Record<string, unknown>) => apiClient.post(`${branch(w,b)}/finance/expenses`, input, key()),
   approveExpense: (w: string, b: string, expenseId: string) => apiClient.post(`${branch(w,b)}/finance/expenses/${enc(expenseId)}/approve`, {}, key()),
   payApprovedExpense: (w:string,b:string,expenseId:string,input:{method:string;reference:string}) => apiClient.post(`${branch(w,b)}/finance/expenses/${enc(expenseId)}/payment`,input,key()),
+  createFixedAsset: (w:string,b:string,input:Record<string,unknown>) => apiClient.post(`${branch(w,b)}/finance/fixed-assets`,input,key()),
+  depreciateFixedAsset: (w:string,b:string,id:string,accountingPeriodId:string) => apiClient.post(`${branch(w,b)}/finance/fixed-assets/${enc(id)}/depreciate`,{accountingPeriodId},key()),
   fixedAssets: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/finance/fixed-assets`),
   creditNotes: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/finance/credit-notes`),
   bankAccounts: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/finance/bank-accounts`),
@@ -47,4 +51,5 @@ export const apiFinanceOperations = {
   matchBankLine: (w:string,b:string,reconciliationId:string,statementLineId:string,journalLineId:string) => apiClient.post(`${branch(w,b)}/finance/bank-reconciliations/${enc(reconciliationId)}/matches`, {statementLineId,journalLineId}, key()),
   completeBankReconciliation: (w:string,b:string,reconciliationId:string) => apiClient.post(`${branch(w,b)}/finance/bank-reconciliations/${enc(reconciliationId)}/complete`, {}, key()),
   costCentres: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/finance/cost-centres`),
+  createCostCentre: (w: string, b: string, input: {code:string;name:string;parentId?:string}) => apiClient.post(`${branch(w,b)}/finance/cost-centres`, input, key()),
 };

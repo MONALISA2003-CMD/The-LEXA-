@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import {
-  Activity, ArrowDownUp, Banknote, BookOpen, Building2, BarChart3, ChevronDown, Target, Boxes,
+  Activity, ArrowDownUp, Banknote, BookOpen, Building2, BarChart3, ChevronDown, Target, Boxes, Landmark,
   CircleHelp, ClipboardList, CreditCard, FileText, LayoutDashboard, Menu,
   Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X, Moon, Sun, Sparkles,
 } from 'lucide-react';
@@ -84,6 +84,7 @@ const navSections = [
     { to: '/modules/purchase-invoices', label: 'Supplier invoices', icon: ReceiptText },
   ] },
   { title: 'FINANCE', items: [
+    { to: '/modules/finance-overview', label: 'Financial overview', icon: Landmark },
     { to: '/modules/expenses', label: 'Expenses', icon: ReceiptText },
     { to: '/modules/cash-sessions', label: 'Cash sessions', icon: Wallet },
     { to: '/modules/money-accounts', label: 'Cash & money accounts', icon: Wallet },
@@ -188,7 +189,7 @@ export default function AppShell() {
     if(item.to==='/reports')return allowed.has('reports.read');
     if(item.to==='/modules/employees'||item.to==='/modules/attendance')return allowed.has('people.read');
     if(item.to==='/modules/payroll')return allowed.has('payroll.read');
-    if(item.to==='/modules/expenses'||item.to==='/modules/money-accounts'||item.to==='/modules/payments'||item.to==='/modules/accounting'||item.to==='/modules/chart-of-accounts'||item.to==='/modules/tax-codes'||item.to==='/modules/bank-reconciliation'||item.to==='/modules/assets'||item.to==='/modules/cost-centers'||item.to==='/modules/budgets'||item.to==='/modules/recurring-invoices'||item.to==='/modules/tax-documents')return allowed.has('finance.read');
+    if(item.to==='/modules/finance-overview'||item.to==='/modules/expenses'||item.to==='/modules/money-accounts'||item.to==='/modules/payments'||item.to==='/modules/accounting'||item.to==='/modules/chart-of-accounts'||item.to==='/modules/tax-codes'||item.to==='/modules/bank-reconciliation'||item.to==='/modules/assets'||item.to==='/modules/cost-centers'||item.to==='/modules/budgets'||item.to==='/modules/recurring-invoices'||item.to==='/modules/tax-documents')return allowed.has('finance.read');
     if(item.to==='/modules/recurring-invoices')return allowed.has('sales.read');
     if(item.to==='/modules/support')return allowed.has('support.read');
     if(item.to==='/modules/packages')return allowed.has('fulfilment.read');
