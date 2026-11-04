@@ -21,3 +21,4 @@ Use staging for restore drills and incident exercises. These documents describe 
 - [Tenant security incident response](tenant-security-incident-response.md)
 - [Server secret rotation](server-secret-rotation.md)
 - [Staging restore validation](staging-restore-validation.md)
+- [13-industry security, history, recovery and E2E release gates](industry-13-release-gates.md)

@@ -12,7 +12,7 @@ function readable(value: unknown): string {
 export default function EmployeeWorkPanel({role}:{role:string}) {
   const {workspace,branch}=useWorkspace();
   const w=workspace.id,b=branch.id;
-  const isField=role==='field_agent';
+  const isField=role==='field_agent'||role==='technician';
   const overview=useQuery({queryKey:['personal-employment',w,b],queryFn:()=>apiWorkstream6.myOverview(w,b),enabled:!isField});
   const fieldCases=useQuery({queryKey:['field-assigned-cases',w,b],queryFn:()=>apiWorkstream6.myFieldCases(w,b),enabled:isField});
   const [leaveType,setLeaveType]=useState('annual');

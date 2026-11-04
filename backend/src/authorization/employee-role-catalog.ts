@@ -18,6 +18,7 @@ export const EMPLOYEE_ROLE_CATALOG: Readonly<Record<string,{label:string;descrip
   project_manager: {label: 'Project manager', description: 'Manage projects, tasks, assigned work and project timesheet approvals.'},
   support_agent: {label: 'Support agent', description: 'Handle authorized support cases and customer enquiries.'},
   field_agent: {label: 'Field service agent', description: 'View and update only service cases assigned to you.'},
+  technician: {label: 'Repair technician', description: 'View catalog and stock without changing quantities; handle only service cases assigned to you.'},
   auditor: {label: 'Auditor', description: 'Read approved audit and financial reports; cannot change transactions.'},
   viewer: {label: 'Read-only viewer', description: 'View authorized business records without changes.'},
   employee: {label: 'Ordinary employee', description: 'Access only your employment profile, attendance, leave and timesheets.'},

@@ -2,6 +2,10 @@
 
 LEXA is a multi-tenant business management platform for sales, inventory, finance, procurement, people operations, reporting and administration.
 
+## Latest 13-industry security and recovery gates
+
+The shared industry product policy, restricted technician role, guarded CSV apply, and catalogue restore-integrity audit are versioned with the backend/frontend source. See [the 13-industry release-gate runbook](docs/operations/runbooks/industry-13-release-gates.md). **Source checks do not certify live business journeys**; run staging migrations, full production-like authentication, and all 13 end-to-end acceptance scenarios before declaring industry readiness.
+
 ## Repository structure
 
 ```text

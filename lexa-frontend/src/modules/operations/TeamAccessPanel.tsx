@@ -8,7 +8,7 @@ import AddEmployeePanel from './AddEmployeePanel';
 import './team-access.css';
 
 const ROLE_OPTIONS = [
- ['business_manager','Business manager'],['finance_manager','Finance manager'],['delivery_officer','Delivery officer'],['production_officer','Production officer'],['quality_officer','Quality officer'],['project_manager','Project manager'],['support_agent','Support agent'],['field_agent','Field service agent'],['hr_manager','HR manager'],['employee','Ordinary employee'],['cashier','Sales attendant / cashier'],['sales','Sales representative'],
+ ['business_manager','Business manager'],['finance_manager','Finance manager'],['delivery_officer','Delivery officer'],['production_officer','Production officer'],['quality_officer','Quality officer'],['project_manager','Project manager'],['support_agent','Support agent'],['field_agent','Field service agent'],['technician','Repair technician'],['hr_manager','HR manager'],['employee','Ordinary employee'],['cashier','Sales attendant / cashier'],['sales','Sales representative'],
  ['inventory_operator','Storekeeper'],['procurement_officer','Procurement officer'],['accountant','Accountant'],
  ['hr_officer','HR officer'],['payroll_officer','Payroll officer'],['customer_service','Customer service'],
  ['auditor','Auditor / viewer'],['viewer','Read only'],

@@ -64,6 +64,7 @@ const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
   payroll_officer: ['workspace.read','people.read','people.compensation.read','payroll.read','payroll.write','collaboration.read','collaboration.write','module.read'],
   employee: ['workspace.read','people.self.read','people.self.write','collaboration.read','collaboration.write'],
   field_agent: ['workspace.read','support.assigned.read','support.assigned.write','collaboration.read'],
+  technician: ['workspace.read','catalog.read','inventory.read','people.self.read','support.assigned.read','support.assigned.write','collaboration.read'],
   project_manager: ['workspace.read','people.timesheet.approve','people.read','projects.read','projects.write','collaboration.read','collaboration.write','module.read','module.write'],
   support_agent: ['workspace.read','crm.read','people.read','support.read','support.write','collaboration.read','collaboration.write','module.read','module.write'],
   procurement_officer: ['workspace.read','catalog.read','inventory.read','procurement.read','procurement.write','crm.read','collaboration.read'],

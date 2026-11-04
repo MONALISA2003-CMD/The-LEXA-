@@ -13,7 +13,7 @@ const ROLES = [
   ['hr_officer','HR officer'],['hr_manager','HR manager'],['payroll_officer','Payroll officer'],
   ['delivery_officer','Delivery / logistics'],['customer_service','Customer service'],
   ['production_officer','Production officer'],['quality_officer','Quality officer'],
-  ['project_manager','Project manager'],['support_agent','Support agent'],['field_agent','Field service agent'],
+  ['project_manager','Project manager'],['support_agent','Support agent'],['field_agent','Field service agent'],['technician','Repair technician'],
   ['auditor','Auditor'],['viewer','Read-only viewer'],['employee','Ordinary employee'],
 ] as const;
 const EMPTY:StaffDraft = {

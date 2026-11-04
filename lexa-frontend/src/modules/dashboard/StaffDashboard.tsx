@@ -31,7 +31,7 @@ const preferred:Record<string,string[]>={
  hr_officer:['/modules/employees','/modules/attendance'],hr_manager:['/modules/employees','/modules/attendance'],
  payroll_officer:['/modules/employees','/modules/attendance'],delivery_officer:['/modules/deliveries','/inventory'],
  production_officer:['/modules/work-orders','/inventory'],quality_officer:['/modules/work-orders','/inventory'],
- customer_service:['/modules/support','/sales'],support_agent:['/modules/support'],
+ customer_service:['/modules/support','/sales'],support_agent:['/modules/support'],technician:['/inventory','/products'],
  project_manager:['/modules/projects'],business_manager:['/sales','/inventory','/modules/purchases','/reports'],
 };
 export default function StaffDashboard({access}:{access:BusinessAccess}){
@@ -54,7 +54,7 @@ export default function StaffDashboard({access}:{access:BusinessAccess}){
   </section>
   <div className="overview-service-note"><ShieldCheck size={20}/><div><strong>Your CEO has assigned your business permissions</strong>
     <span>Only the screens needed for your role are shown. Your workspace never reveals private payroll, accounts or other employees' records unless expressly authorized.</span></div></div>
-  {(access.role==='employee'||access.role==='field_agent')&&<EmployeeWorkPanel role={access.role}/> }
+  {(access.role==='employee'||access.role==='field_agent'||access.role==='technician')&&<EmployeeWorkPanel role={access.role}/> }
   <section className="overview-section">
    <div className="overview-section-heading"><div><span className="eyebrow eyebrow-blue">YOUR WORK TOOLS</span><h3>What you can access</h3><p>Choose a business task to get started.</p></div></div>
    <div className="overview-workflow-grid">
