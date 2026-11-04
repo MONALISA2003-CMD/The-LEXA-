@@ -1,5 +1,5 @@
 /** Explicit LEXA module accent metadata; never inferred from URL substrings. */
-export type ModuleAccentKey = 'navy' | 'blue' | 'cyan' | 'emerald' | 'gold' | 'orange' | 'coral';
+export type ModuleAccentKey = 'navy' | 'blue' | 'cyan' | 'emerald' | 'gold' | 'orange' | 'coral' | 'violet';
 const forPaths = (accent: ModuleAccentKey, paths: string[]) => Object.fromEntries(paths.map((path) => [path, accent])) as Record<string, ModuleAccentKey>;
 export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
   ...forPaths('navy', ['/', '/workspace', '/my-employment', '/business-setup', '/modules', '/modules/', '/team', '/settings', '/modules/projects', '/modules/team', '/operations']),
@@ -13,7 +13,7 @@ export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> =
   ...forPaths('gold', ['/modules/expenses', '/modules/money-accounts', '/modules/payments', '/modules/accounting', '/modules/chart-of-accounts', '/modules/tax-codes', '/modules/bank-reconciliation', '/modules/assets', '/modules/cost-centers', '/modules/budgets', '/modules/tax-documents', '/modules/recurring-invoices']),
 });
 export const MODULE_ACCENTS_BY_GROUP: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
-  WORKSPACE:'navy','BUSINESS REPORTS & ADVICE':'gold','CUSTOMERS & GROWTH':'emerald','PURCHASING':'orange','TEAM & PAYROLL':'emerald','PRODUCTION & QUALITY':'cyan','PROJECTS & SERVICE':'blue',CRM:'emerald','CRM & GROWTH':'emerald',SELLING:'coral',INVENTORY:'cyan',LOGISTICS:'cyan',PROCUREMENT:'orange',FINANCE:'gold','PEOPLE & PAYROLL':'emerald',INSIGHTS:'gold',ADMINISTRATION:'navy',MANUFACTURING:'cyan',
+  WORKSPACE:'navy','BUSINESS REPORTS & ADVICE':'gold','CUSTOMERS & GROWTH':'emerald','PURCHASING':'orange','TEAM & PAYROLL':'emerald','PRODUCTION & QUALITY':'cyan','PROJECTS & SERVICE':'blue',CRM:'emerald','CRM & GROWTH':'emerald',SELLING:'coral',INVENTORY:'cyan',LOGISTICS:'violet',PROCUREMENT:'orange',FINANCE:'gold','PEOPLE & PAYROLL':'emerald',INSIGHTS:'gold',ADMINISTRATION:'navy',MANUFACTURING:'cyan',
 });
 export function moduleAccentForPath(path: string): ModuleAccentKey {
   const pathname = path.split(/[?#]/, 1)[0]?.replace(new RegExp('/+$'), '') || '/';

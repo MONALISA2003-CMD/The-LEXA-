@@ -232,7 +232,7 @@ export default function DeliveryDispatchPanel() {
     <section className="commerce-workflow-panel" style={{ marginBottom: 18 }}>
       <div className="commerce-panel-heading">
         <div className="commerce-panel-icon">🚚</div>
-        <div><span className="eyebrow eyebrow-blue">DELIVERY MANAGEMENT</span><h3>Dispatches and rider reconciliation</h3><p>Split a completed sale into dispatch batches, record lifecycle events, then reconcile rider-held money separately from customer receipts.</p></div>
+        <div><span className="eyebrow eyebrow-blue">DELIVERY MANAGEMENT</span><h3>Deliveries, riders & collections</h3><p>Follow goods from your shop to the customer. Record proof of delivery and check money handed in by riders.</p></div>
       </div>
       <div className="commerce-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginBottom: 16 }}>
         <div className="commerce-summary-card"><span>Dispatch records</span><strong>{deliveryReportQuery.data?.totals.dispatchCount ?? dispatchCount}</strong></div>
@@ -244,6 +244,24 @@ export default function DeliveryDispatchPanel() {
         <div className="commerce-summary-card"><span>Accepted from riders</span><strong>{money(deliveryReportQuery.data?.totals.collectionAcceptedMinor ?? 0, workspace.currency)}</strong></div>
         <div className="commerce-summary-card"><span>Reconciliation variances</span><strong>{deliveryReportQuery.data?.totals.varianceCount ?? 0}</strong></div>
         <div className="commerce-summary-card"><span>Registered delivery contacts</span><strong>{agents.length}</strong></div>
+      </div>
+      <div className="logistics-delivery-graphs">
+        <div><h4>Delivery progress</h4><p>Recent deliveries in this business location.</p>
+          {dispatchQuery.isError&&<div className="logistics-error">Delivery progress is unavailable. <button onClick={()=>void dispatchQuery.refetch()}>Try again</button></div>}
+          {!dispatchQuery.isError&&([
+            ['Ready to go',['prepared','assigned']],['On the road',['picked_up','in_transit','dispatched']],
+            ['Delivered',['delivered']],['Problems / returns',['delivery_failed','return_pending','returned']]
+          ] as Array<[string,string[]]>).map(([label,status])=>{
+            const count=dispatches.filter(d=>status.includes(d.status)).length;
+            return <div className="logistics-progress-row" key={label}><span>{label}</span><div><i style={{width:String(count/Math.max(dispatches.length,1)*100)+'%'}}/></div><b>{count}</b></div>;
+          })}
+        </div>
+        <div><h4>Delivery by transport</h4><p>Actual recorded dispatches and goods value.</p>
+          {(deliveryReportQuery.data?.byMethod??[]).slice(0,6).map(row=><div className="logistics-method-row" key={row.deliveryMethod}>
+            <span>{row.deliveryMethod.replaceAll('_',' ')}</span><b>{row.count} deliveries</b>
+          </div>)}
+          {!deliveryReportQuery.isLoading&&!deliveryReportQuery.data?.byMethod.length&&<p>No dispatch activity recorded yet.</p>}
+        </div>
       </div>
       {deliveryReportQuery.isError && <p className="panel-footnote">Delivery report totals could not be refreshed. The dispatch register remains available.</p>}
       {deliveryReportQuery.data && <div className="section-card" style={{ padding: 14, marginBottom: 14 }}>

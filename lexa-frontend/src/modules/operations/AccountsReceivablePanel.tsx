@@ -1,12 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowDownLeft, CheckCircle2, FilePlus2, FileText, RefreshCw, Wallet } from 'lucide-react';
+import { AlertCircle, ArrowDownLeft, CheckCircle2, FilePlus2, FileText, RefreshCw, Wallet, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiReceivables, type EligibleSale, type ReceivablesInvoice } from '../../data/remote/apiReceivables';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
 import './accounts-receivable.css';
 import SellingNav,{SellingPerformance} from '../selling/SellingNav';
+import InvoiceDocument from './InvoiceDocument';
 
 function localDate() {
   const now = new Date();
@@ -38,6 +39,7 @@ export default function AccountsReceivablePanel() {
   const [dueDates, setDueDates] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState<ReceivablesInvoice | null>(null);
+  const [printInvoice, setPrintInvoice] = useState<ReceivablesInvoice | null>(null);
   const [paymentDate, setPaymentDate] = useState(today);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
@@ -68,6 +70,7 @@ export default function AccountsReceivablePanel() {
   const invoices = invoicesQuery.data ?? [];
   const eligibleSales = eligibleQuery.data ?? [];
   const receipts = receiptsQuery.data ?? [];
+  const allFailed = [summaryQuery, eligibleQuery, invoicesQuery, receiptsQuery].filter(x=>x.isError).length >= 3;
   const summary = summaryQuery.data;
 
   async function refresh() {
@@ -168,7 +171,19 @@ export default function AccountsReceivablePanel() {
         <button type="button" className="button button-secondary button-small" onClick={() => void refresh()} disabled={Boolean(busyId)}><RefreshCw size={14} /> Refresh</button>
       </header>
 
-      <div className="ar-integrity-note"><CheckCircle2 size={16} /><span>Your invoices stay connected to completed sales. Customer payments update their balances and sales history. LEXA records money you confirm receiving; it does not transfer it.</span></div>
+      {allFailed&&<div className="ar-connection-banner" role="alert"><AlertCircle size={22}/><div><strong>We couldn't open your customer billing records</strong><p>Your business information is still on your account. Check your connection and try again. If it continues, ask the LEXA support team to check your business access.</p></div><button type="button" className="button button-primary" onClick={()=>void refresh()}><RefreshCw size={15}/> Try again</button></div>}
+      {!allFailed&&<div className="ar-activity-card"><h4>Unpaid invoices by age</h4>
+        <p>The amounts your customers currently owe.</p>
+        {summaryQuery.isLoading&&<span>Loading outstanding balances…</span>}
+        {summary&&<div className="ar-ageing-bars">{([
+          ['Not yet due',summary.currentMinor],['1–30 days late',summary.days1to30Minor],
+          ['31–60 days late',summary.days31to60Minor],['61–90 days late',summary.days61to90Minor],
+          ['Over 90 days late',summary.over90Minor]] as Array<[string,number]>).map(([label,value])=>{
+            const peak=Math.max(summary.currentMinor,summary.days1to30Minor,summary.days31to60Minor,summary.days61to90Minor,summary.over90Minor,1);
+            return <div key={label} className="ar-ageing-line"><span>{label}</span><div><i style={{width:String(value/peak*100)+'%'}}/></div><strong>{money(value,workspace.currency)}</strong></div>
+          })}</div>}
+      </div>}
+      {!allFailed&&<div className="ar-integrity-note"><CheckCircle2 size={16} /><span>Your invoices stay connected to completed sales. Customer payments update their balances and sales history. LEXA records money you confirm receiving; it does not transfer it.</span></div>}
 
       {summaryQuery.isError ? <div className="inline-error">Could not load the receivables summary. {summaryQuery.error instanceof Error ? summaryQuery.error.message : ''}</div> : <div className="ar-summary-grid">
         <article><span>Outstanding</span><strong>{money(summary?.outstandingMinor ?? 0, workspace.currency)}</strong><small>{summary?.openCount ?? 0} open invoices</small></article>
@@ -179,7 +194,7 @@ export default function AccountsReceivablePanel() {
       {summary && <div className="ar-ageing-grid" aria-label="Overdue ageing"><div><span>1–30 days</span><strong>{money(summary.days1to30Minor, workspace.currency)}</strong></div><div><span>31–60 days</span><strong>{money(summary.days31to60Minor, workspace.currency)}</strong></div><div><span>61–90 days</span><strong>{money(summary.days61to90Minor, workspace.currency)}</strong></div><div><span>Over 90 days</span><strong>{money(summary.over90Minor, workspace.currency)}</strong></div></div>}
 
       <section className="ar-section">
-        <div className="ar-section-heading"><div><span className="eyebrow eyebrow-blue">STEP 1</span><h4>Completed sales ready to invoice</h4><p>Only completed sales with a named customer and no recorded return are eligible.</p></div><span className="ar-count">{eligibleSales.length} eligible</span></div>
+        <div className="ar-section-heading"><div><span className="eyebrow eyebrow-blue">STEP 1</span><h4>Completed sales ready to invoice</h4><p>Only completed sales with a named customer and no recorded return are eligible.</p></div><span className="ar-count">{eligibleQuery.isError?'Unavailable':eligibleSales.length+' eligible'}</span></div>
         {eligibleQuery.isError ? <div className="inline-error">Could not load completed sales. {eligibleQuery.error instanceof Error ? eligibleQuery.error.message : ''}</div> : eligibleQuery.isLoading ? <div className="ar-empty">Loading completed sales…</div> : eligibleSales.length === 0 ? <div className="ar-empty">No eligible completed sales. Complete a named-customer sale or fulfil a sales order first.</div> : <div className="ar-sale-list">
           {eligibleSales.map((sale) => <form className="ar-sale-row" key={sale.id} onSubmit={(event) => void createInvoice(event, sale)}>
             <div className="ar-sale-main"><strong>{sale.receiptNumber}</strong><span>{sale.customerName}</span><small>{sale.lineCount} lines · {new Date(sale.createdAt).toLocaleDateString()}</small></div>
@@ -192,13 +207,14 @@ export default function AccountsReceivablePanel() {
       </section>
 
       <section className="ar-section">
-        <div className="ar-section-heading"><div><span className="eyebrow eyebrow-blue">STEP 2</span><h4>Customer invoice register</h4><p>Review a draft and issue it. Void and recreate a draft if its dates are wrong. Issued invoices are not editable; use the credit-note workflow for post-issue corrections.</p></div><span className="ar-count">{invoices.length} invoices</span></div>
+        <div className="ar-section-heading"><div><span className="eyebrow eyebrow-blue">STEP 2</span><h4>Customer invoice register</h4><p>Review a draft and issue it. Void and recreate a draft if its dates are wrong. Issued invoices are not editable; use the credit-note workflow for post-issue corrections.</p></div><span className="ar-count">{invoicesQuery.isError?'Unavailable':invoices.length+' invoices'}</span></div>
         {invoicesQuery.isError ? <div className="inline-error">Could not load customer invoices. {invoicesQuery.error instanceof Error ? invoicesQuery.error.message : ''}</div> : invoicesQuery.isLoading ? <div className="ar-empty">Loading invoices…</div> : invoices.length === 0 ? <div className="ar-empty">No customer invoices yet. Create a draft from a completed sale above.</div> : <div className="ar-invoice-list">
           {invoices.map((invoice) => <article className="ar-invoice-card" key={invoice.id}>
             <div className="ar-invoice-top"><div><strong>{invoice.invoiceNumber}</strong><span>{invoice.customerName}</span><small>Sale {invoice.sourceSaleId.slice(0, 8)} · Due {invoice.dueDate}</small></div><span className={'ar-status ar-status-' + invoice.status}>{labelStatus(invoice.status)}</span></div>
             <div className="ar-invoice-amounts"><div><span>Total</span><strong>{money(invoice.totalMinor, workspace.currency)}</strong></div><div><span>Received</span><strong>{money(invoice.receivedMinor, workspace.currency)}</strong></div><div><span>Balance due</span><strong>{money(invoice.balanceDueMinor, workspace.currency)}</strong></div></div>
             {invoice.lines.length > 0 && <details className="ar-lines-details"><summary>{invoice.lines.length} invoice lines</summary><div>{invoice.lines.map((line) => <div key={line.id}><span>{line.productName} × {line.quantity}</span><strong>{money(line.lineTotalMinor, workspace.currency)}</strong></div>)}</div></details>}
             <div className="ar-invoice-actions">
+              <button className="button button-secondary button-small" type="button" onClick={()=>setPrintInvoice(invoice)}><Printer size={14}/> Preview / print</button>
               {invoice.status === 'draft' && <><button className="button button-primary button-small" type="button" onClick={() => void issueInvoice(invoice)} disabled={Boolean(busyId)}><FileText size={14} /> {busyId === invoice.id ? 'Processing…' : 'Issue invoice'}</button><button className="button button-secondary button-small" type="button" onClick={() => void voidInvoice(invoice)} disabled={Boolean(busyId)}>Void draft</button></>}
               {['issued', 'partially_paid', 'overdue'].includes(invoice.status) && <button className="button button-secondary button-small" type="button" onClick={() => openReceipt(invoice)} disabled={Boolean(busyId)}><ArrowDownLeft size={14} /> Record receipt</button>}
               {invoice.status === 'paid' && <span className="ar-paid-note"><CheckCircle2 size={14} /> Fully settled</span>}
@@ -207,7 +223,14 @@ export default function AccountsReceivablePanel() {
         </div>}
       </section>
 
-      {selectedInvoice && <form className="ar-receipt-form" onSubmit={(event) => void recordReceipt(event)}>
+      {printInvoice&&<div className="invoice-paper-dialog-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setPrintInvoice(null)}}>
+        <section className="invoice-paper-dialog" role="dialog" aria-modal="true" aria-label={'Invoice '+printInvoice.invoiceNumber}>
+          <div className="invoice-paper-actions"><button type="button" className="button button-secondary" onClick={()=>setPrintInvoice(null)}>Close</button>
+            <button type="button" className="button button-primary" onClick={()=>window.print()}><Printer size={15}/> Print / save PDF</button></div>
+          <InvoiceDocument invoice={printInvoice} businessName={workspace.businessName} currency={workspace.currency}/>
+        </section>
+      </div>}
+      {selectedInvoice && <form className="ar-receipt-form"  onSubmit={(event) => void recordReceipt(event)}>
         <div className="ar-form-heading"><div><span className="eyebrow eyebrow-blue">STEP 3</span><h4>Record customer receipt</h4><p>{selectedInvoice.invoiceNumber} · {selectedInvoice.customerName} · Balance {money(selectedInvoice.balanceDueMinor, workspace.currency)}</p></div><button type="button" className="button button-secondary button-small" onClick={() => { setSelectedInvoice(null); setReceiptIdempotencyKey(''); }}>Cancel</button></div>
         <div className="ar-form-grid">
           <label className="field-label">Payment date<input required type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} /></label>
@@ -220,7 +243,7 @@ export default function AccountsReceivablePanel() {
       </form>}
 
       <section className="ar-section">
-        <div className="ar-section-heading"><div><span className="eyebrow eyebrow-blue">RECONCILIATION</span><h4>Customer receipt register</h4><p>Includes receipts entered here and customer payments entered from the existing sales screen after an invoice is issued.</p></div><span className="ar-count">{receipts.length} receipts</span></div>
+        <div className="ar-section-heading"><div><span className="eyebrow eyebrow-blue">RECONCILIATION</span><h4>Customer receipt register</h4><p>Includes receipts entered here and customer payments entered from the existing sales screen after an invoice is issued.</p></div><span className="ar-count">{receiptsQuery.isError?'Unavailable':receipts.length+' receipts'}</span></div>
         {receiptsQuery.isError ? <div className="inline-error">Could not load customer receipts. {receiptsQuery.error instanceof Error ? receiptsQuery.error.message : ''}</div> : receipts.length === 0 ? <div className="ar-empty">Receipts allocated to issued invoices will appear here.</div> : <div className="ar-receipt-list">
           {receipts.map((receipt) => <article className="ar-receipt-row" key={receipt.id}><div><strong>{receipt.receiptNumber}</strong><span>{receipt.customerName}</span><small>{receipt.paymentDate} · {receipt.method.replace(/_/g, ' ')}</small></div><div className="ar-receipt-allocation">{receipt.allocations.map((allocation) => <small key={allocation.invoiceId}>{allocation.invoiceNumber}</small>)}</div><strong>{money(receipt.amountMinor, workspace.currency)}</strong></article>)}
         </div>}

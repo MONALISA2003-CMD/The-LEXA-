@@ -93,6 +93,9 @@ export class ReceivablesController {
       select: { userId: true },
     });
     if (!session) throw new UnauthorizedException({ code: 'SESSION_EXPIRED', message: 'Sign in again.' });
+    // Restore verified business context for this controller, even on read-only routes.
+    // A matching active membership and business location are still required below.
+    this.prisma.enterTenantContext(workspaceId, session.userId);
     const membership = await this.prisma.membership.findUnique({
       where: { tenantId_userId: { tenantId: workspaceId, userId: session.userId } },
     });
@@ -233,6 +236,7 @@ export class ReceivablesController {
         customerName: row.customer_name,
         customerRecordId: row.customer_record_id ?? undefined,
         customerPhone: row.customer_phone ?? undefined,
+        sellerSnapshot:row.seller_snapshot??undefined,
         currency: row.currency,
         issueDate: asIsoDate(row.issue_date),
         dueDate,
@@ -289,14 +293,29 @@ export class ReceivablesController {
         if (!lines.length) throw new ConflictException('A sale without item lines cannot be invoiced.');
         const lineTotal = lines.reduce((sum, line) => sum + Number(line.line_total_minor), 0);
         if (lineTotal !== Number(sale.total_minor)) throw new ConflictException('The sale total does not reconcile with its line totals. Resolve the sale before issuing an invoice.');
+        const company=await tx.tenant.findUnique({where:{id:workspaceId},include:{businessProfile:true}});
+        if(!company)throw new NotFoundException('Business not found for this invoice.');
+        const profile=company.businessProfile;
+        const snapshotFromSale=sale.receipt_business_snapshot&&typeof sale.receipt_business_snapshot==='object'
+          && !Array.isArray(sale.receipt_business_snapshot)?sale.receipt_business_snapshot:{};
+        const sellerSnapshot={
+          businessName:profile?.tradingName?.trim()||company.name,
+          legalName:profile?.legalName?.trim()||company.name,
+          phone:profile?.phone?.trim()||'',email:profile?.email?.trim()||'',
+          address:profile?.physicalAddress?.trim()||'',city:profile?.city?.trim()||'',
+          district:profile?.district?.trim()||'',
+          registrationNumber:profile?.registrationNumber?.trim()||'',
+          taxIdentificationNumber:profile?.taxIdentificationNumber?.trim()||'',
+          ...snapshotFromSale
+        };
         await tx.$executeRaw`INSERT INTO ar_customer_invoices
           (id, tenant_id, branch_id, invoice_number, source_sale_id, customer_record_id, customer_name,
            customer_phone, currency, status, subtotal_minor, tax_minor, total_minor, issue_date,
-           due_date, notes, created_by_user_id)
+           due_date, notes, created_by_user_id, seller_snapshot)
           VALUES (${invoiceId}::uuid, ${workspaceId}::uuid, ${branchId}::uuid, ${invoiceNumber},
            ${saleId}::uuid, ${sale.customer_record_id ?? null}, ${String(sale.customer_name)},
            ${sale.customer_phone ?? null}, ${String(sale.currency ?? actor.currency)}, 'draft',
-           ${lineTotal}, 0, ${lineTotal}, ${issueDate}::date, ${dueDate}::date, ${notes}, ${actor.userId}::uuid)`;
+           ${lineTotal}, 0, ${lineTotal}, ${issueDate}::date, ${dueDate}::date, ${notes}, ${actor.userId}::uuid, ${JSON.stringify(sellerSnapshot)}::jsonb)`;
         for (const line of lines) {
           await tx.$executeRaw`INSERT INTO ar_customer_invoice_lines
             (id, tenant_id, branch_id, invoice_id, source_sale_line_id, product_id,

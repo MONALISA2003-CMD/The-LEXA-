@@ -49,6 +49,7 @@ export const router = createBrowserRouter([
       { path: 'modules/campaigns', lazy: async () => ({ Component: (await import('../modules/customer-growth/CustomerGrowthPage')).default }) },
       { path: 'modules/sales-teams', lazy: async () => ({ Component: (await import('../modules/customer-growth/CustomerGrowthPage')).default }) },
       { path: 'modules/customers', lazy: async () => ({ Component: (await import('../modules/customer-growth/CustomerGrowthPage')).default }) },
+      { path: 'modules/packages', lazy: async () => ({ Component: (await import('../modules/logistics/PackagesPage')).default }) },
       { path: 'modules/:moduleId', lazy: async () => ({ Component: (await import('../modules/operations/OperationsWorkspacePage')).default }) },
       { path: 'data-operations', lazy: async () => ({ Component: (await import('../modules/operations/ImportExportCentrePage')).default }) },
       { path: 'business-tools', lazy: async () => ({ Component: (await import('../modules/tools/BusinessToolsPage')).default }) },

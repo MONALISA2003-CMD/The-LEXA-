@@ -28,6 +28,7 @@ export interface ReceivablesInvoice {
   customerName: string;
   customerRecordId?: string;
   customerPhone?: string;
+  sellerSnapshot?: { businessName?:string;legalName?:string;phone?:string;email?:string;address?:string;city?:string;district?:string;registrationNumber?:string;taxIdentificationNumber?:string };
   currency: string;
   issueDate?: string;
   dueDate: string;

@@ -21,6 +21,7 @@ CONTROLLERS = [
     ROOT / 'backend/src/auth/public-registration.controller.ts',
     ROOT / 'backend/src/commerce/catalog-inventory.controller.ts',
     ROOT / 'backend/src/commerce/delivery-workflow.controller.ts',
+    ROOT / 'backend/src/commerce/logistics-packages.controller.ts',
     ROOT / 'backend/src/finance/finance-operations.controller.ts',
     ROOT / 'backend/src/supply-chain/supply-chain.controller.ts',
     ROOT / 'backend/src/people-projects/people-projects.controller.ts',

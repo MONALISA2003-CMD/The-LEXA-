@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowDownToLine, ArrowUpRight, CheckCircle2, PackageCheck, Plus, Truck, UserRoundCheck, X } from 'lucide-react';
@@ -9,6 +10,7 @@ import { products } from '../../data/repositories';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { apiCommerce, type CommerceOrder, type GoodsReceiptInput } from '../../data/remote/apiCommerce';
 import DeliveryDispatchPanel from './DeliveryDispatchPanel';
+import {apiLogisticsPackages} from '../../data/remote/apiLogisticsPackages';
 import type { PreviewRecord } from './moduleCatalog';
 import type { Product } from '../../domain/shared/types';
 import { minorUnitFactor, parseMajorAmount } from '../../domain/money/money';
@@ -47,6 +49,7 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
   const [receivingOrder, setReceivingOrder] = useState<CommerceOrder | null>(null);
   const [dispatchOrder, setDispatchOrder] = useState<CommerceOrder | null>(null);
   const [dispatchDraft, setDispatchDraft] = useState<DispatchDraft[]>([]);
+  const [dispatchPackageIds,setDispatchPackageIds]=useState<string[]>([]);
   const [dispatchMethod, setDispatchMethod] = useState('other');
   const [dispatchAgentId, setDispatchAgentId] = useState('');
   const [dispatchRecipientPhone, setDispatchRecipientPhone] = useState('');
@@ -61,6 +64,7 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
   const partyModule = salesModule || customerModule ? 'customers' : 'suppliers';
   const partyQuery = useQuery({ queryKey: ['module-register', workspace.id, branch.id, partyModule], queryFn: () => service.list(scope, partyModule, []), enabled: apiMode && (salesModule || purchaseModule || customerModule || supplierModule) });
   const leadQuery = useQuery({ queryKey: ['module-register', workspace.id, branch.id, 'leads'], queryFn: () => service.list(scope, 'leads', []), enabled: apiMode && leadModule });
+  const packedQuery=useQuery({queryKey:['logistics-packages',workspace.id,branch.id],queryFn:()=>apiLogisticsPackages.list(scope),enabled:apiMode&&salesModule,staleTime:20000});
   const salesOrdersQuery = useQuery({ queryKey: ['commerce-sales-orders', workspace.id, branch.id], queryFn: () => apiCommerce.listSalesOrders(scope), enabled: apiMode && (salesModule || customerModule) });
   const purchaseOrdersQuery = useQuery({ queryKey: ['commerce-purchase-orders', workspace.id, branch.id], queryFn: () => apiCommerce.listPurchaseOrders(scope), enabled: apiMode && (purchaseModule || supplierModule) });
   const deliveriesQuery = useQuery({ queryKey: ['commerce-deliveries', workspace.id, branch.id], queryFn: () => apiCommerce.listDeliveries(scope), enabled: apiMode && deliveryModule });
@@ -130,7 +134,12 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
       remaining: Math.max(0, line.quantity - (line.quantityFulfilled ?? 0)),
       quantity: String(Math.max(0, line.quantity - (line.quantityFulfilled ?? 0))),
     })).filter((line) => line.remaining > 0);
-    setDispatchOrder(order); setDispatchDraft(pending);
+    setDispatchOrder(order);
+    const sealed=(packedQuery.data??[]).filter(p=>p.orderId===order.id&&p.status==='sealed');
+    setDispatchPackageIds(sealed.map(p=>p.id));
+    const totals=new Map<string,number>();
+    for(const pkg of sealed)for(const l of pkg.lines)totals.set(l.orderLineId,(totals.get(l.orderLineId)??0)+l.quantity);
+    setDispatchDraft(sealed.length?pending.map(l=>({...l,quantity:String(totals.get(l.orderLineId)??0)})):pending);
     setDispatchMethod(order.courier ? 'courier_manual' : 'other');
     setDispatchAgentId(''); setDispatchRecipientPhone('');
     setDispatchTransportDetails(order.courier ?? '');
@@ -143,6 +152,7 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
       if (!linesToDispatch.length) throw new Error('Enter at least one quantity to dispatch.');
       const result = await apiCommerce.fulfilSalesOrder(scope, dispatchOrder.id, {
         lines: linesToDispatch,
+        ...(dispatchPackageIds.length?{packageIds:dispatchPackageIds}:{}),
         deliveryMethod: dispatchMethod,
         ...(dispatchAgentId ? { deliveryAgentId: dispatchAgentId } : {}),
         ...(dispatchRecipientPhone.trim() ? { recipientPhone: dispatchRecipientPhone.trim() } : {}),
@@ -150,8 +160,8 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
         expectedCollectionMinor: parseMajorAmount(dispatchExpectedCollection || '0', workspace.currency),
         deliveryExpenseMinor: parseMajorAmount(dispatchExpense || '0', workspace.currency),
       });
-      toast.success('Fulfilment dispatched', { description: `${result.fulfilmentNumber} · ${money(result.totalMinor, workspace.currency)} · Stock ledger updated.` });
-      setDispatchOrder(null); setDispatchDraft([]); await refreshAll();
+      toast.success('Order dispatched', { description: `${result.fulfilmentNumber} · ${money(result.totalMinor, workspace.currency)} · Stock updated.` });
+      setDispatchOrder(null); setDispatchDraft([]);setDispatchPackageIds([]);await refreshAll();await client.invalidateQueries({queryKey:['logistics-packages',workspace.id,branch.id]});
     } catch (error) { toast.error('Fulfilment was not posted', { description: error instanceof Error ? error.message : 'Check quantities and stock availability.' }); }
     finally { setBusy(false); }
   }
@@ -186,9 +196,9 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
   }
 
   function heading() {
-    if (salesModule) return ['ORDER MANAGEMENT', 'Sales order execution', 'Build customer orders, confirm stock availability, then fulfil and dispatch. Stock reduces only on dispatch.'];
+    if (salesModule) return ['CUSTOMER ORDERS', 'Manage your sales orders', 'Confirm what the customer ordered, prepare the goods and send them out. Available stock changes when goods leave.'];
     if (purchaseModule) return ['PURCHASING & RECEIVING', 'Supplier order and receipt control', 'Order from a supplier, count what arrived, separate accepted from rejected units, and post accepted stock.'];
-    if (deliveryModule) return ['LAST-MILE OPERATIONS', 'Dispatch and delivery control', 'Track every dispatched fulfilment through in-transit, proof-of-delivery or delivery exception.'];
+    if (deliveryModule) return ['DELIVERY MANAGEMENT', 'Track orders on their way', 'See who is carrying each delivery, where it is going and whether the customer received it.'];
     if (leadModule) return ['CRM CONVERSION', 'Lead qualification hand-off', 'Convert a qualified lead into a customer account and preserve the source relationship.'];
     if (customerModule) return ['CUSTOMER COMMERCE', 'Customer orders and history', 'See operational orders linked to customer records.'];
     return ['SUPPLIER COMMERCE', 'Supplier purchasing history', 'See purchase commitments and receipts linked to supplier records.'];
@@ -219,12 +229,20 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
           <div className="commerce-line-price"><span>{salesModule ? 'Selling price' : 'Unit cost'}</span><strong>{(() => { const product = availableProducts.find((p) => p.id === line.productId); const amount = salesModule ? product?.sellingPriceMinor : product?.costPriceMinor; return amount === undefined ? '—' : money(amount, workspace.currency); })()}</strong></div>
           <button type="button" className="icon-button" aria-label="Remove line" disabled={lines.length === 1} onClick={() => removeLine(index)}><X size={16} /></button>
         </div>)}
-        <div className="commerce-form-note">Prices are taken from the saved product catalogue. Confirming a sales order reserves available stock; dispatch posts the stock issue.</div>
+        <div className="commerce-form-note">Prices are agreed when the order is confirmed. Products are reserved until they are sent out.</div>
         <div className="commerce-form-actions"><button type="button" className="button button-secondary" onClick={() => setShowCreate(false)}>Cancel</button><button type="submit" className="button button-primary" disabled={busy || !availableProducts.length}>{busy ? 'Saving…' : 'Save draft order'} <ArrowUpRight size={15} /></button></div>
       </form>}
 
       {salesModule && <>
-        <div className="commerce-section-title"><h4>Sales orders</h4><span>{salesOrders.length} orders</span></div>
+        {!salesOrdersQuery.isError&&<section className="commerce-order-performance">
+          <strong>Customer orders at a glance</strong>
+          <div className="commerce-order-stats">
+            {([['Awaiting confirmation','draft'],['Ready to send','confirmed'],['Partly dispatched','partially_fulfilled'],['Fully dispatched','fulfilled']] as const).map(([label,status])=><div key={status}><span>{label}</span><b>{salesOrders.filter(o=>o.status===status).length}</b></div>)}
+          </div>
+          <div className="commerce-order-bars">{([['Awaiting confirmation','draft'],['Ready to send','confirmed'],['Partly dispatched','partially_fulfilled'],['Fully dispatched','fulfilled']] as const).map(([label,status])=><div key={status}><span>{label}</span><div><i style={{width:String(salesOrders.filter(o=>o.status===status).length/Math.max(salesOrders.length,1)*100)+'%'}}/></div></div>)}</div>
+          <p>Recent orders. Dispatch updates stock and creates a linked sale once.</p>
+        </section>}
+        <div className="commerce-section-title"><h4>Sales orders</h4><span>{salesOrdersQuery.isError?'Unavailable':salesOrders.length+' orders'}</span></div>
         {salesOrdersQuery.isError ? <div className="inline-error">Could not load sales orders. {salesOrdersQuery.error instanceof Error ? salesOrdersQuery.error.message : ''}</div> : salesOrders.length === 0 ? <div className="commerce-empty">No customer orders yet. Create the first order to start the fulfilment workflow.</div> : <div className="commerce-order-list">{salesOrders.map((order) => <article className="commerce-order-card" key={order.id}>
           <div className="commerce-order-main"><div><strong>{order.orderNumber}</strong><small>{order.customerName || 'Walk-in / unlinked customer'} · {order.lines.length} lines</small></div><span className={'commerce-status ' + order.status}>{labelStatus(order.status)}</span><b>{money(order.totalMinor, workspace.currency)}</b></div>
           <div className="commerce-order-lines">{order.lines.map((line) => <span key={line.id}>{line.productName} · {line.quantityFulfilled ?? 0}/{line.quantity} fulfilled</span>)}</div>
@@ -233,7 +251,21 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
       </>}
 
       {dispatchOrder && <form className="commerce-create-form commerce-receipt-form" onSubmit={postDispatch}>
-        <div className="commerce-lines-heading"><div><strong>Pick and dispatch · {dispatchOrder.orderNumber}</strong><p>Enter the quantity leaving this branch for each line. You can dispatch part of an order now and the remainder later.</p></div><button type="button" className="icon-button" aria-label="Close fulfilment" onClick={() => setDispatchOrder(null)}><X size={17}/></button></div>
+        <div className="commerce-packing-choices"><div><strong>Sealed packages for this order</strong><Link to="/modules/packages">Prepare / scan packages</Link></div>
+          {(packedQuery.data??[]).filter(pkg=>pkg.orderId===dispatchOrder.id&&pkg.status==='sealed').map(pkg=><label key={pkg.id}>
+            <input type="checkbox" checked={dispatchPackageIds.includes(pkg.id)} onChange={e=>{
+              const all=e.target.checked?[...dispatchPackageIds,pkg.id]:dispatchPackageIds.filter(id=>id!==pkg.id);
+              setDispatchPackageIds(all);
+              const included=(packedQuery.data??[]).filter(p=>all.includes(p.id));
+              const totals=new Map<string,number>();
+              for(const p of included)for(const item of p.lines)totals.set(item.orderLineId,(totals.get(item.orderLineId)??0)+item.quantity);
+              setDispatchDraft(current=>current.map(line=>({...line,quantity:String(totals.get(line.orderLineId)??0)})));
+            }}/>
+            <span><b>{pkg.packageNumber}</b><small>{pkg.lines.map(l=>l.productName+' × '+l.quantity).join(', ')}</small></span>
+          </label>)}
+          {!(packedQuery.data??[]).some(pkg=>pkg.orderId===dispatchOrder.id&&pkg.status==='sealed')&&<p>No sealed packages yet. Prepare a parcel in Packages or use direct dispatch.</p>}
+        </div>
+        <div className="commerce-lines-heading"><div><strong>Pack and dispatch · {dispatchOrder.orderNumber}</strong><p>Enter the quantity leaving this branch for each line. You can dispatch part of an order now and the remainder later.</p></div><button type="button" className="icon-button" aria-label="Close fulfilment" onClick={() => setDispatchOrder(null)}><X size={17}/></button></div>
         {dispatchDraft.map((line,index)=><div className="commerce-receipt-row commerce-dispatch-row" key={line.orderLineId}><div><strong>{line.productName}</strong><small>{line.remaining} still to fulfil</small></div><label className="field-label">Quantity to dispatch<input type="number" min="0" max={line.remaining} step="0.001" value={line.quantity} onChange={(e)=>setDispatchDraft((current)=>current.map((r,i)=>i===index?{...r,quantity:e.target.value}:r))}/></label></div>)}
         <div className="form-two-col">
           <label className="field-label">Transport method<select value={dispatchMethod} onChange={(e)=>setDispatchMethod(e.target.value)}><option value="business_rider">Business-owned rider</option><option value="independent_rider">Independent rider</option><option value="bus">Bus / bus company</option><option value="transport_company">Transport company</option><option value="courier_manual">Courier (manual record)</option><option value="customer_pickup">Customer pickup</option><option value="business_employee">Business employee / owner</option><option value="other">Other</option></select></label>

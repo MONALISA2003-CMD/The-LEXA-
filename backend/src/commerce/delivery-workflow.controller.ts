@@ -81,6 +81,9 @@ export class DeliveryWorkflowController {
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const session = await this.prisma.session.findFirst({ where: { tokenHash, expiresAt: { gt: new Date() } }, select: { userId: true } });
     if (!session) throw new UnauthorizedException({ code: 'SESSION_EXPIRED', message: 'Sign in again.' });
+    // Restore verified business context for this controller, even on read-only routes.
+    // A matching active membership and business location are still required below.
+    this.prisma.enterTenantContext(workspaceId, session.userId);
     const membership = await this.prisma.membership.findUnique({ where: { tenantId_userId: { tenantId: workspaceId, userId: session.userId } } });
     if (!membership || membership.status !== 'ACTIVE') throw new NotFoundException('Workspace not found.');
     const branch = await this.prisma.branch.findFirst({ where: { id: branchId, tenantId: workspaceId }, select: { id: true } });
@@ -679,6 +682,18 @@ export class DeliveryWorkflowController {
         return_reason=CASE WHEN ${nextStatus}='returned' THEN ${reason} ELSE return_reason END,
         updated_by_user_id=${actor.userId}::uuid, updated_at=CURRENT_TIMESTAMP
         WHERE tenant_id=${workspaceId}::uuid AND id=${deliveryId}::uuid`;
+      if(nextStatus==='delivered'||nextStatus==='returned'){
+        await tx.$executeRaw`UPDATE commerce_packages SET status=${nextStatus},
+          delivered_at=CASE WHEN ${nextStatus}='delivered' THEN ${occurredAt} ELSE delivered_at END,
+          updated_at=CURRENT_TIMESTAMP
+          WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid
+          AND delivery_id=${deliveryId}::uuid AND status='dispatched'`;
+        await tx.$executeRaw`UPDATE module_records SET
+          data=jsonb_set(data,'{status}',to_jsonb(${nextStatus==='delivered'?'Delivered':'Returned'}::text)),
+          version=version+1,updated_at=CURRENT_TIMESTAMP
+          WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND module_id='packages'
+          AND record_id IN(SELECT id::text FROM commerce_packages WHERE tenant_id=${workspaceId}::uuid AND delivery_id=${deliveryId}::uuid)`;
+      }
       await this.audit(tx, workspaceId, branchId, actor.userId, 'delivery.lifecycle.changed', 'delivery', deliveryId, { previousStatus: currentStatus, newStatus: nextStatus, reason });
       await this.emitOutbox(tx, workspaceId, branchId, 'sales-orders', deliveryId, 'delivery.lifecycle.changed', { deliveryId, previousStatus: currentStatus, newStatus: nextStatus, occurredAt: occurredAt.toISOString(), reason }, actor.userId, `delivery.lifecycle.changed:${eventId}`);
       const response = { id: deliveryId, previousStatus: currentStatus, status: nextStatus, eventId, occurredAt: occurredAt.toISOString() };

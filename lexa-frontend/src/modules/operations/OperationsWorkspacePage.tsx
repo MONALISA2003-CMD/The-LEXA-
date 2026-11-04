@@ -13,6 +13,7 @@ import {
 } from './moduleCatalog';
 import { getCoreScreenShortcuts, getRelatedActions, isDuplicateSensitiveHandoff } from './workflowGraph';
 import SellingNav,{SellingPerformance} from '../selling/SellingNav';
+import LogisticsHeader from '../logistics/LogisticsHeader';
 import { calculateRecord, nextStatus, safeNumber, validateRecord, type FormValues } from './previewRules';
 import { useModuleRecordService } from '../../data/providers/ModuleRecordServiceProvider';
 import type { DataPersistenceMode, ModuleRecordScope } from '../../data/contracts/previewData';
@@ -538,16 +539,17 @@ function ModuleManager({ module }: { module: ModuleDefinition }) {
   return (
     <div className="page-stack phase-two-page" data-module-accent={moduleAccentForPath("/modules/" + module.id)}>
       {module.group==='SELLING'&&<><SellingNav compact/>{module.id==='sales-orders'&&<SellingPerformance/>}</>}
+      {module.id==='deliveries'&&<LogisticsHeader active='deliveries'/>}
       <div className="page-heading-row module-heading"><div><div className="eyebrow eyebrow-blue">{module.group==='SELLING'?'YOUR SALES & CUSTOMERS':module.group+' / YOUR BUSINESS RECORDS'}</div><h2>{module.title}</h2><p>{module.description}</p></div><div className="phase-two-heading-actions"><span className="module-persistence-badge"><span />{storageMode === 'server' ? 'Saved to LEXA' : storageMode === 'browser-local' ? 'Saved on this device' : 'Not saved'}</span>{!module.readOnly && <button className="button button-primary" onClick={openNew}><Plus size={16} /> New {module.singular}</button>}</div></div>
       <div className="module-workflow-strip"><span className="module-workflow-icon"><Activity size={17} /></span><div><strong>What happens next</strong><p>{module.workflow}</p></div></div>
       <CommerceWorkflowPanel moduleId={module.id} />
-      <div className="metric-strip three-metrics phase-two-metrics">
+      <div className="metric-strip three-metrics phase-two-metrics" style={{display:module.id==='sales-orders'||module.id==='deliveries'?'none':undefined}}>
         <div className="mini-metric"><span>Total {recordCountLabel}</span><strong>{rows.length.toLocaleString()}</strong><small>In this register</small></div>
         <div className="mini-metric"><span>Needs attention</span><strong className={attentionCount ? 'warning-value' : ''}>{attentionCount.toLocaleString()}</strong><small>Draft, pending or review states</small></div>
         <div className="mini-metric"><span>{trackedValue === null ? 'Your records' : 'Recorded value'}</span><strong className="phase-two-value">{amountText}</strong><small>{trackedValue === null ? 'Available when you add records' : 'Calculated from this register; not a ledger balance'}</small></div>
       </div>
 
-      <section className="section-card table-card phase-two-table-card">
+      <section className="section-card table-card phase-two-table-card" style={{display:module.id==='sales-orders'||module.id==='deliveries'?'none':undefined}}>
         <div className="table-toolbar phase-two-table-toolbar"><div><h3>{module.title} register</h3><p>{filtered.length.toLocaleString()} matching {filtered.length === 1 ? 'record' : 'records'} · records in the active business and branch</p></div><div className="phase-two-table-actions">{savedViews.length > 0 && <label className="module-saved-view-select"><span className="sr-only">Saved filter views</span><select aria-label="Load saved filter view" value={selectedSavedView} onChange={(event) => applySavedView(event.target.value)}><option value="">Saved views…</option>{savedViews.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}</select></label>}<button className="button button-secondary button-small" onClick={() => setSaveViewOpen((value) => !value)}><Check size={14} /> Save view</button><button className="button button-secondary button-small" onClick={exportRows} disabled={!filtered.length}><Download size={14} /> Export CSV</button></div></div>{saveViewOpen && <form className="module-save-view-row" onSubmit={(event) => { event.preventDefault(); saveCurrentView(); }}><label>View name<input required maxLength={80} value={saveViewName} onChange={(event) => setSaveViewName(event.target.value)} placeholder="e.g. Overdue approvals" /></label><button type="submit" className="button button-primary button-small">Save current filters</button><button type="button" className="button button-secondary button-small" onClick={() => setSaveViewOpen(false)}>Cancel</button><span>Filter preferences are stored in this browser only.</span></form>}
         <div className="phase-two-filters">
           <label className="phase-two-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={'Search ' + module.title.toLowerCase() + '…'} aria-label={'Search ' + module.title} /><kbd>/</kbd></label>

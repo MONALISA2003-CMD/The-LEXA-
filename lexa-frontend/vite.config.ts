@@ -85,14 +85,8 @@ function lexaPayablesIntegration(): Plugin {
           .replace('entries do not initiate transfers.', 'maintain the transaction reference and reconciliation status.');
         return { code: cleaned, map: null };
       }
-      if (fileId.endsWith('/AccountsReceivablePanel.tsx')) {
-        const cleaned = source
-          .replace(/AlertCircle, /, '')
-          .replace(/<div className="ar-integrity-note">[\s\S]*?<\/div>/g, '')
-          .replace(/<div className="ar-form-note">[\s\S]*?<\/div>/g, '')
-          .replace(/<div className="ar-tax-note">[\s\S]*?<\/div>/g, '');
-        if (cleaned !== source) return { code: cleaned, map: null };
-      }
+      // Preserve the modern customer billing screen as authored. Stripping JSX by regex
+      // previously left dangling conditional expressions and broke production builds.
       if (fileId.endsWith('/OperationsWorkspacePage.tsx')) {
         const cleaned = source
           .replace('This is an activity note, not a security audit event or a posted business transaction.', '')

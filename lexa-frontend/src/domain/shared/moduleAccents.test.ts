@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EXISTING_MODULE_LINKS, MODULE_CATALOG, PHASE_TWO_LINKS } from '../../modules/operations/moduleCatalog';
 import { MODULE_ACCENTS_BY_PATH, moduleAccentForGroup, moduleAccentForPath, type ModuleAccentKey } from './moduleAccents';
-const allowed: ModuleAccentKey[] = ['navy','blue','cyan','emerald','gold','orange','coral'];
+const allowed: ModuleAccentKey[] = ['navy','blue','cyan','emerald','gold','orange','coral','violet'];
 describe('LEXA module accents', () => {
   it('covers every business navigation link', () => { for (const link of [...EXISTING_MODULE_LINKS, ...PHASE_TWO_LINKS]) expect(MODULE_ACCENTS_BY_PATH[link.to], link.to).toBeDefined(); });
   it('covers every operational catalogue module', () => { for (const module of MODULE_CATALOG) expect(MODULE_ACCENTS_BY_PATH['/modules/' + module.id], module.id).toBeDefined(); });

@@ -20,6 +20,35 @@ servers:
 security:
 - sessionCookie: []
 paths:
+  /workspaces/{workspaceId}/branches/{branchId}/logistics/packages:
+    get:
+      operationId: listPackedCustomerOrders
+      description: Tenant-scoped packing register linked to sales orders and deliveries.
+      responses:
+        '200': {description: Parcel list with item details}
+    post:
+      operationId: packCustomerOrderItems
+      description: Validate unfulfilled quantities and record a package without selling or deducting stock.
+      responses:
+        '201': {description: Parcel created}
+  /workspaces/{workspaceId}/branches/{branchId}/logistics/packages/summary:
+    get:
+      operationId: packageStatusSummary
+      description: Real package counts by verified status.
+      responses:
+        '200': {description: Package status totals}
+  /workspaces/{workspaceId}/branches/{branchId}/logistics/packages/{packageId}/seal:
+    post:
+      operationId: verifyAndSealPackage
+      description: Require a packed order before sealing a package for dispatch.
+      responses:
+        '201': {description: Sealed parcel}
+  /workspaces/{workspaceId}/branches/{branchId}/logistics/packages/{packageId}/cancel:
+    post:
+      operationId: cancelUnsentPackage
+      description: Release an unsent parcel's quantities with an audit reason.
+      responses:
+        '201': {description: Cancelled package}
   /workspaces/{workspaceId}/branches/{branchId}/selling/insights:
     get:
       operationId: listVerifiedSellingInsights

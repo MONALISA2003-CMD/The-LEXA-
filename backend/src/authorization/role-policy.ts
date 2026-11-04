@@ -123,6 +123,7 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/inventory\/(?:movements|balances)(?:\/|$)/.test(path)) return choose('inventory.read', 'inventory.write');
   if (/\/sales\/[^/]+\/returns$/.test(path)) return choose('sales.read', 'sales.return');
   if (/\/sales(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
+  if (/\/logistics\/packages(?:\/|$)/.test(path)) return choose('fulfilment.read','fulfilment.write');
   if (/\/commerce\/payment-report$/.test(path)) return 'sales.read';
   if (/\/platform\/attachments(?:\/|$)/.test(path)) return choose('collaboration.read','collaboration.write');
   if (/\/platform\/jobs\/(?:backup|restore-dry-run|restore)$/.test(path) || /\/platform\/jobs\/[^/]+\/restore-(?:approve|release)$/.test(path) || /\/platform\/events\/(?:dead-letter|[^/]+\/replay)$/.test(path)) return 'workspace.manage';

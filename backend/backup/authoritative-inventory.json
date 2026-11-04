@@ -222,6 +222,18 @@
     "rationale": "Goods receipt records"
   },
   {
+    "table": "commerce_package_lines",
+    "disposition": "authoritative",
+    "domain": "logistics",
+    "rationale": "Sales order packing records"
+  },
+  {
+    "table": "commerce_packages",
+    "disposition": "authoritative",
+    "domain": "logistics",
+    "rationale": "Sales order packing records"
+  },
+  {
     "table": "commerce_purchase_order_lines",
     "disposition": "authoritative",
     "domain": "procurement",

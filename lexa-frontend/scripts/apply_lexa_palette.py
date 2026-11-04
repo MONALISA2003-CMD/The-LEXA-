@@ -53,7 +53,7 @@ DARK_TOKENS = r''':root[data-theme=dark]{color-scheme:dark;
 --navy:var(--lexa-navy);--navy-2:var(--lexa-navy-2);--blue:var(--color-primary);--blue-light:var(--color-primary-soft);--cyan:var(--lexa-cyan);--green:var(--lexa-emerald);--gold:var(--lexa-gold);--red:var(--lexa-red);--text:var(--color-text-primary);--muted:var(--color-text-secondary);--line:var(--color-border);--canvas:var(--color-bg-canvas);--surface:var(--color-surface);--shadow:var(--shadow-card)}'''
 
 ACCENT_SOURCE = '''/** Explicit LEXA module accent metadata; never inferred from URL substrings. */
-export type ModuleAccentKey = 'navy' | 'blue' | 'cyan' | 'emerald' | 'gold' | 'orange' | 'coral';
+export type ModuleAccentKey = 'navy' | 'blue' | 'cyan' | 'emerald' | 'gold' | 'orange' | 'coral' | 'violet';
 const forPaths = (accent: ModuleAccentKey, paths: string[]) => Object.fromEntries(paths.map((path) => [path, accent])) as Record<string, ModuleAccentKey>;
 export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
   ...forPaths('navy', ['/', '/workspace', '/my-employment', '/business-setup', '/modules', '/modules/', '/team', '/settings', '/modules/projects', '/modules/team', '/operations']),
@@ -67,7 +67,7 @@ export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> =
   ...forPaths('gold', ['/modules/expenses', '/modules/money-accounts', '/modules/payments', '/modules/accounting', '/modules/chart-of-accounts', '/modules/tax-codes', '/modules/bank-reconciliation', '/modules/assets', '/modules/cost-centers', '/modules/budgets', '/modules/tax-documents', '/modules/recurring-invoices']),
 });
 export const MODULE_ACCENTS_BY_GROUP: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
-  WORKSPACE:'navy','BUSINESS REPORTS & ADVICE':'gold','CUSTOMERS & GROWTH':'emerald','PURCHASING':'orange','TEAM & PAYROLL':'emerald','PRODUCTION & QUALITY':'cyan','PROJECTS & SERVICE':'blue',CRM:'emerald','CRM & GROWTH':'emerald',SELLING:'coral',INVENTORY:'cyan',LOGISTICS:'cyan',PROCUREMENT:'orange',FINANCE:'gold','PEOPLE & PAYROLL':'emerald',INSIGHTS:'gold',ADMINISTRATION:'navy',MANUFACTURING:'cyan',
+  WORKSPACE:'navy','BUSINESS REPORTS & ADVICE':'gold','CUSTOMERS & GROWTH':'emerald','PURCHASING':'orange','TEAM & PAYROLL':'emerald','PRODUCTION & QUALITY':'cyan','PROJECTS & SERVICE':'blue',CRM:'emerald','CRM & GROWTH':'emerald',SELLING:'coral',INVENTORY:'cyan',LOGISTICS:'violet',PROCUREMENT:'orange',FINANCE:'gold','PEOPLE & PAYROLL':'emerald',INSIGHTS:'gold',ADMINISTRATION:'navy',MANUFACTURING:'cyan',
 });
 export function moduleAccentForPath(path: string): ModuleAccentKey {
   const pathname = path.split(/[?#]/, 1)[0]?.replace(new RegExp('/+$'), '') || '/';
@@ -90,7 +90,7 @@ export function moduleAccentForGroup(group: string): ModuleAccentKey { return MO
 ACCENT_TEST = '''import { describe, expect, it } from 'vitest';
 import { EXISTING_MODULE_LINKS, MODULE_CATALOG, PHASE_TWO_LINKS } from '../../modules/operations/moduleCatalog';
 import { MODULE_ACCENTS_BY_PATH, moduleAccentForGroup, moduleAccentForPath, type ModuleAccentKey } from './moduleAccents';
-const allowed: ModuleAccentKey[] = ['navy','blue','cyan','emerald','gold','orange','coral'];
+const allowed: ModuleAccentKey[] = ['navy','blue','cyan','emerald','gold','orange','coral','violet'];
 describe('LEXA module accents', () => {
   it('covers every business navigation link', () => { for (const link of [...EXISTING_MODULE_LINKS, ...PHASE_TWO_LINKS]) expect(MODULE_ACCENTS_BY_PATH[link.to], link.to).toBeDefined(); });
   it('covers every operational catalogue module', () => { for (const module of MODULE_CATALOG) expect(MODULE_ACCENTS_BY_PATH['/modules/' + module.id], module.id).toBeDefined(); });

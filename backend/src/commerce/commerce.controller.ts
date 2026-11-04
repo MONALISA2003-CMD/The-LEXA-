@@ -64,6 +64,9 @@ export class CommerceController {
     if (!token) throw new UnauthorizedException({ code: 'AUTH_REQUIRED', message: 'Sign in to continue.' });
     const session = await this.prisma.session.findFirst({ where: { tokenHash: sha(token), expiresAt: { gt: new Date() } }, select: { userId: true } });
     if (!session) throw new UnauthorizedException({ code: 'SESSION_EXPIRED', message: 'Sign in again.' });
+    // Restore verified business context for this controller, even on read-only routes.
+    // A matching active membership and business location are still required below.
+    this.prisma.enterTenantContext(workspaceId, session.userId);
     const member = await this.prisma.membership.findUnique({ where: { tenantId_userId: { tenantId: workspaceId, userId: session.userId } } });
     if (!member || member.status !== 'ACTIVE') throw new NotFoundException('Workspace not found.');
     const branch = await this.prisma.branch.findFirst({ where: { id: branchId, tenantId: workspaceId }, select: { id: true } });
@@ -276,14 +279,42 @@ export class CommerceController {
         fulfilLines.push({line,qty:selected,product});
       }
       if(!fulfilLines.length) throw new BadRequestException('Enter at least one unfulfilled quantity.');
-      const total=fulfilLines.reduce((sum,x)=>sum+Math.round(x.product.sellingPriceMinor*x.qty),0); money(total,'Fulfilment total');
+      const selectedPackageIds=body.packageIds===undefined?[]:body.packageIds;
+      if(!Array.isArray(selectedPackageIds)||selectedPackageIds.length>30||
+         selectedPackageIds.some((id:any)=>typeof id!=='string'||!/^[0-9a-f-]{36}$/i.test(id))||
+         new Set(selectedPackageIds).size!==selectedPackageIds.length)
+         throw new BadRequestException('Choose valid, different packages to dispatch.');
+      const sealedPackages=selectedPackageIds.length?await tx.$queryRaw<any[]>`
+        SELECT p.id,p.order_id,p.status FROM commerce_packages p
+        WHERE p.tenant_id=${workspaceId}::uuid AND p.branch_id=${branchId}::uuid
+          AND p.order_id=${orderId}::uuid AND p.id=ANY(${selectedPackageIds}::uuid[])
+        ORDER BY p.id FOR UPDATE`:[];
+      if(sealedPackages.length!==selectedPackageIds.length||
+         sealedPackages.some((p:any)=>p.status!=='sealed'))
+         throw new ConflictException('Every selected package must belong to this order and be sealed, but not yet dispatched.');
+      if(sealedPackages.length){
+        const packed=await tx.$queryRaw<Array<{orderLineId:string;quantity:any}>>`
+          SELECT l.order_line_id AS "orderLineId",SUM(l.quantity) AS quantity
+          FROM commerce_package_lines l WHERE l.tenant_id=${workspaceId}::uuid
+          AND l.package_id=ANY(${selectedPackageIds}::uuid[]) GROUP BY l.order_line_id`;
+        for(const row of packed){
+          const sent=fulfilLines.find(line=>line.line.id===row.orderLineId);
+          if(!sent||Number(row.quantity)>sent.qty+1e-9)
+            throw new ConflictException('A package contains more than the selected dispatch quantity. Review packed items.');
+        }
+        for(const row of fulfilLines){
+          const sealedQty=Number(packed.find(p=>p.orderLineId===row.line.id)?.quantity??0);
+          if(sealedQty+1e-9<row.qty)throw new ConflictException('All dispatched items must be in the selected sealed packages.');
+        }
+      }
+      const total=fulfilLines.reduce((sum,x)=>sum+Math.round(Number(x.line.unit_price_minor)*x.qty),0); money(total,'Fulfilment total');
       const sale=await tx.sale.create({data:{tenantId:workspaceId,branchId,receiptNumber:doc('LX'),customerName:recipientName,customerPhone:recipientPhone,totalMinor:total,status:'completed'}});
       const fulfilmentId=randomUUID(); const fulfilmentNumber=doc('FUL');
       await tx.$executeRaw`INSERT INTO commerce_fulfilments (id,tenant_id,branch_id,order_id,sale_id,fulfilment_number,status,created_by_user_id)
         VALUES (${fulfilmentId}::uuid,${workspaceId}::uuid,${branchId}::uuid,${orderId}::uuid,${sale.id}::uuid,${fulfilmentNumber},'dispatched',${actor.userId}::uuid)`;
       for(const item of fulfilLines){
-        const lineTotal=Math.round(item.product.sellingPriceMinor*item.qty);
-        const saleLine=await tx.saleLine.create({data:{tenantId:workspaceId,saleId:sale.id,productId:item.product.id,productNameSnapshot:item.product.name,quantity:String(item.qty),unitPriceMinor:item.product.sellingPriceMinor,lineTotalMinor:lineTotal,taxableMinor:lineTotal,unitCostMinor:item.product.costPriceMinor}});
+        const lineTotal=Math.round(Number(item.line.unit_price_minor)*item.qty);
+        const saleLine=await tx.saleLine.create({data:{tenantId:workspaceId,saleId:sale.id,productId:item.product.id,productNameSnapshot:item.line.product_name_snapshot,skuSnapshot:item.line.sku_snapshot,quantity:String(item.qty),unitPriceMinor:Number(item.line.unit_price_minor),lineTotalMinor:lineTotal,taxableMinor:lineTotal,unitCostMinor:item.product.costPriceMinor}});
         item.saleLineId=saleLine.id;
         if(item.product.trackStock){
           await tx.stockMovement.create({data:{tenantId:workspaceId,branchId,productId:item.product.id,type:'sale',quantityDelta:String(-item.qty),reason:`Fulfilment ${fulfilmentNumber}`,sourceId:fulfilmentId}});
@@ -311,12 +342,22 @@ export class CommerceController {
           CURRENT_TIMESTAMP,${actor.userId}::uuid,${key},${requestHash})`;
       for(const item of fulfilLines){
         if(!item.saleLineId) throw new ConflictException('The generated sale line ID is missing from its fulfilment item.');
-        const totalSellingMinor=Math.round(item.product.sellingPriceMinor*item.qty);
+        const totalSellingMinor=Math.round(Number(item.line.unit_price_minor)*item.qty);
         const totalCostMinor=Math.round(item.product.costPriceMinor*item.qty);
         await tx.$executeRaw`INSERT INTO commerce_delivery_items
           (id,tenant_id,delivery_id,sale_line_id,product_id,product_name_snapshot,sku_snapshot,quantity,unit_selling_minor,total_selling_minor,unit_cost_minor,total_cost_minor)
           VALUES (${randomUUID()}::uuid,${workspaceId}::uuid,${deliveryId}::uuid,${item.saleLineId}::uuid,${item.product.id}::uuid,
-            ${item.product.name},${item.product.sku},${String(item.qty)}::numeric,${item.product.sellingPriceMinor},${totalSellingMinor},${item.product.costPriceMinor},${totalCostMinor})`;
+            ${item.line.product_name_snapshot},${item.line.sku_snapshot},${String(item.qty)}::numeric,${Number(item.line.unit_price_minor)},${totalSellingMinor},${item.product.costPriceMinor},${totalCostMinor})`;
+      }
+      if(sealedPackages.length){
+        await tx.$executeRaw`UPDATE commerce_packages SET status='dispatched',
+          delivery_id=${deliveryId}::uuid,tracking_reference=${deliveryNumber},updated_at=CURRENT_TIMESTAMP
+          WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid
+            AND id=ANY(${selectedPackageIds}::uuid[])`;
+        await tx.$executeRaw`UPDATE module_records SET data=jsonb_set(data,'{status}','"Dispatched"'::jsonb),
+          updated_at=CURRENT_TIMESTAMP,version=version+1
+          WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND module_id='packages'
+            AND record_id=ANY(${selectedPackageIds}::text[])`;
       }
       await tx.$executeRaw`INSERT INTO commerce_delivery_events
         (tenant_id,branch_id,delivery_id,previous_status,new_status,actor_user_id,occurred_at,reason,idempotency_key,metadata)
@@ -410,7 +451,14 @@ export class CommerceController {
 
   @Patch('deliveries/:deliveryId/status')
   @UseGuards(CsrfGuard)
-  async updateDelivery(@Param('workspaceId') workspaceId:string,@Param('branchId') branchId:string,@Param('deliveryId') deliveryId:string,@Body() raw:unknown,@Req() req:ReqBody){const actor=await this.access(req,workspaceId,branchId);uuid(deliveryId,'Delivery ID');const body=object(raw);const status=text(body.status,'Delivery status',30)!;const allowed=new Set(['in_transit','delivered','delivery_failed']);if(!allowed.has(status))throw new BadRequestException('Choose In transit, Delivered or Delivery failed.');const tracking=text(body.trackingReference,'Tracking / proof reference',160,true)??null;if(status==='delivered'&&!tracking)throw new BadRequestException('A proof-of-delivery or collection reference is required before closing this delivery.');return this.prisma.$transaction(async(tx)=>{const rows=await tx.$queryRaw<any[]>`SELECT * FROM commerce_deliveries WHERE id=${deliveryId}::uuid AND tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid FOR UPDATE`;const d=rows[0];if(!d)throw new NotFoundException('Delivery not found.');if(d.status==='delivered')throw new ConflictException('A completed delivery cannot be changed.');const deliveredAt=status==='delivered'?new Date():null;await tx.$executeRaw`UPDATE commerce_deliveries SET status=${status},tracking_reference=COALESCE(${tracking},tracking_reference),delivered_at=COALESCE(${deliveredAt},delivered_at),updated_at=CURRENT_TIMESTAMP WHERE id=${deliveryId}::uuid`;await tx.$executeRaw`UPDATE module_records SET data=jsonb_set(jsonb_set(data,'{status}',to_jsonb(${status==='in_transit'?'In transit':status==='delivered'?'Delivered':'Delivery failed'}::text)),'{trackingReference}',to_jsonb(${tracking ?? d.tracking_reference ?? ''}::text)),version=version+1,updated_at=CURRENT_TIMESTAMP WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND module_id='deliveries' AND record_id=${deliveryId}`;await this.event(tx,workspaceId,branchId,'deliveries',deliveryId,'delivery.status_changed',{status,trackingReference:tracking},actor.userId,`delivery-status:${deliveryId}:${status}`);await this.audit(tx,workspaceId,actor.userId,`delivery.${status}`,'delivery',deliveryId);return{id:deliveryId,status,trackingReference:tracking??d.tracking_reference??undefined,deliveredAt:deliveredAt?.toISOString()};},{isolationLevel:'Serializable'});}
+  async updateDelivery(@Param('workspaceId') workspaceId:string,@Param('branchId') branchId:string,@Param('deliveryId') deliveryId:string,@Body() raw:unknown,@Req() req:ReqBody){const actor=await this.access(req,workspaceId,branchId);uuid(deliveryId,'Delivery ID');const body=object(raw);const status=text(body.status,'Delivery status',30)!;const allowed=new Set(['in_transit','delivered','delivery_failed']);if(!allowed.has(status))throw new BadRequestException('Choose In transit, Delivered or Delivery failed.');const tracking=text(body.trackingReference,'Tracking / proof reference',160,true)??null;if(status==='delivered'&&!tracking)throw new BadRequestException('A proof-of-delivery or collection reference is required before closing this delivery.');return this.prisma.$transaction(async(tx)=>{const rows=await tx.$queryRaw<any[]>`SELECT * FROM commerce_deliveries WHERE id=${deliveryId}::uuid AND tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid FOR UPDATE`;const d=rows[0];if(!d)throw new NotFoundException('Delivery not found.');if(d.status==='delivered')throw new ConflictException('A completed delivery cannot be changed.');const deliveredAt=status==='delivered'?new Date():null;await tx.$executeRaw`UPDATE commerce_deliveries SET status=${status},tracking_reference=COALESCE(${tracking},tracking_reference),delivered_at=COALESCE(${deliveredAt},delivered_at),updated_at=CURRENT_TIMESTAMP WHERE id=${deliveryId}::uuid`;await tx.$executeRaw`UPDATE module_records SET data=jsonb_set(jsonb_set(data,'{status}',to_jsonb(${status==='in_transit'?'In transit':status==='delivered'?'Delivered':'Delivery failed'}::text)),'{trackingReference}',to_jsonb(${tracking ?? d.tracking_reference ?? ''}::text)),version=version+1,updated_at=CURRENT_TIMESTAMP WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND module_id='deliveries' AND record_id=${deliveryId}`;await this.event(tx,workspaceId,branchId,'deliveries',deliveryId,'delivery.status_changed',{status,trackingReference:tracking},actor.userId,`delivery-status:${deliveryId}:${status}`);await this.audit(tx,workspaceId,actor.userId,`delivery.${status}`,'delivery',deliveryId);if(status==='delivered'){
+       await tx.$executeRaw`UPDATE commerce_packages SET status='delivered',delivered_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+         WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND delivery_id=${deliveryId}::uuid AND status='dispatched'`;
+       await tx.$executeRaw`UPDATE module_records SET data=jsonb_set(data,'{status}','"Delivered"'::jsonb),version=version+1,updated_at=CURRENT_TIMESTAMP
+         WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND module_id='packages'
+           AND record_id IN(SELECT id::text FROM commerce_packages WHERE tenant_id=${workspaceId}::uuid AND delivery_id=${deliveryId}::uuid)`;
+      }
+      return{id:deliveryId,status,trackingReference:tracking??d.tracking_reference??undefined,deliveredAt:deliveredAt?.toISOString()};},{isolationLevel:'Serializable'});}
 
   @Post('crm/leads/:leadRecordId/convert')
   @UseGuards(CsrfGuard)
