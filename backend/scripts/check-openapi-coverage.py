@@ -24,6 +24,7 @@ CONTROLLERS = [
     ROOT / 'backend/src/commerce/logistics-packages.controller.ts',
     ROOT / 'backend/src/finance/finance-operations.controller.ts',
     ROOT / 'backend/src/supply-chain/supply-chain.controller.ts',
+    ROOT / 'backend/src/supply-chain/inventory-intelligence.controller.ts',
     ROOT / 'backend/src/people-projects/people-projects.controller.ts',
     ROOT / 'backend/src/platform/platform.controller.ts',
     ROOT / 'backend/src/platform/tax-reference.controller.ts',

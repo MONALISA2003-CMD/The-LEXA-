@@ -1,6 +1,6 @@
-import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {Link} from 'react-router';
 import { ArrowDownLeft, ArrowUpRight, ClipboardCheck, Package, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
@@ -9,7 +9,8 @@ import { movementLabel } from '../../domain/inventory/stock';
 import type { StockMovement, Product } from '../../domain/shared/types';
 import { StandardDataTable, type DataTableColumn } from '../../components/tables/StandardDataTable';
 import { BarcodeCapture } from '../../components/barcode/BarcodeCapture';
-import CatalogInventoryPanel from './CatalogInventoryPanel';
+import InventoryIntelligencePanel from './InventoryIntelligencePanel';
+import {InventoryFrame} from './InventoryFrame';
 
 export default function InventoryPage() {
   const { workspace, branch } = useWorkspace();
@@ -85,7 +86,10 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="page-stack" data-module-accent={moduleAccentForPath("/inventory")}>
+    <InventoryFrame title="Stock & movements" subtitle="See available goods, customer reservations, stock movement and inventory risks in one place."
+      action={<><Link to="/modules/stock-counts" className="solar-button-secondary"><ClipboardCheck size={16}/> Count and correct stock</Link>
+        <button className="solar-button" onClick={()=>openForm('opening')} disabled={!trackedProducts.length}><Plus size={16}/> Record opening stock</button></>}>
+      <InventoryIntelligencePanel/>
       <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">STOCK CONTROL</div><h2>Inventory</h2><p>Stock on hand is calculated from recorded movements for {branch.name}.</p></div><div className="action-group"><button className="button button-secondary" onClick={() => openForm('adjustment')} disabled={!trackedProducts.length}><ClipboardCheck size={16} /> Adjust stock</button><button className="button button-primary" onClick={() => openForm('opening')} disabled={!trackedProducts.length}><Plus size={17} /> Opening stock</button></div></div>
       <div className="metric-strip three-metrics"><div className="mini-metric"><span>Units on hand</span><strong>{totalUnits.toLocaleString()}</strong><small>Calculated from movement history</small></div><div className="mini-metric"><span>Tracked products</span><strong>{trackedProducts.length}</strong><small>Active products with stock tracking</small></div><div className="mini-metric"><span>Low-stock items</span><strong className={lowStockProducts.length ? 'warning-value' : ''}>{lowStockProducts.length}</strong><small>At or below minimum threshold</small></div></div>
 
@@ -96,8 +100,8 @@ export default function InventoryPage() {
 
       <section className="section-card table-card"><div className="table-toolbar"><div><h3>Movement history</h3><p>Auditable changes to stock at this branch</p></div><span className="muted-count">{movementQuery.data?.length ?? 0} records</span></div>{movementQuery.isError ? <div className="inline-error" role="alert"><strong>Could not load movement history.</strong><span>{movementQuery.error instanceof Error ? movementQuery.error.message : 'Check the connection and retry.'}</span><button className="button button-secondary button-small" onClick={() => void movementQuery.refetch()}>Retry</button></div> : movementQuery.isLoading ? <div className="loading-state">Loading movement history…</div> : !(movementQuery.data ?? []).length ? <div className="empty-state compact"><div className="empty-icon"><ArrowDownLeft size={23} /></div><h3>No stock movements yet</h3><p>Record opening quantities or a stock adjustment to begin the ledger.</p>{trackedProducts.length > 0 && <button className="button button-primary" onClick={() => openForm('opening')}><Plus size={15} /> Record opening stock</button>}</div> : <StandardDataTable rows={movementQuery.data ?? []} columns={movementColumns} rowLabel="movements" emptyTitle="No stock movements yet" emptyDescription="Stock ledger events will appear here after a validated movement is recorded." />}</section>
 
-      <CatalogInventoryPanel />
+
       {formOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}><section className="form-modal small-modal" role="dialog" aria-modal="true" aria-labelledby="stock-form-title"><div className="modal-heading"><div><div className="eyebrow eyebrow-blue">STOCK LEDGER</div><h3 id="stock-form-title">{movementType === 'opening' ? 'Record opening stock' : 'Adjust stock'}</h3><p>This creates a movement record; it does not edit a standalone balance.</p></div><button className="icon-button" aria-label="Close form" onClick={() => setFormOpen(false)}><X size={19} /></button></div><form onSubmit={submit} className="form-stack"><BarcodeCapture compact label="Scan a product for this stock movement" onCode={handleStockBarcode} /><label className="field-label">Product <span className="required-mark">*</span><select required value={productId} onChange={(event) => setProductId(event.target.value)}>{trackedProducts.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.sku} (on hand: {balanceQuery.data?.get(item.id) ?? 0})</option>)}</select></label>{movementType === 'adjustment' && <label className="field-label">Adjustment direction<select value={direction} onChange={(event) => setDirection(event.target.value as 'increase' | 'decrease')}><option value="increase">Increase stock</option><option value="decrease">Decrease stock</option></select></label>}<label className="field-label">{movementType === 'opening' ? 'Opening quantity' : 'Quantity'} <span className="required-mark">*</span><input required type="number" min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label><label className="field-label">Reason <span className="required-mark">*</span><textarea required rows={3} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Explain why stock is changing" /></label><div className="form-info"><ClipboardCheck size={16} /><p>Changes are saved with a timestamp and reason. Stock cannot be reduced below zero.</p></div><div className="form-modal-actions"><button type="button" className="button button-secondary" onClick={() => setFormOpen(false)}>Cancel</button><button type="submit" className="button button-primary" disabled={saving || !trackedProducts.length}>{saving ? 'Saving…' : 'Save movement'} <ArrowUpRight size={16} /></button></div></form></section></div>}
-    </div>
+    </InventoryFrame>
   );
 }

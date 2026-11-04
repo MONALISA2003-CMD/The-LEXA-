@@ -116,7 +116,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   },
   {
     id: 'receiving', title: 'Goods receiving', singular: 'goods receipt', group: 'INVENTORY', icon: PackageCheck, readOnly: true,
-    description: 'Count what physically arrived against a supplier order, record accepted and rejected quantities, batch details and discrepancies. Accepted quantities post to the stock ledger.',
+    description: 'Check supplier deliveries, accept the right goods and record any damaged or missing quantities.',
     workflow: 'Ordered purchase → count receipt lines → classify accepted and rejected quantities → post receipt. Partial receipts leave the remaining order quantity open; rejected goods never increase on-hand stock.',
     dateKey: 'receiptDate',
     fields: [],
@@ -170,7 +170,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   },
   {
     id: 'stock-counts', title: 'Stock counts', singular: 'stock count', group: 'INVENTORY', icon: PackageCheck,
-    description: 'Plan a count, compare physical quantity to the system quantity, document the variance and capture an approval/status trail.',
+    description: 'Count goods on the shelf, explain any differences and get the correct quantity approved.',
     workflow: 'Open count → count physical stock → explain variance → review/approve → post a controlled stock adjustment. Confirmed variances must be posted through the stock movement workflow.',
     dateKey: 'countDate',
     fields: [text('countNumber', 'Stock count reference'), date('countDate', 'Count date'), text('product', 'Product / SKU'), amount('expectedQuantity', 'System quantity'), amount('countedQuantity', 'Physically counted quantity'), text('reason', 'Variance explanation', false), status(['Draft', 'Counted', 'Needs review', 'Approved', 'Posted', 'Cancelled'])],
@@ -188,7 +188,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   },
   {
     id: 'stock-transfers', title: 'Stock transfers', singular: 'stock transfer', group: 'INVENTORY', icon: ArrowLeftRight,
-    description: 'Record internal stock movement between branches, including source, destination, product, quantity, reason and receipt status.',
+    description: 'Move goods from one storeroom or shop area to another, and confirm when they arrive.',
     workflow: 'Draft → request → dispatch / in transit → receive at destination. Confirmed transfers require paired stock ledger movements before on-hand balances change.',
     dateKey: 'transferDate',
     fields: [text('transferNumber', 'Transfer reference'), text('fromBranch', 'Source branch'), text('toBranch', 'Destination branch'), date('transferDate', 'Transfer date'), text('product', 'Product / SKU'), amount('quantity', 'Quantity transferred'), select('reason', 'Reason', ['Replenishment', 'Inter-branch sale fulfilment', 'Stock balancing', 'Other']), status(['Draft', 'Requested', 'In transit', 'Received', 'Cancelled'])],
@@ -225,7 +225,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   },
   {
     id: 'warehouses', title: 'Warehouses & locations', singular: 'warehouse / location', group: 'INVENTORY', icon: Building2,
-    description: 'Plan the physical locations used for receiving, storage, picking, dispatch, stock counting and inter-branch movement.',
+    description: 'Organise your shop floor, storerooms, receiving area and shelves in one business.',
     workflow: 'Create a location → assign a branch and supervisor → receive/move stock into the location → count and reconcile. These location records do not create a stock ledger.',
     fields: [text('locationCode', 'Location code'), text('name', 'Warehouse / location name'), text('branch', 'Branch'), select('locationType', 'Location type', ['Warehouse', 'Store room', 'Retail floor', 'Dispatch area', 'Quarantine / returns', 'Virtual']), text('address', 'Address / zone'), text('binRange', 'Aisle / rack / bin range', false), amount('capacityUnits', 'Capacity (units, optional)', false), text('supervisor', 'Responsible supervisor', false), status(['Active', 'Restricted', 'Under maintenance', 'Inactive'])],
     columns: [{ key: 'locationCode', label: 'LOCATION CODE' }, { key: 'name', label: 'LOCATION' }, { key: 'branch', label: 'BRANCH' }, { key: 'locationType', label: 'TYPE' }, { key: 'binRange', label: 'AISLE / BIN' }, { key: 'status', label: 'STATUS', kind: 'status' }],
@@ -386,7 +386,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   },
   {
     id: 'batches', title: 'Batch, serial & expiry tracking', singular: 'tracked lot', group: 'INVENTORY', icon: PackageCheck,
-    description: 'Trace lot/batch or serial identifiers by product, supplier, warehouse, received quantity and expiry date.',
+    description: 'Find product batches and serial numbers, check expiry dates and trace goods back to their supplier.',
     workflow: 'Record receipt lot/serial → set storage location and expiry → quarantine/release as required → trace consumption, return or recall. Update stock balances through the confirmed stock-movement workflow.',
     dateKey: 'receivedDate',
     fields: [text('trackingReference', 'Batch / serial reference'), select('trackingType', 'Tracking type', ['Batch / lot', 'Serial number', 'Expiry lot']), text('productSKU', 'Product SKU'), text('productName', 'Product name'), text('supplier', 'Supplier'), text('warehouse', 'Warehouse / bin'), date('receivedDate', 'Received date'), date('expiryDate', 'Expiry date', false), amount('receivedQuantity', 'Received quantity'), amount('availableQuantity', 'Available quantity'), text('supplierLot', 'Supplier lot / certificate', false), status(['In stock', 'Quarantined', 'Expired', 'Recalled', 'Depleted'])],
@@ -440,7 +440,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   },
   {
     id: 'replenishment', title: 'Reorder planning', singular: 'replenishment rule', group: 'INVENTORY', icon: ArrowLeftRight,
-    description: 'Estimate replenishment quantity from on-hand stock, reorder point, average demand, supplier lead time and safety stock.',
+    description: 'See what to buy next based on actual stock, customer orders, supplier deliveries and recent demand.',
     workflow: 'Review demand and current stock → calculate recommended quantity → prepare purchase order → receive and reconcile stock. Recommendation is a planning estimate, not an automatic purchase.',
     dateKey: 'reviewDate',
     fields: [text('replenishmentNumber', 'Planning reference'), text('productSKU', 'Product SKU'), text('productName', 'Product'), text('warehouse', 'Warehouse / branch'), date('reviewDate', 'Review date'), amount('onHand', 'On-hand quantity'), amount('reorderPoint', 'Reorder point'), amount('averageDailyDemand', 'Average daily demand'), amount('leadTimeDays', 'Supplier lead time (days)'), amount('safetyStock', 'Safety stock quantity'), text('preferredSupplier', 'Preferred supplier', false), status(['Review needed', 'Reviewed', 'Draft PO created', 'Ordered', 'On hold'])],
@@ -485,16 +485,16 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
   },
   {
     id: 'item-bundles', title: 'Item bundles & composite items', singular: 'item bundle', group: 'INVENTORY', icon: Boxes,
-    description: 'Define a sellable bundle with a component summary, expected component count, unit cost and bundle price.',
-    workflow: 'Define the bundle → validate components and quantity rules → use it in a sale or production plan. Component stock deduction is not connected in this interface.',
+    description: 'Define assembled packs and kits with exact products, component quantities and costs.',
+    workflow: 'Define the bundle → validate components and quantity rules → use it in a sale or production plan. Actual assembly stock changes only through an approved manufacturing work order.',
     amountKey: 'sellingPrice',
     fields: [text('bundleCode', 'Bundle reference'), text('bundleName', 'Bundle name'), text('sku', 'Bundle SKU'), { key: 'componentsSummary', label: 'Component items and quantities', kind: 'textarea', required: true, fullWidth: true, help: 'summary only; this is not yet a structured component-line editor.' }, amount('componentCount', 'Number of component lines'), amount('unitCost', 'Estimated component cost per bundle'), amount('sellingPrice', 'Selling price per bundle'), status(['Draft', 'Review', 'Active', 'Inactive'])],
     columns: [{ key: 'bundleCode', label: 'BUNDLE' }, { key: 'bundleName', label: 'NAME' }, { key: 'sku', label: 'SKU' }, { key: 'componentCount', label: 'COMPONENT LINES', kind: 'number' }, { key: 'unitCost', label: 'COST ESTIMATE', kind: 'money' }, { key: 'sellingPrice', label: 'SELLING PRICE', kind: 'money' }, { key: 'status', label: 'STATUS', kind: 'status' }],
     initial: [],
   },
   {
-    id: 'picklists', title: 'Warehouse picklists', singular: 'picklist', group: 'LOGISTICS', icon: PackageCheck,
-    description: 'Assign picking work from a confirmed order, measure requested versus picked units, and record short picks before packing.',
+    id: 'picklists', title: 'Picklists & picking', singular: 'picklist', group: 'INVENTORY', icon: PackageCheck,
+    description: 'Find, scan and confirm the goods needed for each customer order before packing.',
     workflow: 'Confirmed order → picklist assigned → pick and verify → report short picks → create package → dispatch. Update stock balances through the confirmed warehouse movement workflow.',
     dateKey: 'pickDate',
     fields: [text('picklistNumber', 'Picklist reference'), text('salesOrder', 'Sales order reference'), text('warehouse', 'Warehouse'), text('picker', 'Assigned picker'), date('pickDate', 'Pick date'), amount('lineCount', 'Distinct item lines'), amount('unitsToPick', 'Units to pick'), amount('unitsPicked', 'Units picked'), status(['Draft', 'Assigned', 'Picking', 'Picked', 'Partially picked', 'Short pick', 'Cancelled'])],

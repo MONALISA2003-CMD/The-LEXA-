@@ -45,6 +45,8 @@ export interface Product {
   sellingPriceMinor: number;
   lowStockThreshold: number;
   trackStock: boolean;
+  trackLot?: boolean;
+  trackSerial?: boolean;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -179,6 +181,8 @@ export interface CreateProductInput {
   sellingPriceMinor: number;
   lowStockThreshold: number;
   trackStock: boolean;
+  trackLot?: boolean;
+  trackSerial?: boolean;
 }
 
 export interface SaleItemInput {

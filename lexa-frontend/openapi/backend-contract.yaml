@@ -20,6 +20,42 @@ servers:
 security:
 - sessionCookie: []
 paths:
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/intelligence:
+    get:
+      operationId: inventoryBusinessIntelligence
+      description: Real stock movements, product costs, reservations, available quantities, sales demand and expiry risk for the verified business.
+      responses:
+        '200': {description: Current inventory intelligence and cost-based estimates}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/lots:
+    get:
+      operationId: listBusinessInventoryLots
+      description: Tenant-verified lot and expiry information linked to products and storage locations.
+      responses:
+        '200': {description: Recorded lots}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/lots/{lotId}/history:
+    get:
+      operationId: inventoryLotTraceHistory
+      description: Trace recorded batch movements and the completed sales containing the selected batch.
+      responses:
+        '200': {description: Auditable lot movement and sale history}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/lots/{lotId}/quarantine:
+    post:
+      operationId: restrictInventoryLot
+      description: Inventory-authorised restriction of a lot with reason and reservation checks.
+      responses:
+        '201': {description: Lot restricted from normal sale}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/lots/{lotId}/release:
+    post:
+      operationId: releaseInspectedInventoryLot
+      description: Release of inspected, non-expired stock by an authorised employee.
+      responses:
+        '201': {description: Available lot after verified release}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/replenishment/policies:
+    get:
+      operationId: readInventoryReorderPolicies
+      description: Effective reorder thresholds, safety stock and supplier lead times.
+      responses:
+        '200': {description: Actual reorder plans}
   /workspaces/{workspaceId}/branches/{branchId}/logistics/packages:
     get:
       operationId: listPackedCustomerOrders

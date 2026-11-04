@@ -12,6 +12,7 @@ import { TypedModuleWriteGuard } from './core/typed-module-write.guard';
 import { ModuleGraphController } from './module-graph/module-graph.controller';
 import { CommerceController } from './commerce/commerce.controller';
 import { LogisticsPackagesController } from './commerce/logistics-packages.controller';
+import { InventoryIntelligenceController } from './supply-chain/inventory-intelligence.controller';
 import { DeliveryWorkflowController } from './commerce/delivery-workflow.controller';
 import { ReceivablesController } from './receivables/receivables.controller';
 import { PayablesController } from './payables/payables.controller';
@@ -37,7 +38,7 @@ import { AiRouterService } from './workstream8/ai-router.service';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [CustomerGrowthController, HealthController, CoreController, BusinessSetupController, StaffProvisioningController, PublicRegistrationController, ModuleGraphController, CommerceController, DeliveryWorkflowController, LogisticsPackagesController, ReceivablesController, RecurringInvoicesController, NotificationCentreController, ResendWebhookController, OperationsController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController, SupplyChainController, PeopleProjectsController, PlatformController, TaxReferenceController, Workstream8Controller],
+  controllers: [CustomerGrowthController, HealthController, CoreController, BusinessSetupController, StaffProvisioningController, PublicRegistrationController, ModuleGraphController, CommerceController, DeliveryWorkflowController, LogisticsPackagesController, InventoryIntelligenceController, ReceivablesController, RecurringInvoicesController, NotificationCentreController, ResendWebhookController, OperationsController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController, SupplyChainController, PeopleProjectsController, PlatformController, TaxReferenceController, Workstream8Controller],
   providers: [ReportInsightsService, CsrfGuard, PeopleProjectsService, AiRouterService, { provide: APP_INTERCEPTOR, useClass: CorrelationInterceptor }, { provide: APP_INTERCEPTOR, useClass: SentryExceptionInterceptor }, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
 })
 export class AppModule {}

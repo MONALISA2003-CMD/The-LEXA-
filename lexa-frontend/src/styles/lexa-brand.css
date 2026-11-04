@@ -643,3 +643,5 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 [data-module-accent=coral]{--module-accent:#ED613E;--module-accent-strong:#9A351E;--module-accent-soft:#FFF1E8;--module-accent-border:#F5D2C4;--module-nav-accent:#FF9F7D;--module-nav-wash:rgba(237,97,62,.15)}
 
 [data-module-accent=violet]{--module-accent:#6845D8;--module-accent-strong:#43298A;--module-accent-soft:#F4F0FF;--module-accent-border:#DED4FA;--module-nav-accent:#A58AF5;--module-nav-wash:rgba(104,69,216,.15)}
+
+[data-module-accent=volt]{--module-accent:#557B12;--module-accent-strong:#334E07;--module-accent-soft:#F0FBCF;--module-accent-border:#D3EAA1;--module-nav-accent:#B9F23C;--module-nav-wash:rgba(185,242,60,.14)}
