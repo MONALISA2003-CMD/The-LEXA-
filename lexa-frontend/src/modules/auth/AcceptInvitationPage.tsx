@@ -1,3 +1,4 @@
+import { validNewPassword, NEW_PASSWORD_RULE } from '../../domain/shared/newPasswordPolicy';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ArrowLeft, ArrowRight, Building2, CheckCircle2, LoaderCircle, Mail, ShieldCheck, UserRound } from 'lucide-react';
@@ -28,7 +29,7 @@ export default function AcceptInvitationPage() {
   },[invitation]);
   async function accept(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setError('');
-    if(Array.from(password).length<15){setError('Use a password or passphrase with at least 15 characters.');return;}
+    if(!validNewPassword(password)){setError(NEW_PASSWORD_RULE);return;}
     if(password!==confirmPassword){setError('The passwords do not match.');return;}
     setSaving(true);
     try{await apiAuth.joinInvitation({...invitation,displayName,password});navigate('/workspace',{replace:true});}
@@ -60,7 +61,7 @@ export default function AcceptInvitationPage() {
         <Link className="auth-back-link auth-invite-signin" to="/sign-in" state={{returnTo}}>Sign in to your account <ArrowRight size={15}/></Link>
       </>:<form className="auth-form" onSubmit={accept}>
         <div className="auth-field"><label htmlFor="invite-name">Your full name <span>*</span></label><div className="auth-input-wrap"><UserRound size={17}/><input id="invite-name" autoComplete="name" maxLength={100} required value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Your full name" /></div></div>
-        <PasswordField id="invite-password" label="Create your password" value={password} onChange={setPassword} autoComplete="new-password" placeholder="At least 15 characters" />
+        <PasswordField id="invite-password" label="Create your password" value={password} onChange={setPassword} autoComplete="new-password" placeholder="8 mixed characters" />
         <PasswordLengthGuide value={password}/>
         <PasswordField id="invite-confirm" label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" placeholder="Repeat your password" />
         <button className="auth-submit" type="submit" disabled={saving}>{saving?'Creating your account…':'Join business securely'}<ArrowRight size={18}/></button>

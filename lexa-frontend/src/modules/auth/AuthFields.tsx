@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, LockKeyhole } from 'lucide-react';
+import { NEW_PASSWORD_RULE, validNewPassword } from '../../domain/shared/newPasswordPolicy';
 
 type PasswordFieldProps = {
   id: string;
@@ -38,7 +39,7 @@ export function PasswordField({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
-          maxLength={1024}
+          maxLength={autoComplete === 'new-password' ? 8 : 1024}
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"
@@ -60,18 +61,18 @@ export function PasswordField({
 
 export function PasswordLengthGuide({ value }: { value: string }) {
   const length = Array.from(value).length;
-  const progress = Math.min(100, Math.round((length / 15) * 100));
-  const ready = length >= 15;
+  const progress = Math.min(100, Math.round((length / 8) * 100));
+  const ready = validNewPassword(value);
   return (
     <div className="auth-password-guide" aria-live="polite">
       <div className="auth-password-guide-head">
-        <span>{ready ? 'Length requirement met' : 'Use at least 15 characters'}</span>
-        <strong>{length}/15</strong>
+        <span>{ready ? 'Password requirements met' : 'Enter 8 mixed characters'}</span>
+        <strong>{length}/8</strong>
       </div>
-      <div className="auth-password-track" role="progressbar" aria-label="Password length guidance" aria-valuemin={0} aria-valuemax={15} aria-valuenow={Math.min(length, 15)}>
+      <div className="auth-password-track" role="progressbar" aria-label="Password length guidance" aria-valuemin={0} aria-valuemax={8} aria-valuenow={Math.min(length, 8)}>
         <span style={{ width: `${progress}%` }} />
       </div>
-      <p>A memorable, unique passphrase works well. Spaces and any characters are allowed; no symbol-mix rule is required.</p>
+      <p>{NEW_PASSWORD_RULE}</p>
     </div>
   );
 }

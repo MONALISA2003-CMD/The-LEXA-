@@ -7,6 +7,7 @@ import { createHash, randomBytes, randomUUID, scrypt as scryptCallback } from 'n
 import { promisify } from 'node:util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CsrfGuard } from '../core/csrf.guard';
+import { meetsNewPasswordPolicy, PASSWORD_POLICY_MESSAGE } from './new-password-policy';
 import { verifySignupChallenge } from './turnstile-verification';
 import { sendTransactionalEmail } from '../notifications/email-delivery';
 import { sendLexaWelcomeEmail } from '../notifications/welcome-email';
@@ -38,8 +39,8 @@ function token(value: unknown): string {
   return result;
 }
 function password(value: unknown): string {
-  if (typeof value !== 'string' || Array.from(value).length < 15 || value.length > 1024) {
-    throw new BadRequestException('Use a password or passphrase of at least 15 characters.');
+  if (!meetsNewPasswordPolicy(value)) {
+    throw new BadRequestException(PASSWORD_POLICY_MESSAGE);
   }
   return value;
 }

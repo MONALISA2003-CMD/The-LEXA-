@@ -1,3 +1,4 @@
+import { validNewPassword, NEW_PASSWORD_RULE } from '../../domain/shared/newPasswordPolicy';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { ArrowLeft, ArrowRight, Building2, CheckCircle2, LockKeyhole, Mail, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
@@ -19,7 +20,7 @@ export default function SignupPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
-    if (Array.from(password).length < 15) { setError('Use a unique password or passphrase with at least 15 characters.'); return; }
+    if (!validNewPassword(password)) { setError(NEW_PASSWORD_RULE); return; }
     if (password !== confirmPassword) { setError('The passwords do not match.'); return; }
     if (publicTurnstileSiteKey && !turnstileToken) { setError('Complete the security check before continuing.'); return; }
     setSaving(true);
@@ -66,7 +67,7 @@ export default function SignupPage() {
               <div className="auth-field"><label htmlFor="signup-name">Full name <span>*</span></label><div className="auth-input-wrap"><UserRound size={17}/><input id="signup-name" required autoComplete="name" maxLength={100} value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Your full name" /></div></div>
               <div className="auth-field"><label htmlFor="signup-business">Business name <span>*</span></label><div className="auth-input-wrap"><Building2 size={17}/><input id="signup-business" required maxLength={100} value={businessName} onChange={e=>setBusinessName(e.target.value)} placeholder="Your company or business" /></div></div>
               <div className="auth-field"><label htmlFor="signup-email">Business email <span>*</span></label><div className="auth-input-wrap"><Mail size={17}/><input id="signup-email" required type="email" autoComplete="email" inputMode="email" maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@business.com" /></div></div>
-              <PasswordField id="signup-password" label="Create password" value={password} onChange={setPassword} autoComplete="new-password" placeholder="At least 15 characters" />
+              <PasswordField id="signup-password" label="Create password" value={password} onChange={setPassword} autoComplete="new-password" placeholder="8 mixed characters" />
               <PasswordLengthGuide value={password} />
               <PasswordField id="signup-confirm" label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" placeholder="Repeat your password" />
               <TurnstileWidget onToken={setTurnstileToken} />

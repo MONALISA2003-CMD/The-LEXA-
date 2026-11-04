@@ -350,8 +350,8 @@ export class PeopleProjectsController {
   }
 
   @Get('people/leave')
-  async leave(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
-    const a=await this.actor(req,w,b,'people.read'),self=isEmployeeRole(a.role)?await this.employeeForActor(w,b,a.userId):null;
+  async leave(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest,selfOnly=false) {
+    const a=await this.actor(req,w,b,selfOnly?'people.self.read':'people.read'),self=isEmployeeRole(a.role)?await this.employeeForActor(w,b,a.userId):null;
     if(isEmployeeRole(a.role)&&!self)return [];
     if(!isEmployeeRole(a.role)&&!hasPermission(a.role,'people.private.read'))throw new ForbiddenException('Your role cannot read employee leave records.');
     return this.prisma.$queryRaw`SELECT l.id,l.employee_id AS "employeeId",e.employee_number AS "employeeNumber",e.full_name AS "employeeName",l.request_number AS "requestNumber",l.leave_type AS "leaveType",l.starts_on AS "startsOn",l.ends_on AS "endsOn",l.days_requested AS "daysRequested",l.paid,l.reason,l.status,l.submitted_at AS "submittedAt",l.decision_comment AS "decisionComment"
@@ -362,8 +362,8 @@ export class PeopleProjectsController {
 
   @Post('people/leave')
   @UseGuards(CsrfGuard)
-  async createLeave(@Param('workspaceId') w:string,@Param('branchId') b:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
-    const a=await this.actor(req,w,b,'people.write'),v=obj(raw),employeeId=v.employeeId?uuid(v.employeeId,'Employee'):await this.employeeForActor(w,b,a.userId);
+  async createLeave(@Param('workspaceId') w:string,@Param('branchId') b:string,@Body() raw:unknown,@Req() req:FastifyRequest,selfOnly=false) {
+    const a=await this.actor(req,w,b,selfOnly?'people.self.write':'people.write'),v=obj(raw),employeeId=v.employeeId?uuid(v.employeeId,'Employee'):await this.employeeForActor(w,b,a.userId);
     if(!employeeId)throw new ForbiddenException('Your account is not linked to an employee record.');
     if(isEmployeeRole(a.role)&&employeeId!==await this.employeeForActor(w,b,a.userId))throw new ForbiddenException('You may submit leave only for yourself.');
     await this.assertEmployee(w,b,employeeId);
@@ -389,8 +389,8 @@ export class PeopleProjectsController {
 
   @Post('people/leave/:leaveId/submit')
   @UseGuards(CsrfGuard)
-  async submitLeave(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('leaveId') id:string,@Req() req:FastifyRequest) {
-    const a=await this.actor(req,w,b,'people.write');
+  async submitLeave(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('leaveId') id:string,@Req() req:FastifyRequest,selfOnly=false) {
+    const a=await this.actor(req,w,b,selfOnly?'people.self.write':'people.write');
     return this.prisma.$transaction(async tx=>{
       const rows=await tx.$queryRaw<any[]>`SELECT id,employee_id,request_number,leave_type,starts_on,ends_on,days_requested,paid,status FROM hr_leave_requests WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${id}::uuid FOR UPDATE`;
       const r=rows[0];if(!r)throw new NotFoundException('Leave request not found.');
@@ -405,8 +405,8 @@ export class PeopleProjectsController {
   }
 
   @Get('people/timesheets')
-  async timesheets(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
-    const a=await this.actor(req,w,b,'people.read'),self=isEmployeeRole(a.role)?await this.employeeForActor(w,b,a.userId):null;
+  async timesheets(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest,selfOnly=false) {
+    const a=await this.actor(req,w,b,selfOnly?'people.self.read':'people.read'),self=isEmployeeRole(a.role)?await this.employeeForActor(w,b,a.userId):null;
     if(isEmployeeRole(a.role)&&!self)return [];
     const hrWide=hasPermission(a.role,'people.private.read');
     const projectScoped=!hrWide&&!isEmployeeRole(a.role)&&hasPermission(a.role,'projects.read');
@@ -423,8 +423,8 @@ export class PeopleProjectsController {
 
   @Post('people/timesheets')
   @UseGuards(CsrfGuard)
-  async createTimesheet(@Param('workspaceId') w:string,@Param('branchId') b:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
-    const a=await this.actor(req,w,b,'people.write'),v=obj(raw),employeeId=v.employeeId?uuid(v.employeeId,'Employee'):await this.employeeForActor(w,b,a.userId);
+  async createTimesheet(@Param('workspaceId') w:string,@Param('branchId') b:string,@Body() raw:unknown,@Req() req:FastifyRequest,selfOnly=false) {
+    const a=await this.actor(req,w,b,selfOnly?'people.self.write':'people.write'),v=obj(raw),employeeId=v.employeeId?uuid(v.employeeId,'Employee'):await this.employeeForActor(w,b,a.userId);
     if(!employeeId)throw new ForbiddenException('Your account is not linked to an employee record.');
     if(isEmployeeRole(a.role)&&employeeId!==await this.employeeForActor(w,b,a.userId))throw new ForbiddenException('You may submit time only for yourself.');
     await this.assertEmployee(w,b,employeeId);
@@ -458,8 +458,8 @@ export class PeopleProjectsController {
 
   @Post('people/timesheets/:timesheetId/submit')
   @UseGuards(CsrfGuard)
-  async submitTimesheet(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('timesheetId') id:string,@Req() req:FastifyRequest) {
-    const a=await this.actor(req,w,b,'people.write');
+  async submitTimesheet(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('timesheetId') id:string,@Req() req:FastifyRequest,selfOnly=false) {
+    const a=await this.actor(req,w,b,selfOnly?'people.self.write':'people.write');
     return this.prisma.$transaction(async tx=>{
       const rows=await tx.$queryRaw<any[]>`SELECT id,employee_id,timesheet_number,work_date,regular_hours,overtime_hours,project_id,status FROM hr_timesheets WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${id}::uuid FOR UPDATE`;
       const r=rows[0];if(!r)throw new NotFoundException('Timesheet not found.');
@@ -471,6 +471,49 @@ export class PeopleProjectsController {
       await this.audit(tx,w,b,a.userId,'people.timesheet.submitted','timesheet',id,{approvalId});
       return {id,status:'pending_approval',approvalId};
     },{isolationLevel:'Serializable'});
+  }
+
+  // Employee-only, record-scoped routes. These deliberately do not grant people.read/write.
+  @Get('people/my-leave')
+  async myLeave(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
+    return this.leave(w,b,req,true);
+  }
+  @Post('people/my-leave') @UseGuards(CsrfGuard)
+  async createMyLeave(@Param('workspaceId') w:string,@Param('branchId') b:string,@Body() body:unknown,@Req() req:FastifyRequest) {
+    const value=obj(body);
+    if(value.employeeId)throw new ForbiddenException('Your employee ID comes from your signed-in account, not the request.');
+    return this.createLeave(w,b,value,req,true);
+  }
+  @Post('people/my-leave/:leaveId/submit') @UseGuards(CsrfGuard)
+  async submitMyLeave(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('leaveId') id:string,@Req() req:FastifyRequest) {
+    return this.submitLeave(w,b,id,req,true);
+  }
+  @Get('people/my-timesheets')
+  async myTimesheets(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
+    return this.timesheets(w,b,req,true);
+  }
+  @Post('people/my-timesheets') @UseGuards(CsrfGuard)
+  async createMyTimesheet(@Param('workspaceId') w:string,@Param('branchId') b:string,@Body() body:unknown,@Req() req:FastifyRequest) {
+    const value=obj(body);
+    if(value.employeeId)throw new ForbiddenException('Your employee ID comes from your signed-in account, not the request.');
+    return this.createTimesheet(w,b,value,req,true);
+  }
+  @Post('people/my-timesheets/:timesheetId/submit') @UseGuards(CsrfGuard)
+  async submitMyTimesheet(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('timesheetId') id:string,@Req() req:FastifyRequest) {
+    return this.submitTimesheet(w,b,id,req,true);
+  }
+
+  @Get('people/my-overview')
+  async myOverview(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
+    const actor=await this.actor(req,w,b,'people.self.read');
+    const employeeId=await this.employeeForActor(w,b,actor.userId);
+    if(!employeeId)return {attendance:[],leave:[],timesheets:[]};
+    const [attendance,leave,timesheets]=await Promise.all([
+      this.prisma.$queryRaw<any[]>`SELECT attendance_date AS "date",status,clock_in AS "clockIn",clock_out AS "clockOut" FROM hr_attendance WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND employee_id=${employeeId}::uuid ORDER BY attendance_date DESC LIMIT 30`,
+      this.prisma.$queryRaw<any[]>`SELECT id,request_number AS "requestNumber",leave_type AS "leaveType",starts_on AS "startsOn",ends_on AS "endsOn",status FROM hr_leave_requests WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND employee_id=${employeeId}::uuid ORDER BY created_at DESC LIMIT 20`,
+      this.prisma.$queryRaw<any[]>`SELECT id,timesheet_number AS "timesheetNumber",work_date AS "workDate",regular_hours AS "regularHours",overtime_hours AS "overtimeHours",status FROM hr_timesheets WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND employee_id=${employeeId}::uuid ORDER BY work_date DESC LIMIT 20`,
+    ]);
+    return {attendance,leave,timesheets};
   }
 
   @Get('people/payroll/runs')
@@ -848,6 +891,35 @@ export class PeopleProjectsController {
       await this.mirror(tx,w,b,'support',id,{id,ticketNumber:old.case_number,subject:old.subject,priority:old.priority,status:next.replaceAll('_',' ').replace(/\b\w/g,(character: string)=>character.toUpperCase()),customerRecordId:old.customer_record_id,taskRecordId:old.task_record_id,resolution:resolution??''});
       await this.audit(tx,w,b,a.userId,'support.case_updated','support_case',id,{from:old.status,to:next,assignedEmployeeId:assigned??undefined});
       return {id,status:next,resolution:resolution??null};
+    },{isolationLevel:'Serializable'});
+  }
+
+  @Get('support/my-cases')
+  async myFieldCases(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
+    const a=await this.actor(req,w,b,'support.assigned.read');
+    const employeeId=await this.employeeForActor(w,b,a.userId);
+    if(!employeeId)return [];
+    return this.prisma.$queryRaw`SELECT id,case_number AS "caseNumber",subject,status,priority,response_due_at AS "responseDueAt"
+      FROM support_cases WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND assigned_employee_id=${employeeId}::uuid
+      ORDER BY created_at DESC LIMIT 100`;
+  }
+
+  @Patch('support/my-cases/:caseId') @UseGuards(CsrfGuard)
+  async updateMyFieldCase(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('caseId') rawId:string,@Body() body:unknown,@Req() req:FastifyRequest) {
+    const a=await this.actor(req,w,b,'support.assigned.write');
+    const employeeId=await this.employeeForActor(w,b,a.userId);
+    if(!employeeId)throw new ForbiddenException('This account has no linked employee profile.');
+    const id=uuid(rawId,'Case');
+    const value=obj(body),status=enumValue(value.status,'Status',['in_progress','waiting_customer']);
+    const note=opt(value.note,'Work note',2000);
+    if(!note)throw new BadRequestException('A work note is required.');
+    return this.prisma.$transaction(async tx=>{
+      const cases=await tx.$queryRaw<Array<{id:string;status:string}>>`SELECT id,status FROM support_cases WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${id}::uuid AND assigned_employee_id=${employeeId}::uuid FOR UPDATE`;
+      if(!cases.length)throw new NotFoundException('Assigned case not found.');
+      if(['closed','resolved'].includes(cases[0]!.status))throw new ConflictException('This case is already resolved.');
+      await tx.$executeRaw`UPDATE support_cases SET status=${status},updated_at=now() WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${id}::uuid AND assigned_employee_id=${employeeId}::uuid`;
+      await this.audit(tx,w,b,a.userId,'support.assigned_work.updated','support_case',id,{from:cases[0]!.status,to:status,note});
+      return {id,status};
     },{isolationLevel:'Serializable'});
   }
 

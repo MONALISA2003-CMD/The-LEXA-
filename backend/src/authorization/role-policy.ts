@@ -6,12 +6,14 @@ export type Permission =
   | 'procurement.read' | 'procurement.write' | 'procurement.receive'
   | 'finance.read' | 'finance.write' | 'cash.manage'
   | 'crm.read' | 'crm.write'
+  | 'people.self.read' | 'people.self.write' | 'support.assigned.read' | 'support.assigned.write'
   | 'people.read' | 'people.write' | 'people.private.read' | 'people.directory.write'
-  | 'manufacturing.read' | 'manufacturing.write'
+  | 'manufacturing.read' | 'manufacturing.write' | 'quality.write'
   | 'fulfilment.read' | 'fulfilment.write'
   | 'reports.read' | 'intelligence.read' | 'intelligence.run' | 'saas.read' | 'saas.manage'
   | 'collaboration.read' | 'collaboration.write'
-  | 'approval.decide'
+  | 'approval.decide' | 'procurement.approve' | 'inventory.approve' | 'quality.approve'
+  | 'people.leave.approve' | 'people.timesheet.approve' | 'payroll.approve'
   | 'people.compensation.read' | 'people.compensation.write'
   | 'payroll.read' | 'payroll.write'
   | 'projects.read' | 'projects.write'
@@ -28,8 +30,9 @@ const READ_PERMISSIONS: Permission[] = [
 const OPERATIONAL_WRITES: Permission[] = [
   'catalog.write', 'sales.write', 'sales.return', 'inventory.write',
   'procurement.write', 'procurement.receive', 'crm.write', 'people.write',
-  'manufacturing.write', 'fulfilment.write', 'collaboration.write',
-  'approval.decide', 'module.write',
+  'manufacturing.write', 'quality.write', 'fulfilment.write', 'collaboration.write',
+  'approval.decide', 'procurement.approve', 'inventory.approve', 'quality.approve',
+  'people.leave.approve', 'people.timesheet.approve', 'payroll.approve', 'module.write',
 ];
 const ALL_READS: Permission[] = READ_PERMISSIONS;
 const OWNER_EXTRA: Permission[] = ['saas.manage','people.private.read','people.directory.write','people.compensation.read','people.compensation.write','payroll.read','payroll.write','projects.read','projects.write','support.read','support.write','audit.read'];
@@ -37,30 +40,31 @@ const OWNER_EXTRA: Permission[] = ['saas.manage','people.private.read','people.d
 const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
   owner: ['workspace.manage', 'finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
   owner_administrator: ['workspace.manage', 'finance.write', 'intelligence.run', ...ALL_READS, ...OPERATIONAL_WRITES, ...OWNER_EXTRA],
-  administrator: ['workspace.read','catalog.read','catalog.write','sales.read','sales.write','sales.return','inventory.read','inventory.write','procurement.read','procurement.write','procurement.receive','finance.read','crm.read','crm.write','fulfilment.read','fulfilment.write','reports.read','collaboration.read','collaboration.write','projects.read','projects.write','support.read','support.write','approval.decide','module.read','module.write'],
-  admin: ['workspace.read','catalog.read','catalog.write','sales.read','sales.write','sales.return','inventory.read','inventory.write','procurement.read','procurement.write','procurement.receive','finance.read','crm.read','crm.write','fulfilment.read','fulfilment.write','reports.read','collaboration.read','collaboration.write','projects.read','projects.write','support.read','support.write','approval.decide','module.read','module.write'],
-  business_manager: ['workspace.read','catalog.read','catalog.write','sales.read','sales.write','sales.return','inventory.read','inventory.write','procurement.read','procurement.write','procurement.receive','finance.read','crm.read','crm.write','fulfilment.read','fulfilment.write','reports.read','collaboration.read','collaboration.write','projects.read','projects.write','support.read','support.write','approval.decide','module.read','module.write'],
-  manager: ['workspace.read','catalog.read','catalog.write','sales.read','sales.write','sales.return','inventory.read','inventory.write','procurement.read','procurement.write','procurement.receive','finance.read','crm.read','crm.write','fulfilment.read','fulfilment.write','reports.read','collaboration.read','collaboration.write','projects.read','projects.write','support.read','support.write','approval.decide','module.read','module.write'],
-  branch_manager: ['workspace.read','catalog.read','catalog.write','sales.read','sales.write','sales.return','inventory.read','inventory.write','procurement.read','procurement.write','procurement.receive','finance.read','crm.read','crm.write','fulfilment.read','fulfilment.write','reports.read','collaboration.read','collaboration.write','projects.read','projects.write','support.read','support.write','approval.decide','module.read','module.write'],
+  administrator: ['workspace.read','catalog.read','catalog.write','sales.read','sales.write','sales.return','inventory.read','inventory.write','procurement.read','procurement.write','procurement.receive','finance.read','crm.read','crm.write','fulfilment.read','fulfilment.write','reports.read','collaboration.read','collaboration.write','projects.read','projects.write','support.read','support.write','module.read','module.write'],
+  admin: ['workspace.read','catalog.read','catalog.write','sales.read','sales.write','sales.return','inventory.read','inventory.write','procurement.read','procurement.write','procurement.receive','finance.read','crm.read','crm.write','fulfilment.read','fulfilment.write','reports.read','collaboration.read','collaboration.write','projects.read','projects.write','support.read','support.write','module.read','module.write'],
+  business_manager: ['workspace.read','procurement.approve','inventory.approve','quality.approve','catalog.read','catalog.write','sales.read','sales.write','sales.return','inventory.read','inventory.write','procurement.read','procurement.write','procurement.receive','finance.read','crm.read','crm.write','fulfilment.read','fulfilment.write','reports.read','collaboration.read','collaboration.write','projects.read','projects.write','support.read','support.write','module.read','module.write'],
+  manager: ['workspace.read','procurement.approve','inventory.approve','quality.approve','catalog.read','catalog.write','sales.read','sales.write','sales.return','inventory.read','inventory.write','procurement.read','procurement.write','procurement.receive','finance.read','crm.read','crm.write','fulfilment.read','fulfilment.write','reports.read','collaboration.read','collaboration.write','projects.read','projects.write','support.read','support.write','module.read','module.write'],
+  branch_manager: ['workspace.read','procurement.approve','inventory.approve','quality.approve','catalog.read','catalog.write','sales.read','sales.write','sales.return','inventory.read','inventory.write','procurement.read','procurement.write','procurement.receive','finance.read','crm.read','crm.write','fulfilment.read','fulfilment.write','reports.read','collaboration.read','collaboration.write','projects.read','projects.write','support.read','support.write','module.read','module.write'],
   cashier: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'cash.manage', 'support.read'],
   sales: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'crm.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'crm.write', 'support.read', 'support.write'],
   sales_operator: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'fulfilment.read', 'crm.read', 'collaboration.read', 'collaboration.write', 'sales.write', 'crm.write', 'support.read', 'support.write'],
   inventory_operator: ['workspace.read', 'catalog.read', 'inventory.read', 'procurement.read', 'manufacturing.read', 'fulfilment.read', 'collaboration.read', 'collaboration.write', 'catalog.write', 'inventory.write', 'procurement.receive', 'fulfilment.write', 'manufacturing.write', 'module.write'],
   warehouse_operator: ['workspace.read', 'catalog.read', 'inventory.read', 'procurement.read', 'manufacturing.read', 'fulfilment.read', 'collaboration.read', 'collaboration.write', 'inventory.write', 'procurement.receive', 'fulfilment.write', 'manufacturing.write'],
-  finance_manager: ['workspace.read','finance.read','finance.write','cash.manage','sales.read','procurement.read','reports.read','approval.decide','audit.read','module.read'],
+  finance_manager: ['workspace.read','payroll.approve','collaboration.read','finance.read','finance.write','cash.manage','sales.read','procurement.read','reports.read','audit.read','module.read'],
   delivery_officer: ['workspace.read','fulfilment.read','fulfilment.write','sales.read','inventory.read','module.read','collaboration.read'],
-  production_officer: ['workspace.read','manufacturing.read','manufacturing.write','inventory.read','inventory.write','catalog.read','module.read'],
-  quality_officer: ['workspace.read','manufacturing.read','manufacturing.write','inventory.read','catalog.read','module.read','approval.decide'],
+  production_officer: ['workspace.read','manufacturing.read','manufacturing.write','inventory.read','catalog.read','module.read'],
+  quality_officer: ['workspace.read','quality.write','manufacturing.read','inventory.read','catalog.read','module.read'],
   accountant: ['saas.read', 'workspace.read', 'catalog.read', 'sales.read', 'fulfilment.read', 'procurement.read', 'finance.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'finance.write', 'procurement.write', 'module.write'],
   read_only: ['workspace.read','reports.read','sales.read','inventory.read','catalog.read','module.read'],
   readonly: ['workspace.read','reports.read','sales.read','inventory.read','catalog.read','module.read'],
   viewer: ['workspace.read','reports.read','sales.read','inventory.read','catalog.read','module.read'],
   member: ['workspace.read', 'catalog.read', 'sales.read', 'inventory.read', 'crm.read', 'reports.read', 'collaboration.read', 'module.read'],
-  hr_manager: ['workspace.read','people.read','people.write','people.private.read','people.directory.write','people.compensation.read','people.compensation.write','payroll.read','payroll.write','projects.read','projects.write','support.read','audit.read','collaboration.read','collaboration.write','approval.decide','module.read','module.write'],
-  hr_officer: ['workspace.read','people.read','people.write','people.private.read','people.directory.write','projects.read','support.read','support.write','collaboration.read','collaboration.write','approval.decide','module.read','module.write'],
-  payroll_officer: ['workspace.read','people.read','people.compensation.read','payroll.read','payroll.write','collaboration.read','collaboration.write','approval.decide','module.read'],
-  employee: ['workspace.read','people.read','collaboration.read','collaboration.write'],
-  project_manager: ['workspace.read','people.read','projects.read','projects.write','collaboration.read','collaboration.write','approval.decide','module.read','module.write'],
+  hr_manager: ['workspace.read','people.leave.approve','people.timesheet.approve','people.read','people.write','people.private.read','people.directory.write','people.compensation.read','people.compensation.write','payroll.read','projects.read','audit.read','collaboration.read','collaboration.write','module.read','module.write'],
+  hr_officer: ['workspace.read','people.read','people.write','people.private.read','people.directory.write','collaboration.read','collaboration.write','module.read','module.write'],
+  payroll_officer: ['workspace.read','people.read','people.compensation.read','payroll.read','payroll.write','collaboration.read','collaboration.write','module.read'],
+  employee: ['workspace.read','people.self.read','people.self.write','collaboration.read','collaboration.write'],
+  field_agent: ['workspace.read','support.assigned.read','support.assigned.write','collaboration.read'],
+  project_manager: ['workspace.read','people.timesheet.approve','people.read','projects.read','projects.write','collaboration.read','collaboration.write','module.read','module.write'],
   support_agent: ['workspace.read','crm.read','people.read','support.read','support.write','collaboration.read','collaboration.write','module.read','module.write'],
   procurement_officer: ['workspace.read','catalog.read','inventory.read','procurement.read','procurement.write','crm.read','collaboration.read'],
   customer_service: ['workspace.read','crm.read','crm.write','sales.read','support.read','support.write','collaboration.read'],
@@ -101,6 +105,7 @@ export function permissionForRequest(method: string, pathname: string, params: R
   const choose = (read: Permission, mutation: Permission): Permission => write ? mutation : read;
 
   if (/\/workspaces\/[^/]+\/staff(?:\/|$)/.test(path)) return 'workspace.manage';
+  if (/\/workspaces\/[^/]+\/roles\/catalog$/.test(path)) return 'workspace.manage';
   if (/\/workspaces\/[^/]+\/my-employment$/.test(path)) return 'workspace.read';
   if (/\/workspaces\/[^/]+\/access$/.test(path)) return 'workspace.read';
   if (/\/workspaces\/[^/]+\/business-setup(?:\/complete)?$/.test(path)) return write ? 'workspace.manage' : 'workspace.read';
@@ -142,12 +147,15 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/commerce\/purchase-orders(?:\/|$)/.test(path)) return choose('procurement.read', 'procurement.write');
   if (/\/supply-chain\/procurement\/purchase-orders\/[^/]+\/receipts$/.test(path)) return choose('procurement.read', 'procurement.receive');
   if (/\/supply-chain\/procurement\/approval-rules(?:$|\/)/.test(path)) return choose('procurement.read', 'workspace.manage');
-  if (/\/supply-chain\/procurement\/awards\/[^/]+\/(?:approve|reject)$|\/supply-chain\/procurement\/purchase-requests\/[^/]+\/decision$|\/supply-chain\/inventory\/stock-counts\/[^/]+\/approve$|\/supply-chain\/procurement\/supplier-returns\/[^/]+\/approve$|\/supply-chain\/quality\/inspections\/[^/]+\/decision$/.test(path)) return 'approval.decide';
+  if (/\/supply-chain\/procurement\/(?:awards\/[^/]+\/(?:approve|reject)|purchase-requests\/[^/]+\/decision|supplier-returns\/[^/]+\/approve)$/.test(path)) return 'procurement.approve';
+  if (/\/supply-chain\/inventory\/stock-counts\/[^/]+\/approve$/.test(path)) return 'inventory.approve';
+  if (/\/supply-chain\/quality\/inspections\/[^/]+\/decision$/.test(path)) return 'quality.approve';
   if (/\/branches\/[^/]+\/selling\/insights$/.test(path)) return 'sales.read';
   if (/\/branches\/[^/]+\/selling\/lookup$/.test(path)) return 'sales.read';
   if (/\/supply-chain\/procurement(?:\/|$)/.test(path)) return choose('procurement.read', 'procurement.write');
   if (/\/supply-chain\/inventory(?:\/|$)/.test(path)) return choose('inventory.read', 'inventory.write');
-  if (/\/supply-chain\/manufacturing(?:\/|$)|\/supply-chain\/quality(?:\/|$)/.test(path)) return choose('manufacturing.read', 'manufacturing.write');
+  if (/\/supply-chain\/quality(?:\/|$)/.test(path)) return choose('manufacturing.read', 'quality.write');
+  if (/\/supply-chain\/manufacturing(?:\/|$)/.test(path)) return choose('manufacturing.read', 'manufacturing.write');
   if (/\/commerce\/crm\//.test(path)) return choose('crm.read', 'crm.write');
   // Cashiers can close shifts but cannot approve and post their own cash-up adjustment.
   if (/\/branches\/[^/]+\/finance\/cash-ups\/[^/]+\/post$/.test(path)) return 'finance.write';
@@ -160,10 +168,13 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/workstream6\/people\/employees\/[^/]+\/compensation(?:$|\?)/.test(path)) return choose('people.compensation.read', 'people.compensation.write');
   if (path.endsWith('/workstream6/people/employees') || path.endsWith('/workstream6/people/shifts')) return choose('people.read', 'people.directory.write');
   if (/\/workstream6\/people\/payroll(?:\/|$)/.test(path)) return choose('payroll.read', 'payroll.write');
+  if (/\/workstream6\/people\/my-(?:leave|timesheets|overview)(?:\/|$)/.test(path)) return choose('people.self.read','people.self.write');
+  if (/\/workstream6\/support\/my-cases(?:\/|$)/.test(path)) return choose('support.assigned.read','support.assigned.write');
   if (/\/workstream6\/people(?:\/|$)/.test(path)) return choose('people.read', 'people.write');
   if (/\/workstream6\/projects(?:\/|$)/.test(path)) return choose('projects.read', 'projects.write');
   if (/\/workstream6\/support(?:\/|$)/.test(path)) return choose('support.read', 'support.write');
-  if (/\/approvals(?:\/|$)/.test(path)) return choose('collaboration.read', 'approval.decide');
+  // Approval decisions are checked against the actual owner module inside the controller.
+  if (/\/approvals(?:\/|$)/.test(path)) return 'collaboration.read';
   if (/\/inbox\/|\/tasks(?:\/|$)|\/notifications(?:\/|$)|\/activity(?:\/|$)/.test(path)) return choose('collaboration.read', 'collaboration.write');
   if (/\/module-graph\//.test(path)) return choose('module.read', 'module.write');
 
@@ -180,5 +191,6 @@ export function permissionForRequest(method: string, pathname: string, params: R
     return choose(pair[0], pair[1]);
   }
 
-  return write ? 'module.write' : 'workspace.read';
+  // Unknown business routes must not inherit write access from generic role labels.
+  return write ? 'workspace.manage' : 'workspace.read';
 }

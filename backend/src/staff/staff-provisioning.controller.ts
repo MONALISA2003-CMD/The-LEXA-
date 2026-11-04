@@ -5,10 +5,11 @@ import { createHash, randomBytes, randomUUID, scrypt as scryptCallback } from 'n
 import { promisify } from 'node:util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CsrfGuard } from '../core/csrf.guard';
+import { meetsNewPasswordPolicy, PASSWORD_POLICY_MESSAGE } from '../auth/new-password-policy';
 import { isOwnerRole } from '../authorization/role-policy';
 
 const scrypt = promisify(scryptCallback);
-export const EMPLOYEE_ROLES = new Set(['business_manager','cashier','sales','inventory_operator','warehouse_operator','procurement_officer','accountant','finance_manager','hr_officer','hr_manager','payroll_officer','customer_service','support_agent','delivery_officer','production_officer','quality_officer','project_manager','auditor','viewer','employee']);
+export const EMPLOYEE_ROLES = new Set(['business_manager','cashier','sales','inventory_operator','warehouse_operator','procurement_officer','accountant','finance_manager','hr_officer','hr_manager','payroll_officer','customer_service','support_agent','field_agent','delivery_officer','production_officer','quality_officer','project_manager','auditor','viewer','employee']);
 function text(value: unknown, name: string, max = 120, required = false): string {
   if (value === null || value === undefined || value === '') { if (required) throw new BadRequestException(name+' is required.'); return ''; }
   if (typeof value !== 'string' || value.trim().length > max || (required && !value.trim())) throw new BadRequestException(name+' must be valid (max '+max+' characters).');
@@ -41,7 +42,7 @@ function date(value: unknown, name: string, optional = false): string|null {
 }
 function password(value: unknown): string {
   const v=text(value,'Temporary password',1024,true);
-  if([...v].length<15)throw new BadRequestException('Temporary password must be at least 15 characters.');
+  if(!meetsNewPasswordPolicy(v))throw new BadRequestException(PASSWORD_POLICY_MESSAGE);
   return v;
 }
 async function hash(value: string): Promise<string> {
@@ -107,6 +108,15 @@ export class StaffProvisioningController {
   async create(@Param('workspaceId') tenantId:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
     const actorId=await this.actor(tenantId,req);
     const a=object(raw);
+    const header=req.headers['idempotency-key'];
+    if(typeof header!=='string'||header.length<12||header.length>180)throw new BadRequestException('A unique Idempotency-Key is required for employee creation.');
+    const requestKey=`ceo.staff.create:${header}`;
+    const requestHash=createHash('sha256').update(JSON.stringify({actorId,...a})).digest('hex');
+    const allBranches=a.allBranches===true;
+    const selectedBranches=Array.isArray(a.branchIds)?[...new Set(a.branchIds.map(x=>text(x,'Branch',40,true)))]:[];
+    if(!allBranches && selectedBranches.length===0)throw new BadRequestException('Select the employee’s assigned branch.');
+    if(allBranches && selectedBranches.length)throw new BadRequestException('Select all branches or specific branches, not both.');
+    if(selectedBranches.length>100 || selectedBranches.some(id=>!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)))throw new BadRequestException('Select valid business branches.');
     const fullName=text(a.fullName,'Full name',160,true),loginName=username(a.username);
     const selectedRole=role(a.role),email=workEmail(a.email);
     const hashed=await hash(password(a.initialPassword));
@@ -124,12 +134,22 @@ export class StaffProvisioningController {
       return await this.prisma.runWithTenantContext({tenantId,userId:actorId},()=>this.prisma.$transaction(async tx=>{
         const tenant=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM tenants WHERE id=${tenantId}::uuid FOR UPDATE`;
         if(!tenant.length)throw new ForbiddenException('Business not found.');
+        const existing=await tx.idempotencyRecord.findUnique({where:{tenantId_key:{tenantId,key:requestKey}}});
+        if(existing){
+          if(existing.requestHash!==requestHash)throw new ConflictException('This request key was used for a different employee.');
+          if(existing.status==='COMPLETED'&&existing.responseBody)return existing.responseBody;
+          throw new ConflictException('Employee creation is still processing. Retry the same request.');
+        }
+        await tx.idempotencyRecord.create({data:{tenantId,key:requestKey,requestHash,status:'IN_PROGRESS',expiresAt:new Date(Date.now()+86400_000)}});
         const duplicate=await tx.user.findFirst({where:{OR:[{username:loginName},{email:loginEmail}]},select:{id:true}});
         if(duplicate)throw new ConflictException('Username or email already belongs to another account.');
-        const branch=await tx.branch.findFirst({where:{tenantId},orderBy:{createdAt:'asc'}});
+        const available=await tx.branch.findMany({where:{tenantId,...(!allBranches?{id:{in:selectedBranches}}:{})},orderBy:{createdAt:'asc'}});
+        if(!allBranches && available.length!==selectedBranches.length)throw new BadRequestException('Every selected branch must belong to this business.');
+        const branch=available[0];
         if(!branch)throw new ConflictException('Existing business location unavailable; cannot create an employee yet.');
         await tx.user.create({data:{id:userId,username:loginName,email:loginEmail,displayName:fullName,passwordHash:hashed,mustChangePassword:true}});
-        await tx.membership.create({data:{tenantId,userId,role:selectedRole,status:'ACTIVE',branchScopeMode:'all'}});
+        await tx.membership.create({data:{tenantId,userId,role:selectedRole,status:'ACTIVE',branchScopeMode:allBranches?'all':'restricted'}});
+        if(!allBranches)await tx.branchMembership.createMany({data:selectedBranches.map(branchId=>({tenantId,branchId,userId,createdByUserId:actorId}))});
         await tx.$executeRaw`INSERT INTO hr_employees(id,tenant_id,branch_id,employee_number,user_id,full_name,preferred_name,
           work_email,phone,department,job_title,employment_type,employment_status,hire_date,created_by_user_id)
           VALUES (${employeeId}::uuid,${tenantId}::uuid,${branch.id}::uuid,${employeeNumber},${userId}::uuid,
@@ -141,8 +161,10 @@ export class StaffProvisioningController {
           VALUES (${tenantId}::uuid,${employeeId}::uuid,${extra.residentialAddress},${extra.district},
           ${extra.dateOfBirth}::date,${extra.emergencyContactName},${extra.emergencyContactPhone},
           ${extra.nationalId},${extra.contractReference},${extra.probationEnd}::date,${extra.notes})`;
-        await tx.auditEvent.create({data:{tenantId,actorUserId:actorId,action:'ceo.employee.created',resourceType:'hr_employee',resourceId:employeeId,metadata:{role:selectedRole,username:loginName,employeeNumber}}});
-        return {created:true,employeeId,userId,employeeNumber,username:loginName,role:selectedRole,mustChangePassword:true};
+        await tx.auditEvent.create({data:{tenantId,actorUserId:actorId,action:'ceo.employee.created',resourceType:'hr_employee',resourceId:employeeId,metadata:{role:selectedRole,username:loginName,employeeNumber,allBranches,branchCount:selectedBranches.length}}});
+        const result={created:true,employeeId,userId,employeeNumber,username:loginName,role:selectedRole,mustChangePassword:true};
+        await tx.idempotencyRecord.update({where:{tenantId_key:{tenantId,key:requestKey}},data:{status:'COMPLETED',responseStatus:201,responseBody:result}});
+        return result;
       },{isolationLevel:'Serializable'}));
     }catch(e){
       if(e instanceof Error&&/unique constraint|duplicate key|P2002/i.test(e.message))throw new ConflictException('Employee username, email or employee number already exists.');

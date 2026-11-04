@@ -3,7 +3,7 @@ import type { FastifyRequest } from 'fastify';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertBranchAccess } from '../authorization/branch-scope';
-import { hasPermission, normalizeRole, type Permission } from '../authorization/role-policy';
+import { hasPermission, normalizeRole, permissionForRequest, type Permission } from '../authorization/role-policy';
 import { postLedgerJournal } from '../general-ledger/ledger-posting';
 import { CsrfGuard } from '../core/csrf.guard';
 
@@ -39,7 +39,7 @@ export class SupplyChainController {
       const path = req.url.split('?', 1)[0];
       const decision = /\/(?:purchase-requests\/[^/]+\/decision|awards\/[^/]+\/(?:approve|reject)|supplier-returns\/[^/]+\/approve)$/.test(path);
       const receiving = /\/purchase-orders\/[^/]+\/receipts$/.test(path);
-      const permission: Permission = decision ? 'approval.decide' : receiving ? 'procurement.receive' : req.method === 'GET' ? 'procurement.read' : 'procurement.write';
+      const permission: Permission = decision ? 'procurement.approve' : receiving ? 'procurement.receive' : req.method === 'GET' ? 'procurement.read' : 'procurement.write';
       if (!hasPermission(member.role, permission)) throw new ForbiddenException({code:'PERMISSION_DENIED', message:'Your role cannot perform this purchasing operation.', permission});
     }
     return { userId: session.userId, role: member.role };

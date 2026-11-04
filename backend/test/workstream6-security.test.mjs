@@ -11,7 +11,8 @@ const graph = read('../src/module-graph/module-graph.controller.ts');
 const migration = read('../prisma/migrations/20261031190000_workstream6_people_projects_collaboration/migration.sql');
 
  test('HR privacy roles separate directory, personal HR records, compensation and payroll', () => {
-  assert.equal(hasPermission('employee', 'people.read'), true);
+  assert.equal(hasPermission('employee', 'people.read'), false);
+  assert.equal(hasPermission('employee', 'people.self.read'), true);
   assert.equal(hasPermission('employee', 'people.private.read'), false);
   assert.equal(hasPermission('employee', 'people.compensation.read'), false);
   assert.equal(hasPermission('employee', 'payroll.read'), false);

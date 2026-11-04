@@ -4,6 +4,19 @@ const enc = (value: string) => encodeURIComponent(value);
 const base = (workspaceId: string, branchId: string) => `/workspaces/${enc(workspaceId)}/branches/${enc(branchId)}/workstream6`;
 const key = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `lexa-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 export const apiWorkstream6 = {
+  myOverview: (w:string,b:string) => apiClient.get<{
+    attendance: Array<{date:string;status:string;clockIn?:string;clockOut?:string}>;
+    leave: Array<{id:string;requestNumber:string;leaveType:string;startsOn:string;endsOn:string;status:string}>;
+    timesheets: Array<{id:string;timesheetNumber:string;workDate:string;regularHours:string;status:string}>;
+  }>(`${base(w,b)}/people/my-overview`),
+  myLeave: (w:string,b:string) => apiClient.get<Array<{id:string;requestNumber:string;leaveType:string;startsOn:string;endsOn:string;status:string}>>(`${base(w,b)}/people/my-leave`),
+  createMyLeave: (w:string,b:string,input:Record<string,unknown>) => apiClient.post<{id:string;status:string}>(`${base(w,b)}/people/my-leave`,input,key()),
+  submitMyLeave: (w:string,b:string,id:string) => apiClient.post(`${base(w,b)}/people/my-leave/${enc(id)}/submit`,{},key()),
+  createMyTimesheet: (w:string,b:string,input:Record<string,unknown>) => apiClient.post<{id:string;status:string}>(`${base(w,b)}/people/my-timesheets`,input,key()),
+  submitMyTimesheet: (w:string,b:string,id:string) => apiClient.post(`${base(w,b)}/people/my-timesheets/${enc(id)}/submit`,{},key()),
+  myFieldCases: (w:string,b:string) => apiClient.get<Array<{id:string;caseNumber:string;subject:string;priority:string;status:string;responseDueAt:string|null}>>(`${base(w,b)}/support/my-cases`),
+  updateMyFieldCase: (w:string,b:string,id:string,input:{status:'in_progress'|'waiting_customer';note:string}) => apiClient.patch(`${base(w,b)}/support/my-cases/${enc(id)}`,input),
+
   employees: (w: string, b: string) => apiClient.get<HrEmployee[]>(`${base(w,b)}/people/employees`),
   createEmployee: (w: string, b: string, input: Record<string, unknown>) => apiClient.post<HrEmployee>(`${base(w,b)}/people/employees`, input, key()),
   updateEmployee: (w: string, b: string, id: string, input: Record<string, unknown>) => apiClient.patch<HrEmployee>(`${base(w,b)}/people/employees/${enc(id)}`, input),

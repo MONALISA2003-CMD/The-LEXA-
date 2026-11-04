@@ -20,6 +20,110 @@ servers:
 security:
 - sessionCookie: []
 paths:
+  /workspaces/{workspaceId}/roles/catalog:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: listInvitableEmployeeRolesGet
+      description: Read records scoped to the authenticated employee or authorized owner.
+      responses:
+        '200': {description: Authorized business records or update result}
+        '201': {description: Authorized business record created}
+        '403': {description: Access denied for requested scope}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/my-leave:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: personalLeaveRequestsGet
+      description: Read records scoped to the authenticated employee or authorized owner.
+      responses:
+        '200': {description: Authorized business records or update result}
+        '201': {description: Authorized business record created}
+        '403': {description: Access denied for requested scope}
+    post:
+      operationId: personalLeaveRequestsPost
+      description: Create or submit a record through the tenant-scoped governed workflow.
+      responses:
+        '200': {description: Authorized business records or update result}
+        '201': {description: Authorized business record created}
+        '403': {description: Access denied for requested scope}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/my-leave/{leaveId}/submit:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: leaveId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: submitPersonalLeaveRequestPost
+      description: Create or submit a record through the tenant-scoped governed workflow.
+      responses:
+        '200': {description: Authorized business records or update result}
+        '201': {description: Authorized business record created}
+        '403': {description: Access denied for requested scope}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/my-timesheets:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: personalTimesheetEntriesGet
+      description: Read records scoped to the authenticated employee or authorized owner.
+      responses:
+        '200': {description: Authorized business records or update result}
+        '201': {description: Authorized business record created}
+        '403': {description: Access denied for requested scope}
+    post:
+      operationId: personalTimesheetEntriesPost
+      description: Create or submit a record through the tenant-scoped governed workflow.
+      responses:
+        '200': {description: Authorized business records or update result}
+        '201': {description: Authorized business record created}
+        '403': {description: Access denied for requested scope}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/my-timesheets/{timesheetId}/submit:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: timesheetId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: submitPersonalTimesheetPost
+      description: Create or submit a record through the tenant-scoped governed workflow.
+      responses:
+        '200': {description: Authorized business records or update result}
+        '201': {description: Authorized business record created}
+        '403': {description: Access denied for requested scope}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/my-overview:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: personalEmploymentSummaryGet
+      description: Read records scoped to the authenticated employee or authorized owner.
+      responses:
+        '200': {description: Authorized business records or update result}
+        '201': {description: Authorized business record created}
+        '403': {description: Access denied for requested scope}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/support/my-cases:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: assignedFieldServiceCasesGet
+      description: Read records scoped to the authenticated employee or authorized owner.
+      responses:
+        '200': {description: Authorized business records or update result}
+        '201': {description: Authorized business record created}
+        '403': {description: Access denied for requested scope}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/support/my-cases/{caseId}:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: caseId, in: path, required: true, schema: {type: string, format: uuid}}
+    patch:
+      operationId: updateAssignedFieldServiceCasePatch
+      description: Update only the signed-in employee assigned service record.
+      responses:
+        '200': {description: Authorized business records or update result}
+        '201': {description: Authorized business record created}
+        '403': {description: Access denied for requested scope}
   /workspaces/{workspaceId}/branches/{branchId}/inventory/intelligence:
     parameters:
       - $ref: '#/components/parameters/workspaceId'

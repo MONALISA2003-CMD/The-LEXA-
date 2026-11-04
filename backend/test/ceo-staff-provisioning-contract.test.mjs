@@ -31,7 +31,8 @@ test('employee creation is CEO-only, never establishes business ownership and ro
   assert.match(src,/Only the CEO may manage employee accounts/);
   assert.match(src,/!isOwnerRole\(member\.role\)/);
   assert.match(src,/mustChangePassword:true/);
-  assert.match(src,/branchScopeMode:'all'/);
+  assert.match(src,/branchScopeMode:allBranches\?'all':'restricted'/);
+  assert.match(src,/branchMembership\.createMany/);
   assert.match(src,/status:'ACTIVE'/);
   assert.match(src,/tx\.auditEvent\.create/);
   assert.doesNotMatch(src,/tenant\.create\(/);

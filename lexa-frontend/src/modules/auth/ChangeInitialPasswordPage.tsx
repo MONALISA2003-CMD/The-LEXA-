@@ -1,3 +1,4 @@
+import { validNewPassword, NEW_PASSWORD_RULE } from '../../domain/shared/newPasswordPolicy';
 
 import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router';
@@ -13,7 +14,7 @@ export default function ChangeInitialPasswordPage(){
   const [busy,setBusy]=useState(false);
   const submit=async(e:FormEvent<HTMLFormElement>)=>{
     e.preventDefault();setError('');
-    if([...password].length<15){setError('Use at least 15 characters for your private password.');return;}
+    if(!validNewPassword(password)){setError(NEW_PASSWORD_RULE);return;}
     if(password!==confirmation){setError('The confirmation does not match.');return;}
     if(password===current){setError('Please choose a new password, different from the temporary password.');return;}
     setBusy(true);
@@ -29,8 +30,8 @@ export default function ChangeInitialPasswordPage(){
       <p>Your CEO issued a temporary password. Replace it before accessing your business records. Neither your CEO nor LEXA can view the new password.</p>
       <form className="bs-form" onSubmit={submit}>
         <label>Temporary password<input type="password" autoComplete="current-password" required value={current} onChange={e=>setCurrent(e.target.value)}/></label>
-        <label>New personal password<input type="password" autoComplete="new-password" minLength={15} required value={password} onChange={e=>setPassword(e.target.value)}/></label>
-        <label>Confirm new password<input type="password" autoComplete="new-password" minLength={15} required value={confirmation} onChange={e=>setConfirmation(e.target.value)}/></label>
+        <label>New personal password<input type="password" autoComplete="new-password" minLength={8} maxLength={8} required value={password} onChange={e=>setPassword(e.target.value)}/></label>
+        <label>Confirm new password<input type="password" autoComplete="new-password" minLength={8} maxLength={8} required value={confirmation} onChange={e=>setConfirmation(e.target.value)}/></label>
         {error&&<div className="bs-error" role="alert">{error}</div>}
         <button className="button button-primary" disabled={busy} type="submit"><KeyRound size={16}/>{busy?'Saving securely…':'Secure my account'}</button>
       </form>

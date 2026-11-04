@@ -21,6 +21,7 @@ export const STAFF_NAV_ROUTES: Readonly<Record<string, readonly string[]>> = Obj
  viewer:['/reports','/products','/inventory'],
  read_only:['/reports','/products','/inventory'],
  readonly:['/reports','/products','/inventory'],
+ field_agent:[],
  employee:[],
  business_manager:['/reports','/sales','/checkout','/products','/inventory','/modules/sales-orders','/modules/sales-returns','/modules/customers','/modules/contacts','/modules/leads','/modules/purchase-requests','/modules/purchases','/modules/suppliers','/modules/receiving','/modules/stock-counts','/modules/deliveries','/modules/packages','/modules/projects','/modules/tasks'],
  manager:['/reports','/sales','/checkout','/products','/inventory','/modules/sales-orders','/modules/sales-returns','/modules/customers','/modules/contacts','/modules/leads','/modules/purchase-requests','/modules/purchases','/modules/suppliers','/modules/receiving','/modules/stock-counts','/modules/deliveries','/modules/packages','/modules/projects','/modules/tasks'],

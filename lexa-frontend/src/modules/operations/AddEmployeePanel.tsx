@@ -1,3 +1,4 @@
+import { validNewPassword, NEW_PASSWORD_RULE } from '../../domain/shared/newPasswordPolicy';
 
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,7 +13,7 @@ const ROLES = [
   ['hr_officer','HR officer'],['hr_manager','HR manager'],['payroll_officer','Payroll officer'],
   ['delivery_officer','Delivery / logistics'],['customer_service','Customer service'],
   ['production_officer','Production officer'],['quality_officer','Quality officer'],
-  ['project_manager','Project manager'],['support_agent','Support agent'],
+  ['project_manager','Project manager'],['support_agent','Support agent'],['field_agent','Field service agent'],
   ['auditor','Auditor'],['viewer','Read-only viewer'],['employee','Ordinary employee'],
 ] as const;
 const EMPTY:StaffDraft = {
@@ -21,18 +22,25 @@ const EMPTY:StaffDraft = {
   hireDate:new Date().toISOString().slice(0,10),residentialAddress:'',district:'',dateOfBirth:'',
   emergencyContactName:'',emergencyContactPhone:'',nationalId:'',contractReference:'',probationEnd:'',notes:'',
 };
-const FIELDS: Array<{name:keyof StaffDraft;label:string;type?:string;required?:boolean;hint?:string}> = [
+// Only string-backed employee fields are valid inputs for text/date form controls.
+// Branch selection uses its own checkbox state; never send a boolean or array
+// through the value property of an HTML input.
+type StaffTextField = {
+  [K in keyof StaffDraft]-?: NonNullable<StaffDraft[K]> extends string ? K : never;
+}[keyof StaffDraft];
+
+const FIELDS: Array<{name:StaffTextField;label:string;type?:string;required?:boolean;hint?:string}> = [
   {name:'fullName',label:'Legal full name',required:true},
   {name:'preferredName',label:'Preferred name'},
   {name:'username',label:'Employee login username',required:true,hint:'3–32 lowercase letters, numbers, dots, underscores or hyphens'},
   {name:'email',label:'Work email (optional)',type:'email',hint:'Not required if employee uses username'},
-  {name:'initialPassword',label:'Temporary password',type:'password',required:true,hint:'At least 15 characters. Employee changes it at first sign-in'},
+  {name:'initialPassword',label:'Temporary password',type:'password',required:true,hint:'Exactly 8 characters: upper and lowercase, number and symbol. Employee changes it at first sign-in'},
   {name:'phone',label:'Phone number',type:'tel'},
   {name:'department',label:'Department'},
   {name:'jobTitle',label:'Job title',required:true},
   {name:'hireDate',label:'Employment start date',type:'date',required:true},
 ];
-const MORE: Array<{name:keyof StaffDraft;label:string;type?:string}> = [
+const MORE: Array<{name:StaffTextField;label:string;type?:string}> = [
   {name:'residentialAddress',label:'Residential address'},
   {name:'district',label:'District'},
   {name:'dateOfBirth',label:'Date of birth',type:'date'},
@@ -58,19 +66,26 @@ export default function AddEmployeePanel({workspaceId,onCreated}:{workspaceId:st
   const qc=useQueryClient();
   const staff=useQuery({queryKey:['ceo-employees',workspaceId],queryFn:()=>apiTeamAccess.staff(workspaceId)});
   const [form,setForm]=useState<StaffDraft>({...EMPTY});
+  const branches=useQuery({queryKey:['team-branches',workspaceId],queryFn:()=>apiTeamAccess.branches(workspaceId)});
+  const [allBranches,setAllBranches]=useState(false);
+  const [branchIds,setBranchIds]=useState<string[]>([]);
   const [busy,setBusy]=useState(false);
   const [showForm,setShowForm]=useState(false);
   const [editing,setEditing]=useState<string|null>(null);
   const [resetId,setResetId]=useState<string|null>(null);
   const [newPassword,setNewPassword]=useState('');
-  const set=(key:keyof StaffDraft,value:string)=>setForm(old=>({...old,[key]:value}));
+  const set=(key:StaffTextField,value:string)=>setForm(old=>({...old,[key]:value}));
   const refresh=async()=>{await Promise.all([qc.invalidateQueries({queryKey:['ceo-employees',workspaceId]}),onCreated()]);};
   const create=async(e:FormEvent<HTMLFormElement>)=>{
-    e.preventDefault();setBusy(true);
+    e.preventDefault();
+    if(!editing && !validNewPassword(form.initialPassword)){toast.error(NEW_PASSWORD_RULE);return;}
+    setBusy(true);
     try {
       if(editing){await apiTeamAccess.updateStaff(workspaceId,editing,form);toast.success('Employee profile updated');}
       else {
-        const result=await apiTeamAccess.createStaff(workspaceId,form);
+        const selected=allBranches?[]:branchIds.length?branchIds:branches.data?.length===1?[branches.data[0]!.id]:[];
+        if(!allBranches&&!selected.length){toast.error('Select at least one branch for the employee.');return;}
+        const result=await apiTeamAccess.createStaff(workspaceId,{...form,allBranches,branchIds:selected});
         toast.success('Employee account created',{description:`${result.username} can now sign in using the temporary password you assigned.`});
       }
       setForm({...EMPTY});setEditing(null);setShowForm(false);await refresh();
@@ -78,7 +93,7 @@ export default function AddEmployeePanel({workspaceId,onCreated}:{workspaceId:st
     finally{setBusy(false);}
   };
   const reset=async(s:StaffProfile)=>{
-    if(newPassword.length<15){toast.error('Use a temporary password with at least 15 characters.');return;}
+    if(!validNewPassword(newPassword)){toast.error(NEW_PASSWORD_RULE);return;}
     setBusy(true);
     try{await apiTeamAccess.resetStaffPassword(workspaceId,s.employeeId,newPassword);
       toast.success('Temporary password updated. Previous sessions revoked.');
@@ -96,8 +111,8 @@ export default function AddEmployeePanel({workspaceId,onCreated}:{workspaceId:st
       <div className="lexa-employee-form-heading"><strong>{editing?'Edit employee profile':'New employee onboarding'}</strong><span>Employee access never creates another business or branch.</span></div>
       <div className="lexa-employee-form-grid">
         {FIELDS.filter(x=>!editing||!['initialPassword','username','email','hireDate'].includes(x.name)).map(f=><label key={f.name}>{f.label}
-          <input type={f.type??'text'} name={f.name} autoComplete="off" required={f.required} minLength={f.name==='initialPassword'?15:undefined}
-            maxLength={f.name==='username'?32:254} value={form[f.name]} onChange={e=>set(f.name,e.target.value)}/>
+          <input type={f.type??'text'} name={f.name} autoComplete="off" required={f.required} minLength={f.name==='initialPassword'?8:undefined}
+            maxLength={f.name==='initialPassword'?8:f.name==='username'?32:254} value={form[f.name]} onChange={e=>set(f.name,e.target.value)}/>
           {f.hint&&<small>{f.hint}</small>}
         </label>)}
         {!editing&&<>
@@ -109,6 +124,11 @@ export default function AddEmployeePanel({workspaceId,onCreated}:{workspaceId:st
           </select></label>
         </>}
       </div>
+      {!editing&&<fieldset className="team-access-branch-panel"><legend>Employee branch access</legend>
+        <label className="team-access-all"><input type="checkbox" checked={allBranches} onChange={e=>{setAllBranches(e.target.checked);if(e.target.checked)setBranchIds([])}}/> All branches</label>
+        {!allBranches&&<div className="team-access-branch-grid">{(branches.data??[]).map(branch=><label key={branch.id}><input type="checkbox" checked={branchIds.includes(branch.id)} onChange={e=>setBranchIds(ids=>e.target.checked?[...new Set([...ids,branch.id])]:ids.filter(id=>id!==branch.id))}/><span>{branch.name}</span></label>)}</div>}
+        {branches.isError&&<span role="alert">Could not load branches. Retry before creating employee access.</span>}
+      </fieldset>}
       <details className="lexa-employee-advanced" open={Boolean(editing)}>
         <summary>Personal, emergency contact and contract information</summary>
         <div className="lexa-employee-form-grid">
@@ -136,8 +156,8 @@ export default function AddEmployeePanel({workspaceId,onCreated}:{workspaceId:st
             <button type="button" className="button button-secondary button-small" onClick={()=>{setEditing(s.employeeId);setForm(fromProfile(s));setShowForm(true);window.scrollTo({top:0,behavior:'smooth'})}}><Pencil size={14}/> Edit biodata</button>
             {s.userId&&<button type="button" className="button button-secondary button-small" onClick={()=>{setResetId(resetId===s.employeeId?null:s.employeeId);setNewPassword('')}}><KeyRound size={14}/> Reset staff password</button>}
             {resetId===s.employeeId&&<div className="lexa-employee-reset">
-              <label>New temporary password<input type="password" autoComplete="new-password" minLength={15} value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="At least 15 characters"/></label>
-              <button className="button button-primary button-small" type="button" disabled={busy||newPassword.length<15} onClick={()=>void reset(s)}>Save and revoke old sessions</button>
+              <label>New temporary password<input type="password" autoComplete="new-password" minLength={8} maxLength={8} value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="8 mixed characters"/></label>
+              <button className="button button-primary button-small" type="button" disabled={busy||!validNewPassword(newPassword)} onClick={()=>void reset(s)}>Save and revoke old sessions</button>
             </div>}
           </div>
         </details>

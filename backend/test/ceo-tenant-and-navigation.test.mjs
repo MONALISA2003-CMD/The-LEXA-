@@ -53,7 +53,7 @@ test('suspension and employee invitations are scoped, auditable, and prevent pri
   assert.match(sessionRls, /target\.status = 'SUSPENDED'/);
   assert.match(guard, /STAFF_DELETION_FORBIDDEN/);
   assert.match(guard, /request\.method\.toUpperCase\(\) === 'DELETE'/);
-  assert.match(invites, /input\.allBranches !== false|input\.allBranches!==false/);
+  assert.match(invites, /input\.allBranches===true|input\.allBranches === true/);
   assert.match(invites, /previous\?\.status==='SUSPENDED'/);
   assert.match(publicReg, /SUSPENDED/);
 });

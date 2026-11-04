@@ -1,13 +1,13 @@
 {
   "name": "LEXA canonical source archive",
-  "version": "2026-11-04-finance-sapphire-controlled-ledger",
+  "version": "2026-11-04-employee-role-scope-tenant-security",
   "archive_root": "Repository root; no wrapper directory",
   "source_baseline": {
     "repository": "MONALISA2003-CMD/The-LEXA-",
     "branch": "main",
-    "commit": "4d7b37a42304c9636c4804d673d3886b8ec338d1",
-    "note": "Financial control, sourced reporting, budget approvals, Python analysis; no production records modified.",
-    "archive_basis": "Clean LEXA import source from prior successful CI package with Finance changes."
+    "commit": "6bbd59a197a6fe976689d55cd179f9ba7e40f9ec",
+    "note": "Role-specific permissions, branch-scoped invitations and employee self-service; no production data or schema changes.",
+    "archive_basis": "Current LEXA official LX identity source plus role-isolation and authorization updates."
   },
   "applications": {
     "backend": "backend/",

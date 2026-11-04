@@ -7,10 +7,12 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { PrismaService } from '../prisma/prisma.service';
-import { availablePermissions, hasPermission, isWorkspaceAdministrator, normalizeRole } from '../authorization/role-policy';
+import { availablePermissions, hasPermission, isWorkspaceAdministrator, normalizeRole, permissionForRequest } from '../authorization/role-policy';
+import { invitableRoleCatalog } from '../authorization/employee-role-catalog';
 import { postLedgerJournal, settlementAccountKey } from '../general-ledger/ledger-posting';
 import { assertBranchAccess } from '../authorization/branch-scope';
 import { CsrfGuard } from './csrf.guard';
+import { meetsNewPasswordPolicy, PASSWORD_POLICY_MESSAGE } from '../auth/new-password-policy';
 import { sendTransactionalEmail } from '../notifications/email-delivery';
 import { PeopleProjectsService } from '../people-projects/people-projects.service';
 import { outstandingSaleMinor, paymentCategoryFromMethod } from '../commerce/increment1-rules';
@@ -280,7 +282,7 @@ export class CoreController {
   }
 
   private async passwordHash(password: string): Promise<string> {
-    if (password.length < 12 || password.length > 1024) throw new BadRequestException('Use a password between 12 and 1024 characters.');
+    if (!meetsNewPasswordPolicy(password)) throw new BadRequestException(PASSWORD_POLICY_MESSAGE);
     const salt = randomBytes(16);
     const derived = await scrypt(password, salt, 64) as Buffer;
     return `${salt.toString('hex')}:${derived.toString('hex')}`;
@@ -464,7 +466,7 @@ export class CoreController {
     const body = asObject(raw);
     const currentPassword = requiredString(body.currentPassword, 'Current password', 1024);
     const nextPassword = requiredString(body.newPassword, 'New password', 1024);
-    if ([...nextPassword].length < 15) throw new BadRequestException('New password must be at least 15 characters.');
+    if (!meetsNewPasswordPolicy(nextPassword)) throw new BadRequestException(PASSWORD_POLICY_MESSAGE);
     if (currentPassword === nextPassword) throw new BadRequestException('Choose a different password from the temporary one.');
     const session = await this.sessionFor(request);
     if (!(await this.passwordMatches(currentPassword, session.user.passwordHash))) {
@@ -666,6 +668,14 @@ export class CoreController {
     return toBranch(branch);
   }
 
+  @Get('workspaces/:workspaceId/roles/catalog')
+  async roleCatalog(@Param('workspaceId') workspaceId:string,@Req() request:FastifyRequest) {
+    const session=await this.sessionFor(request);
+    const membership=await this.membershipFor(session.userId,workspaceId);
+    if(!isWorkspaceAdministrator(membership.role))throw new ForbiddenException('Only business owners can review employee role permissions.');
+    return invitableRoleCatalog();
+  }
+
   @Get('workspaces/:workspaceId/members')
   async listWorkspaceMembers(@Param('workspaceId') workspaceId: string, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
@@ -702,7 +712,7 @@ export class CoreController {
     if (['owner', 'owner_administrator'].includes(normalizeRole(target.role))) throw new ForbiddenException('Workspace ownership cannot be changed through ordinary role management.');
     if (isWorkspaceAdministrator(target.role) && !actorIsOwner) throw new ForbiddenException('Only a workspace owner can change another administrator role.');
     const role = requiredString(body.role, 'Member role', 40).trim().toLowerCase().replace(/[\s/-]+/g, '_');
-    const allowed = new Set(['business_manager','manager','accountant','finance_manager','procurement_officer','hr_officer','hr_manager','payroll_officer','customer_service','support_agent','delivery_officer','production_officer','quality_officer','project_manager','employee','auditor','sales','sales_operator','cashier','inventory_operator','warehouse_operator','read_only','readonly','member','viewer']);
+    const allowed = new Set(['business_manager','manager','accountant','finance_manager','procurement_officer','hr_officer','hr_manager','payroll_officer','customer_service','support_agent','field_agent','delivery_officer','production_officer','quality_officer','project_manager','employee','auditor','sales','sales_operator','cashier','inventory_operator','warehouse_operator','read_only','readonly','member','viewer']);
     if (!allowed.has(role)) throw new BadRequestException('Choose a supported workspace role.');
     if (role === 'administrator' && !actorIsOwner) throw new ForbiddenException('Only a workspace owner can assign administrator access.');
     await this.prisma.$transaction(async (tx) => {
@@ -2019,6 +2029,8 @@ export class CoreController {
   async globalSearch(@Param('workspaceId') workspaceId: string, @Query('branchId') branchId: string | undefined, @Query('q') query: string | undefined, @Query('limit') limit: string | undefined, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
+    // Personal employee and field-service roles use record-scoped endpoints, not the global business index.
+    if (['employee', 'field_agent'].includes(normalizeRole(membership.role))) return [];
     const text = (query ?? '').trim();
     if (text.length < 2) return [];
     if (text.length > 160) throw new BadRequestException('Search text is too long.');
@@ -2040,7 +2052,8 @@ export class CoreController {
       audit: 'audit.read', 'audit-log': 'audit.read',
     };
     for (const row of rows) {
-      const required = moduleReadPermission[row.moduleId];
+      const required = moduleReadPermission[row.moduleId] ?? permissionForRequest('GET',
+        `/api/v1/workspaces/${workspaceId}/branches/${branchId}/modules/${row.moduleId}/records`, { moduleId: row.moduleId });
       if (required && !hasPermission(membership.role, required)) continue;
       if (membership.role.toLowerCase() === 'employee' && row.moduleId === 'employees') {
         const own = await this.prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM hr_employees WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND id=${row.recordId}::uuid AND user_id=${session.userId}::uuid LIMIT 1`;
@@ -2303,7 +2316,10 @@ export class CoreController {
       if (status && data.status !== status) return [];
       if (projectManagerRole && data.ownerModule === 'timesheets'
         && !visibleProjectTimesheetIds.has(String(data.ownerRecordId ?? ''))) return [];
-      if (!hasPermission(membership.role, 'approval.decide') && data.requestedBy !== session.userId) return [];
+      const modulePermission = data.ownerModule === 'leave' ? 'people.leave.approve'
+        : data.ownerModule === 'timesheets' ? 'people.timesheet.approve'
+        : data.ownerModule === 'payroll' ? 'payroll.approve' : 'approval.decide';
+      if (!hasPermission(membership.role, modulePermission) && data.requestedBy !== session.userId) return [];
       // Inbox remains shared, but sensitive payroll totals are never exposed to approvers
       // who do not have payroll-read permission.
       const safeData = {
@@ -2334,7 +2350,6 @@ export class CoreController {
     const body = asObject(raw);
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
-    if (!hasPermission(membership.role, 'approval.decide')) throw new ForbiddenException('You do not have permission to decide approvals.');
     const decision = requiredString(body.decision, 'Decision', 20);
     if (!['approve', 'reject'].includes(decision)) throw new BadRequestException('Decision must be approve or reject.');
     const row = await this.prisma.moduleRecord.findFirst({ where: { tenantId: workspaceId, moduleId: 'approvals', recordId: approvalId }, select: { branchId: true, data: true } });
@@ -2342,9 +2357,9 @@ export class CoreController {
     await this.branchFor(workspaceId, row.branchId, session.userId);
     const approvalData = row.data && typeof row.data === 'object' && !Array.isArray(row.data) ? row.data as Record<string, unknown> : {};
     const ownerModule = typeof approvalData.ownerModule === 'string' ? approvalData.ownerModule : '';
-    if (ownerModule === 'leave' && !hasPermission(membership.role, 'people.write')) throw new ForbiddenException('Your role cannot approve leave requests.');
-    if (ownerModule === 'timesheets' && !hasPermission(membership.role, 'people.write') && !hasPermission(membership.role, 'projects.write')) throw new ForbiddenException('Your role cannot approve timesheets.');
-    if (ownerModule === 'payroll' && !hasPermission(membership.role, 'payroll.write')) throw new ForbiddenException('Your role cannot approve payroll runs.');
+    if (ownerModule === 'leave' && !hasPermission(membership.role, 'people.leave.approve')) throw new ForbiddenException('Your role cannot approve leave requests.');
+    if (ownerModule === 'timesheets' && !hasPermission(membership.role, 'people.timesheet.approve')) throw new ForbiddenException('Your role cannot approve timesheets.');
+    if (ownerModule === 'payroll' && !hasPermission(membership.role, 'payroll.approve')) throw new ForbiddenException('Your role cannot approve payroll runs.');
     if (!['leave','timesheets','payroll'].includes(ownerModule)) throw new ForbiddenException('This approval type has no authorized owning-module decision handler.');
     return this.peopleProjects.decideSharedApproval({
       tenantId: workspaceId,

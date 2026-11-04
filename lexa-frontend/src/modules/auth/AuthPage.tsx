@@ -1,3 +1,4 @@
+import { validNewPassword, NEW_PASSWORD_RULE } from '../../domain/shared/newPasswordPolicy';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import {
@@ -118,8 +119,8 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
       setFormError('This recovery link is incomplete. Request a new password-reset link.');
       return;
     }
-    if (mode === 'reset-password' && Array.from(password).length < 15) {
-      setFormError('Use a password or passphrase with at least 15 characters.');
+    if (mode === 'reset-password' && !validNewPassword(password)) {
+      setFormError(NEW_PASSWORD_RULE);
       return;
     }
     if (mode === 'reset-password' && password !== confirmPassword) {
@@ -239,7 +240,7 @@ export function FirstAdministratorPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError('');
-    if (Array.from(password).length < 15) { setFormError('Use a password or passphrase with at least 15 characters.'); return; }
+    if (!validNewPassword(password)) { setFormError(NEW_PASSWORD_RULE); return; }
     if (password !== confirmPassword) { setFormError('The two passwords do not match.'); return; }
     setSaving(true);
     try {
@@ -268,7 +269,7 @@ export function FirstAdministratorPage() {
             <div className="auth-field"><label htmlFor="bootstrap-secret">One-time setup code <span aria-hidden="true">*</span></label><div className="auth-input-wrap"><KeyRound size={17} /><input id="bootstrap-secret" type="password" autoComplete="off" required maxLength={256} value={bootstrapSecret} onChange={(event) => setBootstrapSecret(event.target.value)} placeholder="Enter the private setup code" /></div></div>
             <div className="auth-field"><label htmlFor="admin-name">Full name <span aria-hidden="true">*</span></label><div className="auth-input-wrap"><input id="admin-name" autoComplete="name" required maxLength={100} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Your name" /></div></div>
             <div className="auth-field"><label htmlFor="admin-email">Business email address <span aria-hidden="true">*</span></label><div className="auth-input-wrap"><Mail size={17} /><input id="admin-email" type="email" autoComplete="email" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@business.com" /></div></div>
-            <PasswordField id="admin-password" label="Create password" value={password} onChange={setPassword} autoComplete="new-password" placeholder="Use a unique passphrase" />
+            <PasswordField id="admin-password" label="Create password" value={password} onChange={setPassword} autoComplete="new-password" placeholder="8 mixed characters" />
             <PasswordLengthGuide value={password} />
             <PasswordField id="admin-password-confirm" label="Confirm password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" placeholder="Enter the password again" />
             {formError && <div className="auth-error" role="alert">{formError}</div>}

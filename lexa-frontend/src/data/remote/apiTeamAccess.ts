@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 
+export interface EmployeeRoleProfile {role:string;label:string;description:string;permissions:string[];}
 export interface BusinessAccess { workspaceId: string; role: string; isOwner: boolean; permissions: string[]; }
 export interface TeamBranch { id: string; name: string; code: string; }
 export interface StaffProfile {
@@ -14,7 +15,7 @@ export interface StaffProfile {
 export interface StaffDraft {
   fullName: string; preferredName: string; username: string; email: string; initialPassword: string;
   role: string; phone: string; department: string; jobTitle: string; employmentType: string;
-  hireDate: string; residentialAddress: string; district: string; dateOfBirth: string;
+  hireDate: string; allBranches?: boolean; branchIds?: string[]; residentialAddress: string; district: string; dateOfBirth: string;
   emergencyContactName: string; emergencyContactPhone: string; nationalId: string;
   contractReference: string; probationEnd: string; notes: string;
 }
@@ -47,6 +48,7 @@ export const apiTeamAccess = {
   async access(workspaceId: string): Promise<BusinessAccess> { return apiClient.get<BusinessAccess>(`${base(workspaceId)}/access`); },
   async setStatus(workspaceId: string, userId: string, status: 'ACTIVE' | 'SUSPENDED') { return apiClient.put(`${base(workspaceId)}/memberships/${enc(userId)}/status`, { status }); },
   async removeEmployee(workspaceId: string, userId: string) { return apiClient.delete(`${base(workspaceId)}/memberships/${enc(userId)}`); },
+  async roleCatalog(workspaceId:string) {return list<EmployeeRoleProfile>(await apiClient.get(`${base(workspaceId)}/roles/catalog`),'employee roles');},
   async members(workspaceId: string) { return list<TeamMember>(await apiClient.get(`${base(workspaceId)}/members`), 'workspace members'); },
   async branches(workspaceId: string) { return list<TeamBranch>(await apiClient.get(`${base(workspaceId)}/branches`), 'workspace branches'); },
   async updateRole(workspaceId: string, userId: string, role: string) {
