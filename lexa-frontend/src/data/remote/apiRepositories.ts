@@ -42,7 +42,7 @@ export const apiProductRepository: ProductRepository = {
   },
   async listCategories(workspaceId) { return listPayload<Category>(await apiClient.get(`/workspaces/${enc(workspaceId)}/categories`), 'category'); },
   async create(input: CreateProductInput) { return objectPayload<Product>(await apiClient.post(`/workspaces/${enc(input.workspaceId)}/products`, input, crypto.randomUUID()), 'created product'); },
-  async update(product, categoryName) { return objectPayload<Product>(await apiClient.patch(`/workspaces/${enc(product.workspaceId)}/products/${enc(product.id)}`, { ...product, categoryName }), 'updated product'); },
+  async update(product, categoryName) { return objectPayload<Product>(await apiClient.patch(`/workspaces/${enc(product.workspaceId)}/products/${enc(product.id)}`, { ...product, ...(product.categoryId ? { categoryId:product.categoryId } : { categoryName }) }), 'updated product'); },
 };
 
 export const apiInventoryRepository: InventoryRepository = {
@@ -51,7 +51,7 @@ export const apiInventoryRepository: InventoryRepository = {
   },
   async recordAdjustment(input) {
     return objectPayload<StockMovement>(await apiClient.post(`/workspaces/${enc(input.workspaceId)}/branches/${enc(input.branchId)}/inventory/movements`, {
-      productId: input.productId, quantityDelta: input.quantityDelta, reason: input.reason, movementType: input.movementType ?? 'adjustment',
+      productId: input.productId, ...(input.variantId?{variantId:input.variantId}:{}), quantityDelta: input.quantityDelta, reason: input.reason, movementType: input.movementType ?? 'adjustment',
     }, crypto.randomUUID()), 'stock movement');
   },
   async getBalances({ workspaceId, branchId }) {

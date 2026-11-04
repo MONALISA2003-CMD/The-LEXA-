@@ -125,7 +125,7 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/operations(?:\/|$)/.test(path)) return choose('workspace.read', 'module.write');
   if (/\/workspaces\/[^/]+$/.test(path) || /\/workspaces\/[^/]+\/branches$/.test(path)) return write ? 'workspace.manage' : 'workspace.read';
   if (/\/products(?:\/|$)|\/categories(?:\/|$)/.test(path)) return choose('catalog.read', 'catalog.write');
-  if (/\/inventory\/(?:movements|balances)(?:\/|$)/.test(path)) return choose('inventory.read', 'inventory.write');
+  if (/\/inventory\/(?:movements|balances|variant-balances|serials|lots)(?:\/|$)/.test(path)) return choose('inventory.read', 'inventory.write');
   if (/\/sales\/[^/]+\/returns$/.test(path)) return choose('sales.read', 'sales.return');
   if (/\/sales(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
   if (/\/logistics\/packages(?:\/|$)/.test(path)) return choose('fulfilment.read','fulfilment.write');

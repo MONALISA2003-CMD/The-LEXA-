@@ -5,6 +5,16 @@ const branch = (w: string, b: string) => `${tenant(w)}/branches/${enc(b)}`;
 const key = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `lexa-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export const apiCatalogInventory = {
+  categories: (w:string)=>apiClient.get<import('../../domain/shared/types').Category[]>(`${tenant(w)}/categories`),
+  createCategory: (w:string,input:{name:string;parentId?:string;templateKey?:string;attributeSchema?:unknown[]})=>apiClient.post<import('../../domain/shared/types').Category>(`${tenant(w)}/categories`,input,key()),
+  updateCategory: (w:string,id:string,input:Record<string,unknown>)=>apiClient.patch<import('../../domain/shared/types').Category>(`${tenant(w)}/categories/${enc(id)}`,input),
+  allVariants:(w:string)=>apiClient.get<Array<{id:string;productId:string;sku:string;barcode:string|null;attributes:Record<string,string|number|boolean>;costPriceMinor:number;sellingPriceMinor:number;active:boolean}>>(`${tenant(w)}/catalog/variants`),
+  variantBalances:(w:string,b:string)=>apiClient.get<Array<{productId:string;variantId:string|null;quantity:number}>>(`${branch(w,b)}/inventory/variant-balances`),
+  availableLots:(w:string,b:string,p:string,variantId?:string)=>apiClient.get<Array<{id:string;lotNumber:string;expiryDate:string|null;available:number;variantId:string|null}>>(`${branch(w,b)}/inventory/lots`,{productId:p,...(variantId?{variantId}:{})}),
+  variants: (w:string,p:string)=>apiClient.get<Array<{id:string;productId:string;sku:string;barcode:string|null;attributes:Record<string,string|number|boolean>;costPriceMinor:number;sellingPriceMinor:number;active:boolean}>>(`${tenant(w)}/products/${enc(p)}/variants`),
+  createVariant: (w:string,p:string,input:Record<string,unknown>)=>apiClient.post(`${tenant(w)}/products/${enc(p)}/variants`,input,key()),
+  availableSerials:(w:string,b:string,p:string,variantId?:string)=>apiClient.get<Array<{id:string;serialNumber:string;lotId:string|null;variantId:string|null}>>(`${branch(w,b)}/inventory/serials`,{productId:p,...(variantId?{variantId}:{})}),
+  createStandaloneSerial:(w:string,b:string,input:{productId:string;variantId?:string;serialNumber:string;imei2?:string})=>apiClient.post(`${branch(w,b)}/inventory/serials`,input,key()),
   units: (w: string) => apiClient.get<Record<string, unknown>[]>(`${tenant(w)}/catalog/units`),
   createUnit: (w: string, input: {code:string;name:string;dimension?:string;precision?:number}) => apiClient.post(`${tenant(w)}/catalog/units`, input, key()),
   taxCodes: (w: string) => apiClient.get<Record<string, unknown>[]>(`${tenant(w)}/catalog/tax-codes`),

@@ -1,3 +1,4 @@
+import { INDUSTRY_OPTIONS } from '../../domain/catalog/industryCatalog';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ArrowRight, Check, LogIn, ShieldCheck, Sparkles, Building2, RefreshCw } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
@@ -36,6 +37,7 @@ export default function OnboardingPage() {
   const [showCreation, setShowCreation] = useState(false);
   const [businessName, setBusinessName] = useState('');
   const [businessType, setBusinessType] = useState('retail');
+  const [selectedIndustries,setSelectedIndustries] = useState<string[]>([]);
   const branchName = 'Main branch';
   const [currency, setCurrency] = useState('UGX');
   const [timezone, setTimezone] = useState('Africa/Kampala');
@@ -138,7 +140,7 @@ export default function OnboardingPage() {
     setSaving(true);
     let created: Workspace | null = null;
     try {
-      const newBusiness = await workspaces.create({ businessName, businessType, branchName, currency, timezone });
+      const newBusiness = await workspaces.create({ businessName, businessType, industries:selectedIndustries, branchName, currency, timezone });
       created = newBusiness;
       setBusinesses((previous) => previous.some((item) => item.id === newBusiness.id) ? previous : [...previous, newBusiness]);
       setSelectedBusinessId(newBusiness.id);
@@ -222,6 +224,7 @@ export default function OnboardingPage() {
                 <label className="field-label">Business name <span className="required-mark">*</span><input autoFocus required maxLength={100} value={businessName} onChange={(event) => setBusinessName(event.target.value)} placeholder="For example, My Trading Company" /></label>
                 <label className="field-label">What kind of business do you run?<select value={businessType} onChange={(event) => setBusinessType(event.target.value)}>{businessTypes.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>
                 
+                <fieldset className="bs-fieldset"><legend>What does this business sell or do? Select any activities.</legend><div className="bs-picks">{INDUSTRY_OPTIONS.map(([value,label])=><button key={value} type="button" aria-pressed={selectedIndustries.includes(value)} className={`bs-pick ${selectedIndustries.includes(value)?'bs-pick-on':''}`} onClick={()=>setSelectedIndustries(current=>current.includes(value)?current.filter(x=>x!==value):[...current,value])}>{selectedIndustries.includes(value)&&'✓ '}{label}</button>)}</div><small>You can add more activities and edit categories later. No example stock will be created.</small></fieldset>
                 <div className="form-two-col">
                   <label className="field-label">Currency<select value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="UGX">UGX — Uganda shilling</option><option value="KES">KES — Kenya shilling</option><option value="TZS">TZS — Tanzania shilling</option><option value="USD">USD — US dollar</option><option value="GBP">GBP — Pound sterling</option><option value="EUR">EUR — Euro</option></select></label>
                   <label className="field-label">Time zone<select value={timezone} onChange={(event) => setTimezone(event.target.value)}><option value="Africa/Kampala">Kampala (EAT)</option><option value="Africa/Nairobi">Nairobi (EAT)</option><option value="Africa/Dar_es_Salaam">Dar es Salaam (EAT)</option><option value="UTC">UTC</option><option value="Europe/London">London</option></select></label>

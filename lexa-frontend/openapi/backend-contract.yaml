@@ -701,6 +701,13 @@ paths:
                 schema: {$ref: '#/components/schemas/Product'}}}}
   /workspaces/{workspaceId}/categories:
     parameters: [$ref: '#/components/parameters/workspaceId']
+    post:
+      operationId: createBusinessCategory
+      description: Create a tenant-owned category or subcategory with validated parent and attribute definitions.
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      responses:
+        '201': {description: Category created}
+        '403': {description: Permission denied}
     get:
       operationId: listCategories
       responses:
@@ -7011,6 +7018,59 @@ paths:
         '404': {description: Resource not found}
         '409': {description: Business rule conflict}
         '500': {description: Unexpected server error}
+
+
+# Multi-industry catalogue additions are restricted by the same tenant and branch authorization guards.
+  /workspaces/{workspaceId}/categories/{categoryId}:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: categoryId, in: path, required: true, schema: {type: string, format: uuid}}
+    patch:
+      operationId: updateBusinessCategory
+      description: Tenant-scoped, permission-checked business catalogue operation.
+      responses:
+        '200': {description: Authorized business data}
+        '201': {description: Authorized business data created}
+        '403': {description: Access denied}
+  /workspaces/{workspaceId}/catalog/variants:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: listTenantProductVariants
+      description: Tenant-scoped, permission-checked business catalogue operation.
+      responses:
+        '200': {description: Authorized business data}
+        '201': {description: Authorized business data created}
+        '403': {description: Access denied}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/variant-balances:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: listVariantBalances
+      description: Tenant-scoped, permission-checked business catalogue operation.
+      responses:
+        '200': {description: Authorized business data}
+        '201': {description: Authorized business data created}
+        '403': {description: Access denied}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/serials:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: listAvailableSerials
+      description: Tenant-scoped, permission-checked business catalogue operation.
+      responses:
+        '200': {description: Authorized business data}
+        '201': {description: Authorized business data created}
+        '403': {description: Access denied}
+    post:
+      operationId: registerStandaloneDeviceSerial
+      description: Tenant-scoped, permission-checked business catalogue operation.
+      responses:
+        '200': {description: Authorized business data}
+        '201': {description: Authorized business data created}
+        '403': {description: Access denied}
 
 components:
   securitySchemes:

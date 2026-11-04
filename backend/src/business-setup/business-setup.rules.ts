@@ -13,7 +13,35 @@ export const availablePaymentCodes = [
   { code: 'other', label: 'Other (record only)' },
 ] as const;
 
-const industries = new Set(['retail_trade','wholesale_distribution','food_hospitality','electronics','fashion_beauty','construction','agriculture','professional_services','healthcare','manufacturing','logistics_transport','education','other']);
+export const availableIndustryCodes = ['retail_trade','wholesale_distribution','electronics','mobile_phones','fashion_beauty','perfumes_cosmetics','food_hospitality','bakery','agriculture','construction','household_goods','professional_services','repair_services','healthcare','manufacturing','logistics_transport','education','other'] as const;
+const industries = new Set<string>(availableIndustryCodes);
+const LEGACY_INDUSTRY_CODES: Readonly<Record<string,string>> = Object.freeze({
+  retail:'retail_trade',wholesale:'wholesale_distribution',restaurant:'food_hospitality',
+  food:'food_hospitality',services:'professional_services',fashion:'fashion_beauty',
+  beauty:'perfumes_cosmetics',phones:'mobile_phones',general:'other',
+});
+/** Preserve original business metadata, but expose supported selection values to existing accounts. */
+export function normaliseLegacyIndustry(value: unknown): string | null {
+  if(typeof value !== 'string' || !value.trim()) return null;
+  const normalized=value.trim().toLowerCase();
+  return industries.has(normalized) ? normalized : (LEGACY_INDUSTRY_CODES[normalized] ?? 'other');
+}
+/** Owner choices are unrestricted combinations of supported industry codes, not subscription seats. */
+export function selectIndustries(value: unknown, legacyIndustry: unknown = undefined): string[] {
+ // Existing records may contain historical industry names and are normalized when read.
+ // Newly submitted values must be recognised; silently mapping a typo to 'other'
+ // would hide a registration mistake and invalidate the business profile.
+ if (value !== undefined && !Array.isArray(value)) throw new SetupValidationError('Choose valid business activities.');
+ const legacy = typeof legacyIndustry === 'string' ? legacyIndustry.trim().toLowerCase() : '';
+ if (!Array.isArray(value) && legacy && !industries.has(legacy) && !Object.prototype.hasOwnProperty.call(LEGACY_INDUSTRY_CODES, legacy)) {
+   throw new SetupValidationError('Choose a valid business industry.');
+ }
+ const requested = Array.isArray(value) ? value : (legacy ? [industries.has(legacy) ? legacy : LEGACY_INDUSTRY_CODES[legacy]!] : []);
+ if (requested.length > availableIndustryCodes.length || requested.some(x => typeof x !== 'string' || !industries.has(x))) throw new SetupValidationError('Choose available business activities.');
+ const unique = [...new Set(requested)];
+ if (!unique.length) throw new SetupValidationError('Choose at least one business activity.');
+ return unique;
+}
 const businessModels = new Set(['retail','wholesale','distribution','services','manufacturing','rental','subscription','mixed','other']);
 const offeringTypes = new Set(['physical_goods','services','digital_goods','subscriptions','rentals']);
 const sellingChannels = new Set(['shop','field_sales','online','social','b2b','delivery','other']);
@@ -53,9 +81,9 @@ export function validateSetupStep(value: unknown) {
     return {step:1 as const,businessName:text(body.businessName,'Business name',100,true),branchName:text(body.branchName,'First branch',80,true),tradingName:text(body.tradingName,'Trading name',100),legalName:text(body.legalName,'Legal name',160),country,district:text(body.district,'District',120),city,physicalAddress,onlineOnly,email,phone:text(body.phone,'Business phone',40),website,registrationNumber:text(body.registrationNumber,'Registration number',100),taxIdentificationNumber:text(body.taxIdentificationNumber,'Tax identification number',100)};
   }
   if (body.step === 2) {
-    const industry = text(body.industry,'Industry',80,true);
-    if (!industries.has(industry)) throw new SetupValidationError('Choose a valid industry.');
-    return {step:2 as const,industry,businessModels:picks(body.businessModels,businessModels,'business models'),offeringTypes:picks(body.offeringTypes,offeringTypes,'offerings'),offeringsDescription:text(body.offeringsDescription,'What you sell or do',500,true),sellingChannels:picks(body.sellingChannels,sellingChannels,'selling channels',false)};
+    const selected = selectIndustries(body.industries, body.industry);
+    const industry = selected.includes(body.industry as string) ? body.industry as string : selected[0]!;
+    return {step:2 as const,industry,industries:selected,businessModels:picks(body.businessModels,businessModels,'business models'),offeringTypes:picks(body.offeringTypes,offeringTypes,'offerings'),offeringsDescription:text(body.offeringsDescription,'What you sell or do',500,true),sellingChannels:picks(body.sellingChannels,sellingChannels,'selling channels',false)};
   }
   if (body.step === 3) {
     const currency = text(body.currency,'Currency',3,true).toUpperCase();

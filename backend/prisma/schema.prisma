@@ -87,6 +87,7 @@ model BusinessProfile {
   registrationNumber         String?   @map("registration_number")
   taxIdentificationNumber    String?   @map("tax_identification_number")
   industry                   String?
+  industries                 String[]  @default([])
   businessModels             String[]  @default([]) @map("business_models")
   offeringTypes              String[]  @default([]) @map("offering_types")
   offeringsDescription       String?   @map("offerings_description")
@@ -373,11 +374,15 @@ model Category {
   id        String   @id @default(uuid()) @db.Uuid
   tenantId  String   @map("tenant_id") @db.Uuid
   name      String
+  parentId  String?  @map("parent_id") @db.Uuid
+  templateKey String? @map("template_key")
+  attributeSchema Json @default("[]") @map("attribute_schema")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   products  Product[]
 
+  @@unique([tenantId, id])
   @@unique([tenantId, name])
   @@index([tenantId])
   @@map("categories")
@@ -388,6 +393,8 @@ model Product {
   tenantId           String    @map("tenant_id") @db.Uuid
   name               String
   sku                String
+  productType        String?   @map("product_type")
+  attributes         Json      @default("{}")
   barcode            String?
   brand              String?
   unitOfMeasure      String?   @map("unit_of_measure")
@@ -514,6 +521,9 @@ model SaleLine {
   lotId               String?  @map("lot_id") @db.Uuid
   serialIds           String[] @default([]) @map("serial_ids") @db.Uuid
   productNameSnapshot String   @map("product_name_snapshot")
+  variantDescriptionSnapshot String? @map("variant_description_snapshot")
+  unitNameSnapshot String? @map("unit_name_snapshot")
+  serialNumbersSnapshot String[] @default([]) @map("serial_numbers_snapshot")
   skuSnapshot         String?  @map("sku_snapshot")
   barcodeSnapshot     String?  @map("barcode_snapshot")
   quantity            Decimal  @db.Decimal(12, 3)
@@ -743,6 +753,7 @@ model InventorySerial {
   variantId String? @map("variant_id") @db.Uuid
   lotId String? @map("lot_id") @db.Uuid
   serialNumber String @map("serial_number")
+  identifiers Json @default("{}")
   status String @default("available")
   @@unique([tenantId, serialNumber])
   @@index([tenantId, productId, status])

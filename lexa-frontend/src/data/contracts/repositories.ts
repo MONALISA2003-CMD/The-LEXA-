@@ -20,7 +20,7 @@ export interface ProductRepository {
 
 export interface InventoryRepository {
   listMovements(input: { workspaceId: string; branchId: string; limit?: number }): Promise<StockMovement[]>;
-  recordAdjustment(input: { workspaceId: string; branchId: string; productId: string; quantityDelta: number; reason: string; movementType?: 'opening' | 'adjustment' }): Promise<StockMovement>;
+  recordAdjustment(input: { workspaceId: string; branchId: string; productId: string; variantId?:string; quantityDelta: number; reason: string; movementType?: 'opening' | 'adjustment' }): Promise<StockMovement>;
   getBalances(input: { workspaceId: string; branchId: string }): Promise<Map<string, number>>;
 }
 

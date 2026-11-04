@@ -7,14 +7,7 @@ import { businessSetupApi, type BusinessSetupRecord, type SetupSave } from '../.
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import { dataProviderMode } from '../../data/remote/runtimeConfig';
 
-const INDUSTRIES = [
-  ['retail_trade','Retail and shops'], ['wholesale_distribution','Wholesale and distribution'],
-  ['electronics','Electronics and appliances'], ['food_hospitality','Food and hospitality'],
-  ['fashion_beauty','Fashion and beauty'], ['agriculture','Agriculture'],
-  ['construction','Construction and hardware'], ['professional_services','Professional services'],
-  ['healthcare','Healthcare'], ['manufacturing','Manufacturing'],
-  ['logistics_transport','Transport and logistics'], ['education','Education'], ['other','Other industry'],
-] as const;
+import { INDUSTRY_OPTIONS } from '../../domain/catalog/industryCatalog';
 const MODELS = [['retail','Retail'],['wholesale','Wholesale'],['distribution','Distribution'],['services','Services'],['manufacturing','Manufacturing'],['rental','Rental'],['subscription','Subscriptions'],['mixed','Mixed business'],['other','Other']] as const;
 const OFFERINGS = [['physical_goods','Physical products'],['services','Services'],['digital_goods','Digital goods'],['subscriptions','Subscriptions'],['rentals','Rentals']] as const;
 const CHANNELS = [['shop','Physical shop'],['field_sales','Field sales'],['online','Website / online'],['social','WhatsApp / social'],['b2b','Business to business'],['delivery','Delivery'],['other','Other']] as const;
@@ -71,7 +64,7 @@ export default function BusinessSetupPage() {
         legalName:data.legalName, country:data.country, district:data.district, city:data.city, physicalAddress:data.physicalAddress,
         onlineOnly:data.onlineOnly, email:data.email, phone:data.phone, website:data.website,
         registrationNumber:data.registrationNumber, taxIdentificationNumber:data.taxIdentificationNumber };
-      else if (step === 2) payload = { step:2, industry:data.industry,businessModels:data.businessModels,offeringTypes:data.offeringTypes,
+      else if (step === 2) payload = { step:2, industry:data.industry,industries:data.industries,businessModels:data.businessModels,offeringTypes:data.offeringTypes,
         offeringsDescription:data.offeringsDescription,sellingChannels:data.sellingChannels };
       else payload = { step:3,currency:data.currency,timezone:data.timezone,methods:selectedMethods,confirmation:confirmed };
       const response = await businessSetupApi.save(workspace.id,payload);
@@ -124,7 +117,10 @@ export default function BusinessSetupPage() {
         <footer className="bs-actions"><Link to="/" className="button button-secondary">Do this later</Link><button className="button button-primary" disabled={saving}>{saving?'Saving…':'Continue to activities'} <ChevronRight size={16}/></button></footer>
       </form></>}
       {step === 2 && <><div className="bs-step-title"><Store/><div><h2>What does your business do?</h2><p>LEXA recommends relevant tools, but every business module remains available.</p></div></div>
-      <form className="bs-form" onSubmit={advance}><label>Primary industry *<select value={data.industry} required onChange={e=>change('industry',e.target.value)}><option value="">Choose your industry</option>{INDUSTRIES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+      <form className="bs-form" onSubmit={advance}>
+        <p className="bs-activity-hint">Choose every activity your business carries out. There is no limit on combining business types, and you can update this list later without losing any product or sale.</p>
+        <Picker label="What industries or activities do you operate? * (choose any)" choices={INDUSTRY_OPTIONS} values={data.industries} onChange={values=>{change('industries',values);change('industry',values.includes(data.industry)?data.industry:(values[0]??''));}}/>
+        <p className="bs-activity-hint">Your choices recommend product forms. They never block selling other products or grant extra permissions.</p>
         <Picker label="How do you operate? * (choose all that apply)" choices={MODELS} values={data.businessModels} onChange={v=>change('businessModels',v)}/>
         <Picker label="What do you sell or provide? *" choices={OFFERINGS} values={data.offeringTypes} onChange={v=>change('offeringTypes',v)}/>
         <label>Describe what your business sells or does *<textarea required maxLength={500} rows={4} value={data.offeringsDescription} onChange={e=>change('offeringsDescription',e.target.value)} placeholder="e.g. We sell phones and accessories wholesale and retail, and provide phone repairs."/></label>
@@ -145,7 +141,7 @@ export default function BusinessSetupPage() {
       {step === 4 && <><div className="bs-step-title"><PackageCheck/><div><h2>Everything is connected.</h2><p>Review the details that will serve as the business-wide source of truth.</p></div></div>
       <div className="bs-review-grid"><div><Building2/><span>Business</span><strong>{data.businessName}</strong><small>{data.legalName||data.tradingName||'Business owner profile'}</small></div>
         <div><MapPin/><span>Internal accounting location</span><strong>{data.branchName}</strong><small>{[data.city,data.district,data.country].filter(Boolean).join(', ')}</small></div>
-        <div><Store/><span>Business activity</span><strong>{data.industry.replaceAll('_',' ')}</strong><small>{data.offeringsDescription}</small></div>
+        <div><Store/><span>Business activity</span><strong>{data.industries.length} selected</strong><small>{data.industries.map(code=>INDUSTRY_OPTIONS.find(([id])=>id===code)?.[1]??code).join(' · ')}</small></div>
         <div><CreditCard/><span>Recording methods</span><strong>{currentPaymentLabels.length} enabled</strong><small>{currentPaymentLabels.join(' · ')}</small></div></div>
       <div className="bs-notice"><ShieldCheck size={19}/><p>Owners have complete access inside this business. Other tenants stay private. Your setup is stored in Neon PostgreSQL and connected to the same tenant used by POS, stock, finance, staff and reports.</p></div>
       {completed?<div className="bs-actions"><button type="button" className="button button-secondary" onClick={()=>setStep(1)}>Edit business setup</button><Link className="button button-primary" to="/">Open dashboard <ChevronRight size={16}/></Link></div>:<div className="bs-actions"><button type="button" className="button button-secondary" onClick={()=>setStep(3)}><ChevronLeft size={16}/> Back</button><button type="button" onClick={()=>void finish()} disabled={saving} className="button button-primary">{saving?'Finalizing…':'Finish and open LEXA'} <Check size={17}/></button></div>}

@@ -48,8 +48,8 @@ export default function SaleReceiptDocument({sale,lines,payments,returns,busines
     <table className="selling-paper-items">
       <thead><tr><th>Item / description</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
       <tbody>{lines.map(line=><tr key={line.id}>
-        <td><strong>{line.productNameSnapshot}</strong>{line.skuSnapshot&&<small>{line.skuSnapshot}</small>}{line.serialIds?.length?<small>Serial: {line.serialIds.join(', ')}</small>:null}</td>
-        <td>{line.quantity}</td><td>{money(line.unitPriceMinor)}</td><td>{money(line.lineTotalMinor)}</td>
+        <td><strong>{line.productNameSnapshot}</strong>{line.variantDescriptionSnapshot&&<small>{line.variantDescriptionSnapshot}</small>}{line.skuSnapshot&&<small>SKU: {line.skuSnapshot}</small>}{line.serialNumbersSnapshot?.length?<small>Serial / IMEI: {line.serialNumbersSnapshot.join(', ')}</small>:null}</td>
+        <td>{line.quantity}{line.unitNameSnapshot?` ${line.unitNameSnapshot}`:''}</td><td>{money(line.unitPriceMinor)}</td><td>{money(line.lineTotalMinor)}</td>
       </tr>)}</tbody>
     </table>
     <section className="selling-paper-totals">

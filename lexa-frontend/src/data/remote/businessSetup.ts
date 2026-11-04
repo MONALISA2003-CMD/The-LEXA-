@@ -7,13 +7,13 @@ export interface BusinessSetupRecord {
   tradingName: string; legalName: string; country: string; district: string; city: string;
   physicalAddress: string; onlineOnly: boolean; email: string; phone: string; website: string;
   registrationNumber: string; taxIdentificationNumber: string;
-  industry: string; businessModels: string[]; offeringTypes: string[]; offeringsDescription: string;
+  industry: string; industries: string[]; businessModels: string[]; offeringTypes: string[]; offeringsDescription: string;
   sellingChannels: string[]; setupStep: number; completedAt: string | null;
   manualPaymentsConfirmedAt: string | null; paymentMethods: BusinessPaymentOption[];
 }
 export type SetupSave =
  | { step: 1; businessName: string; branchName: string; tradingName: string; legalName: string; country: string; district: string; city: string; physicalAddress: string; onlineOnly: boolean; email: string; phone: string; website: string; registrationNumber: string; taxIdentificationNumber: string }
- | { step: 2; industry: string; businessModels: string[]; offeringTypes: string[]; offeringsDescription: string; sellingChannels: string[] }
+ | { step: 2; industry: string; industries: string[]; businessModels: string[]; offeringTypes: string[]; offeringsDescription: string; sellingChannels: string[] }
  | { step: 3; currency: string; timezone: string; methods: string[]; confirmation: boolean };
 
 export const businessSetupApi = {

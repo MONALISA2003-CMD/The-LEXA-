@@ -1,3 +1,5 @@
+import { apiCatalogInventory } from '../../data/remote/apiWorkstream03';
+import { dataProviderMode } from '../../data/remote/runtimeConfig';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {Link} from 'react-router';
@@ -17,6 +19,7 @@ export default function InventoryPage() {
   const client = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [productId, setProductId] = useState('');
+  const [variantId,setVariantId] = useState('');
   const [movementType, setMovementType] = useState<'opening' | 'adjustment'>('opening');
   const [direction, setDirection] = useState<'increase' | 'decrease'>('increase');
   const [quantity, setQuantity] = useState('1');
@@ -24,6 +27,9 @@ export default function InventoryPage() {
   const [saving, setSaving] = useState(false);
 
   const productQuery = useQuery({ queryKey: ['products', workspace.id], queryFn: () => products.list({ workspaceId: workspace.id, activeOnly: false }) });
+  const variants=useQuery({queryKey:['all-variants',workspace.id],queryFn:()=>apiCatalogInventory.allVariants(workspace.id),enabled:dataProviderMode==='api',staleTime:30000,retry:1});
+  const variantBalances=useQuery({queryKey:['checkout-variant-balances',workspace.id,branch.id],queryFn:()=>apiCatalogInventory.variantBalances(workspace.id,branch.id),enabled:dataProviderMode==='api',staleTime:10000,retry:1});
+  const selectedVariants=(variants.data??[]).filter(v=>v.productId===productId);
   const balanceQuery = useQuery({ queryKey: ['inventory-balances', workspace.id, branch.id], queryFn: () => inventory.getBalances({ workspaceId: workspace.id, branchId: branch.id }) });
   const movementQuery = useQuery({ queryKey: ['inventory-movements', workspace.id, branch.id], queryFn: () => inventory.listMovements({ workspaceId: workspace.id, branchId: branch.id, limit: 100 }) });
   const trackedProducts = useMemo(() => (productQuery.data ?? []).filter((item) => item.trackStock && item.active), [productQuery.data]);
@@ -51,7 +57,7 @@ export default function InventoryPage() {
     const normalized = code.trim().toLocaleLowerCase();
     const match = trackedProducts.find((item) => item.sku.toLocaleLowerCase() === normalized || (item.barcode ?? '').toLocaleLowerCase() === normalized);
     if (!match) { toast.error('Product code not found', { description: 'Check the barcode or SKU and confirm that the product is active and stock-tracked.' }); return; }
-    setProductId(match.id);
+    setProductId(match.id);setVariantId('');
     toast.success('Product selected', { description: `${match.name} · current stock ${balanceQuery.data?.get(match.id) ?? 0}` });
   }
 
@@ -60,7 +66,7 @@ export default function InventoryPage() {
     setDirection('increase');
     setQuantity('1');
     setReason(type === 'opening' ? 'Opening stock' : 'Count correction');
-    setProductId(trackedProducts[0]?.id ?? '');
+    setProductId(trackedProducts[0]?.id ?? '');setVariantId('');
     setFormOpen(true);
   }
 
@@ -69,12 +75,14 @@ export default function InventoryPage() {
     setSaving(true);
     try {
       const entered = Number(quantity);
-      if (!Number.isSafeInteger(entered) || entered <= 0) throw new Error('Enter a positive whole-number quantity.');
+      if(!Number.isFinite(entered)||entered<=0||entered>1_000_000||Math.round(entered*1000)!==entered*1000)throw new Error('Enter a positive quantity with up to three decimal places.');
+      if(selectedVariants.length&&!variantId)throw new Error('Choose the exact size, colour or model variant before changing stock.');
       if (movementType === 'opening' && direction !== 'increase') throw new Error('Opening stock must be an increase.');
       const quantityDelta = direction === 'increase' ? entered : -entered;
-      await inventory.recordAdjustment({ workspaceId: workspace.id, branchId: branch.id, productId, quantityDelta, reason, movementType });
+      await inventory.recordAdjustment({ workspaceId: workspace.id, branchId: branch.id, productId, ...(variantId?{variantId}:{}), quantityDelta, reason, movementType });
       await Promise.all([
         client.invalidateQueries({ queryKey: ['inventory-balances', workspace.id, branch.id] }),
+        client.invalidateQueries({ queryKey: ['checkout-variant-balances',workspace.id,branch.id] }),
         client.invalidateQueries({ queryKey: ['inventory-movements', workspace.id, branch.id] }),
         client.invalidateQueries({ queryKey: ['dashboard', workspace.id, branch.id] }),
       ]);
@@ -101,7 +109,7 @@ export default function InventoryPage() {
       <section className="section-card table-card"><div className="table-toolbar"><div><h3>Movement history</h3><p>Auditable changes to stock at this branch</p></div><span className="muted-count">{movementQuery.data?.length ?? 0} records</span></div>{movementQuery.isError ? <div className="inline-error" role="alert"><strong>Could not load movement history.</strong><span>{movementQuery.error instanceof Error ? movementQuery.error.message : 'Check the connection and retry.'}</span><button className="button button-secondary button-small" onClick={() => void movementQuery.refetch()}>Retry</button></div> : movementQuery.isLoading ? <div className="loading-state">Loading movement history…</div> : !(movementQuery.data ?? []).length ? <div className="empty-state compact"><div className="empty-icon"><ArrowDownLeft size={23} /></div><h3>No stock movements yet</h3><p>Record opening quantities or a stock adjustment to begin the ledger.</p>{trackedProducts.length > 0 && <button className="button button-primary" onClick={() => openForm('opening')}><Plus size={15} /> Record opening stock</button>}</div> : <StandardDataTable rows={movementQuery.data ?? []} columns={movementColumns} rowLabel="movements" emptyTitle="No stock movements yet" emptyDescription="Stock ledger events will appear here after a validated movement is recorded." />}</section>
 
 
-      {formOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}><section className="form-modal small-modal" role="dialog" aria-modal="true" aria-labelledby="stock-form-title"><div className="modal-heading"><div><div className="eyebrow eyebrow-blue">STOCK LEDGER</div><h3 id="stock-form-title">{movementType === 'opening' ? 'Record opening stock' : 'Adjust stock'}</h3><p>This creates a movement record; it does not edit a standalone balance.</p></div><button className="icon-button" aria-label="Close form" onClick={() => setFormOpen(false)}><X size={19} /></button></div><form onSubmit={submit} className="form-stack"><BarcodeCapture compact label="Scan a product for this stock movement" onCode={handleStockBarcode} /><label className="field-label">Product <span className="required-mark">*</span><select required value={productId} onChange={(event) => setProductId(event.target.value)}>{trackedProducts.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.sku} (on hand: {balanceQuery.data?.get(item.id) ?? 0})</option>)}</select></label>{movementType === 'adjustment' && <label className="field-label">Adjustment direction<select value={direction} onChange={(event) => setDirection(event.target.value as 'increase' | 'decrease')}><option value="increase">Increase stock</option><option value="decrease">Decrease stock</option></select></label>}<label className="field-label">{movementType === 'opening' ? 'Opening quantity' : 'Quantity'} <span className="required-mark">*</span><input required type="number" min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label><label className="field-label">Reason <span className="required-mark">*</span><textarea required rows={3} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Explain why stock is changing" /></label><div className="form-info"><ClipboardCheck size={16} /><p>Changes are saved with a timestamp and reason. Stock cannot be reduced below zero.</p></div><div className="form-modal-actions"><button type="button" className="button button-secondary" onClick={() => setFormOpen(false)}>Cancel</button><button type="submit" className="button button-primary" disabled={saving || !trackedProducts.length}>{saving ? 'Saving…' : 'Save movement'} <ArrowUpRight size={16} /></button></div></form></section></div>}
+      {formOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}><section className="form-modal small-modal" role="dialog" aria-modal="true" aria-labelledby="stock-form-title"><div className="modal-heading"><div><div className="eyebrow eyebrow-blue">STOCK LEDGER</div><h3 id="stock-form-title">{movementType === 'opening' ? 'Record opening stock' : 'Adjust stock'}</h3><p>This creates a movement record; it does not edit a standalone balance.</p></div><button className="icon-button" aria-label="Close form" onClick={() => setFormOpen(false)}><X size={19} /></button></div><form onSubmit={submit} className="form-stack"><BarcodeCapture compact label="Scan a product for this stock movement" onCode={handleStockBarcode} /><label className="field-label">Product <span className="required-mark">*</span><select required value={productId} onChange={(event) => {setProductId(event.target.value);setVariantId('');}}>{trackedProducts.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.sku} (on hand: {balanceQuery.data?.get(item.id) ?? 0})</option>)}</select></label>{selectedVariants.length>0&&<label className="field-label">Exact product variant *<select required value={variantId} onChange={e=>setVariantId(e.target.value)}><option value="">Choose size, colour or model</option>{selectedVariants.map(v=><option key={v.id} value={v.id}>{v.sku} · stock {variantBalances.data?.find(b=>b.productId===productId&&b.variantId===v.id)?.quantity??0}</option>)}</select></label>}{movementType === 'adjustment' && <label className="field-label">Adjustment direction<select value={direction} onChange={(event) => setDirection(event.target.value as 'increase' | 'decrease')}><option value="increase">Increase stock</option><option value="decrease">Decrease stock</option></select></label>}<label className="field-label">{movementType === 'opening' ? 'Opening quantity' : 'Quantity'} <span className="required-mark">*</span><input required type="number" min="0.001" step="0.001" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label><label className="field-label">Reason <span className="required-mark">*</span><textarea required rows={3} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Explain why stock is changing" /></label><div className="form-info"><ClipboardCheck size={16} /><p>Changes are saved with a timestamp and reason. Stock cannot be reduced below zero.</p></div><div className="form-modal-actions"><button type="button" className="button button-secondary" onClick={() => setFormOpen(false)}>Cancel</button><button type="submit" className="button button-primary" disabled={saving || !trackedProducts.length}>{saving ? 'Saving…' : 'Save movement'} <ArrowUpRight size={16} /></button></div></form></section></div>}
     </InventoryFrame>
   );
 }

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CsrfGuard } from '../core/csrf.guard';
 import { normalizeRole } from '../authorization/role-policy';
-import { validateSetupStep, availablePaymentCodes, SetupValidationError } from './business-setup.rules';
+import { validateSetupStep, availablePaymentCodes, SetupValidationError, normaliseLegacyIndustry } from './business-setup.rules';
 
 // Global TenantAuthorizationGuard verifies the signed-in membership, tenant scope,
 // permissions and RLS before any business-setup handler runs.
@@ -54,7 +54,7 @@ export class BusinessSetupController {
       physicalAddress: profile?.physicalAddress ?? '', onlineOnly: profile?.onlineOnly ?? false,
       email: profile?.email ?? '', phone: profile?.phone ?? '', website: profile?.website ?? '',
       registrationNumber: profile?.registrationNumber ?? '', taxIdentificationNumber: profile?.taxIdentificationNumber ?? '',
-      industry: profile?.industry ?? '', businessModels: profile?.businessModels ?? (tenant.businessType === 'wholesale' ? ['wholesale'] : tenant.businessType === 'services' ? ['services'] : ['retail']),
+      industry: profile?.industry ?? '', industries: profile?.industries?.length ? profile.industries : (normaliseLegacyIndustry(profile?.industry) ? [normaliseLegacyIndustry(profile?.industry)!] : []), businessModels: profile?.businessModels ?? (tenant.businessType === 'wholesale' ? ['wholesale'] : tenant.businessType === 'services' ? ['services'] : ['retail']),
       offeringTypes: profile?.offeringTypes ?? [], offeringsDescription: profile?.offeringsDescription ?? '',
       sellingChannels: profile?.sellingChannels ?? [], setupStep: profile?.setupStep ?? 1,
       completedAt: profile?.completedAt?.toISOString() ?? null,
@@ -85,8 +85,8 @@ export class BusinessSetupController {
         if (firstBranch) await tx.branch.update({ where: { id: firstBranch.id }, data: { name: branchName, address: fields.physicalAddress || null } });
       }
       if (step === 2) {
-        const { industry, businessModels, offeringTypes, offeringsDescription, sellingChannels } = payload;
-        Object.assign(record, { industry, businessModels, offeringTypes, offeringsDescription, sellingChannels });
+        const { industry, industries, businessModels, offeringTypes, offeringsDescription, sellingChannels } = payload;
+        Object.assign(record, { industry, industries, businessModels, offeringTypes, offeringsDescription, sellingChannels });
         await tx.tenant.update({ where: { id: workspaceId }, data: { businessType: businessModels[0] ?? 'general' } });
       }
       if (step === 3) {
@@ -133,7 +133,7 @@ export class BusinessSetupController {
         tx.businessProfile.findUnique({ where: { tenantId: workspaceId } }),
         tx.businessPaymentMethod.findMany({ where: { tenantId: workspaceId, enabled: true } }),
       ]);
-      if (!profile?.country || !profile.industry || !profile.businessModels.length ||
+      if (!profile?.country || !(profile.industries.length || profile.industry) || !profile.businessModels.length ||
           !profile.offeringTypes.length || !profile.offeringsDescription ||
           !profile.manualPaymentsConfirmedAt || methods.length === 0 || profile.setupStep < 4) {
         throw new BadRequestException('Complete business identity, activities and your manually confirmed payment methods first.');

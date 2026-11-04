@@ -1,3 +1,4 @@
+import { apiCatalogInventory } from '../../data/remote/apiWorkstream03';
 import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
@@ -30,6 +31,8 @@ export default function CheckoutPage() {
   const client = useQueryClient();
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [selectedLots,setSelectedLots] = useState<Record<string,string>>({});
+  const [selectedSerials,setSelectedSerials] = useState<Record<string,string[]>>({});
   const [customerName, setCustomerName] = useState('');
   const [paymentLines, setPaymentLines] = useState<PaymentLineDraft[]>([{ id: 'payment-line-initial', method: 'cash', amount: '0', reference: '', methodLabel: '', notes: '' }]);
   const [customerPhone, setCustomerPhone] = useState('');
@@ -56,21 +59,44 @@ export default function CheckoutPage() {
   const productQuery = useQuery({ queryKey: ['products', workspace.id], queryFn: () => products.list({ workspaceId: workspace.id, activeOnly: true }) });
   const balanceQuery = useQuery({ queryKey: ['inventory-balances', workspace.id, branch.id], queryFn: () => inventory.getBalances({ workspaceId: workspace.id, branchId: branch.id }) });
   const productsList = productQuery.data ?? [];
+  const variantsQuery=useQuery({queryKey:['all-variants',workspace.id],queryFn:()=>apiCatalogInventory.allVariants(workspace.id),enabled:dataProviderMode==='api',staleTime:30000,retry:1});
+  const variantBalancesQuery=useQuery({queryKey:['checkout-variant-balances',workspace.id,branch.id],queryFn:()=>apiCatalogInventory.variantBalances(workspace.id,branch.id),enabled:dataProviderMode==='api',staleTime:10000,retry:1});
+  const choices=useMemo(()=>productsList.flatMap(product=>{
+    const variants=(variantsQuery.data??[]).filter(v=>v.productId===product.id);
+    if(!variants.length)return [{key:product.id,product,variant:null as (typeof variants)[number]|null,name:product.name,sku:product.sku,barcode:product.barcode??''}];
+    return variants.map(variant=>({key:`${product.id}:${variant.id}`,product,variant,name:`${product.name} · ${Object.values(variant.attributes??{}).filter(v=>v!==null&&v!==undefined&&v!=='').join(' · ')}`,sku:variant.sku,barcode:variant.barcode??''}));
+  }),[productsList,variantsQuery.data]);
+  const choiceBalance=(choice:(typeof choices)[number])=>{
+    if(dataProviderMode==='api'){
+      const match=variantBalancesQuery.data?.find(x=>x.productId===choice.product.id && x.variantId===(choice.variant?.id??null));
+      return match?.quantity??0;
+    }
+    return balanceQuery.data?.get(choice.product.id)??0;
+  };
   const filtered = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase();
-    return productsList.filter((product) => {
-      if (!needle) return true;
-      return product.name.toLocaleLowerCase().includes(needle) || product.sku.toLocaleLowerCase().includes(needle) || (product.barcode ?? '').toLocaleLowerCase().includes(needle);
-    }).filter((product) => !product.trackStock || (balanceQuery.data?.get(product.id) ?? 0) > 0);
-  }, [productsList, search, balanceQuery.data]);
+    return choices.filter(choice=>{
+      const matches=!needle||[choice.name,choice.sku,choice.barcode,choice.product.brand??''].some(value=>value.toLocaleLowerCase().includes(needle));
+      const stock=dataProviderMode==='api' ? (variantBalancesQuery.data?.find(x=>x.productId===choice.product.id&&x.variantId===(choice.variant?.id??null))?.quantity??0) : (balanceQuery.data?.get(choice.product.id)??0);
+      return matches&&(!choice.product.trackStock||stock>0);
+    });
+  },[choices,search,variantBalancesQuery.data,balanceQuery.data]);
   const approvedPriceList=priceListsQuery.data?.find(list=>list.id===selectedPriceListId);
-  const cartLines = useMemo(() => Object.entries(cart).map(([productId, quantity]) => {
-    const product = productsList.find((item) => item.id === productId);
-    if (!product) return null;
-    const approvedPrice=approvedPriceList?.items?.find(item=>item.productId===product.id&&item.variantId===null)?.unitPriceMinor;
-    const unitPriceMinor=approvedPrice??product.sellingPriceMinor;
-    return { product, quantity, unitPriceMinor, lineTotalMinor: unitPriceMinor * quantity, stock: balanceQuery.data?.get(product.id) ?? 0 };
-  }).filter((item) => item !== null), [cart, productsList, balanceQuery.data, approvedPriceList]);
+  const cartLines=useMemo(()=>Object.entries(cart).map(([key,quantity])=>{
+    const choice=choices.find(item=>item.key===key);
+    if(!choice)return null;
+    const product=choice.product,variant=choice.variant;
+    const approvedPrice=approvedPriceList?.items?.find(item=>item.productId===product.id&&item.variantId===(variant?.id??null))?.unitPriceMinor;
+    const unitPriceMinor=approvedPrice??variant?.sellingPriceMinor??product.sellingPriceMinor;
+    const stock=dataProviderMode==='api'?(variantBalancesQuery.data?.find(x=>x.productId===product.id&&x.variantId===(variant?.id??null))?.quantity??0):(balanceQuery.data?.get(product.id)??0);
+    return {key,product,variant,name:choice.name,sku:choice.sku,quantity,unitPriceMinor,lineTotalMinor:unitPriceMinor*quantity,stock};
+  }).filter(item=>item!==null),[cart,choices,approvedPriceList,variantBalancesQuery.data,balanceQuery.data]);
+  const trackedLines=cartLines.filter(l=>l.product.trackLot||l.product.trackSerial);
+  const traceQuery=useQuery({queryKey:['checkout-tracked-stock',workspace.id,branch.id,trackedLines.map(l=>l.key).join('|')],enabled:dataProviderMode==='api'&&trackedLines.length>0,staleTime:10000,retry:1,queryFn:async()=>Promise.all(trackedLines.map(async line=>({
+    key:line.key,
+    lots:line.product.trackLot?await apiCatalogInventory.availableLots(workspace.id,branch.id,line.product.id,line.variant?.id):[],
+    serials:line.product.trackSerial?await apiCatalogInventory.availableSerials(workspace.id,branch.id,line.product.id,line.variant?.id):[],
+  })))});
   const totalMinor = cartLines.reduce((sum, line) => sum + line.lineTotalMinor, 0);
   const factor = minorUnitFactor(workspace.currency);
   const paymentAllocatedMinor = paymentLines.reduce((sum, line) => { try { return sum + parseMajorAmount(line.amount || '0', workspace.currency); } catch { return sum; } }, 0);
@@ -84,49 +110,32 @@ export default function CheckoutPage() {
 
 
   useEffect(() => { setPaymentLines((current) => current.length === 1 && current[0] ? [{ ...current[0], amount: String(totalMinor / factor) }] : current); }, [totalMinor, factor]);
-  useEffect(() => { setCart({}); setCustomerName(''); setCustomerPhone(''); setCustomerRecordId(''); setOpportunityRecordId(''); setSalespersonEmployeeId(''); setCashTendered(''); setSelectedPriceListId(''); setPromisedPaymentDate(''); setPaymentReceiptConfirmed(false); setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '', methodLabel: '', notes: '' }]); }, [workspace.id, branch.id]);
+  useEffect(() => { setCart({});setSelectedLots({});setSelectedSerials({}); setCustomerName(''); setCustomerPhone(''); setCustomerRecordId(''); setOpportunityRecordId(''); setSalespersonEmployeeId(''); setCashTendered(''); setSelectedPriceListId(''); setPromisedPaymentDate(''); setPaymentReceiptConfirmed(false); setPaymentLines([{ id: 'payment-line-' + Date.now(), method: 'cash', amount: '0', reference: '', methodLabel: '', notes: '' }]); }, [workspace.id, branch.id]);
   useEffect(() => { if (!methodsQuery.data?.completedAt || !paymentMethods.length) return; setPaymentLines(lines => lines.map(line => paymentMethods.some(m => m.value === line.method) ? line : { ...line, method: defaultPaymentMethod })); }, [methodsQuery.data, defaultPaymentMethod]);
 
 
   async function handleScannedProduct(code: string) {
     setSearch(code);
-    const normalized = code.trim().toLocaleLowerCase();
-    const exact = productsList.filter((product) => product.active && (product.barcode?.trim().toLocaleLowerCase() === normalized || product.sku.trim().toLocaleLowerCase() === normalized));
-    if (exact.length === 1) {
-      addToCart(exact[0]!.id);
-      return;
-    }
-    if (exact.length > 1) {
-      toast.error('Barcode is not unique', { description: 'Ask an administrator to resolve duplicate barcode/SKU records before checkout.' });
-      return;
-    }
-    toast.error('Product code not found', { description: 'The code was searched against the current product catalogue. Verify the barcode or add the product first.' });
+    const normalized=code.trim().toLocaleLowerCase();
+    const exact=choices.filter(choice=>choice.product.active&&(choice.barcode.trim().toLocaleLowerCase()===normalized||choice.sku.trim().toLocaleLowerCase()===normalized));
+    if(exact.length===1){addToCart(exact[0]!.key);return;}
+    if(exact.length>1){toast.error('Product barcode is ambiguous',{description:'Resolve duplicate barcodes before checkout.'});return;}
+    toast.error('Product code not found',{description:'Try a different barcode or SKU.'});
   }
 
-  function addToCart(productId: string) {
-    const product = productsList.find((item) => item.id === productId);
-    if (!product) return;
-    const current = cart[productId] ?? 0;
-    const available = balanceQuery.data?.get(productId) ?? 0;
-    if (product.trackStock && current + 1 > available) {
-      toast.error('Not enough stock', { description: `${product.name} has ${available - current} more unit${available - current === 1 ? '' : 's'} available.` });
-      return;
-    }
-    setCart((value) => ({ ...value, [productId]: (value[productId] ?? 0) + 1 }));
+  function addToCart(key:string){
+    const choice=choices.find(x=>x.key===key);if(!choice)return;
+    const current=cart[key]??0,available=choiceBalance(choice);
+    if(choice.product.trackStock&&current+1>available){toast.error('Not enough stock',{description:`${choice.name} has ${Math.max(0,available-current)} more available.`});return;}
+    setCart(value=>({...value,[key]:(value[key]??0)+1}));
   }
 
-  function setQuantity(productId: string, nextQuantity: number) {
-    if (nextQuantity <= 0) {
-      setCart((value) => { const next = { ...value }; delete next[productId]; return next; });
-      return;
-    }
-    const product = productsList.find((item) => item.id === productId);
-    const available = balanceQuery.data?.get(productId) ?? 0;
-    if (product?.trackStock && nextQuantity > available) {
-      toast.error(`Only ${available} available`, { description: product.name });
-      return;
-    }
-    setCart((value) => ({ ...value, [productId]: nextQuantity }));
+  function setQuantity(key:string,nextQuantity:number){
+    if(nextQuantity<=0){setCart(value=>{const next={...value};delete next[key];return next;});setSelectedSerials(x=>({...x,[key]:[]}));return;}
+    const choice=choices.find(x=>x.key===key);if(!choice)return;
+    const available=choiceBalance(choice);
+    if(choice.product.trackStock&&nextQuantity>available){toast.error(`Only ${available} available`,{description:choice.name});return;}
+    setCart(value=>({...value,[key]:nextQuantity}));
   }
 
   function addPaymentLine() {
@@ -146,6 +155,9 @@ export default function CheckoutPage() {
   async function completeSale(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!cartLines.length) { toast.error('Your cart is empty. Add an item first.'); return; }
+    if(dataProviderMode==='api' && (variantsQuery.isError||variantBalancesQuery.isError)){toast.error('Product availability could not be verified. Refresh and try again.');return;}
+    const invalidTracked=cartLines.find(line=>(line.product.trackLot&&!selectedLots[line.key])||(line.product.trackSerial&&(selectedSerials[line.key]??[]).length!==line.quantity));
+    if(invalidTracked){toast.error('Select the exact stock being sold',{description:`Choose ${invalidTracked.product.trackLot?'the batch and ':''}${invalidTracked.product.trackSerial?'one serial number per unit':'the lot'} for ${invalidTracked.name}.`});return;}
     let payments: Array<{ method: PaymentMethod; amountMinor: number; reference?: string; methodLabel?: string; notes?: string }>;
     try {
       payments = paymentLines.map((line) => ({
@@ -179,7 +191,7 @@ export default function CheckoutPage() {
       const result = await salesWorkflow.completeSale({
         workspaceId: workspace.id,
         branchId: branch.id,
-        items: cartLines.map((line) => ({ productId: line.product.id, quantity: line.quantity,...(selectedPriceListId?{priceListId:selectedPriceListId}:{}) })),
+        items: cartLines.map((line) => ({ productId: line.product.id, quantity: line.quantity,...(line.variant?{variantId:line.variant.id}:{}),...(line.product.trackLot?{lotId:selectedLots[line.key]}:{}),...(line.product.trackSerial?{serialIds:selectedSerials[line.key]??[]}:{}),...(selectedPriceListId?{priceListId:selectedPriceListId}:{}) })),
         ...(cashTenderedMinor!==null?{cashTenderedMinor}:{}),
         payments,
         ...(customerRecordId?{customerRecordId}:{}),
@@ -192,11 +204,13 @@ export default function CheckoutPage() {
       await Promise.all([
         client.invalidateQueries({ queryKey: ['products', workspace.id] }),
         client.invalidateQueries({ queryKey: ['inventory-balances', workspace.id, branch.id] }),
+        client.invalidateQueries({ queryKey: ['checkout-variant-balances',workspace.id,branch.id] }),
+        client.invalidateQueries({ queryKey: ['checkout-tracked-stock',workspace.id,branch.id] }),
         client.invalidateQueries({ queryKey: ['inventory-movements', workspace.id, branch.id] }),
         client.invalidateQueries({ queryKey: ['sales', workspace.id] }),
         client.invalidateQueries({ queryKey: ['dashboard', workspace.id, branch.id] }),
       ]);
-      setCart({}); setCustomerName(''); setCustomerPhone(''); setCustomerRecordId(''); setOpportunityRecordId(''); setSalespersonEmployeeId(''); setPromisedPaymentDate(''); setPaymentReceiptConfirmed(false);
+      setCart({});setSelectedLots({});setSelectedSerials({}); setCustomerName(''); setCustomerPhone(''); setCustomerRecordId(''); setOpportunityRecordId(''); setSalespersonEmployeeId(''); setPromisedPaymentDate(''); setPaymentReceiptConfirmed(false);
       setPaymentLines([{ id: 'payment-line-' + Date.now(), method: defaultPaymentMethod, amount: '0', reference: '', methodLabel: '', notes: '' }]);
       toast.success('Sale recorded', { description: `Receipt ${result.sale.receiptNumber} ${dataProviderMode === 'api' ? 'saved to LEXA' : 'saved on this device'}${creditMinor > 0 ? '; customer credit remains outstanding.' : '.'}` });
       navigate(`/sales/${result.sale.id}`);
@@ -212,10 +226,28 @@ export default function CheckoutPage() {
       <div className="checkout-layout">
         <section className="section-card product-picker-card"><div className="checkout-section-heading"><div><h3>Choose products</h3><p>Only products with stock are shown when inventory is tracked.</p></div><span className="round-icon"><ShoppingBag size={17} /></span></div><label className="search-field product-search"><Search size={17} /><input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search product or scan SKU" aria-label="Search products for checkout" /><Barcode size={16} className="search-trailing-icon" /></label>
           <BarcodeCapture compact autoResolve label="Scan an item into checkout" onCode={handleScannedProduct} />
-          {productQuery.isLoading ? <div className="loading-state">Loading product catalogue…</div> : filtered.length === 0 ? <div className="empty-state"><div className="empty-icon"><PackageIcon /></div><h3>{productsList.length === 0 ? 'No products yet' : 'No products match'}</h3><p>{productsList.length === 0 ? 'Add a product from the catalogue, then record opening stock before checkout.' : 'Check the search term or add stock in Inventory.'}</p><button type="button" className="button button-secondary" onClick={() => navigate('/products')}>{productsList.length === 0 ? 'Open products' : 'Manage products'}</button></div> : <div className="checkout-product-grid">{filtered.map((product) => { const stock = balanceQuery.data?.get(product.id) ?? 0; return <button key={product.id} className="checkout-product" onClick={() => addToCart(product.id)}><span className="checkout-product-icon"><PackageIcon /></span><span className="checkout-product-name">{product.name}</span><span className="checkout-product-sku">{product.sku}</span><span className="checkout-product-bottom"><strong>{formatMinorAmount(product.sellingPriceMinor, workspace.currency)}</strong><small>{product.trackStock ? `${stock} in stock` : 'Non-stock item'}</small></span><span className="add-product-plus"><Plus size={16} /></span></button>; })}</div>}
+          {variantsQuery.isError&&dataProviderMode==='api'&&<p className="inline-warning" role="alert">We could not load product variants. Refresh before completing sales of variant-tracked products.</p>}
+          {productQuery.isLoading ? <div className="loading-state">Loading product catalogue…</div> : filtered.length === 0 ? <div className="empty-state"><div className="empty-icon"><PackageIcon /></div><h3>{productsList.length === 0 ? 'No products yet' : 'No products match'}</h3><p>{productsList.length === 0 ? 'Add a product from the catalogue, then record opening stock before checkout.' : 'Check the search term or add stock in Inventory.'}</p><button type="button" className="button button-secondary" onClick={() => navigate('/products')}>{productsList.length === 0 ? 'Open products' : 'Manage products'}</button></div> : <div className="checkout-product-grid">{filtered.map((choice) => { const stock = choiceBalance(choice); return <button key={choice.key} className="checkout-product" onClick={() => addToCart(choice.key)}><span className="checkout-product-icon"><PackageIcon /></span><span className="checkout-product-name">{choice.name}</span><span className="checkout-product-sku">{choice.sku}</span><span className="checkout-product-bottom"><strong>{formatMinorAmount(choice.variant?.sellingPriceMinor??choice.product.sellingPriceMinor, workspace.currency)}</strong><small>{choice.product.trackStock ? `${stock} in stock` : 'Non-stock item'}</small></span><span className="add-product-plus"><Plus size={16} /></span></button>; })}</div>}
         </section>
         <section className="section-card cart-card"><div className="checkout-section-heading"><div><h3>Current sale</h3><p>{cartLines.length} {cartLines.length === 1 ? 'line item' : 'line items'}</p></div><span className="cart-count">{cartLines.reduce((sum, line) => sum + line.quantity, 0)}</span></div>
-          {cartLines.length === 0 ? <div className="cart-empty"><div className="cart-empty-icon"><ShoppingBag size={22} /></div><strong>Your cart is empty</strong><span>Select a product to begin a sale.</span></div> : <div className="cart-line-list">{cartLines.map(({ product, quantity, lineTotalMinor }) => <div className="cart-line" key={product.id}><div className="cart-line-main"><strong>{product.name}</strong><span>{formatMinorAmount(cartLines.find(line=>line.product.id===product.id)?.unitPriceMinor??product.sellingPriceMinor, workspace.currency)} each</span></div><div className="quantity-control"><button aria-label={`Remove one ${product.name}`} onClick={() => setQuantity(product.id, quantity - 1)}><Minus size={13} /></button><span>{quantity}</span><button aria-label={`Add one ${product.name}`} onClick={() => setQuantity(product.id, quantity + 1)}><Plus size={13} /></button></div><strong className="cart-line-total">{formatMinorAmount(lineTotalMinor, workspace.currency)}</strong><button className="icon-button remove-line" aria-label={`Remove ${product.name} from cart`} onClick={() => setQuantity(product.id, 0)}><Trash2 size={15} /></button></div>)}</div>}
+          {cartLines.length === 0 ? <div className="cart-empty"><div className="cart-empty-icon"><ShoppingBag size={22} /></div><strong>Your cart is empty</strong><span>Select a product to begin a sale.</span></div> : <div className="cart-line-list">{cartLines.map(line=>{
+            const trace=traceQuery.data?.find(t=>t.key===line.key);
+            const selectedLot=selectedLots[line.key]??'';
+            const availableSerials=(trace?.serials??[]).filter(serial=>!line.product.trackLot||serial.lotId===selectedLot);
+            return <div className="cart-line" key={line.key}>
+              <div className="cart-line-main"><strong>{line.name}</strong><span>{line.sku} · {formatMinorAmount(line.unitPriceMinor,workspace.currency)} / {line.product.unitOfMeasure??'each'}</span>
+              {line.product.trackLot&&<label className="field-label">Stock batch<select value={selectedLot} onChange={e=>{setSelectedLots(prev=>({...prev,[line.key]:e.target.value}));setSelectedSerials(prev=>({...prev,[line.key]:[]}));}}><option value="">Choose actual batch</option>{(trace?.lots??[]).map(lot=><option value={lot.id} key={lot.id}>{lot.lotNumber} · {lot.available} available{lot.expiryDate?' · exp '+lot.expiryDate:''}</option>)}</select></label>}
+              {line.product.trackSerial&&<label className="field-label">Serial / IMEI — select {line.quantity} unit{line.quantity===1?'':'s'}
+                <select multiple size={Math.min(5,Math.max(2,availableSerials.length))} value={selectedSerials[line.key]??[]} onChange={e=>setSelectedSerials(prev=>({...prev,[line.key]:Array.from(e.currentTarget.selectedOptions).map(opt=>opt.value)}))}>
+                  {availableSerials.map(serial=><option key={serial.id} value={serial.id}>{serial.serialNumber}</option>)}
+                </select><small className="field-help">Select one unique device identifier for each unit. LEXA verifies availability again when you complete the sale.</small>
+              </label>}
+              </div>
+              <div className="quantity-control"><button type="button" aria-label={`Remove one ${line.name}`} onClick={()=>setQuantity(line.key,line.quantity-1)}><Minus size={13}/></button><span>{line.quantity}</span><button type="button" aria-label={`Add one ${line.name}`} onClick={()=>setQuantity(line.key,line.quantity+1)}><Plus size={13}/></button></div>
+              <strong className="cart-line-total">{formatMinorAmount(line.lineTotalMinor,workspace.currency)}</strong>
+              <button type="button" className="icon-button remove-line" aria-label={`Remove ${line.name}`} onClick={()=>setQuantity(line.key,0)}><Trash2 size={15}/></button>
+            </div>;
+          })}</div>}
           <form onSubmit={completeSale} className="checkout-form">
             <label className="field-label">Approved selling price list
               <select value={selectedPriceListId} onChange={event=>setSelectedPriceListId(event.target.value)}>

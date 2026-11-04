@@ -27,6 +27,9 @@ export interface Category {
   id: Id;
   workspaceId: Id;
   name: string;
+  parentId?: Id | null;
+  templateKey?: string | null;
+  attributeSchema?: Array<{key:string;label:string;kind:'text'|'number'|'select';options?:string[]}>;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +39,8 @@ export interface Product {
   workspaceId: Id;
   name: string;
   sku: string;
+  productType?: string;
+  attributes?: Record<string,string|number|boolean>;
   barcode?: string;
   brand?: string;
   unitOfMeasure?: string;
@@ -57,6 +62,7 @@ export interface StockMovement {
   workspaceId: Id;
   branchId: Id;
   productId: Id;
+  variantId?: Id;
   type: StockMovementType;
   quantityDelta: number;
   reason: string;
@@ -91,6 +97,9 @@ export interface SaleLine {
   saleId: Id;
   productId: Id;
   productNameSnapshot: string;
+  variantDescriptionSnapshot?:string|null;
+  unitNameSnapshot?:string|null;
+  serialNumbersSnapshot?:string[];
   skuSnapshot?:string|null;
   barcodeSnapshot?:string|null;
   quantity: number;
@@ -163,6 +172,7 @@ export interface AuditEvent {
 export interface CreateWorkspaceInput {
   businessName: string;
   businessType: string;
+  industries?: string[];
   currency: string;
   timezone: string;
   branchName: string;
@@ -172,6 +182,9 @@ export interface CreateProductInput {
   workspaceId: Id;
   name: string;
   sku: string;
+  productType?: string;
+  attributes?: Record<string,string|number|boolean>;
+  categoryId?: Id;
   barcode?: string;
   brand?: string;
   unitOfMeasure?: string;
@@ -188,6 +201,10 @@ export interface CreateProductInput {
 export interface SaleItemInput {
   productId: Id;
   quantity: number;
+  variantId?: Id;
+  lotId?: Id;
+  serialIds?: Id[];
+  priceListId?: Id;
 }
 
 export interface PaymentInput {

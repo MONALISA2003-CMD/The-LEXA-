@@ -42,6 +42,8 @@ describe('product catalogue integrity', () => {
   it('allows optional metadata and category to be cleared on update', async () => {
     const created = await localProductRepository.create(productInput());
     const changed = { ...created, name: 'Rice bag' };
+    // An intentionally cleared selector omits categoryId rather than assigning undefined.
+    delete changed.categoryId;
     delete changed.barcode;
     delete changed.brand;
     delete changed.unitOfMeasure;
@@ -52,6 +54,41 @@ describe('product catalogue integrity', () => {
     expect(updated).not.toHaveProperty('supplierSku');
     expect(updated.categoryId).toBeUndefined();
     expect(updated.unitOfMeasure).toBeUndefined();
+  });
+
+  it('keeps existing categories selected for new and edited products', async () => {
+    const first = await localProductRepository.create(productInput());
+    expect(first.categoryId).toBeTruthy();
+
+    const other = await localProductRepository.create(productInput({
+      name: 'Wheat flour', sku: 'FLOUR-001', barcode: '6160000000052',
+      categoryName: '', categoryId: first.categoryId!,
+    }));
+    expect(other.categoryId).toBe(first.categoryId);
+
+    const edited = await localProductRepository.update({ ...other, name: 'Wheat flour 1kg' }, '');
+    expect(edited.categoryId).toBe(first.categoryId);
+    await expect(localProductRepository.list({ workspaceId: other.workspaceId, activeOnly: false }))
+      .resolves.toContainEqual(edited);
+  });
+
+  it('rejects cross-workspace category assignments', async () => {
+    const first = await localProductRepository.create(productInput());
+    await expect(localProductRepository.create(productInput({
+      workspaceId: 'other-workspace', sku: 'NEW-SKU', barcode: 'NEW-BARCODE',
+      categoryId: first.categoryId!, categoryName: '',
+    }))).rejects.toThrow(/Category does not belong/);
+
+    const second = await localProductRepository.create(productInput({
+      name: 'Flour', sku: 'FLOUR-002', barcode: '6160000000053', categoryName: '',
+    }));
+    await expect(localProductRepository.update({ ...second, categoryId: first.categoryId! }, '')).resolves.toMatchObject({ categoryId: first.categoryId });
+    const outsideCategory = await localProductRepository.create(productInput({
+      workspaceId: 'other-workspace', sku: 'FLOUR-OUTSIDE', barcode: 'OTHER-BARCODE',
+      categoryName: 'Other workspace category',
+    }));
+    await expect(localProductRepository.update({ ...second, categoryId: outsideCategory.categoryId! }, ''))
+      .rejects.toThrow(/Category does not belong/);
   });
 
   it('does not include inactive products in the default active list', async () => {

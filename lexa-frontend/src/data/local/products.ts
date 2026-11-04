@@ -44,7 +44,13 @@ export const localProductRepository: ProductRepository = {
         if (barcodeDuplicate) throw new Error(`Barcode “${barcode}” is already used by ${barcodeDuplicate.name}.`);
       }
       const categoryName = input.categoryName?.trim();
-      if (categoryName) {
+      if (input.categoryId) {
+        const selectedCategory = await db.categories.get(input.categoryId);
+        if (!selectedCategory || selectedCategory.workspaceId !== input.workspaceId) {
+          throw new Error('Category does not belong to this workspace.');
+        }
+        categoryId = selectedCategory.id;
+      } else if (categoryName) {
         let category = await db.categories.where('[workspaceId+name]').equals([input.workspaceId, categoryName]).first();
         if (!category) {
           const newCategory: Category = {
@@ -112,8 +118,11 @@ export const localProductRepository: ProductRepository = {
           await db.categories.add(category);
         }
         categoryId = category.id;
-      } else {
-        categoryId = undefined;
+      } else if (categoryId) {
+        const selectedCategory = await db.categories.get(categoryId);
+        if (!selectedCategory || selectedCategory.workspaceId !== product.workspaceId) {
+          throw new Error('Category does not belong to this workspace.');
+        }
       }
 
       const nextProduct: Product = { ...product, name, sku, updatedAt: nowIso() };
