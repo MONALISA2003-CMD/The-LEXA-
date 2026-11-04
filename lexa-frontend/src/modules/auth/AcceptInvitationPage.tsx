@@ -47,7 +47,7 @@ export default function AcceptInvitationPage() {
   // It is passed through React Router navigation state rather than localStorage.
   const returnTo=`/accept-invitation?workspaceId=${encodeURIComponent(invitation.workspaceId)}&invitationId=${encodeURIComponent(invitation.invitationId)}&token=${encodeURIComponent(invitation.token)}`;
   return <main className="auth-simple-page"><section className="auth-simple-card auth-invite-card">
-    <img src="/lexa-logo.png" alt="LEXA" className="auth-simple-logo"/>
+    <img src="/lexa-master-lockup.png" alt="LEXA" className="auth-simple-logo"/>
     <div className="auth-result-icon"><Building2 size={28}/></div>
     <div className="auth-eyebrow">YOU'RE INVITED</div>
     <h1>Work better, together.</h1>

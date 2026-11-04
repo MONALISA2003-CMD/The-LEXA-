@@ -33,7 +33,7 @@ export default function SignupPage() {
   return (
     <main className="auth-page auth-premium auth-signup-page">
       <aside className="auth-brand-panel">
-        <div className="auth-brand-top"><img src="/lexa-logo.png" alt="LEXA" /><span className="auth-brand-badge"><span /> Enterprise-grade protection</span></div>
+        <div className="auth-brand-top"><img src="/lexa-master-lockup-light.png" alt="LEXA" /><span className="auth-brand-badge"><span /> Enterprise-grade protection</span></div>
         <div className="auth-brand-content">
           <div className="auth-brand-orbit auth-orbit-one"/><div className="auth-brand-orbit auth-orbit-two"/>
           <div className="auth-brand-kicker"><Sparkles size={16}/> EVERYTHING, CONNECTED</div>
@@ -50,7 +50,7 @@ export default function SignupPage() {
       <section className="auth-main-panel">
         <div className="auth-main-top"><Link to="/sign-in" className="auth-back-link"><ArrowLeft size={16}/> Back to sign in</Link><span className="auth-top-secure"><ShieldCheck size={16}/> Protected registration</span></div>
         <div className="auth-card auth-card-registration">
-          <div className="auth-mobile-brand"><img src="/lexa-logo.png" alt="LEXA" /></div>
+          <div className="auth-mobile-brand"><img src="/lexa-master-lockup.png" alt="LEXA" /></div>
           {sent ? <>
             <div className="auth-result-icon"><Mail size={30}/></div>
             <div className="auth-eyebrow">ONE STEP AWAY</div>

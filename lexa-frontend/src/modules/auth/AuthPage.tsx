@@ -53,7 +53,7 @@ function BrandPanel() {
   return (
     <aside className="auth-brand-panel">
       <div className="auth-brand-top">
-        <img src="/lexa-logo.png" alt="LEXA" />
+        <img src="/lexa-master-lockup-light.png" alt="LEXA" />
         <span className="auth-brand-badge"><span /> Business workspace</span>
       </div>
       <div className="auth-brand-content">
@@ -155,7 +155,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
       <section className="auth-main-panel">
         <div className="auth-main-top"><Link to="/onboarding" className="auth-back-link"><ArrowLeft size={15} /> Choose your business</Link><span className="auth-top-secure"><ShieldCheck size={15} /> Protected sign-in</span></div>
         <div className="auth-card">
-          <div className="auth-mobile-brand"><img src="/lexa-logo.png" alt="LEXA" /></div>
+          <div className="auth-mobile-brand"><img src="/lexa-master-lockup.png" alt="LEXA" /></div>
           <div className="auth-eyebrow">{complete ? 'REQUEST RECEIVED' : text.eyebrow}</div>
           <h1>{complete ? 'Check your inbox.' : text.title}</h1>
           <p className="auth-intro">{complete
@@ -256,7 +256,7 @@ export function FirstAdministratorPage() {
       <section className="auth-main-panel">
         <div className="auth-main-top"><Link to="/sign-in" className="auth-back-link"><ArrowLeft size={15} /> Back to sign in</Link><span className="auth-top-secure"><ShieldCheck size={15} /> First administrator setup</span></div>
         <div className="auth-card auth-card-setup">
-          <div className="auth-mobile-brand"><img src="/lexa-logo.png" alt="LEXA" /></div>
+          <div className="auth-mobile-brand"><img src="/lexa-master-lockup.png" alt="LEXA" /></div>
           <div className="auth-eyebrow">SECURE ACCOUNT SETUP</div>
           <h1>{checking ? 'Checking setup access…' : available ? 'Create the first administrator.' : 'Setup is closed.'}</h1>
           <p className="auth-intro">{available

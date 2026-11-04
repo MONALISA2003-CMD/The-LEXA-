@@ -338,7 +338,7 @@ export default function AppShell() {
     <p>{loadError}</p>
     <div className="business-entry-error-actions"><button type="button" className="button button-primary" onClick={() => window.location.reload()}>Try again</button><Link to="/onboarding" className="button button-secondary">Choose a business</Link></div>
   </main>;
-  if (loading || (workspace && (branchesLoading || resolvedBranchWorkspaceId !== workspace.id))) return <div className="boot-screen"><div className="brand-mark">L</div><span>Opening your business…</span></div>;
+  if (loading || (workspace && (branchesLoading || resolvedBranchWorkspaceId !== workspace.id))) return <div className="boot-screen"><span className="lexa-boot-brand"><LexaLogo compact variant="master" /></span><span>Opening your business…</span></div>;
   if (!workspace && (requestedBusinessId || readPreference(ACTIVE_WORKSPACE_KEY))) return <main className="error-screen" role="alert">
     <div className="eyebrow eyebrow-blue">YOUR BUSINESS</div>
     <h1>We couldn't reopen your business.</h1>
@@ -360,7 +360,7 @@ export default function AppShell() {
         <div className={`mobile-scrim ${mobileNavOpen ? 'is-visible' : ''}`} onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
         <aside className={`sidebar ${mobileNavOpen ? 'sidebar-open' : ''}`} aria-label="Main navigation">
           <div className="brand-lockup">
-            <div className="lexa-brand-logo-frame"><LexaLogo accent={moduleAccentForPath(location.pathname)} /></div>
+            <div className="lexa-brand-logo-frame"><LexaLogo accent={moduleAccentForPath(location.pathname)} onDark /></div>
             <button className="icon-button sidebar-close" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)}><X size={18} /></button>
           </div>
           <div className="sidebar-workspace">

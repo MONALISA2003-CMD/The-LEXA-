@@ -28,7 +28,7 @@ export default function VerifyEmailPage() {
     }
   }
   return <main className="auth-simple-page"><section className="auth-simple-card">
-    <img src="/lexa-logo.png" alt="LEXA" className="auth-simple-logo" />
+    <img src="/lexa-master-lockup.png" alt="LEXA" className="auth-simple-logo" />
     <div className="auth-result-icon">{status==='checking'?<LoaderCircle className="auth-spin" size={30}/>:status==='complete'?<CheckCircle2 size={30}/>:<MailCheck size={30}/>}</div>
     <div className="auth-eyebrow">SECURE EMAIL VERIFICATION</div>
     <h1>{status==='ready'?'Your business starts here.':status==='checking'?'Creating your workspace…':status==='complete'?'Welcome to LEXA.':'This link needs attention.'}</h1>

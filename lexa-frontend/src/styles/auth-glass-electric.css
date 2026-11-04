@@ -26,3 +26,11 @@
 @media(max-width:400px){.auth-page .auth-card{padding:19px}.auth-page .auth-card h1{font-size:clamp(26px,8vw,34px)}.auth-page .auth-support-row{gap:8px}}
 @media(prefers-reduced-transparency:reduce){.auth-page .auth-card{background:#fff;-webkit-backdrop-filter:none;backdrop-filter:none}}
 @media(prefers-reduced-motion:reduce){.auth-page .auth-submit{transition:none}}
+
+/* Corporate LX logo: preserve the original artwork proportions at every breakpoint. */
+.auth-page .auth-brand-top img,.auth-page .auth-mobile-brand img,
+.auth-page .auth-simple-logo,.auth-premium .auth-brand-top img,.auth-premium .auth-mobile-brand img{object-fit:contain!important;object-position:left center!important;aspect-ratio:1240 / 340;height:auto!important;max-width:100%!important}
+.auth-page .auth-brand-top img,.auth-premium .auth-brand-top img{width:clamp(176px,17vw,254px)!important;max-height:96px!important}
+.auth-page .auth-mobile-brand img,.auth-premium .auth-mobile-brand img{width:clamp(170px,44vw,244px)!important;max-height:82px!important}
+@media(max-width:480px){.auth-page .auth-mobile-brand,.auth-premium .auth-mobile-brand{margin-bottom:16px!important}.auth-page .auth-mobile-brand img,.auth-premium .auth-mobile-brand img{width:min(56vw,210px)!important}}
+@media(min-width:481px) and (max-width:1024px){.auth-page .auth-mobile-brand img,.auth-premium .auth-mobile-brand img{width:clamp(205px,25vw,254px)!important}}

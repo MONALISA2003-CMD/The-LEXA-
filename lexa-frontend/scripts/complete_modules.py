@@ -490,7 +490,11 @@ def main() -> None:
     css_import = "import './styles/phase-two.css';\n"
     if "import './styles/lexa-brand.css';" not in main_tsx:
         main_tsx = replace_once(main_tsx, css_import, css_import + "import './styles/lexa-brand.css';\n", "brand stylesheet import")
-    if '<link rel="icon" type="image/png" href="/lexa-favicon.png" />' not in index_html:
+    # Respect the versioned LX favicon/PWA asset links. Legacy entrypoints are
+    # upgraded only when no icon configuration exists; never revert the new brand.
+    if '/lexa-icon-32.png' in index_html and '/site.webmanifest' in index_html:
+        pass
+    elif '<link rel="icon" type="image/png" href="/lexa-favicon.png" />' not in index_html:
         index_html = replace_once(index_html, '    <meta name="theme-color" content="#010d27" />', '    <meta name="theme-color" content="#06132f" />\n    <link rel="icon" type="image/png" href="/lexa-favicon.png" />', "LEXA browser icon and theme color")
 
     # Fix the reported strict TypeScript errors.
@@ -744,8 +748,8 @@ def main() -> None:
     print(" - derived paid / part-paid / overdue status from sales, returns and payment records")
     print(" - corrected receivable calculation so refunds are not treated as amounts still owed")
     print(" - applied LEXA midnight/royal-blue/cyan/emerald/gold brand tokens across existing UI")
-    print(" - replaced the placeholder sidebar mark with the supplied official LEXA logo")
-    print(" - added the LEXA favicon and matching browser theme colour")
+    print(" - preserved the approved LEXA sidebar identity and module colour system")
+    print(" - preserved the approved LX favicon, app icons and browser theme colour")
     print(" - added persisted light/dark mode and responsive theme overrides")
 
 if __name__ == '__main__':

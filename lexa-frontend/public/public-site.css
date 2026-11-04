@@ -7,3 +7,8 @@ main{min-height:62vh}section{padding:55px 22px}section .inner{max-width:1100px;m
 footer{background:#06132f;color:#becbe0;padding:28px 22px}footer .inner{max-width:1100px;margin:auto;display:flex;gap:16px;justify-content:space-between;flex-wrap:wrap}footer a{color:#d9e9fe}footer small{font-size:12px}
 @media(max-width:780px){.grid,.split{grid-template-columns:1fr}.hero{padding:70px 20px 60px}section{padding:42px 20px}nav{padding:12px 17px;gap:15px}nav .links{gap:12px}.card{padding:22px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* Official LEXA master lockup: use the approved letterforms, never duplicate them with text. */
+nav .brand{display:inline-flex;min-width:0;min-height:48px;align-items:center;flex:none;letter-spacing:normal}
+nav .brand img{display:block;width:clamp(140px,17vw,194px);max-width:100%;height:auto;max-height:54px;object-fit:contain;object-position:left center}
+@media(max-width:480px){nav .brand img{width:156px;max-height:47px}}

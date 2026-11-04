@@ -705,3 +705,7 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 560px) { .business-entry-header { align-items: flex-start; } .business-entry-signin { font-size: 10px; } .onboarding-brand-logo { width: min(48vw, 200px); } .business-entry-panel > h2 { font-size: 19px; } }
 
 .business-entry-error-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 12px; }
+
+/* Keep the LX master lockup visible on onboarding without crowding the account action. */
+.onboarding-brand-logo{width:clamp(142px,22vw,262px)!important;height:auto!important;max-height:86px!important;max-width:100%;object-fit:contain!important;object-position:left center!important;aspect-ratio:1240/340}
+@media(max-width:560px){.onboarding-brand-logo{width:min(45vw,188px)!important;max-height:64px!important}}

@@ -172,7 +172,7 @@ export default function OnboardingPage() {
   return (
     <main className="onboarding-shell">
       <header className="onboarding-brand business-entry-header">
-        <Link to="/sign-in" aria-label="LEXA sign-in"><img className="onboarding-brand-logo" src="/lexa-logo.png" alt="LEXA — Business management" /></Link>
+        <Link to="/sign-in" aria-label="LEXA sign-in"><img className="onboarding-brand-logo" src="/lexa-master-lockup.png" alt="LEXA — Business management" /></Link>
         {isApiProvider && <Link to="/sign-in" className="business-entry-signin"><LogIn size={17} /> Sign in to another account</Link>}
       </header>
       <div className="onboarding-layout">

@@ -1,14 +1,41 @@
-.lexa-identity{display:inline-flex;align-items:center;gap:10px;min-width:0;max-width:100%;line-height:1;isolation:isolate}
-.lexa-identity-mark{display:block;flex:none;width:clamp(38px,3.2vw,52px);height:clamp(33px,2.9vw,46px);background:linear-gradient(132deg,var(--module-nav-accent,#39abff) 2%,var(--module-accent,#075cf5) 45%,var(--module-accent-strong,#062e8e) 95%);-webkit-mask:url('/lexa-mark-mask.png') center/contain no-repeat;mask:url('/lexa-mark-mask.png') center/contain no-repeat}
-.lexa-identity-wordmark{color:#f4f8ff;font-size:clamp(22px,2.4vw,32px);font-weight:900;letter-spacing:.115em;white-space:nowrap;text-shadow:0 1px 10px rgba(3,18,50,.22)}
-.lexa-identity-compact .lexa-identity-mark{width:35px;height:33px}
-.brand-lockup{display:flex;align-items:center;min-height:74px;padding:6px 10px 15px!important}
-.brand-lockup::before{content:none!important;display:none!important}
-.brand-lockup .lexa-brand-logo-frame{flex:1;min-width:0;width:auto;height:auto;overflow:visible;background:transparent;border-radius:0;display:flex;align-items:center}
-.brand-lockup .lexa-brand-logo-frame .lexa-identity{display:inline-flex!important}
-.lexa-topbar-mark{display:inline-flex}
-@media(max-width:760px){.brand-lockup{padding:5px 28px 12px 10px!important;min-height:64px}.brand-lockup .lexa-brand-logo-frame{height:auto}.lexa-identity-mark{width:41px;height:36px}.lexa-identity-wordmark{font-size:26px}.lexa-topbar-mark{display:inline-flex;align-items:center;justify-content:center;width:37px;height:37px;margin-right:5px;flex-shrink:0}.lexa-topbar-mark .lexa-identity-mark{width:33px;height:30px}}
-@media(min-width:761px) and (max-width:1100px){.lexa-identity-mark{width:40px;height:36px}.lexa-identity-wordmark{font-size:24px}}
-@media(prefers-reduced-motion:reduce){.lexa-identity-mark{animation:none}}
+/* LEXA's exact approved LX symbol and wordmark, shared by the application shell. */
+.lexa-identity{display:inline-flex;align-items:center;justify-content:flex-start;gap:9px;max-width:100%;min-width:0;vertical-align:middle;line-height:1;flex-shrink:1}
+.lexa-identity-symbol-wrap{position:relative;display:block;width:clamp(38px,3.5vw,48px);aspect-ratio:823/617;flex:none;min-width:0}
+.lexa-identity-symbol{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+.lexa-identity-symbol-wrap .lexa-identity-symbol{position:absolute;inset:0}
+.lexa-identity-wordmark-wrap{position:relative;display:block;width:clamp(108px,10.7vw,146px);aspect-ratio:1152/216;flex:none;min-width:0}
+.lexa-identity-wordmark{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.lexa-identity-master{display:block;width:min(100%,300px);height:auto;max-height:110px;object-fit:contain;object-position:left center}
+.lexa-identity-compact .lexa-identity-symbol-wrap{width:34px}
+.lexa-identity-on-dark-image{display:none!important}
+.lexa-identity-on-dark .lexa-identity-on-light{display:none!important}
+.lexa-identity-on-dark .lexa-identity-on-dark-image{display:block!important}
+/* The sidebar is always navy, regardless of the selected application theme. */
+.app-frame .sidebar .brand-lockup{position:relative;display:flex;align-items:center;justify-content:flex-start;min-height:84px!important;max-height:94px;padding:9px 30px 14px 8px!important;gap:0!important;overflow:visible}
+.app-frame .sidebar .brand-lockup::before{content:none!important;display:none!important}
+.app-frame .sidebar .brand-lockup .lexa-brand-logo-frame{display:flex;align-items:center;justify-content:flex-start;flex:1 1 auto;width:auto;min-width:0;height:auto!important;max-height:60px!important;overflow:visible;background:transparent;border:0;border-radius:0}
+.app-frame .sidebar .brand-lockup .lexa-identity{width:100%;max-width:100%;gap:8px}
+.app-frame .sidebar .brand-lockup .lexa-identity-wordmark-wrap{width:clamp(105px,10vw,132px);flex:1 1 auto;max-width:132px}
+.app-frame .sidebar .brand-lockup .lexa-identity-symbol-wrap{width:45px}
+.lexa-topbar-mark{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;min-width:38px;margin-right:4px;flex-shrink:0}
+.lexa-topbar-mark .lexa-identity-symbol-wrap{width:33px}
+:root[data-theme='dark'] .lexa-topbar-mark .lexa-identity-on-light{display:none!important}
+:root[data-theme='dark'] .lexa-topbar-mark .lexa-identity-on-dark-image{display:block!important}
+.lexa-boot-brand{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:#06132f}
+.lexa-boot-brand .lexa-identity-symbol{width:46px;height:40px;object-fit:contain}
+.receipt-lexa-mark{width:34px;height:31px;object-fit:contain;display:block;flex-shrink:0}
+@media(max-width:760px){
+ .app-frame .sidebar .brand-lockup{padding:8px 32px 13px 8px!important;min-height:76px!important;max-height:86px}
+ .app-frame .sidebar .brand-lockup .lexa-identity-symbol-wrap{width:43px}
+ .app-frame .sidebar .brand-lockup .lexa-identity-wordmark-wrap{width:clamp(102px,33vw,150px);max-width:150px}
+ .lexa-topbar-mark{width:35px;min-width:35px;height:35px;margin-right:3px}
+ .lexa-topbar-mark .lexa-identity-symbol-wrap{width:30px}
+}
+@media(max-width:380px){.app-frame .sidebar .brand-lockup .lexa-identity-symbol-wrap{width:38px}.lexa-topbar-mark{width:30px;min-width:30px;margin-right:1px}.lexa-topbar-mark .lexa-identity-symbol-wrap{width:26px}}
+@media(min-width:761px) and (max-width:1100px){.app-frame .sidebar .brand-lockup .lexa-identity-symbol-wrap{width:40px}.app-frame .sidebar .brand-lockup .lexa-identity-wordmark-wrap{width:115px}}
+@media(prefers-reduced-motion:reduce){.lexa-identity *{animation:none!important;transition:none!important}}
 
-@media(max-width:410px){.lexa-topbar-mark{width:28px;height:29px;margin-right:1px}.lexa-topbar-mark .lexa-identity-mark{width:27px;height:26px}.topbar-title{gap:5px!important}.topbar-title h1{font-size:clamp(14px,4vw,17px)!important}}
+/* One-colour identity for compact print and low-ink use. */
+.lexa-identity-monochrome .lexa-identity-symbol,.lexa-identity-monochrome .lexa-identity-wordmark{filter:grayscale(1) brightness(0)}
+.lexa-identity-monochrome.lexa-identity-on-dark .lexa-identity-symbol,.lexa-identity-monochrome.lexa-identity-on-dark .lexa-identity-wordmark{filter:grayscale(1) brightness(0) invert(1)}
+.lexa-identity-master.lexa-identity-compact .lexa-identity-symbol{width:42px;height:36px;object-fit:contain;display:block}
