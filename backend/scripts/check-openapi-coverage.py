@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import sys
+from collections import Counter
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTROLLERS = [
@@ -61,6 +62,29 @@ def contract_routes():
         if current and method_match:
             result[current].add(method_match.group(1))
     return result
+
+# Guard against ambiguous YAML that would otherwise silently overwrite operations.
+# This check uses only the Python standard library, so it runs in GitHub Actions
+# without installing a separate YAML parser.
+contract_lines = CONTRACT.read_text(encoding='utf-8').splitlines()
+path_keys = [match.group(1) for line in contract_lines if (match := PATH_KEY_RE.match(line))]
+duplicate_paths = sorted(path for path, count in Counter(path_keys).items() if count > 1)
+operation_ids = []
+for line in contract_lines:
+    match = re.match(r'^      operationId:\s*(\S+)\s*$', line)
+    if match:
+        operation_ids.append(match.group(1))
+duplicate_operation_ids = sorted(identifier for identifier, count in Counter(operation_ids).items() if count > 1)
+if duplicate_paths or duplicate_operation_ids:
+    if duplicate_paths:
+        print('OpenAPI declares the same path more than once (YAML would silently overwrite an operation):')
+        for path in duplicate_paths:
+            print(f' - {path}')
+    if duplicate_operation_ids:
+        print('OpenAPI operationIds must be unique for client generation:')
+        for identifier in duplicate_operation_ids:
+            print(f' - {identifier}')
+    sys.exit(1)
 
 source = controller_routes()
 contract = contract_routes()

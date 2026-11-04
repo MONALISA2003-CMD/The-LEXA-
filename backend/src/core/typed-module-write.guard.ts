@@ -11,6 +11,9 @@ const WORKFLOW_OWNED_MODULES = new Set([
   'accounting-periods', 'journals', 'payroll', 'employees', 'attendance', 'leave',
   'timesheets', 'approvals', 'audit-log', 'audit', 'supplier-invoices', 'customer-invoices',
   'projects', 'project-tasks', 'project-costs', 'support', 'shifts',
+  // Procurement belongs to a governed supplier / request / award / receipt workflow.
+  'purchase-requests', 'rfqs', 'supplier-quotes', 'suppliers', 'purchases',
+  'purchase-orders', 'purchase-returns',
 ]);
 @Injectable()
 export class TypedModuleWriteGuard implements CanActivate {

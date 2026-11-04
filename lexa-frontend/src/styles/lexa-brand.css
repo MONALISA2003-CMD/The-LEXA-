@@ -645,3 +645,11 @@ button:disabled,input:disabled,select:disabled,textarea:disabled{cursor:not-allo
 [data-module-accent=violet]{--module-accent:#6845D8;--module-accent-strong:#43298A;--module-accent-soft:#F4F0FF;--module-accent-border:#DED4FA;--module-nav-accent:#A58AF5;--module-nav-wash:rgba(104,69,216,.15)}
 
 [data-module-accent=volt]{--module-accent:#557B12;--module-accent-strong:#334E07;--module-accent-soft:#F0FBCF;--module-accent-border:#D3EAA1;--module-nav-accent:#B9F23C;--module-nav-wash:rgba(185,242,60,.14)}
+
+/* Purchasing / Project Operations / Service — accessible enterprise accents */
+[data-module-accent=bronze]{--module-accent:#8f4b18;--module-accent-strong:#713a14;--module-accent-soft:#f7f0e7;--module-accent-border:#d3ad88;--module-nav-accent:#a86a37;--module-nav-wash:rgba(143,75,24,.11);--module-accent-rgb:143,75,24;--module-accent-wash:rgba(143,75,24,.08)}
+[data-module-accent=indigo]{--module-accent:#4338ca;--module-accent-strong:#3730a3;--module-accent-soft:#eef2ff;--module-accent-border:#c7d2fe;--module-nav-accent:#6366f1;--module-nav-wash:rgba(67,56,202,.13);--module-accent-rgb:67,56,202;--module-accent-wash:rgba(67,56,202,.08)}
+[data-module-accent=teal]{--module-accent:#0f766e;--module-accent-strong:#115e59;--module-accent-soft:#f0fdfa;--module-accent-border:#99d5c7;--module-nav-accent:#14b8a6;--module-nav-wash:rgba(15,118,110,.12);--module-accent-rgb:15,118,110;--module-accent-wash:rgba(15,118,110,.09)}
+:root[data-theme=dark] [data-module-accent=bronze]{--module-accent:#f3b77c;--module-accent-strong:#facf9f;--module-accent-soft:#382517;--module-accent-border:#77553a;--module-nav-accent:#f3b77c;--module-nav-wash:rgba(243,183,124,.14);--module-accent-rgb:243,183,124}
+:root[data-theme=dark] [data-module-accent=indigo]{--module-accent:#b2b4ff;--module-accent-strong:#d0d2ff;--module-accent-soft:#292a52;--module-accent-border:#54578a;--module-nav-accent:#b2b4ff;--module-nav-wash:rgba(178,180,255,.14);--module-accent-rgb:178,180,255}
+:root[data-theme=dark] [data-module-accent=teal]{--module-accent:#76dccd;--module-accent-strong:#a0eee1;--module-accent-soft:#173a3b;--module-accent-border:#386767;--module-nav-accent:#76dccd;--module-nav-wash:rgba(118,220,205,.13);--module-accent-rgb:118,220,205}

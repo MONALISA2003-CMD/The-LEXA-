@@ -648,6 +648,36 @@ export class PeopleProjectsController {
     },{isolationLevel:'Serializable'});
   }
 
+  // Employee pickers for Projects and Support disclose only public directory fields.
+  // Project/support users do not need access to HR compensation or private records.
+  @Get('projects/customers')
+  async projectCustomers(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
+    await this.actor(req,w,b,'projects.read');
+    return this.prisma.$queryRaw`SELECT record_id AS id,COALESCE(NULLIF(data->>'company',''),NULLIF(data->>'customerName',''),NULLIF(data->>'name',''),NULLIF(data->>'displayName',''),record_id) AS name FROM module_records WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND module_id='customers' ORDER BY name LIMIT 1000`;
+  }
+  @Get('support/customers')
+  async supportCustomers(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
+    await this.actor(req,w,b,'support.read');
+    return this.prisma.$queryRaw`SELECT record_id AS id,COALESCE(NULLIF(data->>'company',''),NULLIF(data->>'customerName',''),NULLIF(data->>'name',''),NULLIF(data->>'displayName',''),record_id) AS name FROM module_records WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND module_id='customers' ORDER BY name LIMIT 1000`;
+  }
+  @Get('projects/tasks')
+  async allProjectTasks(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
+    await this.actor(req,w,b,'projects.read');
+    return this.prisma.$queryRaw`SELECT t.id,t.project_id AS "projectId",p.project_code AS "projectCode",p.name AS "projectName",t.task_code AS "taskCode",t.title,t.description,t.assigned_employee_id AS "assignedEmployeeId",e.full_name AS "assignedEmployeeName",t.due_at AS "dueAt",t.status
+      FROM project_tasks t JOIN projects p ON p.tenant_id=t.tenant_id AND p.branch_id=t.branch_id AND p.id=t.project_id
+      LEFT JOIN hr_employees e ON e.tenant_id=t.tenant_id AND e.branch_id=t.branch_id AND e.id=t.assigned_employee_id
+      WHERE t.tenant_id=${w}::uuid AND t.branch_id=${b}::uuid ORDER BY CASE WHEN t.status IN ('open','in_progress','blocked') THEN 0 ELSE 1 END,t.due_at NULLS LAST,t.created_at DESC LIMIT 2000`;
+  }
+  @Get('projects/assignees')
+  async projectAssignees(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
+    await this.actor(req,w,b,'projects.read');
+    return this.prisma.$queryRaw`SELECT id,employee_number AS "employeeNumber",full_name AS "fullName" FROM hr_employees WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND employment_status<>'terminated' ORDER BY full_name LIMIT 500`;
+  }
+  @Get('support/assignees')
+  async supportAssignees(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
+    await this.actor(req,w,b,'support.read');
+    return this.prisma.$queryRaw`SELECT id,employee_number AS "employeeNumber",full_name AS "fullName" FROM hr_employees WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND employment_status<>'terminated' ORDER BY full_name LIMIT 500`;
+  }
   @Get('projects')
   async listProjects(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest) {
     await this.actor(req,w,b,'projects.read');
@@ -675,6 +705,36 @@ export class PeopleProjectsController {
     return {id,projectCode:code,name,customerRecordId:customerId,managerEmployeeId:managerId,startsOn,endsOn,budgetMinor:String(budget),currency,status:'planning'};
   }
 
+  @Patch('projects/:projectId') @UseGuards(CsrfGuard)
+  async changeProjectStatus(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('projectId') id:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
+    const a=await this.actor(req,w,b,'projects.write'),v=obj(raw),status=enumValue(v.status,'Project status',['planning','active','on_hold','completed','cancelled']);
+    return this.prisma.$transaction(async tx=>{
+      const p=await tx.$queryRaw<any[]>`SELECT id,project_code,name,customer_record_id,manager_employee_id,status,currency,budget_minor FROM projects WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${uuid(id,'Project')}::uuid FOR UPDATE`;
+      if(!p[0])throw new NotFoundException('Project not found.');
+      if(p[0].status==='cancelled'&&status!=='cancelled')throw new ConflictException('A cancelled project cannot be reopened.');
+      if(p[0].status==='completed'&&status!=='completed'&&status!=='active')throw new ConflictException('Completed projects may only be reopened as active.');
+      if(status==='completed'){
+        const pending=await tx.$queryRaw<any[]>`SELECT count(*)::int AS total FROM project_tasks WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND project_id=${id}::uuid AND status NOT IN ('done','cancelled')`;
+        if(Number(pending[0].total)>0)throw new ConflictException('Close outstanding project tasks before completing this project.');
+      }
+      await tx.$executeRaw`UPDATE projects SET status=${status},updated_at=now() WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${id}::uuid`;
+      await this.mirror(tx,w,b,'projects',id,{id,projectCode:p[0].project_code,name:p[0].name,customerRecordId:p[0].customer_record_id,managerEmployeeId:p[0].manager_employee_id,budgetMinor:String(p[0].budget_minor),currency:p[0].currency,status});
+      await this.audit(tx,w,b,a.userId,'projects.status_changed','project',id,{from:p[0].status,to:status});return {id,status};
+    },{isolationLevel:'Serializable'});
+  }
+  @Get('projects/:projectId/procurement')
+  async projectProcurement(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('projectId') id:string,@Req() req:FastifyRequest) {
+    await this.actor(req,w,b,'projects.read');
+    const p=await this.prisma.$queryRaw<any[]>`SELECT id FROM projects WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${uuid(id,'Project')}::uuid`;
+    if(!p.length)throw new NotFoundException('Project not found.');
+    return this.prisma.$queryRaw`SELECT po.id,po.order_number AS "orderNumber",po.supplier_name AS "supplierName",po.status,po.total_minor AS "totalMinor",
+      COALESCE((SELECT sum(round(l.quantity_accepted * l.unit_cost_minor)) FROM commerce_purchase_order_lines l WHERE l.tenant_id=${w}::uuid AND l.order_id=po.id),0)::bigint AS "receivedValueMinor"
+      FROM commerce_purchase_orders po
+      WHERE po.tenant_id=${w}::uuid AND po.branch_id=${b}::uuid AND po.purchase_request_id IN (
+        SELECT rel.target_record_id::uuid FROM module_record_links rel
+        WHERE rel.tenant_id=${w}::uuid AND rel.branch_id=${b}::uuid AND rel.source_module_id='projects' AND rel.source_record_id=${id} AND rel.target_module_id='purchase-requests' AND rel.relation_type='project_purchase_request'
+      ) ORDER BY po.created_at DESC LIMIT 500`;
+  }
   @Get('projects/:projectId/tasks')
   async projectTasks(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('projectId') projectId:string,@Req() req:FastifyRequest) {
     await this.actor(req,w,b,'projects.read');
@@ -698,6 +758,19 @@ export class PeopleProjectsController {
     return {id,taskCode,title,projectId,assignedEmployeeId:assigned,dueAt:due,status:'open'};
   }
 
+  @Patch('projects/:projectId/tasks/:taskId') @UseGuards(CsrfGuard)
+  async updateProjectTask(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('projectId') projectId:string,@Param('taskId') taskId:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
+    const a=await this.actor(req,w,b,'projects.write'),v=obj(raw),status=enumValue(v.status,'Task status',['open','in_progress','blocked','done','cancelled']);
+    return this.prisma.$transaction(async tx=>{
+      const rows=await tx.$queryRaw<any[]>`SELECT t.* FROM project_tasks t WHERE t.tenant_id=${w}::uuid AND t.branch_id=${b}::uuid AND t.project_id=${uuid(projectId,'Project')}::uuid AND t.id=${uuid(taskId,'Task')}::uuid FOR UPDATE`;
+      if(!rows[0])throw new NotFoundException('Project task not found.');const task=rows[0];
+      if(task.status==='cancelled'&&status!=='cancelled')throw new ConflictException('Cancelled tasks cannot be reopened.');
+      await tx.$executeRaw`UPDATE project_tasks SET status=${status},updated_at=now() WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${taskId}::uuid`;
+      await this.mirror(tx,w,b,'project-tasks',taskId,{id:taskId,taskCode:task.task_code,title:task.title,projectId,assignedEmployeeId:task.assigned_employee_id,dueAt:task.due_at,status});
+      await this.audit(tx,w,b,a.userId,'projects.task_status_changed','project_task',taskId,{from:task.status,to:status,projectId});
+      return {id:taskId,status};
+    },{isolationLevel:'Serializable'});
+  }
   @Get('projects/:projectId/costs')
   async projectCosts(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('projectId') projectId:string,@Req() req:FastifyRequest) {
     await this.actor(req,w,b,'projects.read');
@@ -726,6 +799,13 @@ export class PeopleProjectsController {
       FROM support_cases c LEFT JOIN hr_employees e ON e.tenant_id=c.tenant_id AND e.id=c.assigned_employee_id WHERE c.tenant_id=${w}::uuid AND c.branch_id=${b}::uuid ORDER BY CASE c.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,c.created_at DESC LIMIT 1000`;
   }
 
+  @Get('support/cases/:caseId/activity')
+  async supportCaseActivity(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('caseId') id:string,@Req() req:FastifyRequest) {
+    await this.actor(req,w,b,'support.read');
+    const rows=await this.prisma.$queryRaw<any[]>`SELECT id FROM support_cases WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${uuid(id,'Support case')}::uuid`;
+    if(!rows.length)throw new NotFoundException('Support case not found.');
+    return this.prisma.$queryRaw`SELECT id,action,metadata,created_at AS "createdAt" FROM audit_events WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND resource_type='support_case' AND resource_id=${id} ORDER BY created_at DESC LIMIT 100`;
+  }
   @Post('support/cases')
   @UseGuards(CsrfGuard)
   async createSupportCase(@Param('workspaceId') w:string,@Param('branchId') b:string,@Body() raw:unknown,@Req() req:FastifyRequest) {

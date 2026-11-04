@@ -21,42 +21,57 @@ security:
 - sessionCookie: []
 paths:
   /workspaces/{workspaceId}/branches/{branchId}/inventory/intelligence:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: inventoryBusinessIntelligence
       description: Real stock movements, product costs, reservations, available quantities, sales demand and expiry risk for the verified business.
       responses:
         '200': {description: Current inventory intelligence and cost-based estimates}
-  /workspaces/{workspaceId}/branches/{branchId}/inventory/lots:
-    get:
-      operationId: listBusinessInventoryLots
-      description: Tenant-verified lot and expiry information linked to products and storage locations.
-      responses:
-        '200': {description: Recorded lots}
   /workspaces/{workspaceId}/branches/{branchId}/inventory/lots/{lotId}/history:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: lotId, in: path, required: true, schema: {type: string}}
     get:
       operationId: inventoryLotTraceHistory
       description: Trace recorded batch movements and the completed sales containing the selected batch.
       responses:
         '200': {description: Auditable lot movement and sale history}
   /workspaces/{workspaceId}/branches/{branchId}/inventory/lots/{lotId}/quarantine:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: lotId, in: path, required: true, schema: {type: string}}
     post:
       operationId: restrictInventoryLot
       description: Inventory-authorised restriction of a lot with reason and reservation checks.
       responses:
         '201': {description: Lot restricted from normal sale}
   /workspaces/{workspaceId}/branches/{branchId}/inventory/lots/{lotId}/release:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: lotId, in: path, required: true, schema: {type: string}}
     post:
       operationId: releaseInspectedInventoryLot
       description: Release of inspected, non-expired stock by an authorised employee.
       responses:
         '201': {description: Available lot after verified release}
   /workspaces/{workspaceId}/branches/{branchId}/inventory/replenishment/policies:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: readInventoryReorderPolicies
       description: Effective reorder thresholds, safety stock and supplier lead times.
       responses:
         '200': {description: Actual reorder plans}
   /workspaces/{workspaceId}/branches/{branchId}/logistics/packages:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: listPackedCustomerOrders
       description: Tenant-scoped packing register linked to sales orders and deliveries.
@@ -68,24 +83,38 @@ paths:
       responses:
         '201': {description: Parcel created}
   /workspaces/{workspaceId}/branches/{branchId}/logistics/packages/summary:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: packageStatusSummary
       description: Real package counts by verified status.
       responses:
         '200': {description: Package status totals}
   /workspaces/{workspaceId}/branches/{branchId}/logistics/packages/{packageId}/seal:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: packageId, in: path, required: true, schema: {type: string}}
     post:
       operationId: verifyAndSealPackage
       description: Require a packed order before sealing a package for dispatch.
       responses:
         '201': {description: Sealed parcel}
   /workspaces/{workspaceId}/branches/{branchId}/logistics/packages/{packageId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: packageId, in: path, required: true, schema: {type: string}}
     post:
       operationId: cancelUnsentPackage
       description: Release an unsent parcel's quantities with an audit reason.
       responses:
         '201': {description: Cancelled package}
   /workspaces/{workspaceId}/branches/{branchId}/selling/insights:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: listVerifiedSellingInsights
       description: Real tenant-scoped sales, receipts, returns, product rankings and current customer balances.
@@ -93,30 +122,44 @@ paths:
         '200': {description: Verified selling performance}
         '403': {description: Business role cannot access sales}
   /workspaces/{workspaceId}/branches/{branchId}/selling/lookup:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: lookupOriginalSaleForReturn
       description: Find original receipts by number or customer for safe recorded returns.
       responses:
         '200': {description: Original sale matches}
   /workspaces/{workspaceId}/catalog/price-lists/active:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
     get:
       operationId: listApprovedCheckoutPrices
       description: Currently effective owner-approved selling prices.
       responses:
         '200': {description: Approved price lists and linked product prices}
   /workspaces/{workspaceId}/catalog/price-lists/{priceListId}/activate:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - {name: priceListId, in: path, required: true, schema: {type: string}}
     post:
       operationId: approveSellingPriceList
       description: Owner-only approval after products are priced.
       responses:
         '201': {description: Approved prices available for future sales}
   /workspaces/{workspaceId}/catalog/price-lists/{priceListId}/deactivate:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - {name: priceListId, in: path, required: true, schema: {type: string}}
     post:
       operationId: withdrawSellingPriceList
       description: Owner-only withdrawal, leaving historical receipts unchanged.
       responses:
         '201': {description: Price list withdrawn}
   /workspaces/{workspaceId}/branches/{branchId}/crm/summary:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: getCustomerGrowthSummary
       description: Role-filtered lead, deal, campaign, follow-up and linked-sales overview using actual tenant-owned records.
@@ -124,12 +167,18 @@ paths:
         '200': {description: Customer and growth metrics}
         '403': {description: Customer information is restricted for this role}
   /workspaces/{workspaceId}/branches/{branchId}/crm/people:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: getAssignedSalesPeople
       description: Active sales-capable employees linked to the same business; no private payroll fields.
       responses:
         '200': {description: Sales-capable employees}
   /workspaces/{workspaceId}/branches/{branchId}/crm/choices:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: getCheckoutCustomerGrowthChoices
       description: Verified customers, won deals and active employees available for explicit checkout attribution.
@@ -137,6 +186,11 @@ paths:
         '200': {description: Customer, opportunity and salesperson choices}
         '403': {description: Sales authorization required}
   /workspaces/{workspaceId}/branches/{branchId}/crm/activities/{moduleId}/{recordId}:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: moduleId, in: path, required: true, schema: {type: string}}
+      - {name: recordId, in: path, required: true, schema: {type: string}}
     get:
       operationId: getCustomerInteractions
       description: Read scoped customer conversations and follow-up notes for an existing CRM record.
@@ -150,6 +204,11 @@ paths:
         '201': {description: Customer activity recorded}
         '403': {description: CRM write permission required}
   /workspaces/{workspaceId}/branches/{branchId}/crm/convert/{moduleId}/{recordId}:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: moduleId, in: path, required: true, schema: {type: string}}
+      - {name: recordId, in: path, required: true, schema: {type: string}}
     post:
       operationId: convertQualifiedCustomerJourney
       parameters: [$ref: '#/components/parameters/csrfToken']
@@ -158,66 +217,100 @@ paths:
         '201': {description: Created or returned an existing linked customer journey record}
         '409': {description: Duplicate record or invalid conversion stage}
   /workspaces/{workspaceId}/branches/{branchId}/saas/features/{featureKey}:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: featureKey, in: path, required: true, schema: {type: string}}
     put:
       operationId: lexaSaasFeaturesFeaturekeyPut
       description: Existing tenant-scoped LEXA operation
       responses:
         '200': {description: Completed}
   /workspaces/{workspaceId}/branches/{branchId}/saas/support-diagnostics:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: lexaSaasSupportDiagnosticsGet
       description: Existing tenant-scoped LEXA operation
       responses:
         '200': {description: Completed}
   /workspaces/{workspaceId}/branches/{branchId}/saas/entitlements:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: lexaSaasEntitlementsGet
       description: Existing tenant-scoped LEXA operation
       responses:
         '200': {description: Completed}
   /workspaces/{workspaceId}/branches/{branchId}/saas/usage:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: lexaSaasUsageGet
       description: Existing tenant-scoped LEXA operation
       responses:
         '200': {description: Completed}
   /workspaces/{workspaceId}/branches/{branchId}/saas/plans:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: lexaSaasPlansGet
       description: Existing tenant-scoped LEXA operation
       responses:
         '200': {description: Completed}
   /workspaces/{workspaceId}/branches/{branchId}/reports/authoritative:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: lexaReportsAuthoritativeGet
       description: Existing tenant-scoped LEXA operation
       responses:
         '200': {description: Completed}
   /workspaces/{workspaceId}/branches/{branchId}/intelligence/extract:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     post:
       operationId: lexaIntelligenceExtractPost
       description: Existing tenant-scoped LEXA operation
       responses:
         '200': {description: Completed}
   /workspaces/{workspaceId}/branches/{branchId}/intelligence/help:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     post:
       operationId: lexaIntelligenceHelpPost
       description: Existing tenant-scoped LEXA operation
       responses:
         '200': {description: Completed}
   /workspaces/{workspaceId}/branches/{branchId}/intelligence/explain:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     post:
       operationId: lexaIntelligenceExplainPost
       description: Existing tenant-scoped LEXA operation
       responses:
         '200': {description: Completed}
   /workspaces/{workspaceId}/branches/{branchId}/intelligence/status:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: lexaIntelligenceStatusGet
       description: Existing tenant-scoped LEXA operation
       responses:
         '200': {description: Completed}
   /workspaces/{workspaceId}/branches/{branchId}/reports/library:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: lexaBusinessReportLibrary
       description: Twelve role-filtered LEXA business reporting families with real SQL sources, trend and comparison data
@@ -225,6 +318,9 @@ paths:
         '200': {description: Business reports}
         '403': {description: Role or plan denies access}
   /workspaces/{workspaceId}/branches/{branchId}/intelligence/brief:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: lexaDeterministicIntelligenceSnapshot
       description: Non-AI business overview derived from authorized operational aggregates
@@ -240,6 +336,8 @@ paths:
         '200': {description: Initial password changed successfully}
         '401': {description: Session or temporary password invalid}
   /workspaces/{workspaceId}/staff:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
     get:
       operationId: listCeoEmployeeProfiles
       description: CEO-only listing of employment, contact and protected HR data scoped to one business.
@@ -255,6 +353,9 @@ paths:
         '403': {description: CEO authorization required}
         '409': {description: Employee identity conflicts with existing account}
   /workspaces/{workspaceId}/staff/{employeeId}:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - {name: employeeId, in: path, required: true, schema: {type: string}}
     put:
       operationId: updateCeoEmployeeProfile
       parameters: [$ref: '#/components/parameters/csrfToken']
@@ -262,6 +363,9 @@ paths:
         '200': {description: Employee biodata and employment profile updated}
         '403': {description: CEO authorization required}
   /workspaces/{workspaceId}/staff/{employeeId}/reset-password:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - {name: employeeId, in: path, required: true, schema: {type: string}}
     post:
       operationId: resetCeoEmployeeTemporaryPassword
       parameters: [$ref: '#/components/parameters/csrfToken']
@@ -270,6 +374,8 @@ paths:
         '201': {description: Employee password reset and sessions revoked}
         '403': {description: CEO authorization required}
   /workspaces/{workspaceId}/my-employment:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
     get:
       operationId: getOwnEmployeeSummary
       description: Authenticated employee reads only their own non-sensitive employment details.
@@ -425,6 +531,8 @@ paths:
                 schema: {$ref: '#/components/schemas/Workspace'}}}}
         '403': {$ref: '#/components/responses/Forbidden'}
   /workspaces/{workspaceId}/business-setup:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
     get:
       operationId: getBusinessSetup
       description: Tenant-scoped business identity, operations, and manual payment recording preferences. No gateways.
@@ -438,6 +546,8 @@ paths:
         '200': {description: Saved setup step}
         '403': {description: Owner permission required}
   /workspaces/{workspaceId}/business-setup/complete:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
     post:
       operationId: completeBusinessSetup
       description: Owner-only confirmation that required profile and manual payment details are present.
@@ -2646,7 +2756,7 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      operationId: createFinanceBankAccount
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -2698,7 +2808,7 @@ paths:
         '404': {description: Bank account unavailable}
   /workspaces/{workspaceId}/branches/{branchId}/finance/bank-accounts/{accountId}/statement-lines/import:
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      operationId: importFinanceBankStatementLines
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -2737,7 +2847,7 @@ paths:
         '200': {description: Reconciliation history for the current branch}
         '401': {description: Sign-in required}
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      operationId: createFinanceBankReconciliation
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -2763,7 +2873,7 @@ paths:
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/finance/bank-reconciliations/{reconciliationId}/complete:
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      operationId: completeFinanceBankReconciliation
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -2793,7 +2903,7 @@ paths:
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/finance/bank-reconciliations/{reconciliationId}/matches:
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceBank
+      operationId: recordFinanceBankReconciliationMatch
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -2843,7 +2953,7 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      operationId: startFinanceCashSession
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -2869,7 +2979,7 @@ paths:
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/finance/cash-sessions/{sessionId}/close:
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      operationId: closeFinanceCashSession
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -2899,7 +3009,7 @@ paths:
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/finance/cash-sessions/{sessionId}/movements:
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      operationId: recordFinanceCashSessionMovement
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -2929,7 +3039,7 @@ paths:
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/finance/cash-ups/{cashUpId}/post:
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceCash
+      operationId: postFinanceCashUp
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3035,7 +3145,7 @@ paths:
         '200': {description: Expense categories for the authenticated business}
         '401': {description: Sign-in required}
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
+      operationId: createFinanceExpenseCategory
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3081,7 +3191,7 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
+      operationId: recordFinanceExpense
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3132,7 +3242,7 @@ paths:
         '409': {description: Expense is not eligible for payment}
   /workspaces/{workspaceId}/branches/{branchId}/finance/expenses/{expenseId}/approve:
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceExpe
+      operationId: approveFinanceExpense
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3182,7 +3292,7 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceFixe
+      operationId: createFinanceFixedAsset
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3208,7 +3318,7 @@ paths:
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/finance/fixed-assets/{assetId}/depreciate:
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidFinanceFixe
+      operationId: depreciateFinanceFixedAsset
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3237,8 +3347,19 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/inventory/lots:
+    get:
+      operationId: listBusinessInventoryLots
+      summary: List recorded inventory lots
+      description: Tenant-verified lot, batch and expiry information linked to products and warehouses.
+      parameters:
+        - {name: workspaceId, in: path, required: true, schema: {type: string}}
+        - {name: branchId, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Recorded inventory lots}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryLo
+      operationId: createInventoryLot
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3264,7 +3385,7 @@ paths:
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/inventory/lots/{lotId}/serials:
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryLo
+      operationId: registerInventoryLotSerial
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3314,7 +3435,7 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryRe
+      operationId: createInventoryReservation
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3340,7 +3461,7 @@ paths:
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/inventory/reservations/{reservationId}/release:
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryRe
+      operationId: releaseInventoryReservation
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3370,7 +3491,7 @@ paths:
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/inventory/warehouses:
     get:
-      operationId: getWorkspacesWorkspaceidBranchesBranchidInventoryWa
+      operationId: listInventoryWarehouses
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3390,7 +3511,7 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryWa
+      operationId: createInventoryWarehouse
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3416,7 +3537,7 @@ paths:
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/inventory/warehouses/{warehouseId}/bins:
     get:
-      operationId: getWorkspacesWorkspaceidBranchesBranchidInventoryWa
+      operationId: listInventoryWarehouseBins
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -3440,7 +3561,7 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
     post:
-      operationId: postWorkspacesWorkspaceidBranchesBranchidInventoryWa
+      operationId: createInventoryWarehouseBin
       tags: [Workstream 0-3]
       parameters:
         - name: workspaceId
@@ -4498,6 +4619,29 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/awards:
+    get:
+      operationId: lexaGetSupplyChainProcurementAwards
+      summary: List procurement awards and approval status
+      description: Return recorded awards in the authorized business and branch.
+      tags: [Purchasing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-awards
       tags: [Workstream 5 Procurement Warehouse Manufacturing]
@@ -4741,6 +4885,29 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/rfqs:
+    get:
+      operationId: lexaGetSupplyChainProcurementRfqs
+      summary: List requests for quotation
+      description: Return authorized RFQs with invitation and response details.
+      tags: [Purchasing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-procurement-rfqs
       tags: [Workstream 5 Procurement Warehouse Manufacturing]
@@ -5187,6 +5354,9 @@ paths:
         '404': {description: Stock count not found}
         '409': {description: Stock count is not in the submitted state}
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/employees:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleEmployees_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5207,6 +5377,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/employees/{employeeId}:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: employeeId, in: path, required: true, schema: {type: string}}
     patch:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleEmployeesEmployeeid_patch
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5218,6 +5392,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/employees/{employeeId}/compensation:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: employeeId, in: path, required: true, schema: {type: string}}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleEmployeesEmployeeidCompensation_post
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5229,6 +5407,9 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/shifts:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleShifts_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5249,6 +5430,9 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/shift-assignments:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleShiftAssignments_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5269,6 +5453,9 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/attendance:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleAttendance_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5289,6 +5476,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/attendance/{attendanceId}/review:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: attendanceId, in: path, required: true, schema: {type: string}}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleAttendanceAttendanceidReview_post
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5300,6 +5491,9 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/leave:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleLeave_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5320,6 +5514,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/leave/{leaveId}/submit:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: leaveId, in: path, required: true, schema: {type: string}}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleLeaveLeaveidSubmit_post
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5331,6 +5529,9 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/timesheets:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleTimesheets_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5351,6 +5552,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/timesheets/{timesheetId}/submit:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: timesheetId, in: path, required: true, schema: {type: string}}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeopleTimesheetsTimesheetidSubmit_post
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5362,6 +5567,9 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRuns_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5382,6 +5590,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/calculate:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: runId, in: path, required: true, schema: {type: string}}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidCalculate_post
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5393,6 +5605,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/lines:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: runId, in: path, required: true, schema: {type: string}}
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidLines_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5404,6 +5620,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/deductions:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: runId, in: path, required: true, schema: {type: string}}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidDeductions_post
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5415,6 +5635,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/submit:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: runId, in: path, required: true, schema: {type: string}}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidSubmit_post
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5426,6 +5650,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/people/payroll/runs/{runId}/payment:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: runId, in: path, required: true, schema: {type: string}}
     post:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6PeoplePayrollRunsRunidPayment_post
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5437,6 +5665,9 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6Projects_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5457,6 +5688,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects/{projectId}/tasks:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: projectId, in: path, required: true, schema: {type: string}}
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6ProjectsProjectidTasks_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5477,6 +5712,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects/{projectId}/costs:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: projectId, in: path, required: true, schema: {type: string}}
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6ProjectsProjectidCosts_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5497,6 +5736,9 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/support/cases:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6SupportCases_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5517,6 +5759,10 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/support/cases/{caseId}:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: caseId, in: path, required: true, schema: {type: string}}
     patch:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6SupportCasesCaseid_patch
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5528,6 +5774,9 @@ paths:
         '409': {description: Business rule conflict}
 
   /workspaces/{workspaceId}/branches/{branchId}/workstream6/audit/events:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: workstream6WorkspacesWorkspaceidBranchesBranchidWorkstream6AuditEvents_get
       description: Typed Workstream 6 operation. Tenant membership, branch scope, domain permissions and CSRF are enforced by the backend.
@@ -5991,36 +6240,60 @@ paths:
               type: object
               additionalProperties: true
   /workspaces/{workspaceId}/branches/{branchId}/platform/attachments/upload-url:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     post:
       operationId: initiatePrivateAttachmentUpload
       summary: Initiate a short-lived private R2 attachment upload
       responses: {'201': {description: Upload URL and required conditional headers}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/attachments/{attachmentId}/complete:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: attachmentId, in: path, required: true, schema: {type: string}}
     post:
       operationId: completePrivateAttachmentUpload
       summary: Verify object checksum, size and detected MIME before scan
       responses: {'201': {description: Attachment queued for malware scanning}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/attachments:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: listAccessibleAttachments
       summary: List attachments visible to the authenticated record participant
       responses: {'200': {description: Scoped attachment metadata}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/attachments/{attachmentId}/download-url:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: attachmentId, in: path, required: true, schema: {type: string}}
     get:
       operationId: issueCleanAttachmentDownload
       summary: Issue a short-lived download URL for a clean authorised attachment
       responses: {'200': {description: Short-lived signed download URL}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: jobId, in: path, required: true, schema: {type: string}}
     get:
       operationId: getPlatformJobStatus
       summary: Get a tenant-scoped platform job
       responses: {'200': {description: Job status}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/export:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     post:
       operationId: createPlatformExportJob
       summary: Create an idempotent export job
       responses: {'201': {description: Export job created}}
   /workspaces/{workspaceId}/branches/{branchId}/tax/references:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: listTaxReferenceDocuments
       responses: {'200': {description: Tenant tax reference library}}
@@ -6028,105 +6301,492 @@ paths:
       operationId: createTaxReferenceDocument
       responses: {'201': {description: Tax reference draft created}}
   /workspaces/{workspaceId}/branches/{branchId}/tax/references/{id}/submit:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: id, in: path, required: true, schema: {type: string}}
     post:
       operationId: submitTaxReferenceForReview
       responses: {'201': {description: Tax reference submitted for independent review}}
   /workspaces/{workspaceId}/branches/{branchId}/tax/references/{id}/approve:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: id, in: path, required: true, schema: {type: string}}
     post:
       operationId: approveTaxReferenceDocument
       responses: {'201': {description: Tax reference approved by a second authorised user}}
   /workspaces/{workspaceId}/branches/{branchId}/tax/codes:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: listTaxCodesAndRuleVersions
       responses: {'200': {description: Tax codes and current rule version states}}
   /workspaces/{workspaceId}/branches/{branchId}/tax/codes/{codeId}/versions:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: codeId, in: path, required: true, schema: {type: string}}
     post:
       operationId: createTaxCodeRuleVersion
       responses: {'201': {description: Draft tax rule version created}}
   /workspaces/{workspaceId}/branches/{branchId}/tax/codes/{codeId}/versions/{versionId}/submit:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: codeId, in: path, required: true, schema: {type: string}}
+      - {name: versionId, in: path, required: true, schema: {type: string}}
     post:
       operationId: submitTaxRuleForReview
       responses: {'201': {description: Tax rule submitted for independent review}}
   /workspaces/{workspaceId}/branches/{branchId}/tax/codes/{codeId}/versions/{versionId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: codeId, in: path, required: true, schema: {type: string}}
+      - {name: versionId, in: path, required: true, schema: {type: string}}
     post:
       operationId: approveTaxRuleVersion
       responses: {'201': {description: Tax rule approved by a second authorised user}}
   /workspaces/{workspaceId}/branches/{branchId}/tax/preview:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     post:
       operationId: previewTaxCalculation
       responses: {'201': {description: Preview only; does not publish or file tax}}
   /workspaces/{workspaceId}/branches/{branchId}/tax/summary:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: getTaxSnapshotSummary
       responses: {'200': {description: Tax summary from historical sale-line snapshots}}
 
   /workspaces/{workspaceId}/branches/{branchId}/platform/imports/templates:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: getPlatformImportTemplates
       responses: {'200': {description: Versioned CSV import templates}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: listPlatformJobs
       responses: {'200': {description: Tenant and branch scoped platform jobs}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/import:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     post:
       operationId: createPlatformImport
       responses: {'201': {description: Create staged import job}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/backup:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     post:
       operationId: createEncryptedBackup
       responses: {'201': {description: Create encrypted backup job}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/restore-dry-run:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     post:
       operationId: createRestoreDryRun
       responses: {'201': {description: Create isolated restore dry run}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/restore:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     post:
       operationId: requestApprovedIsolatedRestore
       summary: Request an isolated restore with an independent second-person approval
       responses: {'201': {description: Restore queued for separate approval; production targets are denied}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/restore-approve:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: jobId, in: path, required: true, schema: {type: string}}
     post:
       operationId: approveIsolatedRestore
       summary: Independently approve an isolated restore
       responses: {'200': {description: Approved restore queued for the restore worker}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/restore-release:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: jobId, in: path, required: true, schema: {type: string}}
     post:
       operationId: releaseRecoveredWorkspace
       summary: Release a restored workspace after recovery owner review
       responses: {'200': {description: Outbound and recurring processing released after sign-off}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/import-rows:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: jobId, in: path, required: true, schema: {type: string}}
     get:
       operationId: getImportPreviewRows
       responses: {'200': {description: Import row preview and validation actions}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/errors.csv:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: jobId, in: path, required: true, schema: {type: string}}
     get:
       operationId: downloadImportErrorsCsv
       responses: {'200': {description: Formula-safe CSV validation errors}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/download-url:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: jobId, in: path, required: true, schema: {type: string}}
     get:
       operationId: getPlatformJobDownloadUrls
       responses: {'200': {description: Short-lived private export or backup URLs}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: jobId, in: path, required: true, schema: {type: string}}
     post:
       operationId: approveImportPreview
       responses: {'200': {description: Approve exact import preview hash}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: jobId, in: path, required: true, schema: {type: string}}
     post:
       operationId: cancelPlatformJob
       responses: {'200': {description: Cancel or request checkpoint cancellation}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/jobs/{jobId}/retry:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: jobId, in: path, required: true, schema: {type: string}}
     post:
       operationId: retryPlatformJob
       responses: {'200': {description: Audited retry}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/events/dead-letter:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
     get:
       operationId: listDeadLetterEvents
       responses: {'200': {description: Dead-letter event list}}
   /workspaces/{workspaceId}/branches/{branchId}/platform/events/{eventId}/replay:
+    parameters:
+      - $ref: '#/components/parameters/workspaceId'
+      - $ref: '#/components/parameters/branchId'
+      - {name: eventId, in: path, required: true, schema: {type: string}}
     post:
       operationId: replayDeadLetterEvent
       responses: {'200': {description: Audited event replay}}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/quotations:
+    get:
+      operationId: lexaGetSupplyChainProcurementQuotations
+      summary: List supplier quotations
+      description: Return supplier quotations from the governed sourcing workflow.
+      tags: [Purchasing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/procurement/suppliers/{supplierId}:
+    patch:
+      operationId: lexaPatchSupplyChainProcurementSuppliersSupplierid
+      summary: Update supplier details
+      description: Update an existing supplier with validated fields and an audit trail.
+      tags: [Purchasing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: supplierId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {name: {type: string, minLength: 1}, email: {type: [string, "null"]}, phone: {type: [string, "null"]}, address: {type: [string, "null"]}, paymentTerms: {type: [string, "null"]}, leadTimeDays: {type: integer, minimum: 0}, status: {type: string, enum: [active, inactive, blocked]}}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects/assignees:
+    get:
+      operationId: lexaGetWorkstream6ProjectsAssignees
+      summary: List eligible project assignees
+      description: Return eligible employees from the selected business and branch.
+      tags: [Projects and Tasks]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects/customers:
+    get:
+      operationId: lexaGetWorkstream6ProjectsCustomers
+      summary: List project customers
+      description: Return customers available to associate with projects.
+      tags: [Projects and Tasks]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects/tasks:
+    get:
+      operationId: lexaGetWorkstream6ProjectsTasks
+      summary: List project tasks
+      description: Return tenant-scoped project tasks with assignment and status details.
+      tags: [Projects and Tasks]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects/{projectId}:
+    patch:
+      operationId: lexaPatchWorkstream6ProjectsProjectid
+      summary: Update project status
+      description: Change a project status with permission checks and an audit trail.
+      tags: [Projects and Tasks]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: projectId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {status: {type: string, enum: [planning, active, on_hold, completed, cancelled]}}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects/{projectId}/procurement:
+    get:
+      operationId: lexaGetWorkstream6ProjectsProjectidProcurement
+      summary: List project purchasing commitments
+      description: Return purchase orders linked to the project via recorded purchase requests.
+      tags: [Projects and Tasks]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: projectId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/projects/{projectId}/tasks/{taskId}:
+    patch:
+      operationId: lexaPatchWorkstream6ProjectsProjectidTasksTaskid
+      summary: Update project task status
+      description: Update an authorized project task and record its status history.
+      tags: [Projects and Tasks]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: projectId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: taskId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {status: {type: string, enum: [open, in_progress, blocked, done, cancelled]}}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/support/assignees:
+    get:
+      operationId: lexaGetWorkstream6SupportAssignees
+      summary: List eligible support assignees
+      description: Return employees eligible for support case assignment.
+      tags: [Customer Support]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/support/cases/{caseId}/activity:
+    get:
+      operationId: lexaGetWorkstream6SupportCasesCaseidActivity
+      summary: Read support case activity
+      description: Return the audit history of an authorized customer support case.
+      tags: [Customer Support]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: caseId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/workstream6/support/customers:
+    get:
+      operationId: lexaGetWorkstream6SupportCustomers
+      summary: List support customers
+      description: Return customers available for customer support cases.
+      tags: [Customer Support]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Authorized operation completed}
+        '400': {description: Invalid request}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '409': {description: Business rule conflict}
+        '500': {description: Unexpected server error}
+
 components:
   securitySchemes:
     sessionCookie:

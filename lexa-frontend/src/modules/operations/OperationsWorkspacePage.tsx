@@ -29,6 +29,8 @@ import { journalTotals, readAssemblyComponents, readJournalLines, syncAssemblyCo
 import { AssemblyComponentsEditor, JournalLinesEditor } from './StructuredEntryEditors';
 import CommerceWorkflowPanel from './CommerceWorkflowPanel';
 import PeopleProjectsPage from '../people/PeopleProjectsPage';
+import ProcurementWorkspacePage from './ProcurementWorkspacePage';
+import ProjectsServicePage from './ProjectsServicePage';
 
 type ModuleSavedView = { id: string; name: string; search: string; statusFilter: string; dateFrom: string; dateTo: string; savedAt: string };
 
@@ -139,7 +141,9 @@ export default function OperationsWorkspacePage() {
   const module = getModuleDefinition(moduleId);
   if (!moduleId) return <ModuleDirectoryPage />;
   if (moduleId === 'reports') return <ReportsPage />;
-  if (['employees','shifts','attendance','leave','timesheets','payroll','projects','support'].includes(moduleId)) return <PeopleProjectsPage moduleId={moduleId} />;
+  if (['purchase-requests','rfqs','supplier-quotes','suppliers','purchases','purchase-returns','purchase-invoices'].includes(moduleId)) return <ProcurementWorkspacePage key={moduleId + ':' + workspace.id + ':' + branch.id} moduleId={moduleId} />;
+  if (['projects','tasks','support'].includes(moduleId)) return <ProjectsServicePage key={moduleId + ':' + workspace.id + ':' + branch.id} moduleId={moduleId} />;
+  if (['employees','shifts','attendance','leave','timesheets','payroll'].includes(moduleId)) return <PeopleProjectsPage moduleId={moduleId} />;
   if (!module) return <Navigate to="/" replace />;
   return <ModuleManager key={module.id + ':' + workspace.id + ':' + branch.id} module={module} />;
 }
