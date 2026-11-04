@@ -4487,6 +4487,25 @@ paths:
         '404': {description: Resource not found}
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/job-cards:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-job-cards
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/manufacturing/work-orders/{workOrderId}/complete:
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-manufacturing-work-orders-workorderid-complete
@@ -5200,6 +5219,25 @@ paths:
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/branches/{branchId}/supply-chain/quality/inspections:
+    get:
+      operationId: get-workspaces-workspaceid-branches-branchid-supply-chain-quality-inspections
+      tags: [Workstream 5 Procurement Warehouse Manufacturing]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: branchId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Operation succeeded}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Resource not found}
+        '500': {description: Unexpected server error}
+
     post:
       operationId: post-workspaces-workspaceid-branches-branchid-supply-chain-quality-inspections
       tags: [Workstream 5 Procurement Warehouse Manufacturing]

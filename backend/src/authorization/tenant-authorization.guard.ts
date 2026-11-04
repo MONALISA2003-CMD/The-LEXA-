@@ -38,7 +38,7 @@ export class TenantAuthorizationGuard implements CanActivate {
 
     // RLS context is request-local and every Prisma operation is executed in a
     // transaction with SET LOCAL; there is no connection-pool tenant leakage.
-    this.prisma.enterTenantContext(workspaceId, session.userId);
+    return this.prisma.runWithTenantContext({ tenantId: workspaceId, userId: session.userId }, async () => {
     const membership = await this.prisma.membership.findUnique({
       where: { tenantId_userId: { tenantId: workspaceId, userId: session.userId } },
       select: { role: true, status: true },
@@ -76,6 +76,7 @@ export class TenantAuthorizationGuard implements CanActivate {
         permission,
       });
     }
-    return true;
+      return true;
+    });
   }
 }

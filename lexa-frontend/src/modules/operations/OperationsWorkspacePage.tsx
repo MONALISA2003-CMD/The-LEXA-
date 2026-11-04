@@ -31,6 +31,7 @@ import CommerceWorkflowPanel from './CommerceWorkflowPanel';
 import PeopleProjectsPage from '../people/PeopleProjectsPage';
 import ProcurementWorkspacePage from './ProcurementWorkspacePage';
 import ProjectsServicePage from './ProjectsServicePage';
+import ProductionQualityPage from './ProductionQualityPage';
 
 type ModuleSavedView = { id: string; name: string; search: string; statusFilter: string; dateFrom: string; dateTo: string; savedAt: string };
 
@@ -142,6 +143,7 @@ export default function OperationsWorkspacePage() {
   if (!moduleId) return <ModuleDirectoryPage />;
   if (moduleId === 'reports') return <ReportsPage />;
   if (['purchase-requests','rfqs','supplier-quotes','suppliers','purchases','purchase-returns','purchase-invoices'].includes(moduleId)) return <ProcurementWorkspacePage key={moduleId + ':' + workspace.id + ':' + branch.id} moduleId={moduleId} />;
+  if (['work-orders','boms','job-cards','quality'].includes(moduleId)) return <ProductionQualityPage key={moduleId + ':' + workspace.id + ':' + branch.id} moduleId={moduleId} />;
   if (['projects','tasks','support'].includes(moduleId)) return <ProjectsServicePage key={moduleId + ':' + workspace.id + ':' + branch.id} moduleId={moduleId} />;
   if (['employees','shifts','attendance','leave','timesheets','payroll'].includes(moduleId)) return <PeopleProjectsPage moduleId={moduleId} />;
   if (!module) return <Navigate to="/" replace />;

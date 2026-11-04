@@ -55,7 +55,7 @@ export default function AccountsPayablePanel() {
   const [paymentSupplier, setPaymentSupplier] = useState('');
   const [paymentDate, setPaymentDate] = useState(localDate());
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
-  const [paymentAccount, setPaymentAccount] = useState('Main bank account');
+  const [paymentAccount, setPaymentAccount] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [allocations, setAllocations] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -133,15 +133,17 @@ export default function AccountsPayablePanel() {
   }
 
   const loading = purchaseOrdersQuery.isLoading || invoicesQuery.isLoading || summaryQuery.isLoading;
-  const error = purchaseOrdersQuery.error ?? invoicesQuery.error ?? summaryQuery.error;
+  const error = purchaseOrdersQuery.error ?? invoicesQuery.error ?? summaryQuery.error ?? reconciliationQuery.error ?? paymentsQuery.error;
+  const unavailable = summaryQuery.isError || !summaryQuery.data;
+  const financeValue = (minor?: number) => unavailable ? 'Unavailable' : money(minor ?? 0, currency);
 
   return (
     <section className="ap-workspace">
-      <header className="ap-header"><div><span className="eyebrow eyebrow-blue">PROCUREMENT & FINANCE</span><h3>Supplier invoices & accounts payable</h3><p>Manage supplier bills, approvals, payment allocations and purchase reconciliation.</p></div><div className="ap-header-actions"><button className="button button-secondary" type="button" onClick={openPayment} disabled={!payableInvoices.length}><Wallet size={15}/> Record payment</button><button className="button button-primary" type="button" onClick={() => setCreateOpen(value => !value)} disabled={!orders.length}><FilePlus2 size={15}/> New supplier bill</button></div></header>
+      <header className="ap-header"><div><span className="eyebrow ap-eyebrow">PURCHASING / ACCOUNTS PAYABLE</span><h3>Supplier invoices & accounts payable</h3><p>Manage supplier bills, approvals, payment allocations and purchase reconciliation.</p></div><div className="ap-header-actions"><button className="button button-secondary" type="button" onClick={openPayment} disabled={!payableInvoices.length}><Wallet size={15}/> Record payment</button><button className="button button-primary" type="button" onClick={() => setCreateOpen(value => !value)} disabled={purchaseOrdersQuery.isError || !orders.length}><FilePlus2 size={15}/> New supplier bill</button></div></header>
 
-      <nav className="ap-card" aria-label="Supplier purchasing to payment journey">
+      <nav className="ap-card ap-journey" aria-label="Supplier purchasing to payment journey">
         <div className="ap-section-heading"><div><h4>Supplier → order → receipt → bill → payment</h4><p>Complete each business step in order. Payments affect approved supplier bills and the posted ledger.</p></div></div>
-        <div className="ap-form-footer" style={{display:'flex',gap:'0.7rem',flexWrap:'wrap',justifyContent:'flex-start'}}>
+        <div className="ap-journey-steps">
           <Link className="button button-secondary button-small" to="/modules/suppliers">1. Suppliers</Link>
           <Link className="button button-secondary button-small" to="/modules/purchases">2. Orders & receipts</Link>
           <button className="button button-secondary button-small" type="button" onClick={()=>setCreateOpen(true)}>3. Match supplier bill</button>
@@ -149,17 +151,17 @@ export default function AccountsPayablePanel() {
           <Link className="button button-secondary button-small" to="/modules/accounting">5. Posted accounting</Link>
         </div>
       </nav>
-      {error && <div className="inline-error" role="alert">{error instanceof Error ? error.message : 'Could not load supplier payables.'}</div>}
+      {error && <div className="inline-error" role="alert"><strong>Some supplier accounts are unavailable.</strong> {error instanceof Error ? error.message : 'Unable to retrieve supplier transactions.'}<button className="button button-secondary button-small" type="button" onClick={() => void Promise.all([purchaseOrdersQuery.refetch(),invoicesQuery.refetch(),summaryQuery.refetch(),paymentsQuery.refetch(),reconciliationQuery.refetch()])}>Retry failed requests</button></div>}
       {loading ? <div className="loading-state">Loading supplier accounts…</div> : <>
         <div className="ap-metrics">
-          <article><span>Outstanding payable</span><strong>{money(summary?.outstandingMinor ?? 0, currency)}</strong><small>{summary?.openCount ?? 0} open bills</small></article>
-          <article><span>Overdue</span><strong>{money(summary?.overdueMinor ?? 0, currency)}</strong><small>{summary?.overdueCount ?? 0} overdue bills</small></article>
-          <article><span>Not yet due</span><strong>{money(summary?.currentMinor ?? 0, currency)}</strong><small>Current balance</small></article>
-          <article><span>Supplier bills</span><strong>{summary?.invoiceCount ?? 0}</strong><small>{invoices.length} listed records</small></article>
+          <article><span>Outstanding payable</span><strong>{financeValue(summary?.outstandingMinor)}</strong><small>{unavailable ? 'Balances unavailable' : `${summary?.openCount ?? 0} open bills`}</small></article>
+          <article><span>Overdue</span><strong>{financeValue(summary?.overdueMinor)}</strong><small>{unavailable ? 'Balances unavailable' : `${summary?.overdueCount ?? 0} overdue bills`}</small></article>
+          <article><span>Not yet due</span><strong>{financeValue(summary?.currentMinor)}</strong><small>Current balance</small></article>
+          <article><span>Supplier bills</span><strong>{summaryQuery.isError || invoicesQuery.isError ? 'Unavailable' : summary?.invoiceCount ?? 0}</strong><small>{invoicesQuery.isError?'Unable to load bills':`${invoices.length} listed records`}</small></article>
         </div>
 
         <section className="ap-card"><div className="ap-section-heading"><div><h4>Payables ageing</h4><p>Outstanding supplier balances by due date.</p></div><CalendarDays size={18}/></div>
-          <div className="ap-ageing-grid"><div><span>Current</span><strong>{money(summary?.currentMinor ?? 0, currency)}</strong></div><div><span>1–30 days</span><strong>{money(summary?.days1to30Minor ?? 0, currency)}</strong></div><div><span>31–60 days</span><strong>{money(summary?.days31to60Minor ?? 0, currency)}</strong></div><div><span>61–90 days</span><strong>{money(summary?.days61to90Minor ?? 0, currency)}</strong></div><div><span>Over 90 days</span><strong>{money(summary?.over90Minor ?? 0, currency)}</strong></div></div>
+          <div className="ap-ageing-grid"><div><span>Current</span><strong>{financeValue(summary?.currentMinor)}</strong></div><div><span>1–30 days</span><strong>{financeValue(summary?.days1to30Minor)}</strong></div><div><span>31–60 days</span><strong>{financeValue(summary?.days31to60Minor)}</strong></div><div><span>61–90 days</span><strong>{financeValue(summary?.days61to90Minor)}</strong></div><div><span>Over 90 days</span><strong>{financeValue(summary?.over90Minor)}</strong></div></div>
         </section>
 
         {createOpen && <form className="ap-card ap-form" onSubmit={(event) => void createInvoice(event)}>
@@ -185,8 +187,8 @@ export default function AccountsPayablePanel() {
           <div className="ap-form-footer"><span>Payment total <strong>{money(allocationTotal, currency)}</strong></span><button className="button button-primary" type="submit" disabled={busy || allocationTotal <= 0}>{busy ? 'Recording…' : 'Record and allocate payment'} <Wallet size={15}/></button></div>
         </form>}
 
-        <section className="ap-card"><div className="ap-section-heading"><div><h4>Supplier invoice register</h4><p>Draft bills, approvals, balances and payment status.</p></div><span className="ap-count">{invoices.length} bills</span></div>
-          {invoicesQuery.isError ? <div className="inline-error">Could not load supplier bills.</div> : invoices.length === 0 ? <div className="ap-empty">Supplier bills matched to accepted goods receipts will appear here.</div> : <div className="ap-invoice-list">{invoices.map(invoice => <article className="ap-invoice-card" key={invoice.id}><div className="ap-invoice-top"><div><strong>{invoice.supplierInvoiceNumber}</strong><small>{invoice.invoiceNumber} · {invoice.supplierName} · PO {invoice.purchaseOrderNumber}</small></div><span className={`ap-status ${invoice.status}`}>{statusLabel(invoice.status)}</span></div><div className="ap-invoice-meta"><span>Bill date <b>{invoice.billDate}</b></span><span>Due date <b>{invoice.dueDate}</b></span><span>Total <b>{money(invoice.totalMinor, currency)}</b></span><span>Paid <b>{money(invoice.paidMinor, currency)}</b></span><span>Balance <b>{money(invoice.balanceDueMinor, currency)}</b></span></div>
+        <section className="ap-card"><div className="ap-section-heading"><div><h4>Supplier invoice register</h4><p>Draft bills, approvals, balances and payment status.</p></div><span className="ap-count">{invoicesQuery.isError ? 'Unavailable' : `${invoices.length} bills`}</span></div>
+          {invoicesQuery.isError ? <div className="inline-error" role="alert">Supplier bills could not be loaded. <button type="button" onClick={() => void invoicesQuery.refetch()}>Retry</button></div> : invoices.length === 0 ? <div className="ap-empty">Supplier bills matched to accepted goods receipts will appear here.</div> : <div className="ap-invoice-list">{invoices.map(invoice => <article className="ap-invoice-card" key={invoice.id}><div className="ap-invoice-top"><div><strong>{invoice.supplierInvoiceNumber}</strong><small>{invoice.invoiceNumber} · {invoice.supplierName} · PO {invoice.purchaseOrderNumber}</small></div><span className={`ap-status ${invoice.status}`}>{statusLabel(invoice.status)}</span></div><div className="ap-invoice-meta"><span>Bill date <b>{invoice.billDate}</b></span><span>Due date <b>{invoice.dueDate}</b></span><span>Total <b>{money(invoice.totalMinor, currency)}</b></span><span>Paid <b>{money(invoice.paidMinor, currency)}</b></span><span>Balance <b>{money(invoice.balanceDueMinor, currency)}</b></span></div>
             <details className="ap-line-details"><summary>{invoice.lines.length} matched receipt lines</summary><div>{invoice.lines.map(line => <div key={line.id}><span>{line.productName} × {line.quantity} · {line.receiptNumber}</span><b>{money(line.lineTotalMinor, currency)}</b></div>)}</div></details>
             <div className="ap-invoice-actions">{invoice.status === 'draft' && <><button type="button" className="button button-primary button-small" disabled={busy} onClick={() => void runInvoiceAction(() => apiPayables.approveInvoice(scope, invoice.id), 'Supplier invoice approved')}><BadgeCheck size={14}/> Approve bill</button><button type="button" className="button button-secondary button-small" disabled={busy} onClick={() => void runInvoiceAction(() => apiPayables.voidDraftInvoice(scope, invoice.id), 'Draft bill voided')}>Void draft</button></>}{invoice.status === 'paid' && <span className="ap-paid"><CheckCircle2 size={14}/> Fully paid</span>}</div>
           </article>)}</div>}

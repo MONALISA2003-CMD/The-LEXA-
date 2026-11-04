@@ -38,3 +38,27 @@
 .w6-loading { display:flex; align-items:center; gap:8px; padding:12px 14px; color:var(--muted-foreground, #64748b); font-size:12px; }
 .w6-error { border:1px solid #fecaca; background:#fef2f2; color:#991b1b; border-radius:9px; padding:10px 12px; font-size:12px; }
 @media(max-width:760px){.w6-fields,.w6-two-col{grid-template-columns:1fr}.w6-field-wide{grid-column:auto}.w6-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.w6-kpis>div{padding:11px}.w6-kpis strong{font-size:20px}.w6-panel-heading{display:block}.w6-audit-filter{width:100%;margin-top:12px}.w6-tabs{flex-wrap:nowrap;overflow-x:auto}.w6-tabs a{flex:0 0 auto}}
+
+/* Team & Payroll — Regal Mulberry; operational status colours retain their meaning. */
+.w6-page[data-module-accent="mulberry"]{--w6-accent:#8b225a;--w6-accent-deep:#641540;--w6-accent-soft:#fbeaf2}
+.w6-page .w6-eyebrow{color:var(--w6-accent,#8b225a);font-size:12px;font-weight:800;letter-spacing:.1em}
+.w6-page .w6-tabs a.is-active{color:var(--w6-accent,#8b225a);background:var(--w6-accent-soft,#fbeaf2);box-shadow:inset 0 -2px var(--w6-accent,#8b225a)}
+.w6-page .w6-primary{background:var(--w6-accent-deep,#641540);color:#fff}
+.w6-page .w6-link-button{color:var(--w6-accent,#8b225a)}
+.w6-page .w6-field input:focus,.w6-page .w6-field textarea:focus,.w6-page .w6-field select:focus{outline-color:#8b225a55;border-color:var(--w6-accent,#8b225a)}
+.w6-page .w6-form-card{padding:0;overflow:hidden}
+.w6-page .w6-form-title{padding:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.w6-page .w6-toggle{border:1px solid #8b225a55;border-radius:9px;color:var(--w6-accent,#8b225a);font-weight:750;background:transparent;padding:9px 12px;cursor:pointer;white-space:nowrap}
+.w6-page .w6-edit-form{display:flex;flex-direction:column;gap:14px;padding:0 16px 16px}
+.w6-page .w6-overview{border:1px solid var(--border,#e2e8f0);background:var(--card,#fff);border-radius:17px;padding:18px;display:grid;gap:13px}
+.w6-page .w6-overview-title{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.w6-page .w6-overview-title h3{font-size:16px;margin:0}
+.w6-page .w6-overview-title span,.w6-page .w6-overview-empty{color:var(--muted-foreground,#64748b);font-size:12px;margin:0}
+.w6-page .w6-chart{display:grid;gap:13px}
+.w6-page .w6-chart-line{display:grid;grid-template-columns:minmax(110px,170px) minmax(0,1fr) 40px;gap:12px;align-items:center;font-size:13px}
+.w6-page .w6-chart-line>span{text-transform:capitalize;color:var(--foreground,#334155)}
+.w6-page .w6-chart-line strong{text-align:right;font-variant-numeric:tabular-nums}
+.w6-page .w6-chart-track{height:12px;border-radius:999px;background:var(--surface-secondary,#f5edf2);overflow:hidden}
+.w6-page .w6-chart-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#8b225a,#bd4888)}
+.w6-page .w6-error p{margin:5px 0 10px}
+@media(max-width:760px){.w6-page .w6-overview-title{display:block}.w6-page .w6-chart-line{grid-template-columns:minmax(75px,115px) minmax(0,1fr) 32px;gap:7px}.w6-page .w6-form-title{align-items:center}.w6-page .w6-toggle{padding:8px;font-size:12px}}

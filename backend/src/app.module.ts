@@ -25,6 +25,7 @@ import { PlatformController } from './platform/platform.controller';
 import { TaxReferenceController } from './platform/tax-reference.controller';
 import { SupplyChainController } from './supply-chain/supply-chain.controller';
 import { PeopleProjectsController } from './people-projects/people-projects.controller';
+import { TenantRequestContextInterceptor } from './authorization/tenant-request-context.interceptor';
 import { PeopleProjectsService } from './people-projects/people-projects.service';
 import { NotificationCentreController } from './notifications/notification-centre.controller';
 import { ResendWebhookController } from './notifications/resend-webhook.controller';
@@ -39,6 +40,6 @@ import { AiRouterService } from './workstream8/ai-router.service';
 @Module({
   imports: [PrismaModule],
   controllers: [CustomerGrowthController, HealthController, CoreController, BusinessSetupController, StaffProvisioningController, PublicRegistrationController, ModuleGraphController, CommerceController, DeliveryWorkflowController, LogisticsPackagesController, InventoryIntelligenceController, ReceivablesController, RecurringInvoicesController, NotificationCentreController, ResendWebhookController, OperationsController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, FinanceOperationsController, SupplyChainController, PeopleProjectsController, PlatformController, TaxReferenceController, Workstream8Controller],
-  providers: [ReportInsightsService, CsrfGuard, PeopleProjectsService, AiRouterService, { provide: APP_INTERCEPTOR, useClass: CorrelationInterceptor }, { provide: APP_INTERCEPTOR, useClass: SentryExceptionInterceptor }, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
+  providers: [ReportInsightsService, CsrfGuard, PeopleProjectsService, AiRouterService, { provide: APP_INTERCEPTOR, useClass: TenantRequestContextInterceptor }, { provide: APP_INTERCEPTOR, useClass: CorrelationInterceptor }, { provide: APP_INTERCEPTOR, useClass: SentryExceptionInterceptor }, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
 })
 export class AppModule {}
