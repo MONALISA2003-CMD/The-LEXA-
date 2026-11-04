@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { AiRouterService } from '../src/workstream8/ai-router.service.ts';
 
 const keys = [
-  'LEXA_AI_ENABLED', 'LEXA_AI_PAID_TIER_ENABLED', 'GEMINI_FREE_API_KEY', 'GEMINI_API_KEY',
+  'LEXA_AI_ENABLED', 'LEXA_AI_PAID_TIER_ENABLED', 'GEMINI_FREE_API_KEY', 'GEMINI_FREE_API_KEY_2', 'GEMINI_SECOND_API_KEY', 'GEMINI_API_KEY',
   'OPENROUTER_API_KEY', 'GROQ_API_KEY', 'GROQ_FREE_MODEL', 'NVIDIA_NIM_API_KEY', 'OPENAI_API_KEY', 'GEMINI_FREE_MODEL', 'NVIDIA_NIM_MODEL',
 ];
 const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
@@ -50,14 +50,13 @@ test('routes across configured free providers and falls back on a rate limit', a
     facts: { sales: { count: 4 } },
   });
   assert.equal(result.provider, 'OpenRouter');
-  assert.match(calls[0], /generativelanguage\.googleapis\.com/);
-  assert.match(calls[1], /api\.groq\.com/);
-  assert.match(calls[2], /openrouter\.ai/);
+  assert.match(calls[0], /api\.groq\.com/);
+  assert.match(calls[1], /openrouter\.ai/);
   assert.equal(result.model, 'free-test-model');
   assert.equal(result.inputTokens, 21);
   assert.equal(result.outputTokens, 13);
   assert.equal(result.costMicros, 0);
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 2);
 });
 
 test('paid provider keys remain excluded from the development router', () => {
@@ -70,4 +69,28 @@ test('paid provider keys remain excluded from the development router', () => {
   const router = new AiRouterService();
   assert.deepEqual(router.status().providers, ['Google Gemini']);
   assert.equal(router.status().paidTierEnabled, false);
+});
+
+
+test('medium reasoning uses Gemini first and can use secondary credentials on provider failure', async () => {
+  clear(); process.env.LEXA_AI_ENABLED = 'true';
+  process.env.GEMINI_FREE_API_KEY = 'gemini-first-key';
+  process.env.GEMINI_FREE_API_KEY_2 = 'gemini-second-key';
+  process.env.GROQ_API_KEY = 'fallback-fast-key';
+  const calls=[];
+  globalThis.fetch=async (_url, init)=>{
+    const headers=new Headers(init.headers); const key=headers.get('Authorization'); calls.push(key);
+    if(key==='Bearer gemini-first-key')return new Response('{}',{status:429});
+    return new Response(JSON.stringify({ choices:[{message:{content:'Analyse the recorded revenue and margins.'}}] }),{status:200});
+  };
+  const router=new AiRouterService();
+  const result=await router.complete({requestId:'medium',question:'Analyse profitability trends',scope:'sales',currency:'UGX',facts:{sales:{count:2}}});
+  assert.equal(result.provider,'Google Gemini secondary');
+  assert.deepEqual(calls,['Bearer gemini-first-key','Bearer gemini-second-key']);
+});
+
+test('complex work is not routed to free or paid models without review', async () => {
+  clear();process.env.LEXA_AI_ENABLED='true';process.env.GROQ_API_KEY='free-key';
+  const router=new AiRouterService();
+  await assert.rejects(router.complete({requestId:'complex',question:'prepare a multi-year valuation model',scope:'finance',currency:'UGX',facts:{}}),/PAID_INQUIRY_REQUIRED/);
 });

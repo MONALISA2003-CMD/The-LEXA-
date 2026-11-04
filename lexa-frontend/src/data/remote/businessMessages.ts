@@ -4,6 +4,9 @@ export function httpBusinessMessage(status: number, rawMessage: string, code?: s
   if (code === 'INVALID_CREDENTIALS' || normalized.includes('invalid_credentials') || normalized.includes('email or password is incorrect')) {
     return 'That email address and password do not match. Please check your details and try again.';
   }
+  if (code === 'CSRF_TOKEN_INVALID' || code === 'INVALID_CSRF_TOKEN') return 'This request could not be verified. Refresh the page and try again.';
+  if (code === 'OWNER_ONLY') return 'LEXA Intelligence is available to the business owner only.';
+  if (code === 'AI_USAGE_LIMIT_REACHED') return 'Your monthly Intelligence allowance has been used.';
   if (status === 401) return 'Your sign-in has expired. Please sign in again to continue.';
   if (status === 403) return 'You do not have permission to make this change. Ask your business administrator for access.';
   if (status === 404) return 'We could not find the business information you requested. It may have been moved or removed.';

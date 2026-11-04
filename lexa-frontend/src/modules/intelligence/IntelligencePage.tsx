@@ -1,46 +1,57 @@
-
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router';
-import { Sparkles, BrainCircuit, ShieldCheck, Send, RefreshCw, AlertTriangle, Copy, Trash2, ArrowRight } from 'lucide-react';
+import { Copy, RefreshCw, Send, ArrowRight } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiIntelligence, type IntelligenceScope } from '../../data/remote/apiIntelligence';
+import { businessErrorMessage } from '../../data/remote/businessMessages';
+import OwnerActions from './OwnerActions';
 import './intelligence-suite.css';
-const ideas=[['overview','Business priorities','What should I focus on in my business right now?'],['sales','Sales performance','Explain my sales, returns and receipts.'],['inventory','Low stock','What do my stock records and reorder alerts show?'],['finance','Cash and debt','What are my receivables, payables and financial control issues?']] as const;
-type ChatMessage={id:string;role:'user'|'assistant';text:string;time:string};
+
+const prompts = [
+ ['inventory', 'Stock and replenishment', 'How many products are at or below reorder levels?'],
+ ['sales', 'Sales activity', 'How many completed sales are recorded?'],
+ ['finance', 'Outstanding balances', 'How much is owed by customers and to suppliers?'],
+ ['overview', 'Business priorities', 'Which current business risks should I review first?'],
+] as const;
+type Message = {id:string;role:'owner'|'lexa';text:string;time:string};
+const newId=()=>crypto.randomUUID();
 export default function IntelligencePage(){
  const {workspace,branch}=useWorkspace();
  const [params]=useSearchParams();
- const scopeParam=params.get('scope') as IntelligenceScope|null;
- const [scope,setScope]=useState<IntelligenceScope>(scopeParam??'overview');
- const [question,setQuestion]=useState(params.get('question')?.slice(0,2000)??'');
- const [messages,setMessages]=useState<ChatMessage[]>([]);
+ const validScope=(value:string|null):IntelligenceScope=>value&&['overview','sales','inventory','finance','customers','people'].includes(value)?value as IntelligenceScope:'overview';
+ const [scope,setScope]=useState<IntelligenceScope>(validScope(params.get('scope')));
+ const [question,setQuestion]=useState((params.get('question')||'').slice(0,2000));
+ const [messages,setMessages]=useState<Message[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
- const status=useQuery({queryKey:['lexa-ai-status',workspace.id,branch.id],queryFn:()=>apiIntelligence.status(workspace.id,branch.id),staleTime:30000,retry:1});
- const snapshot=useQuery({queryKey:['lexa-ai-records',workspace.id,branch.id],queryFn:()=>apiIntelligence.brief(workspace.id,branch.id),staleTime:60000,retry:1});
+ const status=useQuery({queryKey:['lexa-ai-status',workspace.id,branch.id],queryFn:()=>apiIntelligence.status(workspace.id,branch.id),retry:false,staleTime:30000});
  const available=status.data?.canRunBusiness===true;
- const send=async(e?:FormEvent)=>{e?.preventDefault();const q=question.trim();if(!q||busy||!available)return;
-  setError('');setBusy(true);setMessages(v=>[...v,{role:'user',text:q,time:new Date().toISOString(),id:crypto.randomUUID()}]);setQuestion('');
+ const run=async(e?:FormEvent)=>{
+  e?.preventDefault();const q=question.trim();if(!q||!available||busy)return;
+  setBusy(true);setError('');setQuestion('');setMessages(v=>[...v,{id:newId(),role:'owner',text:q,time:new Date().toISOString()}]);
   try{const result=await apiIntelligence.explain(workspace.id,branch.id,q,scope);
-   if(!result.answer?.trim())throw new Error('Empty model response');
-   setMessages(v=>[...v,{role:'assistant',text:result.answer,time:new Date().toISOString(),id:crypto.randomUUID()}]);
-  }catch(cause){setError(cause instanceof Error?cause.message:'AI providers could not complete this answer.');setQuestion(q);}
+   if(!result.answer?.trim())throw new Error('No response was received.');
+   setMessages(v=>[...v,{id:newId(),role:'lexa',text:result.answer,time:new Date().toISOString()}]);
+  }catch(err){setQuestion(q);setError(businessErrorMessage(err));}
   finally{setBusy(false);}
  };
  return <main className="page-stack lexa-intel-page lexa-assistant">
-  <section className="lexa-intel-hero violet"><div><span className="lexa-intel-kicker"><Sparkles size={15}/> YOUR BUSINESS INTELLIGENCE ASSISTANT</span><h1>Ask LEXA<span>, get clarity.</span></h1><p>Real business explanations, priorities and practical next steps—based on records you are permitted to see.</p><small><ShieldCheck size={14}/> Read-only · Permission filtered · No private employee records shared</small></div><BrainCircuit className="lexa-intel-hero-glyph" size={45}/></section>
-  <div className="lexa-ai-status"><span className={available?'online':'offline'}/><strong>{status.isLoading?'Checking AI…':available?'Assistant ready':'Model service unavailable'}</strong><span>{available?`${status.data?.providersAvailable?.length??0} configured provider routes · automatic fallback`:'Verified reports remain available'}</span><button onClick={()=>void Promise.all([status.refetch(),snapshot.refetch()])} disabled={status.isFetching}><RefreshCw size={15}/> Refresh</button><button disabled={!messages.length} onClick={()=>{setMessages([]);setQuestion('');setError('')}}><Trash2 size={15}/> New chat</button></div>
-  {!available&&!status.isLoading&&<div className="lexa-intel-warning"><AlertTriangle size={18}/> {status.isError?'AI status could not be loaded.':status.data?.explanation??'AI requires at least one working provider key on the Render backend. Ask your system administrator to check configuration.'} Use Business Reports below while models are offline.</div>}
-  <div className="lexa-ai-layout">
-   <section className="lexa-ai-chat">
-    {!messages.length&&<div className="lexa-ai-welcome"><div className="lexa-ai-icon"><Sparkles size={29}/></div><h2>What would you like to understand?</h2><p>Ask LEXA about sales, inventory, customer collections and the decisions that matter to your business.</p><div className="lexa-ai-ideas">{ideas.map(([area,title,text])=><button key={title} disabled={!available} onClick={()=>{setScope(area);setQuestion(text)}}><Sparkles size={15}/>{title}<ArrowRight size={15}/></button>)}</div></div>}
-    <div className="lexa-ai-messages" aria-live="polite">{messages.map(msg=><article key={msg.id} className={`lexa-ai-message ${msg.role}`}><span className="lexa-ai-avatar">{msg.role==='assistant'?<Sparkles size={16}/>: 'YOU'}</span><div><header><strong>{msg.role==='assistant'?'LEXA Assistant':'You'}</strong><small>{new Date(msg.time).toLocaleTimeString('en-UG',{hour:'2-digit',minute:'2-digit'})}</small></header><p>{msg.text}</p>{msg.role==='assistant'&&<button type="button" onClick={()=>void navigator.clipboard.writeText(msg.text)}><Copy size={14}/> Copy answer</button>}</div></article>)}</div>
-    {busy&&<div className="lexa-ai-thinking"><Sparkles size={17}/> LEXA is checking permitted business records and available models…</div>}
-    {error&&<div className="lexa-intel-warning" role="alert"><AlertTriangle size={16}/>{error} Your question has been restored. Retry when the provider is available.</div>}
-    <form onSubmit={send} className="lexa-ai-composer"><label htmlFor="lexa-question">Your business question</label><textarea id="lexa-question" rows={3} maxLength={2000} value={question} placeholder="Ask about sales, stock, cash flow or operational priorities…" onChange={e=>setQuestion(e.target.value)} disabled={!available||busy}/><div><select aria-label="Business area" value={scope} onChange={e=>setScope(e.target.value as IntelligenceScope)} disabled={!available||busy}><option value="overview">Whole business</option><option value="sales">Sales</option><option value="inventory">Inventory</option><option value="finance">Finance</option><option value="customers">Customers</option><option value="people">People</option></select><small>{question.length}/2000</small><button type="submit" disabled={!available||busy||!question.trim()}><Send size={16}/> Ask LEXA</button></div></form>
-   </section>
-   <aside className="lexa-ai-aside"><section><div className="lexa-ai-aside-head"><ShieldCheck size={20}/><h3>Verified business snapshot</h3></div><p>Works even when external AI models are offline.</p>{snapshot.isLoading&&<p>Calculating real business activity…</p>}{snapshot.isError&&<div className="lexa-intel-warning">Snapshot unavailable. <button onClick={()=>void snapshot.refetch()}>Retry</button></div>}{snapshot.data&&<><ul>{snapshot.data.observations.map((item,i)=><li key={i}>{item}</li>)}</ul><small>{snapshot.data.notice}</small></>}<Link to="/reports">Open Business Reports <ArrowRight size={15}/></Link></section><section><div className="lexa-ai-aside-head"><ShieldCheck size={19}/><h3>Privacy protected</h3></div><p>LEXA explains filtered business totals. It cannot change records, approve payments, see passwords or send personal HR records to external models.</p></section></aside>
-  </div>
+  <header className="lexa-intel-hero violet"><div><span className="lexa-intel-kicker">BUSINESS ASSISTANT</span><h1>LEXA Intelligence</h1><p>Review real sales, stock and financial records. Prepare business tasks with your approval.</p></div></header>
+  {status.isLoading&&<p role="status">Checking access…</p>}
+  {status.isError&&<section className="lexa-intel-warning" role="alert">{businessErrorMessage(status.error)} <button type="button" onClick={()=>void status.refetch()}>Retry</button></section>}
+  {!status.isLoading&&!status.isError&&!available&&<section className="lexa-intel-warning" role="status">{status.data?.entitled===false?'The assistant is not included in this business subscription.':'LEXA Intelligence is available to the business owner when the service is connected.'}</section>}
+  {available&&<>
+   <div className="lexa-ai-status"><strong>Ready for business requests</strong><button type="button" onClick={()=>{setQuestion('');setMessages([]);setError('')}} disabled={!messages.length}><RefreshCw size={16}/> New request</button></div>
+   <div className="lexa-ai-layout">
+    <section className="lexa-ai-chat" aria-label="Business analysis">
+      {messages.length===0&&<div className="lexa-ai-welcome"><h2>What would you like to review?</h2><div className="lexa-ai-ideas">{prompts.map(([area,label,text])=><button type="button" key={label} onClick={()=>{setScope(area);setQuestion(text)}}>{label}<ArrowRight size={15}/></button>)}</div></div>}
+      <div className="lexa-ai-messages" aria-live="polite">{messages.map(m=><article key={m.id} className={`lexa-ai-message ${m.role==='owner'?'user':'assistant'}`}><div><header><strong>{m.role==='owner'?'You':'LEXA'}</strong><small>{new Date(m.time).toLocaleTimeString('en-UG',{hour:'2-digit',minute:'2-digit'})}</small></header><p>{m.text}</p>{m.role==='lexa'&&<button type="button" onClick={()=>void navigator.clipboard.writeText(m.text)}><Copy size={14}/> Copy</button>}</div></article>)}</div>
+      {busy&&<p className="lexa-ai-thinking" role="status">Reviewing your business records…</p>}
+      {error&&<p className="lexa-intel-warning" role="alert">{error}</p>}
+      <form className="lexa-ai-composer" onSubmit={run}><label htmlFor="lexa-question">Business question</label><textarea id="lexa-question" maxLength={2000} rows={3} value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Ask about stock, sales, receivables or business priorities" disabled={busy}/><div><select aria-label="Business area" value={scope} onChange={e=>setScope(e.target.value as IntelligenceScope)} disabled={busy}>{[['overview','Whole business'],['sales','Sales'],['inventory','Inventory'],['finance','Finance'],['customers','Customers'],['people','Team']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select><small>{question.length}/2000</small><button disabled={busy||!question.trim()} type="submit"><Send size={15}/> Ask LEXA</button></div></form>
+    </section>
+    <aside className="lexa-ai-aside"><OwnerActions enabled={available}/><section><h3>Business reports</h3><p>See recorded activity and accounting reports.</p><Link to="/reports">Open reports <ArrowRight size={15}/></Link></section></aside>
+   </div>
+  </>}
  </main>;
 }
-

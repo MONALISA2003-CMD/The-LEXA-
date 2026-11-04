@@ -105,7 +105,7 @@ export function createApiClient(options: ApiClientOptions) {
     return cachedCsrfToken;
   }
 
-  async function request<T>(path: string, requestOptions: ApiRequestOptions = {}): Promise<T> {
+  async function request<T>(path: string, requestOptions: ApiRequestOptions = {}, csrfRetried = false): Promise<T> {
     if (!baseUrl) throw new ApiConfigurationError();
     if (!path.startsWith('/') || path.startsWith('//')) throw new Error('API paths must be absolute paths within the configured API base.');
     const method = requestOptions.method ?? 'GET';
@@ -149,6 +149,11 @@ export function createApiClient(options: ApiClientOptions) {
       }
       if (!response.ok) {
         const parsed = errorPayload(payload);
+        if (unsafe && csrfProtection && response.status === 403 && parsed.code === 'CSRF_TOKEN_INVALID' && !csrfRetried) {
+          // The guard rejects before controller writes; retry once with a fresh cookie/token pair.
+          cachedCsrfToken = null;
+          return request<T>(path, requestOptions, true);
+        }
         if (response.status === 401) {
           // A rejected session can invalidate the cached CSRF token too; force a fresh token on the next unsafe request.
           cachedCsrfToken = null;

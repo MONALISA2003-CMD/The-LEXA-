@@ -231,18 +231,19 @@ export default function DeliveryDispatchPanel() {
   return (
     <section className="commerce-workflow-panel" style={{ marginBottom: 18 }}>
       <div className="commerce-panel-heading">
-        <div className="commerce-panel-icon">🚚</div>
-        <div><span className="eyebrow eyebrow-blue">DELIVERY MANAGEMENT</span><h3>Deliveries, riders & collections</h3><p>Follow goods from your shop to the customer. Record proof of delivery and check money handed in by riders.</p></div>
+        <div className="commerce-panel-icon" aria-hidden="true">DM</div>
+        <div><span className="eyebrow eyebrow-blue">DELIVERY MANAGEMENT</span><h3>Deliveries, riders & collections</h3><p>Manage dispatch, proof of delivery and rider collections.</p></div>
       </div>
-      <div className="commerce-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginBottom: 16 }}>
-        <div className="commerce-summary-card"><span>Dispatch records</span><strong>{deliveryReportQuery.data?.totals.dispatchCount ?? dispatchCount}</strong></div>
-        <div className="commerce-summary-card"><span>Open deliveries</span><strong>{deliveryReportQuery.data?.totals.openCount ?? activeCount}</strong><small>{deliveryReportQuery.data?.totals.failedOrReturnedCount ?? failedCount} failed / returned</small></div>
-        <div className="commerce-summary-card"><span>Goods selling value dispatched</span><strong>{money(deliveryReportQuery.data?.totals.goodsSellingMinor ?? dispatchedSellingValue, workspace.currency)}</strong></div>
-        <div className="commerce-summary-card"><span>Goods cost value dispatched</span><strong>{money(deliveryReportQuery.data?.totals.goodsCostMinor ?? dispatchedCostValue, workspace.currency)}</strong></div>
-        <div className="commerce-summary-card"><span>Delivery expenses</span><strong>{money(deliveryReportQuery.data?.totals.deliveryExpenseMinor ?? 0, workspace.currency)}</strong></div>
-        <div className="commerce-summary-card"><span>Rider-held outstanding</span><strong>{money(deliveryReportQuery.data?.totals.riderHeldOutstandingMinor ?? reportedOutstanding, workspace.currency)}</strong></div>
-        <div className="commerce-summary-card"><span>Accepted from riders</span><strong>{money(deliveryReportQuery.data?.totals.collectionAcceptedMinor ?? 0, workspace.currency)}</strong></div>
-        <div className="commerce-summary-card"><span>Reconciliation variances</span><strong>{deliveryReportQuery.data?.totals.varianceCount ?? 0}</strong></div>
+      {(deliveryReportQuery.isError || dispatchQuery.isError) && <div className="logistics-error" role="alert">Delivery totals are unavailable. <button type="button" onClick={() => void Promise.all([deliveryReportQuery.refetch(), dispatchQuery.refetch()])}>Retry</button></div>}
+      <div className="commerce-summary-grid" aria-label="Delivery totals">
+        <div className="commerce-summary-card"><span>Dispatch records</span><strong>{deliveryReportQuery.isError || dispatchQuery.isError ? '—' : deliveryReportQuery.data?.totals.dispatchCount ?? dispatchCount}</strong></div>
+        <div className="commerce-summary-card"><span>Open deliveries</span><strong>{deliveryReportQuery.isError || dispatchQuery.isError ? '—' : deliveryReportQuery.data?.totals.openCount ?? activeCount}</strong><small>{deliveryReportQuery.isError || dispatchQuery.isError ? 'Unavailable' : `${deliveryReportQuery.data?.totals.failedOrReturnedCount ?? failedCount} failed or returned`}</small></div>
+        <div className="commerce-summary-card"><span>Goods selling value dispatched</span><strong>{deliveryReportQuery.isError || dispatchQuery.isError ? '—' : money(deliveryReportQuery.data?.totals.goodsSellingMinor ?? dispatchedSellingValue, workspace.currency)}</strong></div>
+        <div className="commerce-summary-card"><span>Goods cost value dispatched</span><strong>{deliveryReportQuery.isError || dispatchQuery.isError ? '—' : money(deliveryReportQuery.data?.totals.goodsCostMinor ?? dispatchedCostValue, workspace.currency)}</strong></div>
+        <div className="commerce-summary-card"><span>Delivery expenses</span><strong>{deliveryReportQuery.isError || dispatchQuery.isError ? '—' : money(deliveryReportQuery.data?.totals.deliveryExpenseMinor ?? 0, workspace.currency)}</strong></div>
+        <div className="commerce-summary-card"><span>Rider-held outstanding</span><strong>{deliveryReportQuery.isError || dispatchQuery.isError ? '—' : money(deliveryReportQuery.data?.totals.riderHeldOutstandingMinor ?? reportedOutstanding, workspace.currency)}</strong></div>
+        <div className="commerce-summary-card"><span>Accepted from riders</span><strong>{deliveryReportQuery.isError || dispatchQuery.isError ? '—' : money(deliveryReportQuery.data?.totals.collectionAcceptedMinor ?? 0, workspace.currency)}</strong></div>
+        <div className="commerce-summary-card"><span>Reconciliation variances</span><strong>{deliveryReportQuery.isError || dispatchQuery.isError ? '—' : deliveryReportQuery.data?.totals.varianceCount ?? 0}</strong></div>
         <div className="commerce-summary-card"><span>Registered delivery contacts</span><strong>{agents.length}</strong></div>
       </div>
       <div className="logistics-delivery-graphs">

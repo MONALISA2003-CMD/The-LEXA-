@@ -51,7 +51,7 @@ const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
   delivery_officer: ['workspace.read','fulfilment.read','fulfilment.write','sales.read','inventory.read','module.read','collaboration.read'],
   production_officer: ['workspace.read','manufacturing.read','manufacturing.write','inventory.read','inventory.write','catalog.read','module.read'],
   quality_officer: ['workspace.read','manufacturing.read','manufacturing.write','inventory.read','catalog.read','module.read','approval.decide'],
-  accountant: ['intelligence.read', 'intelligence.run', 'saas.read', 'workspace.read', 'catalog.read', 'sales.read', 'fulfilment.read', 'procurement.read', 'finance.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'finance.write', 'procurement.write', 'module.write'],
+  accountant: ['saas.read', 'workspace.read', 'catalog.read', 'sales.read', 'fulfilment.read', 'procurement.read', 'finance.read', 'reports.read', 'collaboration.read', 'collaboration.write', 'finance.write', 'procurement.write', 'module.write'],
   read_only: ['workspace.read','reports.read','sales.read','inventory.read','catalog.read','module.read'],
   readonly: ['workspace.read','reports.read','sales.read','inventory.read','catalog.read','module.read'],
   viewer: ['workspace.read','reports.read','sales.read','inventory.read','catalog.read','module.read'],
@@ -109,10 +109,10 @@ export function permissionForRequest(method: string, pathname: string, params: R
   if (/\/crm(?:\/|$)/.test(path)) return choose('crm.read', 'crm.write');
   if (/\/modules\/(?:leads|opportunities|contacts|campaigns|sales-teams|customers)\/records(?:\/|$)/.test(path)) return choose('crm.read','crm.write');
   if (/\/recurring-invoices(?:\/|$)/.test(path)) return choose('sales.read', 'sales.write');
-  if (/\/intelligence\/status$/.test(path)) return 'intelligence.read';
+  if (/\/intelligence\/status$/.test(path)) return 'intelligence.run';
   if (/\/intelligence\/(?:help|explain|extract)$/.test(path)) return 'intelligence.run';
   if (/\/reports\/(?:authoritative|library)$/.test(path)) return 'reports.read';
-  if (/\/intelligence\/brief$/.test(path)) return 'intelligence.read';
+  if (/\/intelligence\/brief$/.test(path)) return 'intelligence.run';
   if (/\/saas\/entitlements$|\/saas\/usage$/.test(path)) return 'saas.read';
   if (/\/saas\/support-diagnostics$/.test(path)) return 'support.read';
   if (/\/saas\/plans$/.test(path)) return 'saas.read';

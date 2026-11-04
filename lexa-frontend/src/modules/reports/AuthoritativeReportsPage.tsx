@@ -2,9 +2,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
-import { BarChart3, CalendarDays, Download, RefreshCw, Printer, Sparkles, ShieldCheck, AlertTriangle, ArrowRight, LockKeyhole } from 'lucide-react';
+import { BarChart3, CalendarDays, Download, RefreshCw, Printer, ShieldCheck, AlertTriangle, ArrowRight, LockKeyhole } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiReports } from '../../data/remote/apiReports';
+import { apiTeamAccess } from '../../data/remote/apiTeamAccess';
 import { LineTrendChart, BarBreakdownChart } from '../../components/charts/Charts';
 import '../intelligence/intelligence-suite.css';
 
@@ -15,6 +16,7 @@ function exportCSV(rows:Array<Array<unknown>>){const escape=(v:unknown)=>'"'+Str
 export default function AuthoritativeReportsPage(){
  const {workspace,branch}=useWorkspace();
  const navigate=useNavigate();
+ const ownerAccess=useQuery({queryKey:['report-ai-owner',workspace.id],queryFn:()=>apiTeamAccess.access(workspace.id),retry:false,staleTime:60000});
  const [from,setFrom]=useState(()=>before(29)),[to,setTo]=useState(()=>today()),[range,setRange]=useState(30);
  const [active,setActive]=useState('executive'),[custom,setCustom]=useState(false);
  const valid=from<=to && (Date.parse(to)-Date.parse(from))/86400000<=365;
@@ -36,7 +38,7 @@ export default function AuthoritativeReportsPage(){
     <header className="lexa-intel-heading"><div><span>REPORT LIBRARY</span><h2>Explore your business</h2><p>Actual source records, not estimated or AI-generated numbers.</p></div><small>Updated {new Date(detail.generatedAt).toLocaleString('en-UG')}</small></header>
     <div className="lexa-intel-tabs" role="tablist">{detail.families.map(x=><button role="tab" aria-selected={active===x.key} className={active===x.key?'active':''} key={x.key} onClick={()=>setActive(x.key)}>{!x.available&&<LockKeyhole size={12}/>} {x.title}</button>)}</div>
     {family&&<section className="lexa-intel-content">
-     <header className="lexa-intel-content-head"><div><span>{family.available?'VERIFIED REPORT':'ACCESS CONTROLLED'}</span><h2>{family.title}</h2><p>Source: {family.source}</p></div><button className="lexa-intel-ask" onClick={ask}><Sparkles size={16}/> Ask LEXA to explain <ArrowRight size={15}/></button></header>
+     <header className="lexa-intel-content-head"><div><span>{family.available?'VERIFIED REPORT':'ACCESS CONTROLLED'}</span><h2>{family.title}</h2><p>Source: {family.source}</p></div>{ownerAccess.data?.isOwner===true&&<button className="lexa-intel-ask" onClick={ask}>Ask LEXA <ArrowRight size={15}/></button>}</header>
      {!family.available?<p className="lexa-intel-warning"><LockKeyhole size={17}/> This report requires your CEO's approval or a specific workspace permission.</p>:<>
        <div className="lexa-intel-metrics">{family.metrics.map(m=><article key={m.label}><label>{m.label}<small>{m.basis}</small></label><strong>{m.unit==='money'?money(m.value,currency):m.value.toLocaleString('en-UG',{maximumFractionDigits:2})}</strong></article>)}</div>
        {['executive','sales','payments'].includes(active)&&<div className="lexa-intel-charts"><LineTrendChart title="Sales and receipts" description="Completed sales and actual recorded collections" points={detail.trend.map(x=>({label:x.label,value:x.salesMinor,comparisonValue:x.receiptsMinor}))} currencyFormatter={x=>money(x,currency)} comparisonLabel="Receipts"/><BarBreakdownChart title="Payment methods" description="Cash, mobile money and bank channels as recorded" points={detail.paymentMethods.map(x=>({label:x.label,value:x.amountMinor}))} formatValue={x=>money(x,currency)}/></div>}

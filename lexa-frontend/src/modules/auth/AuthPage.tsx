@@ -205,7 +205,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
 
           <div className="auth-security-footnote"><ShieldCheck size={16} /><span>Your account and business information are protected. Keep your password private.</span></div>
         </div>
-        <div className="auth-main-footer"><span>© {new Date().getFullYear()} LEXA</span><span>Your business information matters. Keep your sign-in details private.</span></div>
+        <div className="auth-main-footer"><span>© {new Date().getFullYear()} LEXA</span><span>LEXA is a subsidiary of AMAAL GROUP.</span></div>
       </section>
     </main>
   );
@@ -277,7 +277,7 @@ export function FirstAdministratorPage() {
           {!available && !checking && <Link className="auth-submit auth-return-button" to="/sign-in">Return to sign in <ArrowRight size={17} /></Link>}
           <div className="auth-security-footnote"><ShieldCheck size={16} /><span>The setup code is used once. The password is stored as a salted hash, and the public setup route closes after the first account is created.</span></div>
         </div>
-        <div className="auth-main-footer"><span>© {new Date().getFullYear()} LEXA</span><span>Your business information matters. Keep your sign-in details private.</span></div>
+        <div className="auth-main-footer"><span>© {new Date().getFullYear()} LEXA</span><span>LEXA is a subsidiary of AMAAL GROUP.</span></div>
       </section>
     </main>
   );

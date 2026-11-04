@@ -13,20 +13,6 @@ function patch(file, anchor, replacement, label, marker) {
 }
 
 patch(
-  'src/modules/settings/SettingsPage.tsx',
-  "import { apiAuth } from '../../data/remote/apiAuth';",
-  "import { apiAuth } from '../../data/remote/apiAuth';\nimport SecurityPanel from '../security/SecurityPanel'; // LEXA_AUTH_SECURITY_UI_PATCH:settings-import-v1",
-  'SettingsPage import',
-  'LEXA_AUTH_SECURITY_UI_PATCH:settings-import-v1',
-);
-patch(
-  'src/modules/settings/SettingsPage.tsx',
-  '      <section className="section-card integration-card">',
-  '      {/* LEXA_AUTH_SECURITY_UI_PATCH:security-panel-v1 */}\n      <SecurityPanel />\n\n      <section className="section-card integration-card">',
-  'SettingsPage security section',
-  'LEXA_AUTH_SECURITY_UI_PATCH:security-panel-v1',
-);
-patch(
   'src/data/remote/apiClient.ts',
   "if (unsafe && (path.endsWith('/auth/login') || path.endsWith('/auth/logout') || path.endsWith('/auth/password/reset'))) cachedCsrfToken = null;",
   "if (unsafe && (path.endsWith('/auth/login') || path.endsWith('/auth/logout') || path.endsWith('/auth/password/reset') || path.endsWith('/auth/password/change'))) cachedCsrfToken = null; // LEXA_AUTH_SECURITY_UI_PATCH:csrf-refresh-v1",
@@ -48,4 +34,4 @@ patch(
   'LEXA_AUTH_SECURITY_UI_PATCH:referrer-v1',
 );
 
-console.log('LEXA modern authentication and security UI applied.');
+console.log('LEXA authentication safeguards verified.');

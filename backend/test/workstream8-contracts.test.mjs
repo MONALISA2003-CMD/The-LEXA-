@@ -19,7 +19,7 @@ test('Workstream 8 reports use operational and posted-ledger sources, not generi
   assert.match(controller, /amount_micros: number/);
 });
 
-test('AI router uses one free-tier business assistant with automatic fallback and no write tools', async () => {
+test('Owner-only AI router uses free tiers, Python summaries, reviewed write actions and no unrestricted write tools', async () => {
   const [controller, router, appModule, deploymentGuide] = await Promise.all([
     source('../src/workstream8/workstream8.controller.ts'),
     source('../src/workstream8/ai-router.service.ts'),
@@ -31,7 +31,10 @@ test('AI router uses one free-tier business assistant with automatic fallback an
   assert.match(controller, /FOR UPDATE OF s/);
   assert.match(controller, /tenant_usage_counters/);
   assert.match(controller, /provider_model/);
-  assert.match(controller, /permission-filtered aggregate business facts/);
+  assert.match(controller, /quickOperationalAnswer/);
+  assert.match(controller, /isOwnerRole/);
+  assert.match(router, /classifyWorkload/);
+  assert.match(router, /GEMINI_FREE_API_KEY_2/);
   assert.match(controller, /DOCUMENT_EXTRACTION_NOT_ENABLED/);
   assert.doesNotMatch(controller, /LEXA_INTELLIGENCE_BASE_URL/);
   assert.match(router, /GEMINI_FREE_API_KEY/);

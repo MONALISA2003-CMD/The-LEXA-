@@ -100,3 +100,14 @@ test('maps Workstream 5 procurement, warehouse and manufacturing transactions to
   assert.equal(permissionForRequest('POST', `${base}/manufacturing/work-orders/wo/release`), 'manufacturing.write');
   assert.equal(permissionForRequest('POST', `${base}/quality/inspections/inspection/decision`), 'approval.decide');
 });
+
+test('AI execution belongs to owner roles only, including direct API requests', () => {
+  for(const role of ['owner','owner_administrator']) {
+    assert.equal(hasPermission(role,'intelligence.run'), true);
+  }
+  for(const role of ['accountant','administrator','manager','cashier','sales']) {
+    assert.equal(hasPermission(role,'intelligence.run'), false);
+  }
+  assert.equal(permissionForRequest('GET','/api/v1/workspaces/w/branches/b/intelligence/status'),'intelligence.run');
+  assert.equal(permissionForRequest('GET','/api/v1/workspaces/w/branches/b/intelligence/brief'),'intelligence.run');
+});

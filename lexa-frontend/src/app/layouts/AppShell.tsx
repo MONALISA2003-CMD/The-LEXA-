@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
-import {
-  Activity, ArrowDownUp, Banknote, BookOpen, Building2, BarChart3, ChevronDown, Target, Boxes, Landmark,
-  CircleHelp, ClipboardList, CreditCard, FileText, LayoutDashboard, Menu,
-  Package, PackageCheck, ReceiptText, Settings, ShoppingCart, Store, Tag, Truck, Users, Wallet, X, Moon, Sun, Sparkles, Pin, Search,
-} from 'lucide-react';
+import { Building2, ChevronDown, CircleHelp, Menu, Settings, Store, X, Moon, Sun, Pin, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { apiTeamAccess } from '../../data/remote/apiTeamAccess';
@@ -14,6 +10,7 @@ import { WorkspaceContext } from '../WorkspaceContext';
 import type { Branch, Workspace } from '../../domain/shared/types';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import GlobalSearch from '../../components/GlobalSearch';
+import { navigationIcons } from '../../components/icons/EnterpriseNavIcons';
 import { isEmployeeNavigationAllowed } from '../../domain/shared/staffNavigation';
 import { apiAuth } from '../../data/remote/apiAuth';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
@@ -31,95 +28,95 @@ function errorStatus(error: unknown): number | null { return error && typeof err
 
 const navSections = [
   { title: 'WORKSPACE', items: [
-    { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
-    { to: '/workspace', label: 'My Business', icon: Building2 },
-    { to: '/team', label: 'Team & permissions', icon: Users },
-    { to: '/my-employment', label: 'My employment', icon: Users },
-    { to: '/business-setup', label: 'Business profile setup', icon: Sparkles },
+    { to: '/', label: 'Overview', icon: navigationIcons.LayoutDashboard, end: true },
+    { to: '/workspace', label: 'My Business', icon: navigationIcons.Building2 },
+    { to: '/team', label: 'Team & permissions', icon: navigationIcons.Users },
+    { to: '/my-employment', label: 'My employment', icon: navigationIcons.Users },
+    { to: '/business-setup', label: 'Business profile setup', icon: navigationIcons.Sparkles },
   ] },
   { title: 'BUSINESS REPORTS & ADVICE', items: [
-    { to: '/reports', label: 'Business reports', icon: BarChart3 },
-    { to: '/intelligence', label: 'LEXA Assistant', icon: Sparkles },
+    { to: '/reports', label: 'Business reports', icon: navigationIcons.BarChart3 },
+    { to: '/intelligence', label: 'LEXA Assistant', icon: navigationIcons.Sparkles },
   ] },
   { title: 'CUSTOMERS & GROWTH', items: [
-    { to: '/modules/customers', label: 'Customers', icon: Users },
-    { to: '/modules/leads', label: 'Leads & prospects', icon: Users },
-    { to: '/modules/opportunities', label: 'Opportunities', icon: Target },
-    { to: '/modules/contacts', label: 'Contacts & addresses', icon: Users },
-    { to: '/modules/campaigns', label: 'Campaigns', icon: Activity },
-    { to: '/modules/sales-teams', label: 'Sales team & territories', icon: Users },
+    { to: '/modules/customers', label: 'Customers', icon: navigationIcons.Users },
+    { to: '/modules/leads', label: 'Leads & prospects', icon: navigationIcons.Users },
+    { to: '/modules/opportunities', label: 'Opportunities', icon: navigationIcons.Target },
+    { to: '/modules/contacts', label: 'Contacts & addresses', icon: navigationIcons.Users },
+    { to: '/modules/campaigns', label: 'Campaigns', icon: navigationIcons.Activity },
+    { to: '/modules/sales-teams', label: 'Sales team & territories', icon: navigationIcons.Users },
   ] },
   { title: 'SELLING', items: [
-    { to: '/checkout', label: 'Checkout / POS', icon: ShoppingCart },
-    { to: '/sales', label: 'Sales & receipts', icon: CreditCard },
-    { to: '/modules/sales-orders', label: 'Sales orders', icon: ShoppingCart },
-    { to: '/modules/sales-returns', label: 'Sales returns', icon: ReceiptText },
-    { to: '/modules/sales-invoices', label: 'Sales invoices', icon: ReceiptText },
-    { to: '/modules/quotations', label: 'Quotations', icon: FileText },
-    { to: '/modules/price-lists', label: 'Price lists & pricing', icon: Tag },
+    { to: '/checkout', label: 'Checkout / POS', icon: navigationIcons.ShoppingCart },
+    { to: '/sales', label: 'Sales & receipts', icon: navigationIcons.CreditCard },
+    { to: '/modules/sales-orders', label: 'Sales orders', icon: navigationIcons.ShoppingCart },
+    { to: '/modules/sales-returns', label: 'Sales returns', icon: navigationIcons.ReceiptText },
+    { to: '/modules/sales-invoices', label: 'Sales invoices', icon: navigationIcons.ReceiptText },
+    { to: '/modules/quotations', label: 'Quotations', icon: navigationIcons.FileText },
+    { to: '/modules/price-lists', label: 'Price lists & pricing', icon: navigationIcons.Tag },
       ] },
   { title: 'INVENTORY', items: [
-    { to: '/products', label: 'Products', icon: Package },
-    { to: '/inventory', label: 'Stock & movements', icon: ArrowDownUp },
-    { to: '/modules/receiving', label: 'Goods receiving', icon: PackageCheck },
-    { to: '/modules/stock-counts', label: 'Stock counts', icon: ClipboardList },
-    { to: '/modules/batches', label: 'Batch & lot tracking', icon: Package },
-    { to: '/modules/replenishment', label: 'Replenishment', icon: PackageCheck },
-    { to: '/modules/stock-transfers', label: 'Stock transfers', icon: Truck },
-    { to: '/modules/warehouses', label: 'Warehouses & locations', icon: Building2 },
-    { to: '/modules/picklists', label: 'Picklists & picking', icon: ClipboardList },
-    { to: '/modules/item-bundles', label: 'Item bundles', icon: Boxes },
+    { to: '/products', label: 'Products', icon: navigationIcons.Package },
+    { to: '/inventory', label: 'Stock & movements', icon: navigationIcons.ArrowDownUp },
+    { to: '/modules/receiving', label: 'Goods receiving', icon: navigationIcons.PackageCheck },
+    { to: '/modules/stock-counts', label: 'Stock counts', icon: navigationIcons.ClipboardList },
+    { to: '/modules/batches', label: 'Batch & lot tracking', icon: navigationIcons.Package },
+    { to: '/modules/replenishment', label: 'Replenishment', icon: navigationIcons.PackageCheck },
+    { to: '/modules/stock-transfers', label: 'Stock transfers', icon: navigationIcons.Truck },
+    { to: '/modules/warehouses', label: 'Warehouses & locations', icon: navigationIcons.Building2 },
+    { to: '/modules/picklists', label: 'Picklists & picking', icon: navigationIcons.ClipboardList },
+    { to: '/modules/item-bundles', label: 'Item bundles', icon: navigationIcons.Boxes },
   ] },
   { title: 'LOGISTICS', items: [
-    { to: '/modules/deliveries', label: 'Deliveries & fulfilment', icon: Truck },
-    { to: '/modules/packages', label: 'Packages', icon: Package },
+    { to: '/modules/deliveries', label: 'Deliveries & fulfilment', icon: navigationIcons.Truck },
+    { to: '/modules/packages', label: 'Packages', icon: navigationIcons.Package },
   ] },
   { title: 'PURCHASING', items: [
-    { to: '/modules/purchase-requests', label: 'Purchase requests', icon: ClipboardList },
-    { to: '/modules/rfqs', label: 'Requests for quotation', icon: FileText },
-    { to: '/modules/supplier-quotes', label: 'Supplier quotations', icon: FileText },
-    { to: '/modules/suppliers', label: 'Suppliers', icon: Truck },
-    { to: '/modules/purchases', label: 'Purchase orders', icon: ClipboardList },
-    { to: '/modules/purchase-returns', label: 'Purchase returns', icon: ReceiptText },
-    { to: '/modules/purchase-invoices', label: 'Supplier invoices', icon: ReceiptText },
+    { to: '/modules/purchase-requests', label: 'Purchase requests', icon: navigationIcons.ClipboardList },
+    { to: '/modules/rfqs', label: 'Requests for quotation', icon: navigationIcons.FileText },
+    { to: '/modules/supplier-quotes', label: 'Supplier quotations', icon: navigationIcons.FileText },
+    { to: '/modules/suppliers', label: 'Suppliers', icon: navigationIcons.Truck },
+    { to: '/modules/purchases', label: 'Purchase orders', icon: navigationIcons.ClipboardList },
+    { to: '/modules/purchase-returns', label: 'Purchase returns', icon: navigationIcons.ReceiptText },
+    { to: '/modules/purchase-invoices', label: 'Supplier invoices', icon: navigationIcons.ReceiptText },
   ] },
   { title: 'FINANCE', items: [
-    { to: '/modules/finance-overview', label: 'Financial overview', icon: Landmark },
-    { to: '/modules/expenses', label: 'Expenses', icon: ReceiptText },
-    { to: '/modules/cash-sessions', label: 'Cash sessions', icon: Wallet },
-    { to: '/modules/money-accounts', label: 'Cash & money accounts', icon: Wallet },
-    { to: '/modules/payments', label: 'Receipts & payments', icon: CreditCard },
-    { to: '/modules/accounting', label: 'Accounting journals', icon: BookOpen },
-    { to: '/modules/chart-of-accounts', label: 'Chart of accounts', icon: BookOpen },
-    { to: '/modules/tax-codes', label: 'Tax codes & rules', icon: ReceiptText },
-    { to: '/modules/bank-reconciliation', label: 'Bank reconciliation', icon: Banknote },
-    { to: '/modules/assets', label: 'Fixed assets', icon: Building2 },
-    { to: '/modules/cost-centers', label: 'Cost centres', icon: BookOpen },
-    { to: '/modules/budgets', label: 'Budgets & forecasts', icon: Wallet },
-    { to: '/modules/recurring-invoices', label: 'Recurring billing', icon: ReceiptText },
-    { to: '/modules/tax-documents', label: 'Tax documents / EFRIS', icon: BookOpen },
+    { to: '/modules/finance-overview', label: 'Financial overview', icon: navigationIcons.Landmark },
+    { to: '/modules/expenses', label: 'Expenses', icon: navigationIcons.ReceiptText },
+    { to: '/modules/cash-sessions', label: 'Cash sessions', icon: navigationIcons.Wallet },
+    { to: '/modules/money-accounts', label: 'Cash & money accounts', icon: navigationIcons.Wallet },
+    { to: '/modules/payments', label: 'Receipts & payments', icon: navigationIcons.CreditCard },
+    { to: '/modules/accounting', label: 'Accounting journals', icon: navigationIcons.BookOpen },
+    { to: '/modules/chart-of-accounts', label: 'Chart of accounts', icon: navigationIcons.BookOpen },
+    { to: '/modules/tax-codes', label: 'Tax codes & rules', icon: navigationIcons.ReceiptText },
+    { to: '/modules/bank-reconciliation', label: 'Bank reconciliation', icon: navigationIcons.Banknote },
+    { to: '/modules/assets', label: 'Fixed assets', icon: navigationIcons.Building2 },
+    { to: '/modules/cost-centers', label: 'Cost centres', icon: navigationIcons.BookOpen },
+    { to: '/modules/budgets', label: 'Budgets & forecasts', icon: navigationIcons.Wallet },
+    { to: '/modules/recurring-invoices', label: 'Recurring billing', icon: navigationIcons.ReceiptText },
+    { to: '/modules/tax-documents', label: 'Tax documents / EFRIS', icon: navigationIcons.BookOpen },
   ] },
   { title: 'TEAM & PAYROLL', items: [
-    { to: '/modules/employees', label: 'Employees & HR', icon: Users },
-    { to: '/modules/attendance', label: 'Attendance & shifts', icon: Activity },
-    { to: '/modules/leave', label: 'Leave & absences', icon: Users },
-    { to: '/modules/timesheets', label: 'Timesheets', icon: Activity },
-    { to: '/modules/payroll', label: 'Payroll', icon: Wallet },
+    { to: '/modules/employees', label: 'Employees & HR', icon: navigationIcons.Users },
+    { to: '/modules/attendance', label: 'Attendance & shifts', icon: navigationIcons.Activity },
+    { to: '/modules/leave', label: 'Leave & absences', icon: navigationIcons.Users },
+    { to: '/modules/timesheets', label: 'Timesheets', icon: navigationIcons.Activity },
+    { to: '/modules/payroll', label: 'Payroll', icon: navigationIcons.Wallet },
   ] },
   { title: 'PRODUCTION & QUALITY', items: [
-    { to: '/modules/work-orders', label: 'Work orders', icon: ClipboardList },
-    { to: '/modules/boms', label: 'Bills of materials', icon: Package },
-    { to: '/modules/job-cards', label: 'Job cards', icon: ClipboardList },
-    { to: '/modules/quality', label: 'Quality checks', icon: PackageCheck },
+    { to: '/modules/work-orders', label: 'Work orders', icon: navigationIcons.ClipboardList },
+    { to: '/modules/boms', label: 'Bills of materials', icon: navigationIcons.Package },
+    { to: '/modules/job-cards', label: 'Job cards', icon: navigationIcons.ClipboardList },
+    { to: '/modules/quality', label: 'Quality checks', icon: navigationIcons.PackageCheck },
   ] },
   { title: 'PROJECTS & SERVICE', items: [
-    { to: '/modules/projects', label: 'Projects', icon: ClipboardList },
-    { to: '/modules/tasks', label: 'Tasks', icon: ClipboardList },
-    { to: '/modules/support', label: 'Customer support', icon: Users },
+    { to: '/modules/projects', label: 'Projects', icon: navigationIcons.ClipboardList },
+    { to: '/modules/tasks', label: 'Tasks', icon: navigationIcons.ClipboardList },
+    { to: '/modules/support', label: 'Customer support', icon: navigationIcons.Users },
   ] },
   { title: 'ADMINISTRATION', items: [
 
-    { to: '/business-tools', label: 'Business tools', icon: Settings },
+    { to: '/business-tools', label: 'Business tools', icon: navigationIcons.Settings },
   ] },
 ];
 
@@ -193,7 +190,7 @@ export default function AppShell() {
     if(item.to==='/my-employment') return !isOwner;
     if(item.to==='/workspace'||item.to==='/') return true;
     if(item.to==='/business-tools')return isOwner;
-    if(item.to==='/intelligence')return allowed.has('intelligence.read');
+    if(item.to==='/intelligence')return isOwner;
     if(item.to==='/reports')return allowed.has('reports.read');
     if(item.to==='/modules/employees'||item.to==='/modules/attendance')return allowed.has('people.read');
     if(item.to==='/modules/payroll')return allowed.has('payroll.read');
@@ -398,6 +395,7 @@ export default function AppShell() {
             <div className="topbar-title"><button className="icon-button mobile-menu-button" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}><Menu size={20} /></button><div><div className="eyebrow">BUSINESS WORKSPACE</div><h1>{routeTitle(location.pathname)}</h1></div></div>
             <GlobalSearch />
             <div className="topbar-actions">
+              {isOwner && <Link className="lexa-owner-assistant-shortcut" to={`/intelligence?scope=${location.pathname.includes('/finance')||location.pathname.includes('/accounting')||location.pathname.includes('/budgets')?'finance':location.pathname.includes('/inventory')||location.pathname.includes('/products')||location.pathname.includes('/stock')?'inventory':location.pathname.includes('/sales')||location.pathname.includes('/checkout')?'sales':'overview'}`} title="Open LEXA Intelligence for this area" aria-label="Open LEXA Intelligence for this area">LEXA</Link>}
               <span className="lexa-current-business"><Building2 size={15}/>{workspace.businessName}</span>
               <div className="topbar-divider" />
               <button className="icon-button theme-toggle" type="button" aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
@@ -405,7 +403,7 @@ export default function AppShell() {
             </div>
           </header>
           <div className="page-content"><Outlet /></div>
-          <footer className="app-footer"><span>LEXA Workspace</span><span>Sales · Inventory · Business Management</span></footer>
+          <footer className="app-footer"><span>© {new Date().getFullYear()} LEXA</span><span>LEXA is a subsidiary of AMAAL GROUP.</span></footer>
         </main>
       </div>
     </WorkspaceContext.Provider>

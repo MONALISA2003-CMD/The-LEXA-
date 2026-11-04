@@ -6,9 +6,10 @@ import type { FastifyRequest } from 'fastify';
 import { createHash, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertBranchAccess } from '../authorization/branch-scope';
-import { hasPermission, isWorkspaceAdministrator, type Permission } from '../authorization/role-policy';
+import { hasPermission, isWorkspaceAdministrator, isOwnerRole, type Permission } from '../authorization/role-policy';
 import { CsrfGuard } from '../core/csrf.guard';
-import { AiRouterService } from './ai-router.service';
+import { AiRouterService, classifyWorkload } from './ai-router.service';
+import { quickOperationalAnswer } from './operations-analytics';
 import { ReportInsightsService, daysInPeriod } from './report-insights.service';
 
 const AI_RESERVATION_MICROS = 50_000; // $0.05 reservation; the current free/developer router settles successful calls to zero cost
@@ -56,6 +57,7 @@ export class Workstream8Controller {
     if (!membership || membership.status !== 'ACTIVE') throw new UnauthorizedException({ code: 'WORKSPACE_ACCESS_DENIED', message: 'Workspace access is unavailable.' });
     if (!branch) throw new UnauthorizedException({ code: 'BRANCH_ACCESS_DENIED', message: 'Branch access is unavailable.' });
     await this.prisma.runWithTenantContext({tenantId:workspaceId,userId:session.userId},()=>assertBranchAccess(this.prisma, workspaceId, branchId, session.userId, membership.role));
+    if ((permission === 'intelligence.read' || permission === 'intelligence.run') && !isOwnerRole(membership.role)) throw new ForbiddenException({ code: 'OWNER_ONLY', message: 'Only the business owner can use LEXA Intelligence.' });
     if (!hasPermission(membership.role, permission)) throw new ForbiddenException({ code: 'PERMISSION_DENIED', message: 'Your workspace role does not permit this operation.', permission });
     return { userId: session.userId, role: membership.role, branch };
   }
@@ -387,7 +389,7 @@ export class Workstream8Controller {
 
   @Get('intelligence/status')
   async intelligenceStatus(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Req() request: FastifyRequest) {
-    const actor = await this.access(request, workspaceId, branchId, 'intelligence.read');
+    const actor = await this.access(request, workspaceId, branchId, 'intelligence.run');
     const enabled = process.env.LEXA_AI_ENABLED === 'true';
     const router = this.aiRouter.status();
     const canManageFeatures = isWorkspaceAdministrator(actor.role) && await this.hasFeature(workspaceId, 'saas.feature_management');
@@ -416,8 +418,8 @@ export class Workstream8Controller {
       availability: businessReady ? 'available_on_request' : 'unavailable',
       coreLexaImpact: 'none',
       explanation: businessReady
-        ? 'LEXA uses one business assistant with automatic provider fallback. Only permission-filtered aggregate business facts are sent; AI cannot write to ERP records.'
-        : 'The LEXA AI router is not ready or this workspace is not entitled. Sales, stock, accounting and other core workflows remain available.',
+        ? 'LEXA is ready to help with business records and approved actions.'
+        : 'LEXA Intelligence is unavailable for this business account.',
     };
   }
 
@@ -446,6 +448,13 @@ export class Workstream8Controller {
       : scope === 'people' ? { people: facts.people ?? {} }
       : facts;
     const requestId = randomUUID();
+    if (classifyWorkload(question) === 'complex') return {
+      answer: 'This request requires a detailed paid analysis. No paid service has been used or charged. Contact LEXA to authorize a separate review.',
+      scope, requestId, mode: 'paid_inquiry',
+      usage: { inputTokens: 0, outputTokens: 0, reservedBudgetMicros: 0 },
+    };
+    const quick = await quickOperationalAnswer({ question, scope, facts: allowedFacts, currency: actor.branch.currency });
+    if (quick) return { answer: quick, scope, requestId, mode: 'calculated', usage: { inputTokens: 0, outputTokens: 0, reservedBudgetMicros: 0 } };
     const reservation = await this.reserveAi(workspaceId, branchId, actor.userId, requestId, 'business_explanation', 'confidential_aggregate', FREE_MODEL_ALIAS);
     const started = Date.now();
     try {

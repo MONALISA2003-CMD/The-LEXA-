@@ -3,3 +3,19 @@
 @media(max-width:1000px){.lexa-intel-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.lexa-intel-charts,.lexa-ai-layout{grid-template-columns:1fr}.lexa-ai-aside{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:680px){.lexa-intel-page{gap:14px}.lexa-intel-hero{padding:22px 16px;border-radius:17px}.lexa-intel-hero h1{font-size:27px}.lexa-intel-hero p{font-size:12px}.lexa-intel-hero-glyph{width:30px}.lexa-intel-toolbar{padding:12px}.lexa-intel-presets{width:100%}.lexa-intel-presets button{flex:1;min-width:54px;padding:7px;font-size:11px}.lexa-intel-actions{margin-left:0}.lexa-intel-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.lexa-intel-metrics article{padding:12px}.lexa-intel-metrics strong{font-size:18px}.lexa-intel-content{padding:15px;border-radius:16px}.lexa-intel-ask{width:100%;justify-content:center}.lexa-ai-welcome{padding:26px 14px}.lexa-ai-welcome h2{font-size:21px}.lexa-ai-ideas,.lexa-ai-aside{grid-template-columns:1fr}.lexa-ai-composer{margin:9px}.lexa-intel-source a{width:100%}}@media print{.lexa-intel-toolbar,.lexa-intel-tabs,.lexa-intel-ask,.lexa-ai-composer{display:none!important}.lexa-intel-content,.lexa-intel-metrics article{break-inside:avoid}}@media(prefers-reduced-motion:reduce){.lexa-intel-page *{animation:none!important;transition:none!important}}
 
+/* Business-action workspace: fewer decorative icons, clearer data entry and review. */
+.lexa-owner-actions{display:grid;gap:15px;padding:18px;background:var(--color-surface,#fff);border:1px solid #ded7ec;border-radius:19px;min-width:0}
+.lexa-owner-actions-head h2{font-size:17px;line-height:1.3;margin:0 0 6px;color:var(--color-text-primary,#17243b)}
+.lexa-owner-actions-head p{font-size:12px;line-height:1.6;color:var(--color-text-secondary,#66738a);margin:0}
+.lexa-owner-action-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.lexa-owner-action-tabs button{border:1px solid #d9d4e7;border-radius:9px;padding:10px 8px;color:#524775;background:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.lexa-owner-action-tabs button.selected{background:#f2edfc;color:#5634aa;border-color:#cbb9f2}
+.lexa-owner-form{display:grid;gap:11px}.lexa-owner-form label{display:grid;gap:5px;font-size:12px;font-weight:680;color:var(--color-text-primary,#243452)}
+.lexa-owner-form input,.lexa-owner-form select,.lexa-owner-form textarea{width:100%;min-width:0;padding:11px;background:#fff;border:1px solid #c9d2e0;border-radius:10px;color:#17243b;font-size:13px}
+.lexa-owner-form p[role=alert]{font-size:12px;color:#9a3434}
+.lexa-owner-review{display:grid;gap:10px;border:1px solid #dfd5f3;border-radius:12px;padding:14px;background:#fbfaff;font-size:12px;color:#2d3150}
+.lexa-owner-review dl{display:grid;gap:8px;margin:0}.lexa-owner-review dl div{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px}.lexa-owner-review dt{color:#62708b}.lexa-owner-review dd{margin:0;overflow-wrap:anywhere}
+.lexa-owner-review-buttons,.lexa-owner-shortcuts{display:flex;gap:9px;flex-wrap:wrap}.lexa-owner-review-buttons>button:not(.lexa-intel-ask){border:1px solid #cfd5e3;border-radius:9px;padding:10px 13px;background:white;color:#27334f;cursor:pointer}
+.lexa-owner-shortcuts a{color:#6042b8;font-size:12px;font-weight:700}.lexa-ai-aside>section h3{margin:0;font-size:17px}
+.lexa-ai-message{display:block}.lexa-ai-status{justify-content:space-between}.lexa-ai-status>strong{color:#2a3652;font-weight:750}.lexa-ai-status>button{margin-left:auto}
+@media(max-width:600px){.lexa-owner-actions{padding:14px}.lexa-ai-layout{display:grid;grid-template-columns:1fr}}

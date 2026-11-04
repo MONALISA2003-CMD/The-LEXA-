@@ -77,7 +77,7 @@ export default function SignupPage() {
           </>}
           <div className="auth-security-footnote"><ShieldCheck size={17}/><span>We verify your email first. Your password is never sent in email, and your business data stays private.</span></div>
         </div>
-        <div className="auth-main-footer"><span>© {new Date().getFullYear()} LEXA</span><span>Secure by design. Elegant by default.</span></div>
+        <div className="auth-main-footer"><span>© {new Date().getFullYear()} LEXA</span><span>LEXA is a subsidiary of AMAAL GROUP.</span></div>
       </section>
     </main>
   );
