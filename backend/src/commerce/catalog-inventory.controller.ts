@@ -1,5 +1,6 @@
 import {resolveCategoryFields} from '../catalog/category-hierarchy';
-import {cleanProductAttributes} from '../catalog/product-attribute-validation';
+import {cleanProductAttributes,validateVariantDimensions,activePreset} from '../catalog/product-attribute-validation';
+import {validatePhysicalIdentifiers,SerialIdentityError} from '../catalog/serial-identity';
 import { BadRequestException, ConflictException, Controller, Get, Headers, NotFoundException, Param, Post, Body, Req, UseGuards, UnauthorizedException } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { createHash, randomUUID } from 'node:crypto';
@@ -14,6 +15,17 @@ function txt(v:unknown,label:string,max=160):string { if(typeof v!=='string'||!v
 function num(v:unknown,label:string,min=0,max=2_000_000_000):number { const n=typeof v==='number'?v:Number(v); if(!Number.isSafeInteger(n)||n<min||n>max) throw new BadRequestException(`${label} must be a valid integer.`); return n; }
 function qty(v:unknown):number { const n=typeof v==='number'?v:Number(v); if(!Number.isFinite(n)||n<=0||n>1_000_000||Math.round(n*1000)!==n*1000) throw new BadRequestException('Quantity must be positive with at most three decimal places.'); return n; }
 function cookie(request:FastifyRequest) { for(const part of (request.headers.cookie??'').split(';')) { const at=part.indexOf('='); if(at>=0&&part.slice(0,at).trim()==='lexa_session') { try{return decodeURIComponent(part.slice(at+1).trim())}catch{return undefined} } } return undefined; }
+function validatedUnitIds(primary:unknown,secondary:unknown,productType:string|null|undefined){
+ const policy=activePreset(productType);
+ try{return validatePhysicalIdentifiers(primary,secondary,Boolean(policy&&(policy.identifiers as readonly string[]).includes('imei')))}
+ catch(error){if(error instanceof SerialIdentityError)throw new BadRequestException(error.message);throw error;}
+}
+function rethrowSerialIdentityConflict(error:unknown):never {
+ const code=error&&typeof error==='object'&&'code' in error?(error as {code?:unknown}).code:undefined;
+ if(code==='P2002'||String(error).includes('LEXA_SERIAL_IDENTITY_CONFLICT'))
+   throw new ConflictException('This serial number or IMEI is already registered to a unit in your business.');
+ throw error;
+}
 function uuid(v:unknown,label:string):string { const s=txt(v,label,40); if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)) throw new BadRequestException(`${label} is invalid.`); return s; }
 
 @Controller('workspaces/:workspaceId')
@@ -141,6 +153,7 @@ export class CatalogInventoryController {
   const actor=await this.actor(req,w),b=obj(raw),product=await this.prisma.product.findFirst({where:{tenantId:w,id}}); if(!product) throw new NotFoundException('Product not found.');
   const fields=await resolveCategoryFields(this.prisma,w,product.categoryId);
   const attributes=cleanProductAttributes(b.attributes,product.productType??fields.templateKey,fields.customKeys);
+  validateVariantDimensions(product.productType??fields.templateKey,attributes);
   const barcode=b.barcode?txt(b.barcode,'Barcode',100):null;
   if(barcode&&await this.prisma.productVariant.findFirst({where:{tenantId:w,barcode,active:true}}))throw new ConflictException('Variant barcode already exists in this business.');
   return this.prisma.$transaction(async tx=>{const row=await tx.productVariant.create({data:{tenantId:w,productId:id,sku:txt(b.sku,'SKU',80),barcode,attributes,costPriceMinor:num(b.costPriceMinor??product.costPriceMinor,'Cost price'),sellingPriceMinor:num(b.sellingPriceMinor??product.sellingPriceMinor,'Selling price')}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.product_variant.created',resourceType:'product_variant',resourceId:row.id}}); return row;});
@@ -151,8 +164,30 @@ export class CatalogInventoryController {
  @Post('branches/:branchId/inventory/warehouses') @UseGuards(CsrfGuard) async createWarehouse(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Body() raw:unknown,@Req() req:FastifyRequest) { const actor=await this.actor(req,w,branch),b=obj(raw); return this.prisma.$transaction(async tx=>{const row=await tx.warehouse.create({data:{tenantId:w,branchId:branch,code:txt(b.code,'Code',30).toUpperCase(),name:txt(b.name,'Name',100)}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.warehouse.created',resourceType:'warehouse',resourceId:row.id,metadata:{branchId:branch}}}); return row;}); }
  @Get('branches/:branchId/inventory/warehouses/:warehouseId/bins') async bins(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Param('warehouseId') warehouse:string,@Req() req:FastifyRequest) { await this.actor(req,w,branch); const row=await this.prisma.warehouse.findFirst({where:{id:warehouse,tenantId:w,branchId:branch}}); if(!row) throw new NotFoundException('Warehouse not found.'); return this.prisma.storageBin.findMany({where:{tenantId:w,warehouseId:warehouse},orderBy:{code:'asc'}}); }
  @Post('branches/:branchId/inventory/warehouses/:warehouseId/bins') @UseGuards(CsrfGuard) async createBin(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Param('warehouseId') warehouse:string,@Body() raw:unknown,@Req() req:FastifyRequest) { const actor=await this.actor(req,w,branch),b=obj(raw),wh=await this.prisma.warehouse.findFirst({where:{id:warehouse,tenantId:w,branchId:branch}}); if(!wh) throw new NotFoundException('Warehouse not found.'); const type=String(b.binType??'storage'); if(!['storage','receiving','quarantine','scrap','dispatch'].includes(type)) throw new BadRequestException('Invalid bin type.'); return this.prisma.$transaction(async tx=>{const row=await tx.storageBin.create({data:{tenantId:w,warehouseId:warehouse,code:txt(b.code,'Code',30).toUpperCase(),name:txt(b.name,'Name',100),binType:type}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.storage_bin.created',resourceType:'storage_bin',resourceId:row.id}}); return row;}); }
- @Post('branches/:branchId/inventory/lots') @UseGuards(CsrfGuard) async createLot(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Body() raw:unknown,@Req() req:FastifyRequest) { const actor=await this.actor(req,w,branch),b=obj(raw),productId=uuid(b.productId,'Product'),warehouseId=uuid(b.warehouseId,'Warehouse'); const wh=await this.prisma.warehouse.findFirst({where:{id:warehouseId,tenantId:w,branchId:branch}}); if(!wh) throw new NotFoundException('Warehouse not found.'); const product=await this.prisma.product.findFirst({where:{id:productId,tenantId:w,active:true}}); if(!product||!product.trackStock||!product.trackLot) throw new BadRequestException('Select an active stock-tracked product configured for lot tracking.'); const variantId=b.variantId?uuid(b.variantId,'Variant'):null; if(variantId&&!await this.prisma.productVariant.findFirst({where:{id:variantId,tenantId:w,productId,active:true}})) throw new NotFoundException('Product variant not found.'); const binId=b.binId?uuid(b.binId,'Bin'):null; if(binId&&!await this.prisma.storageBin.findFirst({where:{id:binId,tenantId:w,warehouseId,active:true}})) throw new NotFoundException('Storage bin not found in this warehouse.'); const quantity=qty(b.quantityOnHand),unitCost=num(b.unitCostMinor??0,'Unit cost'); const row=await this.prisma.$transaction(async tx=>{const lot=await tx.inventoryLot.create({data:{tenantId:w,branchId:branch,warehouseId,binId,productId,variantId,lotNumber:txt(b.lotNumber,'Lot number',80),expiryDate:b.expiryDate?new Date(`${txt(b.expiryDate,'Expiry date',10)}T00:00:00Z`):null,quantityOnHand:quantity,unitCostMinor:unitCost}}); await tx.stockMovement.create({data:{tenantId:w,branchId:branch,productId,variantId,warehouseId,binId,lotId:lot.id,type:'receiving',quantityDelta:String(quantity),unitCostMinor:unitCost,reason:`Opening receipt for lot ${lot.lotNumber}`,sourceId:lot.id}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.lot.created',resourceType:'inventory_lot',resourceId:lot.id,metadata:{branchId:branch,productId,quantity}}}); return lot;}); return row; }
- @Post('branches/:branchId/inventory/lots/:lotId/serials') @UseGuards(CsrfGuard) async createSerial(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Param('lotId') lotId:string,@Body() raw:unknown,@Req() req:FastifyRequest) { const actor=await this.actor(req,w,branch),b=obj(raw),lot=await this.prisma.inventoryLot.findFirst({where:{tenantId:w,branchId:branch,id:lotId}}); if(!lot) throw new NotFoundException('Inventory lot not found.'); if(Number(lot.quantityOnHand)<1) throw new ConflictException('The lot has no available unit to serialize.'); const product=await this.prisma.product.findFirst({where:{tenantId:w,id:lot.productId,trackSerial:true}});if(!product)throw new BadRequestException('Product is not enabled for serial tracking.'); return this.prisma.$transaction(async tx=>{const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM inventory_lots WHERE tenant_id=${w}::uuid AND branch_id=${branch}::uuid AND id=${lotId}::uuid FOR UPDATE`; if(!locked.length) throw new NotFoundException('Inventory lot not found.'); const count=await tx.inventorySerial.count({where:{tenantId:w,branchId:branch,lotId,status:{in:['available','quarantined']}}});if(count>=Number(lot.quantityOnHand))throw new ConflictException('All units in this lot already have serial numbers.'); const row=await tx.inventorySerial.create({data:{tenantId:w,branchId:branch,productId:lot.productId,variantId:lot.variantId,lotId,serialNumber:txt(b.serialNumber,'Serial number',120)}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.serial.created',resourceType:'inventory_serial',resourceId:row.id}}); return row;}); }
+ @Post('branches/:branchId/inventory/lots') @UseGuards(CsrfGuard) async createLot(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Body() raw:unknown,@Req() req:FastifyRequest) { const actor=await this.actor(req,w,branch),b=obj(raw),productId=uuid(b.productId,'Product'),warehouseId=uuid(b.warehouseId,'Warehouse'); const wh=await this.prisma.warehouse.findFirst({where:{id:warehouseId,tenantId:w,branchId:branch}}); if(!wh) throw new NotFoundException('Warehouse not found.'); const product=await this.prisma.product.findFirst({where:{id:productId,tenantId:w,active:true}}); if(!product||!product.trackStock||!product.trackLot) throw new BadRequestException('Select an active stock-tracked product configured for lot tracking.'); const variantId=b.variantId?uuid(b.variantId,'Variant'):null; if(variantId&&!await this.prisma.productVariant.findFirst({where:{id:variantId,tenantId:w,productId,active:true}})) throw new NotFoundException('Product variant not found.'); const binId=b.binId?uuid(b.binId,'Bin'):null; if(binId&&!await this.prisma.storageBin.findFirst({where:{id:binId,tenantId:w,warehouseId,active:true}})) throw new NotFoundException('Storage bin not found in this warehouse.'); const quantity=qty(b.quantityOnHand),unitCost=num(b.unitCostMinor??0,'Unit cost'); if(product.trackSerial&&!Number.isInteger(quantity))throw new BadRequestException('Serialized stock must be received in whole units.'); const row=await this.prisma.$transaction(async tx=>{const lot=await tx.inventoryLot.create({data:{tenantId:w,branchId:branch,warehouseId,binId,productId,variantId,lotNumber:txt(b.lotNumber,'Lot number',80),expiryDate:b.expiryDate?new Date(`${txt(b.expiryDate,'Expiry date',10)}T00:00:00Z`):null,quantityOnHand:quantity,unitCostMinor:unitCost}}); await tx.stockMovement.create({data:{tenantId:w,branchId:branch,productId,variantId,warehouseId,binId,lotId:lot.id,type:'receiving',quantityDelta:String(quantity),unitCostMinor:unitCost,reason:`Opening receipt for lot ${lot.lotNumber}`,sourceId:lot.id}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.lot.created',resourceType:'inventory_lot',resourceId:lot.id,metadata:{branchId:branch,productId,quantity}}}); return lot;}); return row; }
+ @Post('branches/:branchId/inventory/lots/:lotId/serials') @UseGuards(CsrfGuard) async createSerial(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Param('lotId') lotId:string,@Body() raw:unknown,@Req() req:FastifyRequest) { const actor=await this.actor(req,w,branch),b=obj(raw),lot=await this.prisma.inventoryLot.findFirst({where:{tenantId:w,branchId:branch,id:lotId}}); if(!lot) throw new NotFoundException('Inventory lot not found.'); if(Number(lot.quantityOnHand)<1) throw new ConflictException('The lot has no available unit to serialize.'); const product=await this.prisma.product.findFirst({where:{tenantId:w,id:lot.productId,trackSerial:true}});if(!product)throw new BadRequestException('Product is not enabled for serial tracking.'); const identifiers=validatedUnitIds(b.serialNumber,b.imei2,product.productType); return this.prisma.$transaction(async tx=>{const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM inventory_lots WHERE tenant_id=${w}::uuid AND branch_id=${branch}::uuid AND id=${lotId}::uuid FOR UPDATE`; if(!locked.length) throw new NotFoundException('Inventory lot not found.'); const count=await tx.inventorySerial.count({where:{tenantId:w,branchId:branch,lotId,status:{in:['available','quarantine','reserved','in_transit']}}});if(count>=Number(lot.quantityOnHand))throw new ConflictException('All units in this lot already have serial numbers.'); const row=await tx.inventorySerial.create({data:{tenantId:w,branchId:branch,productId:lot.productId,variantId:lot.variantId,lotId,serialNumber:identifiers.serialNumber,identifiers:identifiers.imei2?{imei2:identifiers.imei2}:{}}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.serial.created',resourceType:'inventory_serial',resourceId:row.id}}); return row;}).catch(rethrowSerialIdentityConflict); }
+ @Get('branches/:branchId/inventory/serials/lookup')
+ async lookupSerial(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Req() req:FastifyRequest){
+  await this.actor(req,w,branch);
+  const url=new URL(req.url,'https://lexa.local');
+  const identifier=txt(url.searchParams.get('identifier'),'IMEI or serial number',120).toUpperCase();
+  // The query mirrors database-trigger normalization and finds either IMEI
+  // position, including legacy records. Both branch and tenant are mandatory.
+  const matches=await this.prisma.$queryRaw<Array<{
+   id:string;productId:string;variantId:string|null;lotId:string|null;
+   serialNumber:string;identifiers:unknown;status:string;
+  }>>`SELECT id,product_id AS "productId",variant_id AS "variantId",lot_id AS "lotId",
+            serial_number AS "serialNumber",identifiers,status
+      FROM inventory_serials
+      WHERE tenant_id=${w}::uuid AND branch_id=${branch}::uuid
+        AND (upper(btrim(serial_number))=${identifier}
+          OR upper(btrim(COALESCE(identifiers->>'imei2','')))=${identifier})
+      LIMIT 2`;
+  if(!matches.length)throw new NotFoundException('Device identifier was not found in this branch.');
+  if(matches.length>1)throw new ConflictException('Historical duplicate identifiers require inventory reconciliation before use.');
+  return matches[0];
+ }
+
  @Get('branches/:branchId/inventory/serials')
  async availableSerials(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Req() req:FastifyRequest){
   await this.actor(req,w,branch);
@@ -170,24 +205,21 @@ export class CatalogInventoryController {
  async createStandaloneSerial(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Body() raw:unknown,@Req() req:FastifyRequest){
   const actor=await this.actor(req,w,branch),b=obj(raw);
   const productId=uuid(b.productId,'Product'),variantId=b.variantId?uuid(b.variantId,'Variant'):null;
-  const serialNumber=txt(b.serialNumber,'Serial / IMEI',120);
-  const imei2=b.imei2?txt(b.imei2,'Second IMEI',20):null;
-  if(imei2&&!/^\d{15}$/.test(imei2))throw new BadRequestException('Second IMEI must contain 15 digits.');
-  if(imei2===serialNumber)throw new BadRequestException('The two device identifiers must differ.');
   return this.prisma.$transaction(async tx=>{
     const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM products WHERE tenant_id=${w}::uuid AND id=${productId}::uuid FOR UPDATE`;
     if(!locked.length)throw new NotFoundException('Product not found.');
     const product=await tx.product.findFirst({where:{id:productId,tenantId:w,active:true}});
     if(!product?.trackStock||!product.trackSerial||product.trackLot)throw new BadRequestException('Choose an individually serialized product without batch tracking.');
+    const identifiers=validatedUnitIds(b.serialNumber,b.imei2,product.productType);
     if(variantId&&!await tx.productVariant.findFirst({where:{id:variantId,tenantId:w,productId,active:true}}))throw new BadRequestException('Variant does not belong to this product.');
     const balances=await tx.stockMovement.aggregate({where:{tenantId:w,branchId:branch,productId,variantId},_sum:{quantityDelta:true}});
     const available=Number(balances._sum.quantityDelta??0);
-    const assigned=await tx.inventorySerial.count({where:{tenantId:w,branchId:branch,productId,variantId,status:{in:['available','quarantined']}}});
+    const assigned=await tx.inventorySerial.count({where:{tenantId:w,branchId:branch,productId,variantId,status:{in:['available','quarantine','reserved','in_transit']}}});
     if(!Number.isInteger(available)||assigned>=available)throw new ConflictException('Record stock received for this exact product variant before registering its next serial number.');
-    const row=await tx.inventorySerial.create({data:{tenantId:w,branchId:branch,productId,variantId,lotId:null,serialNumber,identifiers:imei2?{imei2}:{}}});
+    const row=await tx.inventorySerial.create({data:{tenantId:w,branchId:branch,productId,variantId,lotId:null,serialNumber:identifiers.serialNumber,identifiers:identifiers.imei2?{imei2:identifiers.imei2}:{}}});
     await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.serial.registered',resourceType:'inventory_serial',resourceId:row.id,metadata:{productId,branchId:branch,variantId}}});
-    return {id:row.id,serialNumber:row.serialNumber,variantId:row.variantId};
-  },{isolationLevel:'Serializable'});
+    return {id:row.id,serialNumber:row.serialNumber,imei2:identifiers.imei2,variantId:row.variantId};
+  },{isolationLevel:'Serializable'}).catch(rethrowSerialIdentityConflict);
  }
 
  @Get('branches/:branchId/inventory/reservations') async reservations(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Req() req:FastifyRequest) { await this.actor(req,w,branch); return this.prisma.stockReservation.findMany({where:{tenantId:w,branchId:branch},orderBy:{createdAt:'desc'},take:500}); }

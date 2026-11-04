@@ -141,3 +141,24 @@ Compensation and statutory payroll continue to use the existing HR/Payroll
 workflows; approval limits require separate domain-specific enforcement.
 All migration changes are forward-only; do not run SQL manually in production
 before the matching backend release.
+
+## November 2026 inventory identity hotfix (Phase B1)
+
+This source package corrects a strict frontend TypeScript build error in
+`AdaptiveProductFields.tsx` (`TS2339` on optional category fields) without
+weakening compiler rules. It also adds physical-unit identity enforcement:
+
+- IMEI check-digit validation in the two backend serial-registration endpoints.
+- PostgreSQL trigger preventing new cross-slot duplicate primary serial/IMEI
+  and secondary IMEI values across all branches of the same business.
+- Corrected lot-capacity trigger so serial-tracked devices can be registered
+  without a lot when product policy permits it.
+- An authenticated, branch-scoped serial/IMEI lookup for all API clients.
+- POS scanning of the exact physical unit, with second IMEI display; stock
+  availability and final sale commitment remain server-validated.
+- Whole-unit validation when receiving serialized stock into a lot.
+
+Runbook: `docs/operations/runbooks/serial-identity-enforcement.md`.
+This is **source prepared for CI**, not confirmation of an applied production
+migration or a verified complete frontend build. The existing 13-industry
+manifest remains canonical and no customer data is removed.

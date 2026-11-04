@@ -1,6 +1,7 @@
 import { db } from './database';
 import { createId, nowIso } from '../../domain/shared/ids';
 import { parseMajorAmount } from '../../domain/money/money';
+import { presetFor, PRODUCT_PRESETS, validateProductDraft } from '../../domain/catalog/industryCatalog';
 import type { Product, Sale, SaleReturn, StockMovement, PaymentRecord } from '../../domain/shared/types';
 
 export interface BusinessToolsSnapshot {
@@ -152,6 +153,17 @@ export async function importProductsCsv(workspaceId: string, currency: string, t
     const rowNumber = index + 2;
     const name = requiredCell(row, map, 'name', rowNumber);
     const sku = requiredCell(row, map, 'sku', rowNumber);
+    const productType=requiredCell(row,map,'productType',rowNumber);
+    if(!PRODUCT_PRESETS.some(p=>p.key===productType))throw new Error(`CSV row ${rowNumber}: unsupported productType.`);
+    const preset=presetFor(productType);
+    const jsonText=optionalCell(row,map,'attributesjson').trim();
+    let parsedAttrs:unknown={};
+    if(jsonText){try{parsedAttrs=JSON.parse(jsonText);}catch{throw new Error(`CSV row ${rowNumber}: attributesJson must be valid JSON.`);}}
+    if(!parsedAttrs||typeof parsedAttrs!=='object'||Array.isArray(parsedAttrs))throw new Error(`CSV row ${rowNumber}: attributesJson must be a JSON object.`);
+    const attributes=Object.fromEntries(Object.entries(parsedAttrs).map(([k,v])=>[k,String(v??'')]));
+    const bool=(key:string,defaultValue:boolean)=>{const raw=optionalCell(row,map,key).trim().toLowerCase();if(!raw)return defaultValue;if(!['true','yes','1','y','false','no','0','n'].includes(raw))throw new Error(`CSV row ${rowNumber}: ${key} must be true/false.`);return ['true','yes','1','y'].includes(raw);};
+    const trackLot=bool('tracklot',preset.stock==='batch');
+    const trackSerial=bool('trackserial',preset.stock==='serial');
     const barcode = optionalCell(row, map, 'barcode');
     const brand = optionalCell(row, map, 'brand');
     const unitOfMeasure = optionalCell(row, map, 'unitofmeasure');
@@ -163,9 +175,9 @@ export async function importProductsCsv(workspaceId: string, currency: string, t
     const sellingPriceMinor = map.has('sellingpriceminor') ? Number(sellText) : parseMajorAmount(sellText, currency);
     const thresholdText = optionalCell(row, map, 'lowstockthreshold', '0') || '0';
     const lowStockThreshold = Number(thresholdText);
-    const trackText = optionalCell(row, map, 'trackstock', 'true').trim().toLowerCase();
-    if (map.has('trackstock') && !['true', 'yes', '1', 'y', 'false', 'no', '0', 'n'].includes(trackText)) throw new Error(`CSV row ${rowNumber}: trackStock must be true/false or yes/no.`);
-    const trackStock = ['true', 'yes', '1', 'y'].includes(trackText);
+    const trackStock=bool('trackstock',preset.stock!=='none');
+    const errors=validateProductDraft(productType,attributes,{trackStock,trackLot,trackSerial},[]);
+    if(errors.length)throw new Error(`CSV row ${rowNumber}: ${errors.join(' ')}`);
     if (!Number.isSafeInteger(costPriceMinor) || costPriceMinor < 0 || !Number.isSafeInteger(sellingPriceMinor) || sellingPriceMinor < 0) throw new Error(`CSV row ${rowNumber}: prices must be valid non-negative amounts in ${currency}.`);
     if (!Number.isSafeInteger(lowStockThreshold) || lowStockThreshold < 0) throw new Error(`CSV row ${rowNumber}: lowStockThreshold must be a non-negative whole number.`);
     if (skuSet.has(sku.toLowerCase())) throw new Error(`CSV row ${rowNumber}: SKU "${sku}" already exists or is duplicated in this import.`);
@@ -174,7 +186,7 @@ export async function importProductsCsv(workspaceId: string, currency: string, t
       if (barcodeSet.has(barcode.trim().toLowerCase())) throw new Error(`CSV row ${rowNumber}: barcode "${barcode}" already exists or is duplicated in this import.`);
       barcodeSet.add(barcode.trim().toLowerCase());
     }
-    return { name, sku, barcode: barcode?.trim() ?? '', brand: brand?.trim() ?? '', unitOfMeasure: unitOfMeasure?.trim() ?? '', categoryName: categoryName?.trim() ?? '', costPriceMinor, sellingPriceMinor, lowStockThreshold, trackStock };
+    return { name, sku, barcode: barcode?.trim() ?? '', brand: brand?.trim() ?? '', unitOfMeasure: unitOfMeasure?.trim() ?? '', categoryName: categoryName?.trim() ?? '', costPriceMinor, sellingPriceMinor, lowStockThreshold, trackStock,trackLot,trackSerial,productType,attributes };
   });
 
   const timestamp = nowIso();
@@ -199,7 +211,7 @@ export async function importProductsCsv(workspaceId: string, currency: string, t
         ...(input.barcode ? { barcode: input.barcode } : {}), ...(input.brand ? { brand: input.brand } : {}),
         ...(input.unitOfMeasure ? { unitOfMeasure: input.unitOfMeasure } : {}), ...(categoryId ? { categoryId } : {}),
         costPriceMinor: input.costPriceMinor, sellingPriceMinor: input.sellingPriceMinor,
-        lowStockThreshold: input.lowStockThreshold, trackStock: input.trackStock, active: true,
+        lowStockThreshold: input.lowStockThreshold, trackStock: input.trackStock,trackLot:input.trackLot,trackSerial:input.trackSerial,productType:input.productType,attributes:input.attributes, active: true,
         createdAt: timestamp, updatedAt: timestamp,
       });
     }

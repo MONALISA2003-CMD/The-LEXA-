@@ -13,14 +13,25 @@ export const availablePaymentCodes = [
   { code: 'other', label: 'Other (record only)' },
 ] as const;
 
-export const availableIndustryCodes = ['retail_trade','wholesale_distribution','electronics','mobile_phones','fashion_beauty','perfumes_cosmetics','food_hospitality','bakery','agriculture','construction','household_goods','professional_services','repair_services','healthcare','manufacturing','logistics_transport','education','other'] as const;
+export const availableIndustryCodes = ["retail_trade", "wholesale_distribution", "electronics", "mobile_phones", "fashion_beauty", "perfumes_cosmetics", "food_hospitality", "bakery", "construction", "household_goods", "repair_services", "education", "other"] as const;
+export const retiredIndustryCodes = ["agriculture", "healthcare", "manufacturing", "logistics_transport", "professional_services"] as const;
 const industries = new Set<string>(availableIndustryCodes);
 const LEGACY_INDUSTRY_CODES: Readonly<Record<string,string>> = Object.freeze({
   retail:'retail_trade',wholesale:'wholesale_distribution',restaurant:'food_hospitality',
-  food:'food_hospitality',services:'professional_services',fashion:'fashion_beauty',
+  food:'food_hospitality',services:'other',fashion:'fashion_beauty',
   beauty:'perfumes_cosmetics',phones:'mobile_phones',general:'other',
 });
-/** Preserve original business metadata, but expose supported selection values to existing accounts. */
+/** Retired codes remain historic data only; never selectable by new API clients. */
+const retired = new Set<string>(retiredIndustryCodes);
+export function normaliseSavedIndustries(saved: unknown, legacy: unknown = undefined): string[] {
+  const raw = Array.isArray(saved) ? saved : [];
+  const active = [...new Set(raw.filter((code): code is string => typeof code === 'string' && industries.has(code)))];
+  if (active.length) return active;
+  if (raw.some(code => typeof code === 'string' && retired.has(code))) return ['other'];
+  const fromLegacy = normaliseLegacyIndustry(legacy);
+  return fromLegacy ? [fromLegacy] : [];
+}
+/** Preserve historical product and finance data while excluding retired industries. */
 export function normaliseLegacyIndustry(value: unknown): string | null {
   if(typeof value !== 'string' || !value.trim()) return null;
   const normalized=value.trim().toLowerCase();
@@ -42,7 +53,7 @@ export function selectIndustries(value: unknown, legacyIndustry: unknown = undef
  if (!unique.length) throw new SetupValidationError('Choose at least one business activity.');
  return unique;
 }
-const businessModels = new Set(['retail','wholesale','distribution','services','manufacturing','rental','subscription','mixed','other']);
+const businessModels = new Set(['retail','wholesale','distribution','services','rental','subscription','mixed','other']);
 const offeringTypes = new Set(['physical_goods','services','digital_goods','subscriptions','rentals']);
 const sellingChannels = new Set(['shop','field_sales','online','social','b2b','delivery','other']);
 const allowedMethods = new Set(availablePaymentCodes.map(m => m.code));

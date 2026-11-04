@@ -7,8 +7,8 @@ import { businessSetupApi, type BusinessSetupRecord, type SetupSave } from '../.
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import { dataProviderMode } from '../../data/remote/runtimeConfig';
 
-import { INDUSTRY_OPTIONS } from '../../domain/catalog/industryCatalog';
-const MODELS = [['retail','Retail'],['wholesale','Wholesale'],['distribution','Distribution'],['services','Services'],['manufacturing','Manufacturing'],['rental','Rental'],['subscription','Subscriptions'],['mixed','Mixed business'],['other','Other']] as const;
+import { INDUSTRY_OPTIONS, RETIRED_INDUSTRIES } from '../../domain/catalog/industryCatalog';
+const MODELS = [['retail','Retail'],['wholesale','Wholesale'],['distribution','Distribution'],['services','Services'],['rental','Rental'],['subscription','Subscriptions'],['mixed','Mixed business'],['other','Other']] as const;
 const OFFERINGS = [['physical_goods','Physical products'],['services','Services'],['digital_goods','Digital goods'],['subscriptions','Subscriptions'],['rentals','Rentals']] as const;
 const CHANNELS = [['shop','Physical shop'],['field_sales','Field sales'],['online','Website / online'],['social','WhatsApp / social'],['b2b','Business to business'],['delivery','Delivery'],['other','Other']] as const;
 const CURRENCIES = [['UGX','UGX — Ugandan shilling'],['KES','KES — Kenyan shilling'],['TZS','TZS — Tanzanian shilling'],['RWF','RWF — Rwandan franc'],['USD','USD — US dollar'],['EUR','EUR — Euro'],['GBP','GBP — Pound sterling']] as const;
@@ -119,7 +119,8 @@ export default function BusinessSetupPage() {
       {step === 2 && <><div className="bs-step-title"><Store/><div><h2>What does your business do?</h2><p>LEXA recommends relevant tools, but every business module remains available.</p></div></div>
       <form className="bs-form" onSubmit={advance}>
         <p className="bs-activity-hint">Choose every activity your business carries out. There is no limit on combining business types, and you can update this list later without losing any product or sale.</p>
-        <Picker label="What industries or activities do you operate? * (choose any)" choices={INDUSTRY_OPTIONS} values={data.industries} onChange={values=>{change('industries',values);change('industry',values.includes(data.industry)?data.industry:(values[0]??''));}}/>
+        {data.industries.some(code=>RETIRED_INDUSTRIES.includes(code))&&<p role="alert">Some former industry selections were retired. Please confirm your remaining business activities; existing records are preserved.</p>}
+        <Picker label="What industries or activities do you operate? * (choose any)" choices={INDUSTRY_OPTIONS} values={data.industries.filter(code=>!RETIRED_INDUSTRIES.includes(code))} onChange={values=>{change('industries',values);change('industry',values.includes(data.industry)?data.industry:(values[0]??''));}}/>
         <p className="bs-activity-hint">Your choices recommend product forms. They never block selling other products or grant extra permissions.</p>
         <Picker label="How do you operate? * (choose all that apply)" choices={MODELS} values={data.businessModels} onChange={v=>change('businessModels',v)}/>
         <Picker label="What do you sell or provide? *" choices={OFFERINGS} values={data.offeringTypes} onChange={v=>change('offeringTypes',v)}/>

@@ -383,7 +383,7 @@ model Category {
   products  Product[]
 
   @@unique([tenantId, id])
-  @@unique([tenantId, name])
+  @@index([tenantId, parentId, name])
   @@index([tenantId])
   @@map("categories")
 }

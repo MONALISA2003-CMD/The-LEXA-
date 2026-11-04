@@ -3,12 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { parseMajorAmount, formatMinorAmount } from '../../domain/money/money';
 import { apiCatalogInventory } from '../../data/remote/apiWorkstream03';
-import { PRODUCT_PRESETS, presetFor, suggestedPresets } from '../../domain/catalog/industryCatalog';
+import { PRODUCT_PRESETS, presetFor, suggestedPresets, permittedPresets, suggestedCategoryPaths, type ProductField } from '../../domain/catalog/industryCatalog';
 import type { Category, Product } from '../../domain/shared/types';
 import './adaptive-products.css';
 
 type FieldsProps = {
   industries: readonly string[];
+  workspaceId: string;
   categories: readonly Category[];
   productType: string;
   categoryId: string;
@@ -21,22 +22,27 @@ function categoryPath(category:Category, byId:Map<string,Category>):string {
  while(parent && !seen.has(parent) && names.length<12){seen.add(parent);const row=byId.get(parent);if(!row)break;names.unshift(row.name);parent=row.parentId;}
  return names.join(' › ');
 }
-export default function AdaptiveProductFields({industries,categories,productType,categoryId,categoryName,attributes,onChange}:FieldsProps){
+export default function AdaptiveProductFields({industries,workspaceId,categories,productType,categoryId,categoryName,attributes,onChange}:FieldsProps){
+ const queryClient=useQueryClient();
+ const ensurePath=useMutation({mutationFn:(path:readonly string[])=>apiCatalogInventory.ensureCategoryPath(workspaceId,path),onSuccess:async record=>{onChange({categoryId:record.categoryId,categoryName:''});await queryClient.invalidateQueries({queryKey:['categories',workspaceId]});toast.success('Industry category hierarchy created');},onError:error=>toast.error('Could not create category hierarchy',{description:error instanceof Error?error.message:'Check your business industry selection.'})});
  const preset=presetFor(productType);
- const relevant=suggestedPresets(industries);
+ const relevant=suggestedPresets(industries,productType);
+ const paths=suggestedCategoryPaths(industries);
  const byId=useMemo(()=>new Map(categories.map(c=>[c.id,c])),[categories]);
  const category=categories.find(c=>c.id===categoryId);
  const ancestorCategories:Category[]=[];const seen=new Set<string>();let current=category;
  while(current&&!seen.has(current.id)&&ancestorCategories.length<20){ancestorCategories.unshift(current);seen.add(current.id);current=current.parentId?byId.get(current.parentId):undefined;}
- const customFields=ancestorCategories.flatMap(c=>c.attributeSchema??[]);
- const fields=[...preset.fields,...customFields.filter(f=>!preset.fields.some(p=>p.key===f.key))];
+ // Category-defined fields are optional today. Normalize them to ProductField
+ // before merging so strict TS never assumes their persisted schema has `required`.
+ const customFields:ProductField[]=ancestorCategories.flatMap(c=>c.attributeSchema??[]).map(f=>({...f,required:false}));
+ const fields:ProductField[]=[...preset.fields,...customFields.filter(f=>!preset.fields.some(p=>p.key===f.key))];
  return <div className="lexa-adaptive-product-fields">
    <div className="lexa-product-field-heading"><strong>Product type & relevant details</strong><span>LEXA shows fields appropriate for this item—not every industry.</span></div>
    <div className="form-two-col">
      <label className="field-label">What are you adding?
        <select value={productType} onChange={e=>{const next=presetFor(e.target.value);onChange({productType:next.key,categoryId:'',categoryName:'',attributes:{},unit:next.unit,tracking:next.stock});}}>
-         <optgroup label="Recommended for your business">{relevant.filter(p=>p.industries.some(x=>industries.includes(x))).map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</optgroup>
-         <optgroup label="All product types">{PRODUCT_PRESETS.filter(p=>!p.industries.some(x=>industries.includes(x))).map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</optgroup>
+         {productType&&!PRODUCT_PRESETS.some(p=>p.key===productType)&&<option value={productType}>Historical product type — edit existing details only</option>}
+         <optgroup label="For your business">{relevant.map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</optgroup>
        </select>
      </label>
      <label className="field-label">Existing category / subcategory
@@ -46,24 +52,26 @@ export default function AdaptiveProductFields({industries,categories,productType
        </select>
      </label>
    </div>
-   {!categoryId&&<label className="field-label">Category name (optional)
-     <input value={categoryName} maxLength={100} onChange={e=>onChange({categoryName:e.target.value})} placeholder={preset.path.join(' › ')||'Enter a category name'}/>
-     <small className="field-help">Existing categories are reused. Use Category manager to create or edit a nested hierarchy.</small>
-   </label>}
+   {!categoryId&&<div className="lexa-custom-category-entry"><label className="field-label">Category name (optional)
+     <input value={categoryName} maxLength={100} onChange={e=>onChange({categoryName:e.target.value})} placeholder={preset.path.join(' › ')||'Enter a category name'}/></label>
+     <small className="field-help">Choose a suggested category path below or create a nested category with the category manager. Existing categories remain unchanged.</small>
+     {paths.length>0&&<div className="lexa-catalogue-path-suggestions"><label className="field-label">Suggested industry hierarchy<select value="" onChange={e=>{const path=paths.find(p=>p.join(' › ')===e.target.value);if(path){const full=path.join(' › ');const matched=categories.find(c=>categoryPath(c,byId)===full);if(matched){onChange({categoryId:matched.id,categoryName:'',attributes:{}});}else ensurePath.mutate([...path]);}}}><option value="">Choose a category path</option>{paths.map(path=><option key={path.join('/')} value={path.join(' › ')}>{path.join(' › ')}</option>)}</select></label><small className="field-help">LEXA will create a missing approved path in your workspace, without inventing products or stock.</small></div>}
+   </div>}
    {fields.length>0&&<div className="lexa-product-attributes">
      <p><strong>{preset.label} details</strong> · Only relevant attributes are shown.</p>
-     <div className="form-two-col">{fields.map(field=><label className="field-label" key={field.key}>{field.label}
-       {field.kind==='select'?<select value={attributes[field.key]??''} onChange={e=>onChange({attributes:{...attributes,[field.key]:e.target.value}})}><option value="">Choose (optional)</option>{(field.options??[]).map(opt=><option value={opt} key={opt}>{opt}</option>)}</select>:
-        <input type={field.kind==='number'?'number':'text'} min={field.kind==='number'?'0':undefined} step={field.kind==='number'?'any':undefined} maxLength={field.kind==='number'?undefined:250} value={attributes[field.key]??''} onChange={e=>onChange({attributes:{...attributes,[field.key]:e.target.value}})} placeholder={`Enter ${field.label.toLowerCase()}`}/>}
+     <div className="form-two-col">{fields.map(field=><label className="field-label" key={field.key}>{field.label}{field.required?' *':''}
+       {field.kind==='select'?<select required={field.required===true} value={attributes[field.key]??''} onChange={e=>onChange({attributes:{...attributes,[field.key]:e.target.value}})}><option value="">{field.required?'Choose (required)':'Choose (optional)'}</option>{(field.options??[]).map(opt=><option value={opt} key={opt}>{opt}</option>)}</select>:
+        <input required={field.required===true} type={field.kind==='number'?'number':'text'} min={field.kind==='number'?'0':undefined} step={field.kind==='number'?'any':undefined} maxLength={field.kind==='number'?undefined:250} value={attributes[field.key]??''} onChange={e=>onChange({attributes:{...attributes,[field.key]:e.target.value}})} placeholder={`Enter ${field.label.toLowerCase()}`}/>}
      </label>)}</div>
    </div>}
    {preset.variants.length>0&&<p className="lexa-product-hint">This type supports variants by {preset.variants.join(', ')}. Save the product, then add its sellable variants below. Each variant has its own SKU and stock.</p>}
+   {preset.stock!=='none'&&<p className="lexa-product-hint"><strong>Inventory rule:</strong> {preset.stock==='serial'?'Track each physical unit with an IMEI or serial number.':preset.stock==='batch'?'Track lots or production batches.':'Track quantity per product variant.'} This policy is enforced by the server for every client.</p>}
    {preset.stock==='serial'&&<p className="lexa-product-hint">Each physical device must have its actual IMEI or serial recorded when stock is received. A batch number is optional.</p>}
    {preset.stock==='batch'&&<p className="lexa-product-hint">Use batches and expiry dates for products requiring expiry or lot tracking.</p>}
  </div>;
 }
 
-export function CategoryManager({workspaceId,categories}:{workspaceId:string;categories:readonly Category[]}){
+export function CategoryManager({workspaceId,categories,industries=[]}:{workspaceId:string;categories:readonly Category[];industries?:readonly string[]}){
  const queryClient=useQueryClient();const [open,setOpen]=useState(false);
  const [name,setName]=useState('');const [parentId,setParentId]=useState('');const [templateKey,setTemplateKey]=useState('');
  const [customKey,setCustomKey]=useState('');const [customLabel,setCustomLabel]=useState('');
@@ -75,7 +83,7 @@ export function CategoryManager({workspaceId,categories}:{workspaceId:string;cat
      <strong>Create your own category</strong><p>Categories are private to this business. Existing product and sales records are never deleted when you add a category.</p>
      <div className="form-two-col"><label className="field-label">Category / subcategory name<input value={name} maxLength={100} onChange={e=>setName(e.target.value)} placeholder="e.g. Smartphones"/></label>
      <label className="field-label">Under category<select value={parentId} onChange={e=>setParentId(e.target.value)}><option value="">Top-level category</option>{categories.map(c=><option key={c.id} value={c.id}>{categoryPath(c,byId)}</option>)}</select></label></div>
-     <label className="field-label">Product fields for this category (optional)<select value={templateKey} onChange={e=>setTemplateKey(e.target.value)}><option value="">Not linked to one product type</option>{PRODUCT_PRESETS.map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</select></label>
+     <label className="field-label">Product fields for this category (optional)<select value={templateKey} onChange={e=>setTemplateKey(e.target.value)}><option value="">Not linked to one product type</option>{permittedPresets(industries).map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</select></label>
      <div className="form-two-col"><label className="field-label">Extra field key (optional)<input value={customKey} onChange={e=>setCustomKey(e.target.value)} placeholder="e.g. fabricCode"/></label><label className="field-label">Extra field label<input value={customLabel} onChange={e=>setCustomLabel(e.target.value)} placeholder="e.g. Fabric code"/></label></div>
      <button type="button" className="button button-primary button-small" disabled={!name.trim()||create.isPending} onClick={()=>create.mutate()}>{create.isPending?'Creating…':'Create category'}</button>
    </div>}
@@ -98,12 +106,13 @@ export function ProductVariantsManager({workspaceId,product,currency}:{workspace
 export function SerializedUnitManager({workspaceId,branchId,product}:{workspaceId:string;branchId:string;product:Product}){
  const [serial,setSerial]=useState('');const [imei2,setImei2]=useState('');const queryClient=useQueryClient();
  const [variantId,setVariantId]=useState('');
+ const requiresImei=presetFor(product.productType??'general').identifiers.includes('imei');
  const variants=useQuery({queryKey:['product-variants',workspaceId,product.id],queryFn:()=>apiCatalogInventory.variants(workspaceId,product.id)});
  const serials=useQuery({queryKey:['available-serials',workspaceId,branchId,product.id,variantId],queryFn:()=>apiCatalogInventory.availableSerials(workspaceId,branchId,product.id,variantId||undefined)});
- const create=useMutation({mutationFn:()=>apiCatalogInventory.createStandaloneSerial(workspaceId,branchId,{productId:product.id,...(variantId?{variantId}:{}),serialNumber:serial,...(imei2?{imei2}:{})}),onSuccess:async()=>{await queryClient.invalidateQueries({queryKey:['available-serials',workspaceId,branchId,product.id]});setSerial('');setImei2('');toast.success('Device identity registered');},onError:e=>toast.error('Device identifier was not recorded',{description:e instanceof Error?e.message:'Record stock before adding a serial.'})});
+ const create=useMutation({mutationFn:()=>apiCatalogInventory.createStandaloneSerial(workspaceId,branchId,{productId:product.id,...(variantId?{variantId}:{}),serialNumber:serial,...(requiresImei&&imei2?{imei2}:{})}),onSuccess:async()=>{await queryClient.invalidateQueries({queryKey:['available-serials',workspaceId,branchId,product.id]});setSerial('');setImei2('');toast.success('Device identity registered');},onError:e=>toast.error('Device identifier was not recorded',{description:e instanceof Error?e.message:'Record stock before adding a serial.'})});
  return <section className="lexa-variant-manager"><h4>Received device identifiers</h4><p>First record stock in Inventory. Then register one real serial or IMEI per available device. Repeated identifiers are blocked.</p>
  {variants.data?.length?<label className="field-label">Device variant<select value={variantId} onChange={e=>setVariantId(e.target.value)}><option value="">Base product</option>{variants.data.map(v=><option value={v.id} key={v.id}>{v.sku}</option>)}</select></label>:null}
- <div className="form-two-col"><label className="field-label">IMEI / serial number<input value={serial} maxLength={120} onChange={e=>setSerial(e.target.value)}/></label><label className="field-label">Second IMEI (optional)<input value={imei2} maxLength={15} inputMode="numeric" onChange={e=>setImei2(e.target.value)}/></label></div>
+ <div className="form-two-col"><label className="field-label">{requiresImei?'Primary IMEI (15 digits)':'Unique serial number'}<input value={serial} maxLength={requiresImei?15:120} inputMode={requiresImei?'numeric':'text'} onChange={e=>setSerial(e.target.value)}/></label>{requiresImei&&<label className="field-label">Second IMEI (if dual SIM)<input value={imei2} maxLength={15} inputMode="numeric" onChange={e=>setImei2(e.target.value)}/></label>}</div><small className="field-help">{requiresImei?'Scan the genuine device IMEI(s). The server verifies the check digits and rejects duplicate identifiers across all branches.':'Use the real manufacturer serial; LEXA checks uniqueness across the business.'}</small>
  <button type="button" className="button button-secondary button-small" disabled={!serial.trim()||create.isPending} onClick={()=>create.mutate()}>{create.isPending?'Registering…':'Register device'}</button>
  <small>{serials.data?.length??0} currently available serialized units {serials.isLoading?'· loading':''}</small>
  </section>;

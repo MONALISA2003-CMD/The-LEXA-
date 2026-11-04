@@ -1,5 +1,8 @@
 import {resolveCategoryFields} from '../catalog/category-hierarchy';
-import { validateProductType,cleanProductAttributes,cleanCategoryAttributeSchema } from '../catalog/product-attribute-validation';
+import {ensureRootCategory} from '../catalog/ensure-category';
+import {INDUSTRY_CODES,INDUSTRY_CATEGORIES,INDUSTRY_LABELS,INDUSTRY_POLICIES} from '../catalog/industry-contract.generated';
+import {normaliseSavedIndustries} from '../business-setup/business-setup.rules';
+import { validateProductType,cleanProductAttributes,cleanCategoryAttributeSchema,assertTypeAllowed,enforceTrackingPolicy,activePreset } from '../catalog/product-attribute-validation';
 import { selectIndustries, SetupValidationError } from '../business-setup/business-setup.rules';
 import {
   BadRequestException, ConflictException, Controller, ForbiddenException, Get, HttpCode,
@@ -573,6 +576,7 @@ export class CoreController {
     if (existingMemberships > 0) throw new ForbiddenException({ code: 'SINGLE_BUSINESS_ACCOUNT', message: 'Your account already belongs to a business. Invite employees inside My Business instead.' });
     const businessName = requiredString(body.businessName, 'Business name', 100);
     const businessType = requiredString(body.businessType ?? 'general', 'Business type', 80);
+    if(!['retail','wholesale','distribution','services','rental','subscription','mixed','other','restaurant','electronics','general'].includes(businessType))throw new BadRequestException('Choose a supported business model.');
     const branchName = requiredString(body.branchName ?? 'Main branch', 'Branch name', 80);
     let initialIndustries: string[] = [];
     if (body.industries !== undefined) {
@@ -818,6 +822,42 @@ export class CoreController {
     return { userId, branchIds, branchScopeMode: allBranches ? 'all' : 'restricted', allBranches };
   }
 
+  @Get('workspaces/:workspaceId/catalog/industry-config')
+  async industryConfig(@Param('workspaceId') workspaceId:string,@Req() request:FastifyRequest){
+    const session=await this.sessionFor(request);
+    await this.membershipFor(session.userId,workspaceId);
+    const profile=await this.prisma.businessProfile.findUnique({where:{tenantId:workspaceId},select:{industries:true,industry:true}});
+    const selected=normaliseSavedIndustries(profile?.industries,profile?.industry);
+    return {schemaVersion:1,industries:selected,supportedIndustries:INDUSTRY_CODES.map(code=>({code,label:INDUSTRY_LABELS[code]})),
+      categoryPaths:Object.fromEntries(selected.map(code=>[code,(INDUSTRY_CATEGORIES as Record<string,readonly (readonly string[])[]>)[code]??[]])),
+      productPolicies:Object.fromEntries(Object.entries(INDUSTRY_POLICIES).filter(([key,policy])=>key==='general'||!selected.length||policy.industries.some(code=>selected.includes(code))))};
+  }
+
+  @Post('workspaces/:workspaceId/categories/ensure-path')
+  @UseGuards(CsrfGuard)
+  async ensureCategoryPath(@Param('workspaceId') workspaceId:string,@Body() raw:unknown,@Req() request:FastifyRequest){
+    const session=await this.sessionFor(request);
+    await this.membershipFor(session.userId,workspaceId);
+    const body=asObject(raw);
+    if(!Array.isArray(body.path)||body.path.length<1||body.path.length>8||body.path.some(v=>typeof v!=='string'||!v.trim()||v.length>100))
+      throw new BadRequestException('Choose a supported category path.');
+    const path=(body.path as string[]).map(s=>s.trim());
+    const profile=await this.prisma.businessProfile.findUnique({where:{tenantId:workspaceId},select:{industries:true,industry:true}});
+    const selected=normaliseSavedIndustries(profile?.industries,profile?.industry);
+    const permitted=selected.some(code=>(INDUSTRY_CATEGORIES as Record<string,readonly (readonly string[])[]>)[code]?.some(p=>p.length===path.length&&p.every((segment,i)=>segment===path[i])));
+    if(!permitted)throw new BadRequestException('This category path is not enabled for your business industry.');
+    return this.prisma.$transaction(async tx=>{
+      let parentId:string|null=null;
+      for(const name of path){
+        const where:{tenantId:string;parentId:string|null;name:string}={tenantId:workspaceId,parentId,name};
+        const existing:{id:string}|null=await tx.category.findFirst({where,select:{id:true}});
+        parentId=existing?.id??(await tx.category.create({data:{tenantId:workspaceId,name,parentId},select:{id:true}})).id;
+      }
+      await tx.auditEvent.create({data:{tenantId:workspaceId,actorUserId:session.userId,action:'catalog.category_path.ensured',resourceType:'category',resourceId:parentId!,metadata:{path}}});
+      return {categoryId:parentId,path};
+    },{isolationLevel:'Serializable'});
+  }
+
   @Get('workspaces/:workspaceId/categories')
   async listCategories(@Param('workspaceId') workspaceId: string, @Req() request: FastifyRequest) {
     const session = await this.sessionFor(request);
@@ -836,6 +876,7 @@ export class CoreController {
     const parent=parentId?await this.prisma.category.findFirst({where:{id:parentId,tenantId:workspaceId}}):null;
     if(parentId&&!parent)throw new BadRequestException('Parent category must belong to this business.');
     const templateKey=validateProductType(body.templateKey);
+    await assertTypeAllowed(this.prisma,workspaceId,templateKey);
     const attributeSchema=cleanCategoryAttributeSchema(body.attributeSchema);
     try {
       return await this.prisma.$transaction(async tx=>{
@@ -860,7 +901,8 @@ export class CoreController {
       const ancestor=await this.prisma.category.findFirst({where:{tenantId:workspaceId,id:next},select:{parentId:true}});
       if(!ancestor)throw new BadRequestException('Parent category must belong to this business.');next=ancestor.parentId;
     }
-    const templateKey=body.templateKey===undefined?current.templateKey:validateProductType(body.templateKey);
+    const templateKey=body.templateKey===undefined?current.templateKey:validateProductType(body.templateKey,current.templateKey);
+    if(body.templateKey!==undefined)await assertTypeAllowed(this.prisma,workspaceId,templateKey,current.templateKey);
     const attributeSchema=body.attributeSchema===undefined?current.attributeSchema:cleanCategoryAttributeSchema(body.attributeSchema);
     try{return await this.prisma.$transaction(async tx=>{
       const updated=await tx.category.update({where:{id:categoryId},data:{name:body.name===undefined?current.name:requiredString(body.name,'Category name',100),parentId,templateKey,attributeSchema:attributeSchema as any}});
@@ -896,7 +938,7 @@ export class CoreController {
     if (!Number.isFinite(lowStockThreshold) || lowStockThreshold < 0) throw new BadRequestException('Low-stock threshold must be zero or greater.');
     let categoryId: string | undefined;
     if (categoryName) {
-      const category = await this.prisma.category.upsert({ where: { tenantId_name: { tenantId: workspaceId, name: categoryName } }, create: { tenantId: workspaceId, name: categoryName }, update: {} });
+      const category = await ensureRootCategory(this.prisma,workspaceId,categoryName);
       categoryId = category.id;
     } else if (body.categoryId !== undefined) {
       categoryId = requiredString(body.categoryId, 'Category ID', 80);
@@ -908,12 +950,16 @@ export class CoreController {
     if (defaultTaxCodeId && !await this.prisma.taxCode.findFirst({ where: { id: defaultTaxCodeId, tenantId: workspaceId, active: true } })) throw new BadRequestException('Tax code must belong to this workspace.');
     const categoryFields=await resolveCategoryFields(this.prisma,workspaceId,categoryId);
     const effectiveType=productType??categoryFields.templateKey;
-    const attributes=cleanProductAttributes(body.attributes,effectiveType,categoryFields.customKeys);
+    if(!effectiveType)throw new BadRequestException('Choose a supported product type (general for uncategorized goods).');
+    if(productType&&categoryFields.templateKey&&productType!==categoryFields.templateKey)throw new BadRequestException('Product type must match the selected category template.');
+    await assertTypeAllowed(this.prisma,workspaceId,effectiveType);
+    const attributes=cleanProductAttributes(body.attributes,effectiveType,categoryFields.customKeys,true);
     const trackStock = body.trackStock !== false;
     const trackLot = body.trackLot === true;
     const trackSerial = body.trackSerial === true;
     if (trackLot && !trackStock) throw new BadRequestException('Lot tracking requires stock tracking.');
     if (trackSerial && !trackStock) throw new BadRequestException('Serial tracking requires stock tracking.');
+    enforceTrackingPolicy(effectiveType,{trackStock,trackLot,trackSerial});
     try {
       const product = await this.prisma.$transaction(async (tx) => {
         const created = await tx.product.create({ data: {
@@ -945,7 +991,7 @@ export class CoreController {
     if (body.categoryName !== undefined) {
       const categoryName = optionalString(body.categoryName, 100);
       if (!categoryName) categoryId = null;
-      else categoryId = (await this.prisma.category.upsert({ where: { tenantId_name: { tenantId: workspaceId, name: categoryName } }, create: { tenantId: workspaceId, name: categoryName }, update: {} })).id;
+      else categoryId = (await ensureRootCategory(this.prisma,workspaceId,categoryName)).id;
     } else if (body.categoryId !== undefined) {
       categoryId = optionalString(body.categoryId, 100) ?? null;
       if (categoryId && !await this.prisma.category.findFirst({ where: { id: categoryId, tenantId: workspaceId } })) throw new BadRequestException('Category must belong to this workspace.');
@@ -959,9 +1005,17 @@ export class CoreController {
     const trackSerial = body.trackSerial === undefined ? existing.trackSerial : body.trackSerial === true;
     if (trackLot && !trackStock) throw new BadRequestException('Lot tracking requires stock tracking.');
     if (trackSerial && !trackStock) throw new BadRequestException('Serial tracking requires stock tracking.');
-    const updatedType=body.productType===undefined?existing.productType:validateProductType(body.productType);
+    const updatedType=body.productType===undefined?existing.productType:validateProductType(body.productType,existing.productType);
     const categoryFields=await resolveCategoryFields(this.prisma,workspaceId,categoryId);
-    const attributes=body.attributes===undefined?existing.attributes:cleanProductAttributes(body.attributes,updatedType??categoryFields.templateKey,categoryFields.customKeys);
+    const effectiveType=updatedType??categoryFields.templateKey;
+    if(updatedType&&categoryFields.templateKey&&updatedType!==categoryFields.templateKey)throw new BadRequestException('Product type must match the selected category template.');
+    const policyChanged=['productType','attributes','trackStock','trackLot','trackSerial','categoryId','categoryName'].some(key=>body[key]!==undefined);
+    if(policyChanged)await assertTypeAllowed(this.prisma,workspaceId,effectiveType,existing.productType);
+    const attributes=body.attributes===undefined?existing.attributes:cleanProductAttributes(body.attributes,effectiveType,categoryFields.customKeys,policyChanged);
+    if(policyChanged) {
+      enforceTrackingPolicy(effectiveType,{trackStock,trackLot,trackSerial});
+      if(body.attributes===undefined)cleanProductAttributes(existing.attributes,effectiveType,categoryFields.customKeys,true);
+    }
     try {
       if (body.lowStockThreshold !== undefined && (!Number.isFinite(Number(body.lowStockThreshold)) || Number(body.lowStockThreshold) < 0)) throw new BadRequestException('Low-stock threshold must be zero or greater.');
       const product = await this.prisma.$transaction(async (tx) => {
@@ -2593,20 +2647,39 @@ export class CoreController {
       const thresholdText = csvCell(row, headers, 'lowStockThreshold') || '0';
       const lowStockThreshold = Number(thresholdText);
       if (!Number.isFinite(lowStockThreshold) || lowStockThreshold < 0 || lowStockThreshold > 1_000_000 || Math.round(lowStockThreshold * 1000) !== lowStockThreshold * 1000) throw new BadRequestException(`CSV row ${rowNumber}: lowStockThreshold must be a non-negative number with at most three decimals.`);
-      const trackText = csvCell(row, headers, 'trackStock').toLowerCase();
-      if (trackText && !['true', 'yes', '1', 'y', 'false', 'no', '0', 'n'].includes(trackText)) throw new BadRequestException(`CSV row ${rowNumber}: trackStock must be true/false or yes/no.`);
-      return { name, sku, barcode, brand: csvCell(row, headers, 'brand'), unitOfMeasure: csvCell(row, headers, 'unitOfMeasure'), supplierSku: csvCell(row, headers, 'supplierSku'), categoryName: csvCell(row, headers, 'categoryName'), costPriceMinor, sellingPriceMinor, lowStockThreshold, trackStock: trackText ? ['true', 'yes', '1', 'y'].includes(trackText) : true };
+      // Business Tools CSV must enforce the same product rules as the staged importer
+      // and direct REST product creation, otherwise API clients can bypass the industry.
+      const productType=requiredCsvCell(row,headers,'productType',rowNumber);
+      const preset=activePreset(productType);
+      if(!preset)throw new BadRequestException(`CSV row ${rowNumber}: choose a supported productType.`);
+      const parseFlag=(key:string,defaultValue:boolean)=>{
+        const value=csvCell(row,headers,key).toLowerCase();
+        if(!value)return defaultValue;
+        if(!['true','yes','1','y','false','no','0','n'].includes(value))throw new BadRequestException(`CSV row ${rowNumber}: ${key} must be true/false.`);
+        return ['true','yes','1','y'].includes(value);
+      };
+      const trackStock=parseFlag('trackStock',preset.stock!=='none');
+      const trackLot=parseFlag('trackLot',preset.stock==='batch');
+      const trackSerial=parseFlag('trackSerial',preset.stock==='serial');
+      enforceTrackingPolicy(productType,{trackStock,trackLot,trackSerial});
+      let sourceAttributes:unknown={};
+      const attributeText=csvCell(row,headers,'attributesJson');
+      if(attributeText){try{sourceAttributes=JSON.parse(attributeText)}catch{throw new BadRequestException(`CSV row ${rowNumber}: attributesJson must be valid JSON.`);}}
+      const attributes=cleanProductAttributes(sourceAttributes,productType,[],true);
+      return { name, sku, barcode, brand: csvCell(row, headers, 'brand'), unitOfMeasure: csvCell(row, headers, 'unitOfMeasure'), supplierSku: csvCell(row, headers, 'supplierSku'), categoryName: csvCell(row, headers, 'categoryName'), costPriceMinor, sellingPriceMinor, lowStockThreshold, trackStock,trackLot,trackSerial,productType,attributes };
     });
+    // Validate the effective tenant's allowed industry before any row is committed.
+    await Promise.all([...new Set(items.map(item=>item.productType))].map(type=>assertTypeAllowed(this.prisma,workspaceId,type)));
     try {
       await this.prisma.$transaction(async (tx) => {
         for (const item of items) {
           let categoryId: string | undefined;
-          if (item.categoryName) categoryId = (await tx.category.upsert({ where: { tenantId_name: { tenantId: workspaceId, name: item.categoryName } }, create: { tenantId: workspaceId, name: item.categoryName }, update: {} })).id;
+          if (item.categoryName) categoryId = (await ensureRootCategory(tx,workspaceId,item.categoryName)).id;
           await tx.product.create({ data: {
             tenantId: workspaceId, name: item.name, sku: item.sku,
             barcode: item.barcode || null, brand: item.brand || null, unitOfMeasure: item.unitOfMeasure || null, supplierSku: item.supplierSku || null,
             categoryId, costPriceMinor: item.costPriceMinor, sellingPriceMinor: item.sellingPriceMinor,
-            lowStockThreshold: String(item.lowStockThreshold), trackStock: item.trackStock, active: true,
+            lowStockThreshold: String(item.lowStockThreshold), trackStock: item.trackStock,trackLot:item.trackLot,trackSerial:item.trackSerial,productType:item.productType,attributes:item.attributes, active: true,
           } });
         }
         await tx.auditEvent.create({ data: { tenantId: workspaceId, actorUserId: session.userId, action: 'products.csv_imported', resourceType: 'product_import', resourceId: undefined, requestId: request.headers['x-request-id'] as string | undefined, metadata: { importedCount: items.length } } });

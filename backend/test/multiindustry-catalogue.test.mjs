@@ -16,10 +16,12 @@ test('existing businesses retain a recognized industry and can add unrelated act
   assert.throws(() => selectIndustries('retail_trade'),SetupValidationError);
 });
 
-test('industry recommendations never exclude legitimate unrelated product types',()=>{
+test('industry recommendations are scoped to configured activities',()=>{
   const boutique = suggestedPresets(['fashion_beauty','perfumes_cosmetics']);
-  assert.equal(boutique.length, PRODUCT_PRESETS.length);
-  assert.ok(boutique.findIndex(p=>p.key==='perfume')<boutique.findIndex(p=>p.key==='smartphone'));
+  assert.ok(boutique.length < PRODUCT_PRESETS.length);
+  assert.ok(boutique.some(p=>p.key==='general'));
+  assert.ok(!boutique.some(p=>p.key==='smartphone'));
+  assert.ok(boutique.some(p=>p.key==='perfume'));
   assert.equal(presetFor('smartphone').stock,'serial');
   assert.equal(presetFor('footwear').unit,'Pair');
   assert.ok(presetFor('perfume').fields.some(f=>f.key==='bottleMl'));

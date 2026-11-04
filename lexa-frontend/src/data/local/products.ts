@@ -3,6 +3,7 @@ import type { ProductRepository } from '../contracts/repositories';
 import { createId, nowIso } from '../../domain/shared/ids';
 import type { Category, CreateProductInput, Product } from '../../domain/shared/types';
 import { assertNonNegativeSafeInteger } from '../../domain/money/money';
+import { validateProductDraft } from '../../domain/catalog/industryCatalog';
 
 export const localProductRepository: ProductRepository = {
   async list({ workspaceId, search, activeOnly = true }) {
@@ -29,6 +30,7 @@ export const localProductRepository: ProductRepository = {
     assertNonNegativeSafeInteger(input.costPriceMinor, 'Cost price');
     assertNonNegativeSafeInteger(input.sellingPriceMinor, 'Selling price');
     assertNonNegativeSafeInteger(input.lowStockThreshold, 'Low-stock threshold');
+    if(input.productType){const failures=validateProductDraft(input.productType,Object.fromEntries(Object.entries(input.attributes??{}).map(([k,v])=>[k,String(v)])),{trackStock:input.trackStock,trackLot:input.trackLot===true,trackSerial:input.trackSerial===true},[]);if(failures.length)throw new Error(failures.join(' '));}
 
     const timestamp = nowIso();
     const productId = createId('prd');
@@ -78,7 +80,9 @@ export const localProductRepository: ProductRepository = {
         costPriceMinor: input.costPriceMinor,
         sellingPriceMinor: input.sellingPriceMinor,
         lowStockThreshold: input.lowStockThreshold,
-        trackStock: input.trackStock,
+        ...(input.productType?{productType:input.productType}:{}),
+        ...(input.attributes?{attributes:input.attributes}:{}),
+        trackStock: input.trackStock,trackLot:input.trackLot===true,trackSerial:input.trackSerial===true,
         active: true,
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -97,6 +101,7 @@ export const localProductRepository: ProductRepository = {
     assertNonNegativeSafeInteger(product.costPriceMinor, 'Cost price');
     assertNonNegativeSafeInteger(product.sellingPriceMinor, 'Selling price');
     assertNonNegativeSafeInteger(product.lowStockThreshold, 'Low-stock threshold');
+    if(product.productType){const failures=validateProductDraft(product.productType,Object.fromEntries(Object.entries(product.attributes??{}).map(([k,v])=>[k,String(v)])),{trackStock:product.trackStock,trackLot:product.trackLot===true,trackSerial:product.trackSerial===true},[]);if(failures.length)throw new Error(failures.join(' '));}
     const cleanBarcode = product.barcode?.trim() ?? '';
     let updated: Product | undefined;
     await db.transaction('rw', db.products, db.categories, async () => {

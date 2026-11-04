@@ -699,6 +699,20 @@ paths:
       responses:
         '200': {description: Product updated, content: {application/json: {
                 schema: {$ref: '#/components/schemas/Product'}}}}
+  /workspaces/{workspaceId}/catalog/industry-config:
+    get:
+      operationId: getIndustryConfig
+      summary: Return tenant-scoped industry and product tracking policies for all clients.
+      responses:
+        '200':
+          description: Industry policy contract
+  /workspaces/{workspaceId}/categories/ensure-path:
+    post:
+      operationId: ensureCategoryPath
+      summary: Create or find an approved tenant-owned hierarchy path.
+      responses:
+        '200':
+          description: Category path resolved
   /workspaces/{workspaceId}/categories:
     parameters: [$ref: '#/components/parameters/workspaceId']
     post:
@@ -7090,6 +7104,22 @@ paths:
         '200': {description: Authorized business data}
         '201': {description: Authorized business data created}
         '403': {description: Access denied}
+
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/serials/lookup:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: lookupInventorySerialByIdentifier
+      description: Tenant and branch-scoped lookup of one real serial/IMEI, including the secondary IMEI; returns conflict if historical identifiers collide.
+      parameters:
+        - {name: identifier, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 120}}
+      responses:
+        '200': {description: Identifier and authoritative product/variant/lot/status}
+        '400': {description: Missing or invalid identifier}
+        '403': {description: Permission denied}
+        '404': {description: Unit not found within this branch}
+        '409': {description: Historical duplicate identifiers require reconciliation}
 
 components:
   securitySchemes:

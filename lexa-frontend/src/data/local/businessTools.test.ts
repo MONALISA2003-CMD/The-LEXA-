@@ -28,17 +28,24 @@ describe('Business Tools data services', () => {
   it('imports product CSV atomically and blocks duplicate SKU/barcode values', async () => {
     await seedWorkspace();
     const count = await importProductsCsv('ws-test', 'UGX',
-      'name,sku,sellingPrice,costPrice,barcode,trackStock,lowStockThreshold\nSugar,SUG-001,4000,3000,10001,true,3\nFlour,FLOUR-001,10000,,10002,yes,5\n');
+      'name,sku,productType,sellingPrice,costPrice,barcode,trackStock,lowStockThreshold\nSugar,SUG-001,general,4000,3000,10001,true,3\nFlour,FLOUR-001,general,10000,,10002,yes,5\n');
     expect(count).toBe(2);
     expect((await db.products.where('workspaceId').equals('ws-test').toArray()).map((item) => item.sku).sort()).toEqual(['FLOUR-001', 'SUG-001']);
 
-    await expect(importProductsCsv('ws-test', 'UGX', 'name,sku,sellingPrice\nDuplicate one,DUP-001,1000\nDuplicate two,DUP-001,2000\n')).rejects.toThrow(/already exists or is duplicated/i);
+    await expect(importProductsCsv('ws-test', 'UGX', 'name,sku,productType,sellingPrice\nDuplicate one,DUP-001,general,1000\nDuplicate two,DUP-001,general,2000\n')).rejects.toThrow(/already exists or is duplicated/i);
     expect(await db.products.where('workspaceId').equals('ws-test').count()).toBe(2);
+  });
+
+  it('validates product type and tracking in the local CSV client, matching production policy', async () => {
+    await seedWorkspace();
+    await expect(importProductsCsv('ws-test','UGX','name,sku,sellingPrice\nPhone,PHONE-1,200000\n')).rejects.toThrow(/productType/);
+    await expect(importProductsCsv('ws-test','UGX','name,sku,productType,sellingPrice,trackSerial,attributesJson\nPhone,PHONE-1,smartphone,200000,false,\"{\"\"model\"\":\"\"Device X\"\"}\"\n')).rejects.toThrow(/serial/i);
+    expect(await db.products.count()).toBe(0);
   });
 
   it('imports opening stock in a transaction and refuses a second opening balance', async () => {
     await seedWorkspace();
-    await importProductsCsv('ws-test', 'UGX', 'name,sku,sellingPrice,trackStock\nSugar,SUG-001,4000,true\n');
+    await importProductsCsv('ws-test', 'UGX', 'name,sku,productType,sellingPrice,trackStock\nSugar,SUG-001,general,4000,true\n');
     expect(await importOpeningStockCsv('ws-test', 'br-test', 'sku,quantity,reason\nSUG-001,40,Opening count\n')).toBe(1);
     expect(await db.stockMovements.where('[workspaceId+branchId+productId]').equals(['ws-test', 'br-test', (await db.products.where('sku').equals('SUG-001').first())!.id]).count()).toBe(1);
 

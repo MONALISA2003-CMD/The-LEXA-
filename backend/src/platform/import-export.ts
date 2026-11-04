@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 export type ImportType = 'products'|'categories'|'product_variants'|'customers'|'suppliers'|'warehouses'|'storage_bins';
 export const IMPORT_TEMPLATES: Record<ImportType,{version:number;required:string[];optional:string[]}> = {
- products:{version:1,required:['sku','name'],optional:['barcode','brand','unit_of_measure','category_name','cost_price_minor','selling_price_minor','low_stock_threshold','track_stock','active']},
+ products:{version:2,required:['sku','name','product_type'],optional:['attributes_json','barcode','brand','unit_of_measure','category_name','cost_price_minor','selling_price_minor','low_stock_threshold','track_stock','track_lot','track_serial','active']},
  categories:{version:1,required:['name'],optional:[]}, product_variants:{version:1,required:['product_sku','sku'],optional:['barcode','attributes_json','cost_price_minor','selling_price_minor','active']},
  customers:{version:1,required:['customer_code','name'],optional:['email','phone','tax_number','address']}, suppliers:{version:1,required:['supplier_code','name'],optional:['email','phone','tax_number','address']},
  warehouses:{version:1,required:['code','name'],optional:['active']}, storage_bins:{version:1,required:['warehouse_code','code','name'],optional:['bin_type','active']}
@@ -26,8 +26,8 @@ export function validateMappedRows(type:ImportType, rows:{line:number;values:Rec
  const mapped=rows.map(r=>{const value:Record<string,string>={...defaults};for(const [source,target] of Object.entries(mapping)){if(r.values[source]!==undefined)value[target]=r.values[source];}const errors:string[]=[];for(const field of template.required)if(!String(value[field]??'').trim())errors.push(`Missing required field: ${field}`);
   for(const f of ['cost_price_minor','selling_price_minor','rate_basis_points'])if(value[f]!==undefined&&value[f]!==''&&(!/^\d+$/.test(value[f])||Number(value[f])<0))errors.push(`${f} must be a non-negative integer.`);
   if(value.low_stock_threshold!==undefined&&value.low_stock_threshold!==''&&(!/^\d+(?:\.\d{1,3})?$/.test(value.low_stock_threshold)||Number(value.low_stock_threshold)<0))errors.push('low_stock_threshold must be a non-negative quantity with at most 3 decimals.');
-  for(const f of ['active','track_stock'])if(value[f]!==undefined&&!['true','false','1','0','yes','no'].includes(value[f].toLowerCase()))errors.push(`${f} must be true/false.`);
-  if(type==='product_variants'&&value.attributes_json){try{const parsed=JSON.parse(value.attributes_json);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))errors.push('attributes_json must be a JSON object.');}catch{errors.push('attributes_json must contain valid JSON.');}}
+  for(const f of ['active','track_stock','track_lot','track_serial'])if(value[f]!==undefined&&!['true','false','1','0','yes','no'].includes(value[f].toLowerCase()))errors.push(`${f} must be true/false.`);
+  if(['product_variants','products'].includes(type)&&value.attributes_json){try{const parsed=JSON.parse(value.attributes_json);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))errors.push('attributes_json must be a JSON object.');}catch{errors.push('attributes_json must contain valid JSON.');}}
   const action: MappedImportRow['action'] = errors.length ? 'invalid' : 'create';
   return {...r,after:value,errors,action,before:undefined as Record<string,unknown>|undefined};});
  const seen=new Set<string>();for(const r of mapped){const key=String(r.after.sku??r.after.code??r.after.customer_code??r.after.supplier_code??r.after.name??'').toLowerCase();if(key&&seen.has(key)){r.errors.push('Duplicate stable identifier within file.');r.action='invalid';}if(key)seen.add(key);}

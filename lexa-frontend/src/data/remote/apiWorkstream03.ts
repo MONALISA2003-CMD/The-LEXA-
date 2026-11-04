@@ -5,6 +5,8 @@ const branch = (w: string, b: string) => `${tenant(w)}/branches/${enc(b)}`;
 const key = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `lexa-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export const apiCatalogInventory = {
+  industryConfig: (w:string)=>apiClient.get<{schemaVersion:number;industries:string[];supportedIndustries:Array<{code:string;label:string}>;categoryPaths:Record<string,string[][]>;productPolicies:Record<string,unknown>}>(`${tenant(w)}/catalog/industry-config`),
+  ensureCategoryPath: (w:string,path:readonly string[])=>apiClient.post<{categoryId:string;path:string[]}>(`${tenant(w)}/categories/ensure-path`,{path:[...path]},key()),
   categories: (w:string)=>apiClient.get<import('../../domain/shared/types').Category[]>(`${tenant(w)}/categories`),
   createCategory: (w:string,input:{name:string;parentId?:string;templateKey?:string;attributeSchema?:unknown[]})=>apiClient.post<import('../../domain/shared/types').Category>(`${tenant(w)}/categories`,input,key()),
   updateCategory: (w:string,id:string,input:Record<string,unknown>)=>apiClient.patch<import('../../domain/shared/types').Category>(`${tenant(w)}/categories/${enc(id)}`,input),
@@ -13,7 +15,8 @@ export const apiCatalogInventory = {
   availableLots:(w:string,b:string,p:string,variantId?:string)=>apiClient.get<Array<{id:string;lotNumber:string;expiryDate:string|null;available:number;variantId:string|null}>>(`${branch(w,b)}/inventory/lots/available`,{productId:p,...(variantId?{variantId}:{})}),
   variants: (w:string,p:string)=>apiClient.get<Array<{id:string;productId:string;sku:string;barcode:string|null;attributes:Record<string,string|number|boolean>;costPriceMinor:number;sellingPriceMinor:number;active:boolean}>>(`${tenant(w)}/products/${enc(p)}/variants`),
   createVariant: (w:string,p:string,input:Record<string,unknown>)=>apiClient.post(`${tenant(w)}/products/${enc(p)}/variants`,input,key()),
-  availableSerials:(w:string,b:string,p:string,variantId?:string)=>apiClient.get<Array<{id:string;serialNumber:string;lotId:string|null;variantId:string|null}>>(`${branch(w,b)}/inventory/serials`,{productId:p,...(variantId?{variantId}:{})}),
+  lookupSerial:(w:string,b:string,identifier:string)=>apiClient.get<{id:string;productId:string;variantId:string|null;lotId:string|null;serialNumber:string;identifiers?:{imei2?:string};status:string}>(`${branch(w,b)}/inventory/serials/lookup`,{identifier}),
+  availableSerials:(w:string,b:string,p:string,variantId?:string)=>apiClient.get<Array<{id:string;serialNumber:string;identifiers?:{imei2?:string};lotId:string|null;variantId:string|null}>>(`${branch(w,b)}/inventory/serials`,{productId:p,...(variantId?{variantId}:{})}),
   createStandaloneSerial:(w:string,b:string,input:{productId:string;variantId?:string;serialNumber:string;imei2?:string})=>apiClient.post(`${branch(w,b)}/inventory/serials`,input,key()),
   units: (w: string) => apiClient.get<Record<string, unknown>[]>(`${tenant(w)}/catalog/units`),
   createUnit: (w: string, input: {code:string;name:string;dimension?:string;precision?:number}) => apiClient.post(`${tenant(w)}/catalog/units`, input, key()),
@@ -26,7 +29,7 @@ export const apiCatalogInventory = {
   createWarehouse: (w: string, b: string, input: Record<string, unknown>) => apiClient.post(`${branch(w,b)}/inventory/warehouses`, input, key()),
   bins: (w: string, b: string, warehouseId: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/inventory/warehouses/${enc(warehouseId)}/bins`),
   createBin: (w: string, b: string, warehouseId: string, input: Record<string, unknown>) => apiClient.post(`${branch(w,b)}/inventory/warehouses/${enc(warehouseId)}/bins`, input, key()),
-  createSerial: (w: string, b: string, lotId: string, serialNumber: string) => apiClient.post(`${branch(w,b)}/inventory/lots/${enc(lotId)}/serials`, {serialNumber}, key()),
+  createSerial: (w: string, b: string, lotId: string, serialNumber: string, imei2?: string) => apiClient.post(`${branch(w,b)}/inventory/lots/${enc(lotId)}/serials`, {serialNumber,...(imei2?{imei2}:{})}, key()),
   reservations: (w: string, b: string) => apiClient.get<Record<string, unknown>[]>(`${branch(w,b)}/inventory/reservations`),
   reserve: (w: string, b: string, input: Record<string, unknown>) => apiClient.post(`${branch(w,b)}/inventory/reservations`, input, key()),
 };

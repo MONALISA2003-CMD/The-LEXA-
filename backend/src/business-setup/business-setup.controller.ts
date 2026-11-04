@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CsrfGuard } from '../core/csrf.guard';
 import { normalizeRole } from '../authorization/role-policy';
-import { validateSetupStep, availablePaymentCodes, SetupValidationError, normaliseLegacyIndustry } from './business-setup.rules';
+import { validateSetupStep, availablePaymentCodes, SetupValidationError, normaliseSavedIndustries } from './business-setup.rules';
 
 // Global TenantAuthorizationGuard verifies the signed-in membership, tenant scope,
 // permissions and RLS before any business-setup handler runs.
@@ -54,7 +54,7 @@ export class BusinessSetupController {
       physicalAddress: profile?.physicalAddress ?? '', onlineOnly: profile?.onlineOnly ?? false,
       email: profile?.email ?? '', phone: profile?.phone ?? '', website: profile?.website ?? '',
       registrationNumber: profile?.registrationNumber ?? '', taxIdentificationNumber: profile?.taxIdentificationNumber ?? '',
-      industry: profile?.industry ?? '', industries: profile?.industries?.length ? profile.industries : (normaliseLegacyIndustry(profile?.industry) ? [normaliseLegacyIndustry(profile?.industry)!] : []), businessModels: profile?.businessModels ?? (tenant.businessType === 'wholesale' ? ['wholesale'] : tenant.businessType === 'services' ? ['services'] : ['retail']),
+      industry: normaliseSavedIndustries(profile?.industries,profile?.industry)[0] ?? 'other', industries: normaliseSavedIndustries(profile?.industries,profile?.industry), businessModels: (profile?.businessModels?.filter(model=>model!=='manufacturing').length ? profile.businessModels.filter(model=>model!=='manufacturing') : [tenant.businessType==='wholesale'?'wholesale':tenant.businessType==='services'?'services':'other']),
       offeringTypes: profile?.offeringTypes ?? [], offeringsDescription: profile?.offeringsDescription ?? '',
       sellingChannels: profile?.sellingChannels ?? [], setupStep: profile?.setupStep ?? 1,
       completedAt: profile?.completedAt?.toISOString() ?? null,

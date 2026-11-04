@@ -1,0 +1,1951 @@
+{
+  "schemaVersion": 1,
+  "description": "LEXA 13 supported trade industries. Category paths are templates, not actual inventory or customer data.",
+  "retiredIndustryCodes": [
+    "agriculture",
+    "healthcare",
+    "manufacturing",
+    "logistics_transport",
+    "professional_services"
+  ],
+  "industries": [
+    {
+      "code": "retail_trade",
+      "label": "Retail shops & supermarkets",
+      "categoryPaths": [
+        [
+          "Food",
+          "Groceries",
+          "Rice & grains"
+        ],
+        [
+          "Food",
+          "Beverages",
+          "Soft drinks"
+        ],
+        [
+          "Food",
+          "Beverages",
+          "Water"
+        ],
+        [
+          "Food",
+          "Dairy",
+          "Milk"
+        ],
+        [
+          "Food",
+          "Snacks",
+          "Biscuits"
+        ],
+        [
+          "Home care",
+          "Laundry",
+          "Detergents"
+        ],
+        [
+          "Personal care",
+          "Hygiene",
+          "Soap"
+        ],
+        [
+          "Baby care",
+          "Nappies"
+        ]
+      ]
+    },
+    {
+      "code": "wholesale_distribution",
+      "label": "Wholesale & distribution",
+      "categoryPaths": [
+        [
+          "Wholesale",
+          "Food staples",
+          "Rice"
+        ],
+        [
+          "Wholesale",
+          "Food staples",
+          "Flour"
+        ],
+        [
+          "Wholesale",
+          "Drinks",
+          "Soft drinks"
+        ],
+        [
+          "Wholesale",
+          "Cleaning",
+          "Detergents"
+        ],
+        [
+          "Wholesale",
+          "Personal care",
+          "Soap"
+        ],
+        [
+          "Wholesale",
+          "Building supplies",
+          "Cement"
+        ],
+        [
+          "Wholesale",
+          "Stationery",
+          "Exercise books"
+        ]
+      ]
+    },
+    {
+      "code": "electronics",
+      "label": "Electronics, TVs & appliances",
+      "categoryPaths": [
+        [
+          "Electronics",
+          "Televisions",
+          "Smart TVs"
+        ],
+        [
+          "Electronics",
+          "Televisions",
+          "Standard TVs"
+        ],
+        [
+          "Electronics",
+          "Computers",
+          "Laptops"
+        ],
+        [
+          "Electronics",
+          "Computers",
+          "Desktops"
+        ],
+        [
+          "Electronics",
+          "Audio",
+          "Speakers"
+        ],
+        [
+          "Electronics",
+          "Audio",
+          "Radios"
+        ],
+        [
+          "Electronics",
+          "Appliances",
+          "Refrigerators"
+        ],
+        [
+          "Electronics",
+          "Appliances",
+          "Washing machines"
+        ],
+        [
+          "Electronics",
+          "Accessories",
+          "Chargers"
+        ]
+      ]
+    },
+    {
+      "code": "mobile_phones",
+      "label": "Phones & accessories",
+      "categoryPaths": [
+        [
+          "Phones",
+          "Smartphones",
+          "Android phones"
+        ],
+        [
+          "Phones",
+          "Smartphones",
+          "iPhones"
+        ],
+        [
+          "Phones",
+          "Feature phones",
+          "Keypad phones"
+        ],
+        [
+          "Accessories",
+          "Chargers",
+          "USB-C chargers"
+        ],
+        [
+          "Accessories",
+          "Cables",
+          "USB cables"
+        ],
+        [
+          "Accessories",
+          "Protection",
+          "Phone cases"
+        ],
+        [
+          "Accessories",
+          "Protection",
+          "Screen protectors"
+        ],
+        [
+          "Accessories",
+          "Audio",
+          "Earphones"
+        ],
+        [
+          "Accessories",
+          "Power",
+          "Power banks"
+        ]
+      ]
+    },
+    {
+      "code": "fashion_beauty",
+      "label": "Fashion, shoes & accessories",
+      "categoryPaths": [
+        [
+          "Fashion",
+          "Clothing",
+          "Dresses"
+        ],
+        [
+          "Fashion",
+          "Clothing",
+          "T-shirts"
+        ],
+        [
+          "Fashion",
+          "Clothing",
+          "Trousers"
+        ],
+        [
+          "Fashion",
+          "Clothing",
+          "Shirts"
+        ],
+        [
+          "Fashion",
+          "Clothing",
+          "Jackets"
+        ],
+        [
+          "Fashion",
+          "Footwear",
+          "Sneakers"
+        ],
+        [
+          "Fashion",
+          "Footwear",
+          "Sandals"
+        ],
+        [
+          "Fashion",
+          "Footwear",
+          "Formal shoes"
+        ],
+        [
+          "Fashion",
+          "Accessories",
+          "Handbags"
+        ],
+        [
+          "Fashion",
+          "Accessories",
+          "Belts"
+        ]
+      ]
+    },
+    {
+      "code": "perfumes_cosmetics",
+      "label": "Perfumes & cosmetics",
+      "categoryPaths": [
+        [
+          "Beauty",
+          "Fragrances",
+          "Perfumes"
+        ],
+        [
+          "Beauty",
+          "Fragrances",
+          "Body mists"
+        ],
+        [
+          "Beauty",
+          "Makeup",
+          "Foundation"
+        ],
+        [
+          "Beauty",
+          "Makeup",
+          "Lipstick"
+        ],
+        [
+          "Beauty",
+          "Makeup",
+          "Powder"
+        ],
+        [
+          "Beauty",
+          "Skincare",
+          "Face creams"
+        ],
+        [
+          "Beauty",
+          "Skincare",
+          "Lotions"
+        ],
+        [
+          "Beauty",
+          "Hair care",
+          "Shampoo"
+        ],
+        [
+          "Beauty",
+          "Hair care",
+          "Conditioner"
+        ]
+      ]
+    },
+    {
+      "code": "food_hospitality",
+      "label": "Food, restaurants & hospitality",
+      "categoryPaths": [
+        [
+          "Menu",
+          "Meals",
+          "Main courses"
+        ],
+        [
+          "Menu",
+          "Meals",
+          "Side dishes"
+        ],
+        [
+          "Menu",
+          "Beverages",
+          "Hot drinks"
+        ],
+        [
+          "Menu",
+          "Beverages",
+          "Cold drinks"
+        ],
+        [
+          "Menu",
+          "Snacks",
+          "Fast food"
+        ],
+        [
+          "Kitchen",
+          "Ingredients",
+          "Dry goods"
+        ],
+        [
+          "Kitchen",
+          "Ingredients",
+          "Fresh ingredients"
+        ],
+        [
+          "Kitchen",
+          "Ingredients",
+          "Cooking oils"
+        ]
+      ]
+    },
+    {
+      "code": "bakery",
+      "label": "Bakeries & prepared food",
+      "categoryPaths": [
+        [
+          "Bakery",
+          "Bread",
+          "Sandwich loaves"
+        ],
+        [
+          "Bakery",
+          "Bread",
+          "Buns"
+        ],
+        [
+          "Bakery",
+          "Cakes",
+          "Birthday cakes"
+        ],
+        [
+          "Bakery",
+          "Cakes",
+          "Cupcakes"
+        ],
+        [
+          "Bakery",
+          "Pastries",
+          "Samosas"
+        ],
+        [
+          "Bakery",
+          "Pastries",
+          "Croissants"
+        ],
+        [
+          "Bakery",
+          "Ingredients",
+          "Flour"
+        ],
+        [
+          "Bakery",
+          "Ingredients",
+          "Sugar"
+        ]
+      ]
+    },
+    {
+      "code": "construction",
+      "label": "Hardware & construction",
+      "categoryPaths": [
+        [
+          "Hardware",
+          "Building materials",
+          "Cement"
+        ],
+        [
+          "Hardware",
+          "Building materials",
+          "Roofing sheets"
+        ],
+        [
+          "Hardware",
+          "Plumbing",
+          "PVC pipes"
+        ],
+        [
+          "Hardware",
+          "Plumbing",
+          "Fittings"
+        ],
+        [
+          "Hardware",
+          "Electrical",
+          "Cables"
+        ],
+        [
+          "Hardware",
+          "Electrical",
+          "Switches"
+        ],
+        [
+          "Hardware",
+          "Fasteners",
+          "Nails"
+        ],
+        [
+          "Hardware",
+          "Fasteners",
+          "Screws"
+        ],
+        [
+          "Hardware",
+          "Paint",
+          "Interior paint"
+        ]
+      ]
+    },
+    {
+      "code": "household_goods",
+      "label": "Household & home goods",
+      "categoryPaths": [
+        [
+          "Home",
+          "Furniture",
+          "Chairs"
+        ],
+        [
+          "Home",
+          "Furniture",
+          "Tables"
+        ],
+        [
+          "Home",
+          "Furniture",
+          "Beds"
+        ],
+        [
+          "Home",
+          "Kitchenware",
+          "Pots"
+        ],
+        [
+          "Home",
+          "Kitchenware",
+          "Plates"
+        ],
+        [
+          "Home",
+          "Bedding",
+          "Bedsheets"
+        ],
+        [
+          "Home",
+          "Bedding",
+          "Pillows"
+        ],
+        [
+          "Home",
+          "Storage",
+          "Containers"
+        ],
+        [
+          "Home",
+          "Decor",
+          "Curtains"
+        ]
+      ]
+    },
+    {
+      "code": "repair_services",
+      "label": "Repairs & technical services",
+      "categoryPaths": [
+        [
+          "Repairs",
+          "Phone parts",
+          "Replacement screens"
+        ],
+        [
+          "Repairs",
+          "Phone parts",
+          "Batteries"
+        ],
+        [
+          "Repairs",
+          "Computer parts",
+          "Keyboards"
+        ],
+        [
+          "Repairs",
+          "Computer parts",
+          "Chargers"
+        ],
+        [
+          "Repairs",
+          "Appliance parts",
+          "Motors"
+        ],
+        [
+          "Repairs",
+          "Services",
+          "Device diagnosis"
+        ],
+        [
+          "Repairs",
+          "Services",
+          "Screen replacement"
+        ],
+        [
+          "Repairs",
+          "Services",
+          "Maintenance"
+        ]
+      ]
+    },
+    {
+      "code": "education",
+      "label": "Education & training",
+      "categoryPaths": [
+        [
+          "Education",
+          "Books",
+          "Textbooks"
+        ],
+        [
+          "Education",
+          "Books",
+          "Revision guides"
+        ],
+        [
+          "Education",
+          "Stationery",
+          "Exercise books"
+        ],
+        [
+          "Education",
+          "Stationery",
+          "Pens"
+        ],
+        [
+          "Education",
+          "Stationery",
+          "Pencils"
+        ],
+        [
+          "Education",
+          "Uniforms",
+          "Shirts"
+        ],
+        [
+          "Education",
+          "Uniforms",
+          "Shoes"
+        ],
+        [
+          "Education",
+          "Courses",
+          "Lessons"
+        ]
+      ]
+    },
+    {
+      "code": "other",
+      "label": "Other business activities",
+      "categoryPaths": [
+        [
+          "General",
+          "Stocked items"
+        ],
+        [
+          "General",
+          "Non-stock services"
+        ],
+        [
+          "General",
+          "Supplies"
+        ]
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "key": "smartphone",
+      "label": "Smartphone / mobile phone",
+      "industries": [
+        "mobile_phones",
+        "electronics"
+      ],
+      "path": [
+        "Phones",
+        "Smartphones"
+      ],
+      "unit": "Each",
+      "stock": "serial",
+      "variants": [
+        "storage",
+        "colour",
+        "condition"
+      ],
+      "fields": [
+        {
+          "key": "model",
+          "label": "Model",
+          "required": true
+        },
+        {
+          "key": "storage",
+          "label": "Storage"
+        },
+        {
+          "key": "ram",
+          "label": "RAM"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "condition",
+          "label": "Condition",
+          "kind": "select",
+          "options": [
+            "New",
+            "Used",
+            "Refurbished"
+          ]
+        },
+        {
+          "key": "sim",
+          "label": "SIM configuration"
+        },
+        {
+          "key": "warrantyMonths",
+          "label": "Warranty (months)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": [
+        "imei",
+        "imei2"
+      ]
+    },
+    {
+      "key": "feature_phone",
+      "label": "Feature / keypad phone",
+      "industries": [
+        "mobile_phones"
+      ],
+      "path": [
+        "Phones",
+        "Feature phones"
+      ],
+      "unit": "Each",
+      "stock": "serial",
+      "variants": [
+        "colour"
+      ],
+      "fields": [
+        {
+          "key": "model",
+          "label": "Model",
+          "required": true
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "sim",
+          "label": "SIM configuration"
+        },
+        {
+          "key": "warrantyMonths",
+          "label": "Warranty (months)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": [
+        "imei",
+        "imei2"
+      ]
+    },
+    {
+      "key": "tv",
+      "label": "Television",
+      "industries": [
+        "electronics"
+      ],
+      "path": [
+        "Electronics",
+        "Televisions"
+      ],
+      "unit": "Each",
+      "stock": "serial",
+      "variants": [
+        "screenSize",
+        "model"
+      ],
+      "fields": [
+        {
+          "key": "model",
+          "label": "Model",
+          "required": true
+        },
+        {
+          "key": "screenSize",
+          "label": "Screen size"
+        },
+        {
+          "key": "resolution",
+          "label": "Resolution"
+        },
+        {
+          "key": "displayType",
+          "label": "Display technology"
+        },
+        {
+          "key": "connectivity",
+          "label": "Connectivity"
+        },
+        {
+          "key": "warrantyMonths",
+          "label": "Warranty (months)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": [
+        "serial"
+      ]
+    },
+    {
+      "key": "audio",
+      "label": "Radio / speaker / woofer",
+      "industries": [
+        "electronics"
+      ],
+      "path": [
+        "Electronics",
+        "Audio"
+      ],
+      "unit": "Each",
+      "stock": "serial",
+      "variants": [
+        "model"
+      ],
+      "fields": [
+        {
+          "key": "model",
+          "label": "Model",
+          "required": true
+        },
+        {
+          "key": "powerWatts",
+          "label": "Power (W)",
+          "kind": "number"
+        },
+        {
+          "key": "connectivity",
+          "label": "Connectivity"
+        },
+        {
+          "key": "warrantyMonths",
+          "label": "Warranty (months)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": [
+        "serial"
+      ]
+    },
+    {
+      "key": "laptop",
+      "label": "Laptop / computer",
+      "industries": [
+        "electronics"
+      ],
+      "path": [
+        "Electronics",
+        "Computers",
+        "Laptops"
+      ],
+      "unit": "Each",
+      "stock": "serial",
+      "variants": [
+        "ram",
+        "storage",
+        "colour"
+      ],
+      "fields": [
+        {
+          "key": "model",
+          "label": "Model",
+          "required": true
+        },
+        {
+          "key": "processor",
+          "label": "Processor"
+        },
+        {
+          "key": "ram",
+          "label": "RAM"
+        },
+        {
+          "key": "storage",
+          "label": "Storage"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "operatingSystem",
+          "label": "Operating system"
+        },
+        {
+          "key": "warrantyMonths",
+          "label": "Warranty (months)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": [
+        "serial"
+      ]
+    },
+    {
+      "key": "appliance",
+      "label": "Home appliance",
+      "industries": [
+        "electronics",
+        "household_goods"
+      ],
+      "path": [
+        "Electronics",
+        "Appliances"
+      ],
+      "unit": "Each",
+      "stock": "serial",
+      "variants": [
+        "capacity",
+        "colour"
+      ],
+      "fields": [
+        {
+          "key": "model",
+          "label": "Model",
+          "required": true
+        },
+        {
+          "key": "capacity",
+          "label": "Capacity"
+        },
+        {
+          "key": "powerWatts",
+          "label": "Power (W)",
+          "kind": "number"
+        },
+        {
+          "key": "voltage",
+          "label": "Voltage"
+        },
+        {
+          "key": "dimensions",
+          "label": "Dimensions"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "warrantyMonths",
+          "label": "Warranty (months)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": [
+        "serial"
+      ]
+    },
+    {
+      "key": "phone_accessory",
+      "label": "Phone accessory",
+      "industries": [
+        "mobile_phones",
+        "electronics"
+      ],
+      "path": [
+        "Accessories",
+        "Chargers"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "colour",
+        "connector"
+      ],
+      "fields": [
+        {
+          "key": "compatibleModels",
+          "label": "Compatible models"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "connector",
+          "label": "Connector / type"
+        },
+        {
+          "key": "powerWatts",
+          "label": "Power (W)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "clothing",
+      "label": "Clothing / boutique item",
+      "industries": [
+        "fashion_beauty"
+      ],
+      "path": [
+        "Fashion",
+        "Clothing"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "size",
+        "colour"
+      ],
+      "fields": [
+        {
+          "key": "style",
+          "label": "Style",
+          "required": true
+        },
+        {
+          "key": "size",
+          "label": "Size"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "material",
+          "label": "Material"
+        },
+        {
+          "key": "fit",
+          "label": "Fit"
+        },
+        {
+          "key": "gender",
+          "label": "Fit category"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "footwear",
+      "label": "Shoes / footwear",
+      "industries": [
+        "fashion_beauty"
+      ],
+      "path": [
+        "Fashion",
+        "Footwear"
+      ],
+      "unit": "Pair",
+      "stock": "quantity",
+      "variants": [
+        "size",
+        "colour"
+      ],
+      "fields": [
+        {
+          "key": "style",
+          "label": "Style",
+          "required": true
+        },
+        {
+          "key": "sizeSystem",
+          "label": "Size system",
+          "kind": "select",
+          "options": [
+            "EU",
+            "UK",
+            "US",
+            "Other"
+          ]
+        },
+        {
+          "key": "size",
+          "label": "Shoe size"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "material",
+          "label": "Material"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "bag",
+      "label": "Bag / fashion accessory",
+      "industries": [
+        "fashion_beauty"
+      ],
+      "path": [
+        "Fashion",
+        "Accessories",
+        "Handbags"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "colour",
+        "size"
+      ],
+      "fields": [
+        {
+          "key": "style",
+          "label": "Style"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "material",
+          "label": "Material"
+        },
+        {
+          "key": "size",
+          "label": "Size"
+        },
+        {
+          "key": "dimensions",
+          "label": "Dimensions"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "perfume",
+      "label": "Perfume / fragrance",
+      "industries": [
+        "perfumes_cosmetics",
+        "fashion_beauty"
+      ],
+      "path": [
+        "Beauty",
+        "Fragrances",
+        "Perfumes"
+      ],
+      "unit": "Bottle",
+      "stock": "quantity",
+      "variants": [
+        "concentration",
+        "bottleMl"
+      ],
+      "fields": [
+        {
+          "key": "fragrance",
+          "label": "Fragrance / scent",
+          "required": true
+        },
+        {
+          "key": "concentration",
+          "label": "Concentration",
+          "kind": "select",
+          "options": [
+            "EDP",
+            "EDT",
+            "Parfum",
+            "Cologne",
+            "Body mist",
+            "Other"
+          ]
+        },
+        {
+          "key": "bottleMl",
+          "label": "Bottle size (ml)",
+          "kind": "number"
+        },
+        {
+          "key": "scentFamily",
+          "label": "Scent family"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "cosmetic",
+      "label": "Cosmetic / beauty product",
+      "industries": [
+        "perfumes_cosmetics",
+        "fashion_beauty"
+      ],
+      "path": [
+        "Beauty",
+        "Makeup"
+      ],
+      "unit": "Each",
+      "stock": "batch",
+      "variants": [
+        "shade",
+        "volume"
+      ],
+      "fields": [
+        {
+          "key": "shade",
+          "label": "Shade"
+        },
+        {
+          "key": "volume",
+          "label": "Size / volume"
+        },
+        {
+          "key": "ingredients",
+          "label": "Ingredients or composition"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "skincare",
+      "label": "Skin & hair care",
+      "industries": [
+        "perfumes_cosmetics"
+      ],
+      "path": [
+        "Beauty",
+        "Skincare"
+      ],
+      "unit": "Bottle",
+      "stock": "batch",
+      "variants": [
+        "volume"
+      ],
+      "fields": [
+        {
+          "key": "productUse",
+          "label": "Purpose"
+        },
+        {
+          "key": "skinType",
+          "label": "Skin or hair type"
+        },
+        {
+          "key": "volume",
+          "label": "Volume"
+        },
+        {
+          "key": "ingredients",
+          "label": "Ingredients"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "bread",
+      "label": "Bread / bakery item",
+      "industries": [
+        "bakery",
+        "food_hospitality"
+      ],
+      "path": [
+        "Bakery",
+        "Bread"
+      ],
+      "unit": "Loaf",
+      "stock": "batch",
+      "variants": [
+        "weightGrams"
+      ],
+      "fields": [
+        {
+          "key": "weightGrams",
+          "label": "Weight (grams)",
+          "kind": "number"
+        },
+        {
+          "key": "ingredients",
+          "label": "Ingredients"
+        },
+        {
+          "key": "allergens",
+          "label": "Allergens"
+        },
+        {
+          "key": "shelfLifeDays",
+          "label": "Shelf life (days)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "cake",
+      "label": "Cake / pastry",
+      "industries": [
+        "bakery",
+        "food_hospitality"
+      ],
+      "path": [
+        "Bakery",
+        "Cakes"
+      ],
+      "unit": "Each",
+      "stock": "batch",
+      "variants": [
+        "size",
+        "flavour"
+      ],
+      "fields": [
+        {
+          "key": "flavour",
+          "label": "Flavour"
+        },
+        {
+          "key": "size",
+          "label": "Size"
+        },
+        {
+          "key": "weightGrams",
+          "label": "Weight (grams)",
+          "kind": "number"
+        },
+        {
+          "key": "allergens",
+          "label": "Allergens"
+        },
+        {
+          "key": "shelfLifeDays",
+          "label": "Shelf life (days)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "groceries",
+      "label": "Grocery / packaged food",
+      "industries": [
+        "retail_trade",
+        "wholesale_distribution",
+        "food_hospitality"
+      ],
+      "path": [
+        "Food",
+        "Groceries"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "packSize"
+      ],
+      "fields": [
+        {
+          "key": "packSize",
+          "label": "Pack size"
+        },
+        {
+          "key": "weight",
+          "label": "Net weight"
+        },
+        {
+          "key": "allergens",
+          "label": "Allergens"
+        },
+        {
+          "key": "shelfLifeDays",
+          "label": "Shelf life (days)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "beverage",
+      "label": "Drinks / beverages",
+      "industries": [
+        "retail_trade",
+        "wholesale_distribution",
+        "food_hospitality"
+      ],
+      "path": [
+        "Food",
+        "Beverages"
+      ],
+      "unit": "Bottle",
+      "stock": "quantity",
+      "variants": [
+        "volume",
+        "flavour"
+      ],
+      "fields": [
+        {
+          "key": "flavour",
+          "label": "Flavour"
+        },
+        {
+          "key": "volume",
+          "label": "Volume"
+        },
+        {
+          "key": "packSize",
+          "label": "Pack size"
+        },
+        {
+          "key": "returnable",
+          "label": "Returnable packaging"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "fresh_food",
+      "label": "Fresh food / produce for sale",
+      "industries": [
+        "retail_trade",
+        "wholesale_distribution",
+        "food_hospitality"
+      ],
+      "path": [
+        "Food",
+        "Fresh food"
+      ],
+      "unit": "Kg",
+      "stock": "batch",
+      "variants": [
+        "grade"
+      ],
+      "fields": [
+        {
+          "key": "grade",
+          "label": "Grade"
+        },
+        {
+          "key": "origin",
+          "label": "Origin"
+        },
+        {
+          "key": "harvestDate",
+          "label": "Received or harvest date"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "household",
+      "label": "Household / kitchen item",
+      "industries": [
+        "household_goods",
+        "retail_trade"
+      ],
+      "path": [
+        "Home",
+        "Kitchenware"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "size",
+        "colour"
+      ],
+      "fields": [
+        {
+          "key": "material",
+          "label": "Material"
+        },
+        {
+          "key": "capacity",
+          "label": "Capacity"
+        },
+        {
+          "key": "dimensions",
+          "label": "Dimensions"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "packSize",
+          "label": "Pack size"
+        },
+        {
+          "key": "size",
+          "label": "Size"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "furniture",
+      "label": "Furniture",
+      "industries": [
+        "household_goods"
+      ],
+      "path": [
+        "Home",
+        "Furniture"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "dimensions",
+        "colour"
+      ],
+      "fields": [
+        {
+          "key": "material",
+          "label": "Material"
+        },
+        {
+          "key": "dimensions",
+          "label": "Dimensions"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "finish",
+          "label": "Finish"
+        },
+        {
+          "key": "assembly",
+          "label": "Assembly needs"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "hardware",
+      "label": "Hardware / building material",
+      "industries": [
+        "construction"
+      ],
+      "path": [
+        "Hardware",
+        "Building materials"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "dimensions"
+      ],
+      "fields": [
+        {
+          "key": "material",
+          "label": "Material"
+        },
+        {
+          "key": "dimensions",
+          "label": "Dimensions"
+        },
+        {
+          "key": "grade",
+          "label": "Grade"
+        },
+        {
+          "key": "length",
+          "label": "Length"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "cable",
+      "label": "Electrical cable / wire",
+      "industries": [
+        "construction"
+      ],
+      "path": [
+        "Hardware",
+        "Electrical",
+        "Cables"
+      ],
+      "unit": "Metre",
+      "stock": "quantity",
+      "variants": [
+        "gauge",
+        "colour"
+      ],
+      "fields": [
+        {
+          "key": "material",
+          "label": "Material"
+        },
+        {
+          "key": "gauge",
+          "label": "Gauge"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "voltage",
+          "label": "Rated voltage"
+        },
+        {
+          "key": "length",
+          "label": "Length"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "pipe",
+      "label": "Plumbing pipe / fitting",
+      "industries": [
+        "construction"
+      ],
+      "path": [
+        "Hardware",
+        "Plumbing",
+        "PVC pipes"
+      ],
+      "unit": "Metre",
+      "stock": "quantity",
+      "variants": [
+        "diameter",
+        "length"
+      ],
+      "fields": [
+        {
+          "key": "material",
+          "label": "Material"
+        },
+        {
+          "key": "diameter",
+          "label": "Diameter"
+        },
+        {
+          "key": "length",
+          "label": "Length"
+        },
+        {
+          "key": "pressureRating",
+          "label": "Pressure rating"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "paint",
+      "label": "Paint / coating",
+      "industries": [
+        "construction"
+      ],
+      "path": [
+        "Hardware",
+        "Paint"
+      ],
+      "unit": "Tin",
+      "stock": "quantity",
+      "variants": [
+        "colour",
+        "volume"
+      ],
+      "fields": [
+        {
+          "key": "finish",
+          "label": "Finish"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "volume",
+          "label": "Volume"
+        },
+        {
+          "key": "baseType",
+          "label": "Base type"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "spare_part",
+      "label": "Vehicle / equipment spare part",
+      "industries": [
+        "repair_services",
+        "electronics"
+      ],
+      "path": [
+        "Repairs",
+        "Phone parts"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "partNumber"
+      ],
+      "fields": [
+        {
+          "key": "partNumber",
+          "label": "Part number"
+        },
+        {
+          "key": "compatibleModels",
+          "label": "Compatible models"
+        },
+        {
+          "key": "condition",
+          "label": "Condition"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "repair_service",
+      "label": "Technical repair labour",
+      "industries": [
+        "repair_services"
+      ],
+      "path": [
+        "Repairs",
+        "Services"
+      ],
+      "unit": "Service",
+      "stock": "none",
+      "variants": [],
+      "fields": [
+        {
+          "key": "durationMinutes",
+          "label": "Estimated duration (minutes)",
+          "kind": "number"
+        },
+        {
+          "key": "serviceDescription",
+          "label": "Service description"
+        },
+        {
+          "key": "deviceType",
+          "label": "Device type"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "menu_item",
+      "label": "Restaurant menu item",
+      "industries": [
+        "food_hospitality"
+      ],
+      "path": [
+        "Menu",
+        "Meals"
+      ],
+      "unit": "Plate",
+      "stock": "none",
+      "variants": [
+        "portionSize"
+      ],
+      "fields": [
+        {
+          "key": "portionSize",
+          "label": "Portion size"
+        },
+        {
+          "key": "allergens",
+          "label": "Allergens"
+        },
+        {
+          "key": "ingredients",
+          "label": "Ingredients"
+        },
+        {
+          "key": "preparationMinutes",
+          "label": "Preparation (minutes)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "ingredient",
+      "label": "Ingredient / kitchen stock",
+      "industries": [
+        "food_hospitality",
+        "bakery"
+      ],
+      "path": [
+        "Kitchen",
+        "Ingredients"
+      ],
+      "unit": "Kg",
+      "stock": "batch",
+      "variants": [
+        "packSize"
+      ],
+      "fields": [
+        {
+          "key": "packSize",
+          "label": "Pack size"
+        },
+        {
+          "key": "allergens",
+          "label": "Allergens"
+        },
+        {
+          "key": "shelfLifeDays",
+          "label": "Shelf life (days)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "book",
+      "label": "Book / textbook",
+      "industries": [
+        "education",
+        "retail_trade"
+      ],
+      "path": [
+        "Education",
+        "Books"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "edition"
+      ],
+      "fields": [
+        {
+          "key": "isbn",
+          "label": "ISBN"
+        },
+        {
+          "key": "author",
+          "label": "Author"
+        },
+        {
+          "key": "edition",
+          "label": "Edition"
+        },
+        {
+          "key": "subject",
+          "label": "Subject"
+        },
+        {
+          "key": "level",
+          "label": "Class / level"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "stationery",
+      "label": "Stationery / school supplies",
+      "industries": [
+        "education",
+        "retail_trade",
+        "wholesale_distribution"
+      ],
+      "path": [
+        "Education",
+        "Stationery"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "packSize",
+        "colour"
+      ],
+      "fields": [
+        {
+          "key": "packSize",
+          "label": "Pack size"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "grade",
+          "label": "Grade / type"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "uniform",
+      "label": "School uniform",
+      "industries": [
+        "education",
+        "fashion_beauty"
+      ],
+      "path": [
+        "Education",
+        "Uniforms"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "size",
+        "colour"
+      ],
+      "fields": [
+        {
+          "key": "school",
+          "label": "School"
+        },
+        {
+          "key": "size",
+          "label": "Size"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "material",
+          "label": "Material"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "course",
+      "label": "Training / tuition service",
+      "industries": [
+        "education"
+      ],
+      "path": [
+        "Education",
+        "Courses"
+      ],
+      "unit": "Service",
+      "stock": "none",
+      "variants": [],
+      "fields": [
+        {
+          "key": "subject",
+          "label": "Subject"
+        },
+        {
+          "key": "level",
+          "label": "Level"
+        },
+        {
+          "key": "durationMinutes",
+          "label": "Duration (minutes)",
+          "kind": "number"
+        },
+        {
+          "key": "serviceDescription",
+          "label": "Description"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "service",
+      "label": "General service / labour",
+      "industries": [
+        "repair_services",
+        "food_hospitality",
+        "education",
+        "other"
+      ],
+      "path": [
+        "Services"
+      ],
+      "unit": "Service",
+      "stock": "none",
+      "variants": [],
+      "fields": [
+        {
+          "key": "durationMinutes",
+          "label": "Duration (minutes)",
+          "kind": "number"
+        },
+        {
+          "key": "serviceDescription",
+          "label": "Description"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "general",
+      "label": "General product / other",
+      "industries": [
+        "other"
+      ],
+      "path": [
+        "General",
+        "Stocked items"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [],
+      "fields": [],
+      "identifiers": []
+    }
+  ],
+  "legacyReadOnlyProductTypes": {
+    "produce": [
+      "grade",
+      "origin",
+      "harvestDate"
+    ]
+  }
+}

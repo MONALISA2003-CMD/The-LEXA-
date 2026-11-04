@@ -120,6 +120,30 @@ export default function CheckoutPage() {
     const exact=choices.filter(choice=>choice.product.active&&(choice.barcode.trim().toLocaleLowerCase()===normalized||choice.sku.trim().toLocaleLowerCase()===normalized));
     if(exact.length===1){addToCart(exact[0]!.key);return;}
     if(exact.length>1){toast.error('Product barcode is ambiguous',{description:'Resolve duplicate barcodes before checkout.'});return;}
+    if(dataProviderMode==='api'){
+      try {
+        // IMEI1, IMEI2 or a manufacturer's serial resolves to the exact unit.
+        // Never infer a unit from a product name or SKU alone.
+        const unit=await apiCatalogInventory.lookupSerial(workspace.id,branch.id,code);
+        if(unit.status!=='available'){toast.error('This device cannot be sold',{description:`Current stock status: ${unit.status}`});return;}
+        const choice=choices.find(c=>c.product.id===unit.productId&&(c.variant?.id??null)===unit.variantId);
+        if(!choice||!choice.product.trackSerial){toast.error('Registered device product is unavailable',{description:'Review its product and variant status in Inventory.'});return;}
+        if(choice.product.trackLot&&!unit.lotId){toast.error('Device has no required stock batch');return;}
+        if(choice.product.trackLot&&selectedLots[choice.key]&&selectedLots[choice.key]!==unit.lotId){toast.error('Devices from different batches must be sold on separate sale lines.');return;}
+        if(Object.values(selectedSerials).some(ids=>ids.includes(unit.id))){toast.error('This device is already in the current cart.');return;}
+        const current=cart[choice.key]??0;
+        if(current+1>choiceBalance(choice)){toast.error('There is no remaining stock for this device variant.');return;}
+        addToCart(choice.key);
+        setSelectedSerials(previous=>({...previous,[choice.key]:[...(previous[choice.key]??[]),unit.id]}));
+        if(choice.product.trackLot&&unit.lotId)setSelectedLots(previous=>({...previous,[choice.key]:unit.lotId!}));
+        toast.success('Exact device selected',{description:unit.serialNumber});
+        setSearch('');
+        return;
+      } catch(error){
+        toast.error('Scanned code not found in this branch',{description:error instanceof Error?error.message:'Scan a valid product SKU or a registered IMEI/serial.'});
+        return;
+      }
+    }
     toast.error('Product code not found',{description:'Try a different barcode or SKU.'});
   }
 
@@ -239,7 +263,7 @@ export default function CheckoutPage() {
               {line.product.trackLot&&<label className="field-label">Stock batch<select value={selectedLot} onChange={e=>{setSelectedLots(prev=>({...prev,[line.key]:e.target.value}));setSelectedSerials(prev=>({...prev,[line.key]:[]}));}}><option value="">Choose actual batch</option>{(trace?.lots??[]).map(lot=><option value={lot.id} key={lot.id}>{lot.lotNumber} · {lot.available} available{lot.expiryDate?' · exp '+lot.expiryDate:''}</option>)}</select></label>}
               {line.product.trackSerial&&<label className="field-label">Serial / IMEI — select {line.quantity} unit{line.quantity===1?'':'s'}
                 <select multiple size={Math.min(5,Math.max(2,availableSerials.length))} value={selectedSerials[line.key]??[]} onChange={e=>setSelectedSerials(prev=>({...prev,[line.key]:Array.from(e.currentTarget.selectedOptions).map(opt=>opt.value)}))}>
-                  {availableSerials.map(serial=><option key={serial.id} value={serial.id}>{serial.serialNumber}</option>)}
+                  {availableSerials.map(serial=><option key={serial.id} value={serial.id}>{serial.serialNumber}{serial.identifiers?.imei2?` / ${serial.identifiers.imei2}`:''}</option>)}
                 </select><small className="field-help">Select one unique device identifier for each unit. LEXA verifies availability again when you complete the sale.</small>
               </label>}
               </div>
