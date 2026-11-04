@@ -6,7 +6,9 @@ export function httpBusinessMessage(status: number, rawMessage: string, code?: s
   }
   if (code === 'CSRF_TOKEN_INVALID' || code === 'INVALID_CSRF_TOKEN') return 'This request could not be verified. Refresh the page and try again.';
   if (code === 'OWNER_ONLY') return 'LEXA Intelligence is available to the business owner only.';
-  if (code === 'AI_USAGE_LIMIT_REACHED') return 'Your monthly Intelligence allowance has been used.';
+  if (code === 'AI_USAGE_LIMIT_REACHED') return 'This month’s business assistant requests have reached the plan limit. Try again when the allowance renews.';
+  if (code === 'AI_USAGE_RECORD_UNAVAILABLE') return 'The assistant could not record this request. Please try again.';
+  if (code === 'AI_PROVIDER_UNAVAILABLE' || code === 'INTELLIGENCE_UNAVAILABLE') return 'Live analysis is temporarily unavailable. You can still review recorded business figures and reports.';
   if (status === 401) return 'Your sign-in has expired. Please sign in again to continue.';
   if (status === 403) return 'You do not have permission to make this change. Ask your business administrator for access.';
   if (status === 404) return 'We could not find the business information you requested. It may have been moved or removed.';

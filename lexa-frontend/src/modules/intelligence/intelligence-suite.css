@@ -19,3 +19,16 @@
 .lexa-owner-shortcuts a{color:#6042b8;font-size:12px;font-weight:700}.lexa-ai-aside>section h3{margin:0;font-size:17px}
 .lexa-ai-message{display:block}.lexa-ai-status{justify-content:space-between}.lexa-ai-status>strong{color:#2a3652;font-weight:750}.lexa-ai-status>button{margin-left:auto}
 @media(max-width:600px){.lexa-owner-actions{padding:14px}.lexa-ai-layout{display:grid;grid-template-columns:1fr}}
+
+/* Structured, readable business responses; model output is never interpreted as HTML. */
+.lexa-ai-message .lexa-assistant-answer{display:grid;gap:8px;padding:16px 18px;border:1px solid #e0daf1;border-radius:4px 15px 15px 15px;background:#faf9ff;min-width:0;overflow-wrap:anywhere}
+.lexa-ai-message .lexa-assistant-answer h3{font-size:clamp(15px,1.15vw,19px);color:#152a54;line-height:1.3;font-weight:800;margin:0 0 2px}
+.lexa-ai-message .lexa-assistant-answer p{margin:0!important;padding:0!important;background:transparent!important;border:0!important;border-radius:0!important;font-size:clamp(13px,1vw,14px);color:#344460;line-height:1.7}
+.lexa-ai-message .lexa-assistant-answer strong{color:#12285a;font-weight:760}
+.lexa-answer-bullet{display:flex;gap:9px;align-items:baseline}
+.lexa-answer-bullet>span{color:#6d43d7;flex:none}
+.lexa-answer-space{height:4px}
+@media(max-width:680px){.lexa-ai-message .lexa-assistant-answer{padding:13px 14px}.lexa-ai-message .lexa-assistant-answer p{font-size:13px}}
+:root[data-theme=dark] .lexa-ai-message .lexa-assistant-answer{background:#172448;border-color:#3c3c70}
+:root[data-theme=dark] .lexa-ai-message .lexa-assistant-answer h3,:root[data-theme=dark] .lexa-ai-message .lexa-assistant-answer strong{color:#edf4ff}
+:root[data-theme=dark] .lexa-ai-message .lexa-assistant-answer p{color:#d4e0fa}

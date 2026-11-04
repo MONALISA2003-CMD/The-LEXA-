@@ -6,6 +6,7 @@ import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiIntelligence, type IntelligenceScope } from '../../data/remote/apiIntelligence';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import OwnerActions from './OwnerActions';
+import AssistantAnswer from './AssistantAnswer';
 import './intelligence-suite.css';
 
 const prompts = [
@@ -45,7 +46,7 @@ export default function IntelligencePage(){
    <div className="lexa-ai-layout">
     <section className="lexa-ai-chat" aria-label="Business analysis">
       {messages.length===0&&<div className="lexa-ai-welcome"><h2>What would you like to review?</h2><div className="lexa-ai-ideas">{prompts.map(([area,label,text])=><button type="button" key={label} onClick={()=>{setScope(area);setQuestion(text)}}>{label}<ArrowRight size={15}/></button>)}</div></div>}
-      <div className="lexa-ai-messages" aria-live="polite">{messages.map(m=><article key={m.id} className={`lexa-ai-message ${m.role==='owner'?'user':'assistant'}`}><div><header><strong>{m.role==='owner'?'You':'LEXA'}</strong><small>{new Date(m.time).toLocaleTimeString('en-UG',{hour:'2-digit',minute:'2-digit'})}</small></header><p>{m.text}</p>{m.role==='lexa'&&<button type="button" onClick={()=>void navigator.clipboard.writeText(m.text)}><Copy size={14}/> Copy</button>}</div></article>)}</div>
+      <div className="lexa-ai-messages" aria-live="polite">{messages.map(m=><article key={m.id} className={`lexa-ai-message ${m.role==='owner'?'user':'assistant'}`}><div><header><strong>{m.role==='owner'?'You':'LEXA'}</strong><small>{new Date(m.time).toLocaleTimeString('en-UG',{hour:'2-digit',minute:'2-digit'})}</small></header>{m.role==='lexa'?<AssistantAnswer text={m.text}/>:<p>{m.text}</p>}{m.role==='lexa'&&<button type="button" onClick={()=>void navigator.clipboard.writeText(m.text)}><Copy size={14}/> Copy</button>}</div></article>)}</div>
       {busy&&<p className="lexa-ai-thinking" role="status">Reviewing your business records…</p>}
       {error&&<p className="lexa-intel-warning" role="alert">{error}</p>}
       <form className="lexa-ai-composer" onSubmit={run}><label htmlFor="lexa-question">Business question</label><textarea id="lexa-question" maxLength={2000} rows={3} value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Ask about stock, sales, receivables or business priorities" disabled={busy}/><div><select aria-label="Business area" value={scope} onChange={e=>setScope(e.target.value as IntelligenceScope)} disabled={busy}>{[['overview','Whole business'],['sales','Sales'],['inventory','Inventory'],['finance','Finance'],['customers','Customers'],['people','Team']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select><small>{question.length}/2000</small><button disabled={busy||!question.trim()} type="submit"><Send size={15}/> Ask LEXA</button></div></form>

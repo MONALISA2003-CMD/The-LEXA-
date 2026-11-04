@@ -1,0 +1,14 @@
+.lexa-identity{display:inline-flex;align-items:center;gap:10px;min-width:0;max-width:100%;line-height:1;isolation:isolate}
+.lexa-identity-mark{display:block;flex:none;width:clamp(38px,3.2vw,52px);height:clamp(33px,2.9vw,46px);background:linear-gradient(132deg,var(--module-nav-accent,#39abff) 2%,var(--module-accent,#075cf5) 45%,var(--module-accent-strong,#062e8e) 95%);-webkit-mask:url('/lexa-mark-mask.png') center/contain no-repeat;mask:url('/lexa-mark-mask.png') center/contain no-repeat}
+.lexa-identity-wordmark{color:#f4f8ff;font-size:clamp(22px,2.4vw,32px);font-weight:900;letter-spacing:.115em;white-space:nowrap;text-shadow:0 1px 10px rgba(3,18,50,.22)}
+.lexa-identity-compact .lexa-identity-mark{width:35px;height:33px}
+.brand-lockup{display:flex;align-items:center;min-height:74px;padding:6px 10px 15px!important}
+.brand-lockup::before{content:none!important;display:none!important}
+.brand-lockup .lexa-brand-logo-frame{flex:1;min-width:0;width:auto;height:auto;overflow:visible;background:transparent;border-radius:0;display:flex;align-items:center}
+.brand-lockup .lexa-brand-logo-frame .lexa-identity{display:inline-flex!important}
+.lexa-topbar-mark{display:inline-flex}
+@media(max-width:760px){.brand-lockup{padding:5px 28px 12px 10px!important;min-height:64px}.brand-lockup .lexa-brand-logo-frame{height:auto}.lexa-identity-mark{width:41px;height:36px}.lexa-identity-wordmark{font-size:26px}.lexa-topbar-mark{display:inline-flex;align-items:center;justify-content:center;width:37px;height:37px;margin-right:5px;flex-shrink:0}.lexa-topbar-mark .lexa-identity-mark{width:33px;height:30px}}
+@media(min-width:761px) and (max-width:1100px){.lexa-identity-mark{width:40px;height:36px}.lexa-identity-wordmark{font-size:24px}}
+@media(prefers-reduced-motion:reduce){.lexa-identity-mark{animation:none}}
+
+@media(max-width:410px){.lexa-topbar-mark{width:28px;height:29px;margin-right:1px}.lexa-topbar-mark .lexa-identity-mark{width:27px;height:26px}.topbar-title{gap:5px!important}.topbar-title h1{font-size:clamp(14px,4vw,17px)!important}}

@@ -13,6 +13,7 @@ import './styles/module-graph.css';
 import './styles/business-setup.css';
 import './styles/lexa-executive-premium.css';
 import './styles/lexa-release-navigation.css';
+import './styles/auth-glass-electric.css';
 
 // A device can retain an old HTML shell after an update while Vite chunk names change.
 // Refresh once on a missing chunk, then let the route error boundary show a retry

@@ -10,6 +10,7 @@ import { hasPermission, isWorkspaceAdministrator, isOwnerRole, type Permission }
 import { CsrfGuard } from '../core/csrf.guard';
 import { AiRouterService, classifyWorkload } from './ai-router.service';
 import { quickOperationalAnswer } from './operations-analytics';
+import { businessPreflight, professionalAnswer } from './ai-response';
 import { ReportInsightsService, daysInPeriod } from './report-insights.service';
 
 const AI_RESERVATION_MICROS = 50_000; // $0.05 reservation; the current free/developer router settles successful calls to zero cost
@@ -329,7 +330,7 @@ export class Workstream8Controller {
 
   private async reserveAi(tenantId: string, branchId: string, actorUserId: string, requestId: string, purpose: 'business_explanation'|'document_extraction', dataClass: 'public'|'internal_aggregate'|'confidential_aggregate'|'restricted', modelAlias: string | null) {
     const reservedMicros = dataClass === 'confidential_aggregate' || dataClass === 'public' ? AI_RESERVATION_MICROS : 0;
-    return this.prisma.$transaction(async (tx: any) => {
+    return this.prisma.runWithTenantContext({ tenantId, userId: actorUserId }, () => this.prisma.$transaction(async (tx: any) => {
       const plans = await tx.$queryRaw<any[]>`
         SELECT p.ai_requests_monthly,p.ai_budget_micros_monthly,s.status,s.current_period_start
         FROM tenant_subscriptions s JOIN saas_plans p ON p.plan_key=s.plan_key
@@ -360,17 +361,27 @@ export class Workstream8Controller {
         WHERE tenant_usage_counters.quantity<${number(plan.ai_requests_monthly)}
           AND tenant_usage_counters.amount_micros+${reservedMicros}<=${number(plan.ai_budget_micros_monthly)}
         RETURNING quantity,amount_micros`;
-      if (!counters.length) throw new ForbiddenException({ code: 'AI_USAGE_LIMIT_REACHED', message: 'The monthly LEXA Intelligence allowance has been reached. Ask your workspace administrator to review the plan and usage.' });
+      if (!counters.length) {
+        const current = await tx.$queryRaw<Array<{quantity: bigint; amount_micros: bigint}>>`
+          SELECT quantity,amount_micros FROM tenant_usage_counters
+          WHERE tenant_id=${tenantId}::uuid AND meter_key='ai' AND period_start=${period}::date`;
+        const used = Number(current[0]?.quantity ?? 0);
+        const reserved = Number(current[0]?.amount_micros ?? 0);
+        const quotaReached = number(plan.ai_requests_monthly) < 1 || used >= number(plan.ai_requests_monthly)
+          || reserved + reservedMicros > number(plan.ai_budget_micros_monthly);
+        if (quotaReached) throw new ForbiddenException({ code: 'AI_USAGE_LIMIT_REACHED', message: 'Your business assistant allowance is full for this period.' });
+        throw new ServiceUnavailableException({ code: 'AI_USAGE_RECORD_UNAVAILABLE', message: 'The business assistant could not record this request. Please try again.' });
+      }
       const event = await tx.$queryRaw<any[]>`
         INSERT INTO ai_usage_events(tenant_id,branch_id,actor_user_id,request_id,period_start,purpose,data_class,provider,model_alias,status,reserved_micros,correlation_id)
         VALUES(${tenantId}::uuid,${branchId}::uuid,${actorUserId}::uuid,${requestId},${period}::date,${purpose},${dataClass},${modelAlias ? providerForAlias(modelAlias) : null},${modelAlias},'reserved',${reservedMicros},${requestId})
         RETURNING id::text`;
       return { eventId: event[0].id, quantity: number(counters[0].quantity), reservedMicros };
-    });
+    }));
   }
 
   private async completeAi(tenantId: string, eventId: string, status: 'succeeded'|'failed', values: { inputTokens?: number; outputTokens?: number; latencyMs?: number; policyCode?: string; reportedCostMicros?: number | null; providerModel?: string | null }) {
-    await this.prisma.$transaction(async (tx: any) => {
+    await this.prisma.runWithTenantContext({ tenantId }, () => this.prisma.$transaction(async (tx: any) => {
       const events = await tx.$queryRaw<any[]>`
         UPDATE ai_usage_events SET status=${status},input_tokens=${Math.max(0,Math.floor(values.inputTokens ?? 0))},
           output_tokens=${Math.max(0,Math.floor(values.outputTokens ?? 0))},latency_ms=${values.latencyMs ?? null},
@@ -378,13 +389,21 @@ export class Workstream8Controller {
         WHERE id=${eventId}::uuid AND tenant_id=${tenantId}::uuid AND status='reserved'
         RETURNING period_start,reserved_micros`;
       const event=events[0];
+      if (event && status === 'failed') {
+        // A failed provider request is not a successfully delivered Intelligence answer.
+        // Release both the request slot and the reserved free-tier allowance atomically.
+        await tx.$executeRaw`
+          UPDATE tenant_usage_counters SET quantity=GREATEST(0,quantity-1),
+            amount_micros=GREATEST(0,amount_micros-${number(event.reserved_micros)}),updated_at=now()
+          WHERE tenant_id=${tenantId}::uuid AND meter_key='ai' AND period_start=${event.period_start}::date`;
+      }
       if (event && status==='succeeded' && values.reportedCostMicros !== null && values.reportedCostMicros !== undefined) {
         const actual=Math.max(0,Math.floor(values.reportedCostMicros));
         await tx.$executeRaw`
           UPDATE tenant_usage_counters SET amount_micros=GREATEST(0,amount_micros-${number(event.reserved_micros)}+${actual}),updated_at=now()
           WHERE tenant_id=${tenantId}::uuid AND meter_key='ai' AND period_start=${event.period_start}::date`;
       }
-    });
+    }));
   }
 
   @Get('intelligence/status')
@@ -397,10 +416,10 @@ export class Workstream8Controller {
     const entitled = await this.hasFeature(workspaceId, 'intelligence.explain');
     const canRun = hasPermission(actor.role, 'intelligence.run');
     const serviceConfigured = router.configured;
-    const businessAvailable = serviceConfigured;
+    const businessAvailable = enabled; // Built-in business analyses do not require a model provider.
     // Compatibility fields for older clients. LEXA now exposes one business assistant and one provider router.
-    const publicHelpAvailable = serviceConfigured;
-    const businessReady = enabled && serviceConfigured && entitled;
+    const publicHelpAvailable = enabled;
+    const businessReady = enabled && entitled; // Built-in business calculations also work without an external model.
     return {
       enabled: businessReady,
       serviceConfigured,
@@ -427,7 +446,7 @@ export class Workstream8Controller {
   @UseGuards(CsrfGuard)
   async explain(@Param('workspaceId') workspaceId: string, @Param('branchId') branchId: string, @Body() body: any, @Req() request: FastifyRequest) {
     const actor = await this.access(request, workspaceId, branchId, 'intelligence.run');
-    if (process.env.LEXA_AI_ENABLED !== 'true' || !this.aiRouter.status().configured) throw new ServiceUnavailableException({ code: 'INTELLIGENCE_UNAVAILABLE', message: 'LEXA AI is temporarily unavailable. Your core LEXA workspace remains ready to use.' });
+    if (process.env.LEXA_AI_ENABLED !== 'true') throw new ServiceUnavailableException({ code: 'INTELLIGENCE_UNAVAILABLE', message: 'LEXA Intelligence is not currently enabled.' });
     if (!(await this.hasFeature(workspaceId, 'intelligence.explain'))) throw new ForbiddenException({ code: 'FEATURE_NOT_ENTITLED', message: 'LEXA AI is not included in this workspace plan.' });
     const question = safeText(body?.question, 'Business question', AI_MAX_INPUT_CHARS);
     const sensitiveQuestion = /\b(?:salary|payroll|employee name|customer name|personal details|phone number|email address|bank account|account number|national id|passport|medical record|password|api key|specific employee|specific customer|individual record)\b/i.test(question)
@@ -440,6 +459,9 @@ export class Workstream8Controller {
     if (scope === 'customers' && !hasPermission(actor.role, 'crm.read')) throw new ForbiddenException('Your role cannot request customer summaries.');
     const advancedAnalytics = await this.hasFeature(workspaceId, 'analytics.advanced');
     if ((scope === 'customers' || scope === 'people') && !advancedAnalytics) throw new ForbiddenException({ code: 'FEATURE_NOT_ENTITLED', message: 'Customer and workforce summaries require the advanced analytics entitlement.' });
+    const requestId = randomUUID();
+    const firstReply = businessPreflight(question);
+    if (firstReply) return { answer: firstReply, scope, requestId, mode: 'business', usage: { inputTokens: 0, outputTokens: 0, reservedBudgetMicros: 0 } };
     const facts = await this.aggregate(workspaceId, branchId, undefined, undefined, actor.role, advancedAnalytics);
     const allowedFacts: Record<string, unknown> = scope === 'sales' ? { sales: facts.sales }
       : scope === 'inventory' ? { inventory: facts.inventory }
@@ -447,14 +469,14 @@ export class Workstream8Controller {
       : scope === 'customers' ? { crm: facts.crm ?? {} }
       : scope === 'people' ? { people: facts.people ?? {} }
       : facts;
-    const requestId = randomUUID();
     if (classifyWorkload(question) === 'complex') return {
       answer: 'This request requires a detailed paid analysis. No paid service has been used or charged. Contact LEXA to authorize a separate review.',
       scope, requestId, mode: 'paid_inquiry',
       usage: { inputTokens: 0, outputTokens: 0, reservedBudgetMicros: 0 },
     };
     const quick = await quickOperationalAnswer({ question, scope, facts: allowedFacts, currency: actor.branch.currency });
-    if (quick) return { answer: quick, scope, requestId, mode: 'calculated', usage: { inputTokens: 0, outputTokens: 0, reservedBudgetMicros: 0 } };
+    if (quick) return { answer: professionalAnswer(quick, scope), scope, requestId, mode: 'calculated', usage: { inputTokens: 0, outputTokens: 0, reservedBudgetMicros: 0 } };
+    if (!this.aiRouter.status().configured) throw new ServiceUnavailableException({ code: 'AI_PROVIDER_UNAVAILABLE', message: 'Live business analysis is temporarily unavailable. Stock, sales and other recorded totals remain available.' });
     const reservation = await this.reserveAi(workspaceId, branchId, actor.userId, requestId, 'business_explanation', 'confidential_aggregate', FREE_MODEL_ALIAS);
     const started = Date.now();
     try {
@@ -467,7 +489,7 @@ export class Workstream8Controller {
         providerModel: `${result.provider}:${result.model}`,
       });
       return {
-        answer: result.answer,
+        answer: professionalAnswer(result.answer, scope),
         scope,
         assurance: 'Based on permission-filtered LEXA business aggregates. Individual customer and employee records are excluded. AI is read-only and cannot post or change ERP records.',
         requestId,

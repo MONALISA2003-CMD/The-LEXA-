@@ -10,6 +10,7 @@ import { WorkspaceContext } from '../WorkspaceContext';
 import type { Branch, Workspace } from '../../domain/shared/types';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import GlobalSearch from '../../components/GlobalSearch';
+import LexaLogo from '../../components/LexaLogo';
 import { navigationIcons } from '../../components/icons/EnterpriseNavIcons';
 import { isEmployeeNavigationAllowed } from '../../domain/shared/staffNavigation';
 import { apiAuth } from '../../data/remote/apiAuth';
@@ -359,7 +360,7 @@ export default function AppShell() {
         <div className={`mobile-scrim ${mobileNavOpen ? 'is-visible' : ''}`} onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
         <aside className={`sidebar ${mobileNavOpen ? 'sidebar-open' : ''}`} aria-label="Main navigation">
           <div className="brand-lockup">
-            <div className="lexa-brand-logo-frame"><img className="lexa-brand-logo" src="/lexa-logo.png" alt="LEXA — Sales, Inventory, Business Management" /></div>
+            <div className="lexa-brand-logo-frame"><LexaLogo accent={moduleAccentForPath(location.pathname)} /></div>
             <button className="icon-button sidebar-close" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)}><X size={18} /></button>
           </div>
           <div className="sidebar-workspace">
@@ -392,7 +393,7 @@ export default function AppShell() {
 
         <main className="main-panel" data-module-accent={moduleAccentForPath(location.pathname)}>
           <header className="topbar">
-            <div className="topbar-title"><button className="icon-button mobile-menu-button" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}><Menu size={20} /></button><div><div className="eyebrow">BUSINESS WORKSPACE</div><h1>{routeTitle(location.pathname)}</h1></div></div>
+            <div className="topbar-title"><LexaLogo compact accent={moduleAccentForPath(location.pathname)} className="lexa-topbar-mark" /><button className="icon-button mobile-menu-button" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}><Menu size={20} /></button><div><div className="eyebrow">BUSINESS WORKSPACE</div><h1>{routeTitle(location.pathname)}</h1></div></div>
             <GlobalSearch />
             <div className="topbar-actions">
               {isOwner && <Link className="lexa-owner-assistant-shortcut" to={`/intelligence?scope=${location.pathname.includes('/finance')||location.pathname.includes('/accounting')||location.pathname.includes('/budgets')?'finance':location.pathname.includes('/inventory')||location.pathname.includes('/products')||location.pathname.includes('/stock')?'inventory':location.pathname.includes('/sales')||location.pathname.includes('/checkout')?'sales':'overview'}`} title="Open LEXA Intelligence for this area" aria-label="Open LEXA Intelligence for this area">LEXA</Link>}
