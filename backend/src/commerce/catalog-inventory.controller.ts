@@ -300,7 +300,7 @@ export class CatalogInventoryController {
    const productId=uuid(url.searchParams.get('productId'),'Product');
    const variantId=url.searchParams.get('variantId')?uuid(url.searchParams.get('variantId'),'Variant'):null;
    const lots=await this.prisma.inventoryLot.findMany({where:{tenantId:w,branchId:branch,productId,variantId,status:'available',OR:[{expiryDate:null},{expiryDate:{gte:new Date()}}]},orderBy:[{expiryDate:'asc'},{lotNumber:'asc'}],take:300});
-   return lots.map(l=>({id:l.id,lotNumber:l.lotNumber,expiryDate:l.expiryDate?.toISOString().slice(0,10)??null,available:Number(l.quantityOnHand)-Number(l.quantityReserved)-Number(l.quantityQuarantined),variantId:l.variantId})).filter(l=>l.available>0);
+   return lots.map(l=>({id:l.id,lotNumber:l.lotNumber,expiryDate:l.expiryDate?.toISOString().slice(0,10)??null,available:Number(l.quantityOnHand)-Number(l.quantityReserved)-Number(l.quantityQuarantined),warehouseId:l.warehouseId,variantId:l.variantId})).filter(l=>l.available>0);
  }
 
  @Post('products/:productId/variants') @UseGuards(CsrfGuard) async createVariant(@Param('workspaceId') w:string,@Param('productId') id:string,@Body() raw:unknown,@Req() req:FastifyRequest) {

@@ -120,6 +120,12 @@
     "rationale": "Owner activity and specialty change history; mandatory for audit and restore"
   },
   {
+    "table": "business_divisions",
+    "disposition": "authoritative",
+    "domain": "industry_operations",
+    "rationale": "Tenant-scoped canonical industry workflow, versioned record, posting evidence and backup/restore integrity"
+  },
+  {
     "table": "business_notifications",
     "disposition": "authoritative",
     "domain": "notifications",
@@ -516,6 +522,18 @@
     "rationale": "Business request deduplication evidence"
   },
   {
+    "table": "inventory_formula_components",
+    "disposition": "authoritative",
+    "domain": "industry_operations",
+    "rationale": "Tenant-scoped canonical industry workflow, versioned record, posting evidence and backup/restore integrity"
+  },
+  {
+    "table": "inventory_formulas",
+    "disposition": "authoritative",
+    "domain": "industry_operations",
+    "rationale": "Tenant-scoped canonical industry workflow, versioned record, posting evidence and backup/restore integrity"
+  },
+  {
     "table": "inventory_lots",
     "disposition": "authoritative",
     "domain": "inventory",
@@ -544,6 +562,18 @@
     "disposition": "authoritative",
     "domain": "inventory",
     "rationale": "Picklist state"
+  },
+  {
+    "table": "inventory_production_inputs",
+    "disposition": "authoritative",
+    "domain": "industry_operations",
+    "rationale": "Tenant-scoped canonical industry workflow, versioned record, posting evidence and backup/restore integrity"
+  },
+  {
+    "table": "inventory_production_orders",
+    "disposition": "authoritative",
+    "domain": "industry_operations",
+    "rationale": "Tenant-scoped canonical industry workflow, versioned record, posting evidence and backup/restore integrity"
   },
   {
     "table": "inventory_receipt_batches",
@@ -652,6 +682,12 @@
     "disposition": "authoritative",
     "domain": "manufacturing",
     "rationale": "Work orders"
+  },
+  {
+    "table": "measured_stock_cuts",
+    "disposition": "authoritative",
+    "domain": "industry_operations",
+    "rationale": "Exactly once sale-linked cut/waste movement, cost journal and approval; required for restore checks"
   },
   {
     "table": "memberships",
@@ -930,10 +966,22 @@
     "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
   },
   {
+    "table": "product_division_links",
+    "disposition": "authoritative",
+    "domain": "industry_operations",
+    "rationale": "Tenant-scoped canonical industry workflow, versioned record, posting evidence and backup/restore integrity"
+  },
+  {
     "table": "product_packages",
     "disposition": "authoritative",
     "domain": "catalog",
     "rationale": "Tenant-scoped base-unit packaging definitions and variant references; preserve conversion factors in restore"
+  },
+  {
+    "table": "product_uom_conversions",
+    "disposition": "authoritative",
+    "domain": "industry_operations",
+    "rationale": "Tenant-scoped canonical industry workflow, versioned record, posting evidence and backup/restore integrity"
   },
   {
     "table": "product_variants",

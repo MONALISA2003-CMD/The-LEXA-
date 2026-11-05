@@ -183,3 +183,8 @@ python3 scripts/plan_electronics_v2_import.py --codes ELEC.MOB.FEATURE.GSM
 
 New owner-authorized changes are visible under Products > Electronics V2 directory
 only once the database migration, backend and frontend have been deployed.
+
+
+## Industry production, business divisions, and demand review
+
+This source includes tenant-scoped, approval-gated production formulas, real-lot ingredient consumption, finished-batch creation, measured cutting losses, immutable sale-line business-division attribution and bounded Python warehouse demand review. New posting is denied unless the tenant is explicitly enabled for `industryOperationsV1`; new production and valuation require independent approvals. See `docs/quality/industry-operations-implementation-evidence.md` for verification and **outstanding SRS obligations**. The new migration and new production integration must pass real-PostgreSQL staging/restore acceptance before production activation.

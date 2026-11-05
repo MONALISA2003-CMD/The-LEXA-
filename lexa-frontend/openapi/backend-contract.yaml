@@ -20,6 +20,302 @@ servers:
 security:
 - sessionCookie: []
 paths:
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/eligible-measured-lines:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: eligibleMeasuredSaleLinesGet
+      summary: Sale-linked measured cuts eligible for stock loss review
+      responses:
+        '200': {description: Authorized eligible sales}
+        '403': {description: No permission to view this branch}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/demand-review/{warehouseId}:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: warehouseId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: reviewWarehouseDemand
+      summary: Read-only bounded warehouse demand analysis
+      responses:
+        '200': {description: Authorized and reviewed demand model response, never a stock posting}
+        '403': {description: Warehouse or permission unavailable}
+        '409': {description: Source analysis mismatch}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/rollout-status:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: industryOperationsRolloutStatusGet
+      summary: Read controlled production access status
+      responses:
+        '200': {description: Tenant-scoped authorized result}
+        '403': {description: Branch or role denied}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/pending-menu-lines:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: pendingRecipeSaleLinesGet
+      summary: List prepared food sales awaiting ingredient posting
+      responses:
+        '200': {description: Tenant-scoped authorized result}
+        '403': {description: Branch or role denied}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/measured-cuts:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: listMeasuredStockCuts
+      summary: List reviewed cut losses
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid request}
+        '403': {description: Role or rollout denied}
+        '409': {description: Inconsistent stock or repeated operation}
+    post:
+      operationId: requestMeasuredStockCut
+      summary: Record a documented cut loss
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid request}
+        '403': {description: Role or rollout denied}
+        '409': {description: Inconsistent stock or repeated operation}
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/measured-cuts/{cutId}/approve:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: cutId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: approveMeasuredStockCut
+      summary: Post approved cutting loss and GL journal
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid request}
+        '403': {description: Role or rollout denied}
+        '409': {description: Inconsistent stock or repeated operation}
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/formulas:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: listIndustryFormulas
+      summary: List branch formulas
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
+    post:
+      operationId: createIndustryFormula
+      summary: Draft controlled stock formula
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/formulas/{formulaId}/approve:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: formulaId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: approveIndustryFormula
+      summary: Approve immutable formula
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/orders:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: listIndustryProductionOrders
+      summary: List production orders
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
+    post:
+      operationId: createIndustryProductionOrder
+      summary: Draft production order
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/orders/{orderId}/approve:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: orderId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: approveIndustryProductionOrder
+      summary: Approve production order
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/orders/{orderId}/complete:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: orderId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: completeIndustryProductionOrder
+      summary: Post approved stock and journal
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/divisions/assignments:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: listProductDivisionAssignments
+      summary: List current primary product division assignments
+      responses:
+        '200': {description: Tenant-scoped primary division assignments}
+        '401': {description: Authentication required}
+        '403': {description: Access denied}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/divisions:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: listBusinessDivisions
+      summary: List business divisions
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
+    post:
+      operationId: createBusinessDivision
+      summary: Create division
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/divisions/{divisionId}/products/{productId}:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: divisionId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: productId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: assignBusinessProductDivision
+      summary: Assign canonical product to primary division
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/divisions/sales-report:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: businessDivisionSalesReport
+      summary: Review immutable sale-line attribution
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/industry-operations/unit-conversions:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: listApprovedProductUnitConversions
+      summary: List exact unit conversion policies
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
+    post:
+      operationId: publishProductUnitConversion
+      summary: Publish versioned unit conversion
+      description: Tenant- and branch-scoped canonical ERP operation; server authorization, approval and feature flags are mandatory.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200': {description: Authorized record or validated result}
+        '400': {description: Invalid input or unsupported inventory policy}
+        '403': {description: Permission or rollout not authorized}
+        '409': {description: State, stock, version or idempotency conflict}
   /workspaces/{workspaceId}/branches/{branchId}/equipment/subtypes:
     parameters:
       - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}

@@ -105,6 +105,17 @@ export function permissionForRequest(method: string, pathname: string, params: R
   const moduleId = typeof params.moduleId === 'string' ? params.moduleId : undefined;
   const choose = (read: Permission, mutation: Permission): Permission => write ? mutation : read;
 
+  // Industry workflows retain the same authoritative stock/finance permissions as
+  // established inventory controllers. The branch scope is checked again by the controller.
+  if (/\/branches\/[^/]+\/industry-operations(?:\/|$)/.test(path)) {
+    if (/\/(?:pending-menu-lines|eligible-measured-lines)$/.test(path)) return 'sales.read';
+    if (/\/rollout-status$/.test(path)) return 'workspace.read';
+    if (/\/divisions\/sales-report$/.test(path)) return 'finance.read';
+    if (/\/divisions\/[^/]+\/products\/[^/]+$/.test(path)) return 'catalog.write';
+    if (/\/divisions$/.test(path)) return choose('workspace.read','workspace.manage');
+    if (/\/(?:orders|measured-cuts)\/[^/]+\/(?:approve|complete)$/.test(path) || /\/formulas\/[^/]+\/approve$/.test(path) || /\/unit-conversions$/.test(path) && write) return 'inventory.approve';
+    return choose('inventory.read','inventory.write');
+  }
   // Electronics unit/service routes have operation-specific permission requirements;
   // never fall through to the generic workspace.manage default.
   if (/\/branches\/[^/]+\/equipment\/subtypes$/.test(path)) return 'catalog.read';

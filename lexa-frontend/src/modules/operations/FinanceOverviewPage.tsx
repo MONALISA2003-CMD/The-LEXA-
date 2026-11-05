@@ -1,4 +1,5 @@
 import { BusinessAssortmentSelector } from '../../components/business/BusinessAssortmentSelector';
+import DivisionSalesSummary from './DivisionSalesSummary';
 import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -70,6 +71,7 @@ export default function FinanceOverviewPage() {
         <Link to="/modules/tax-documents"><ShieldCheck size={20}/><strong>Tax & EFRIS guidance</strong><small>Reviewed regulations and supporting documents</small><ArrowRight size={16}/></Link>
       </div>
     </section>
+    <DivisionSalesSummary/>
     <footer className="fin-timestamp">{overview.data?.generatedAt?`Posted ledger refreshed ${new Date(overview.data.generatedAt).toLocaleString()}`:'No verified ledger refresh yet'} · Amounts are scoped to {branch.name}.</footer>
   </main>;
 }

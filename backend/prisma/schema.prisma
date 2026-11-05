@@ -559,6 +559,7 @@ model SaleLine {
   variantDescriptionSnapshot String? @map("variant_description_snapshot")
   unitNameSnapshot String? @map("unit_name_snapshot")
   serialNumbersSnapshot String[] @default([]) @map("serial_numbers_snapshot")
+  businessDivisionId  String?  @map("business_division_id") @db.Uuid
   warrantyMonthsSnapshot Int? @map("warranty_months_snapshot")
   skuSnapshot         String?  @map("sku_snapshot")
   barcodeSnapshot     String?  @map("barcode_snapshot")
@@ -1880,4 +1881,156 @@ model EquipmentCopierMeterEvent {
  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
  @@index([tenantId,serialId,createdAt])
  @@map("equipment_copier_meter_events")
+}
+
+// Cross-industry production and management attribution. Existing Product, InventoryLot,
+// StockMovement, SaleLine and LedgerJournal identities remain authoritative.
+model BusinessDivision {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ code String
+ name String
+ active Boolean @default(true)
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,id])
+ @@unique([tenantId,code])
+ @@map("business_divisions")
+}
+model ProductDivisionLink {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ productId String @map("product_id") @db.Uuid
+ divisionId String @map("division_id") @db.Uuid
+ primary Boolean @default(false)
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,id])
+ @@unique([tenantId,productId,divisionId])
+ @@map("product_division_links")
+}
+model ProductUomConversion {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ productId String @map("product_id") @db.Uuid
+ variantId String? @map("variant_id") @db.Uuid
+ fromUnit String @map("from_unit")
+ toUnit String @map("to_unit")
+ dimension String
+ numerator BigInt
+ denominator BigInt
+ version Int
+ status String @default("approved")
+ evidenceReference String @map("evidence_reference")
+ effectiveAt DateTime @default(now()) @map("effective_at") @db.Timestamptz(3)
+ approvedByUserId String @map("approved_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,id])
+ @@index([tenantId,productId,fromUnit,toUnit,version])
+ @@map("product_uom_conversions")
+}
+model InventoryFormula {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ name String
+ kind String
+ outputProductId String @map("output_product_id") @db.Uuid
+ outputVariantId String? @map("output_variant_id") @db.Uuid
+ outputQuantity Decimal @map("output_quantity") @db.Decimal(14,3)
+ status String @default("draft")
+ version Int @default(1)
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ approvedByUserId String? @map("approved_by_user_id") @db.Uuid
+ approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ components InventoryFormulaComponent[]
+ orders InventoryProductionOrder[]
+ @@unique([tenantId,id])
+ @@index([tenantId,branchId,kind,status])
+ @@map("inventory_formulas")
+}
+model InventoryFormulaComponent {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ formulaId String @map("formula_id") @db.Uuid
+ productId String @map("product_id") @db.Uuid
+ variantId String? @map("variant_id") @db.Uuid
+ quantity Decimal @db.Decimal(14,3)
+ unitCode String @map("unit_code")
+ formula InventoryFormula @relation(fields:[tenantId,formulaId],references:[tenantId,id],onDelete:Restrict)
+ @@unique([tenantId,id])
+ @@unique([tenantId,formulaId,productId,variantId])
+ @@map("inventory_formula_components")
+}
+model InventoryProductionOrder {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ formulaId String @map("formula_id") @db.Uuid
+ warehouseId String @map("warehouse_id") @db.Uuid
+ saleLineId String? @map("sale_line_id") @db.Uuid
+ outputLotNumber String? @map("output_lot_number")
+ batches Int
+ status String @default("draft")
+ idempotencyKey String @map("idempotency_key")
+ requestHash String @map("request_hash")
+ sourceCostMinor Int? @map("source_cost_minor")
+ wasteCostMinor Int? @map("waste_cost_minor")
+ outputCostMinor Int? @map("output_cost_minor")
+ journalId String? @map("journal_id") @db.Uuid
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ approvedByUserId String? @map("approved_by_user_id") @db.Uuid
+ approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+ appliedAt DateTime? @map("applied_at") @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ formula InventoryFormula @relation(fields:[tenantId,formulaId],references:[tenantId,id],onDelete:Restrict)
+ inputs InventoryProductionInput[]
+ @@unique([tenantId,id])
+ @@unique([tenantId,idempotencyKey])
+ @@unique([tenantId,saleLineId])
+ @@index([tenantId,branchId,status,createdAt])
+ @@map("inventory_production_orders")
+}
+model InventoryProductionInput {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ orderId String @map("order_id") @db.Uuid
+ formulaComponentId String @map("formula_component_id") @db.Uuid
+ sourceLotId String @map("source_lot_id") @db.Uuid
+ requiredQuantity Decimal @map("required_quantity") @db.Decimal(14,3)
+ wasteQuantity Decimal @default(0) @map("waste_quantity") @db.Decimal(14,3)
+ netCostMinor Int? @map("net_cost_minor")
+ wasteCostMinor Int? @map("waste_cost_minor")
+ issueMovementId String? @map("issue_movement_id") @db.Uuid
+ wasteMovementId String? @map("waste_movement_id") @db.Uuid
+ order InventoryProductionOrder @relation(fields:[tenantId,orderId],references:[tenantId,id],onDelete:Restrict)
+ @@unique([tenantId,id])
+ @@unique([tenantId,orderId,formulaComponentId])
+ @@index([tenantId,sourceLotId])
+ @@map("inventory_production_inputs")
+}
+model MeasuredStockCut {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ saleLineId String @map("sale_line_id") @db.Uuid
+ lotId String @map("lot_id") @db.Uuid
+ wasteQuantity Decimal @map("waste_quantity") @db.Decimal(14,3)
+ reason String
+ idempotencyKey String @map("idempotency_key")
+ requestHash String @map("request_hash")
+ status String @default("pending")
+ wasteCostMinor Int? @map("waste_cost_minor")
+ movementId String? @map("movement_id") @db.Uuid
+ journalId String? @map("journal_id") @db.Uuid
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ approvedByUserId String? @map("approved_by_user_id") @db.Uuid
+ postedAt DateTime? @map("posted_at") @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,id])
+ @@unique([tenantId,saleLineId])
+ @@unique([tenantId,idempotencyKey])
+ @@index([tenantId,branchId,status])
+ @@map("measured_stock_cuts")
 }
