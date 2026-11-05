@@ -564,6 +564,12 @@ paths:
     parameters:
       - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
       - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: equipmentWarrantyCasesGet
+      summary: Warranty claims for the authorized branch
+      responses:
+        '200': {description: Most recent branch warranty claims}
+        '403': {description: Support access denied}
     post:
       operationId: equipmentWarrantyCasesPost
       summary: Warranty cases
@@ -583,6 +589,70 @@ paths:
         '400': {description: Invalid physical unit, policy or evidence}
         '403': {description: Role, tenant or feature flag not permitted}
         '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/warranty-cases/{caseId}:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: caseId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: equipmentWarrantyCaseGet
+      summary: Claim decisions and posted repair parts
+      responses:
+        '200': {description: Claim with immutable inspection and stock issue evidence}
+        '403': {description: Authorization denied}
+        '404': {description: Claim not found in this branch}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/warranty-cases/{caseId}/transition:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: caseId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: equipmentWarrantyCaseTransitionPost
+      summary: Record an inspected and reviewed warranty decision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nextStatus, evidenceReference, notes]
+              properties:
+                nextStatus: {type: string, enum: [inspecting, repair_approved, repairing, rejected, closed]}
+                coverageDecision: {type: string, enum: [seller_warranty, goodwill, manufacturer_warranty, out_of_warranty, not_covered]}
+                evidenceReference: {type: string, maxLength: 250}
+                notes: {type: string, minLength: 8, maxLength: 1000}
+      responses:
+        '200': {description: Signed warranty decision and updated state}
+        '403': {description: Reviewer permission or rollout denied}
+        '409': {description: Invalid transition or missing independent approval}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/warranty-cases/{caseId}/parts:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: caseId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: equipmentWarrantyCasePartsPost
+      summary: Issue a verified spare part and post warranty expense
+      parameters:
+        - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 8}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId, warehouseId, lotId, quantity, evidenceReference]
+              properties:
+                productId: {type: string, format: uuid}
+                variantId: {type: string, format: uuid}
+                warehouseId: {type: string, format: uuid}
+                lotId: {type: string, format: uuid}
+                quantity: {type: string, pattern: '^\d+(\.\d{1,3})?$'}
+                evidenceReference: {type: string, maxLength: 250}
+      responses:
+        '200': {description: Immutable part, stock movement and balanced expense journal}
+        '403': {description: Inventory approval or rollout denied}
+        '409': {description: Lot, repair state, valuation or idempotency conflict}
   /workspaces/{workspaceId}/branches/{branchId}/equipment/customer-repairs:
     parameters:
       - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}

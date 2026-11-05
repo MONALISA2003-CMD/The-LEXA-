@@ -1,3 +1,4 @@
+import {businessCalendarDate,inventoryLotExpired} from './business-calendar';
 /** Exact-unit upgrades, fulfilment, servicing and reconciliation. New writes are
  * disabled until the tenant's release flag is explicitly approved externally.
  * Every stock/accounting mutation is within the same serializable transaction.
@@ -11,6 +12,8 @@ import {CsrfGuard} from '../core/csrf.guard';
 import {assertBranchAccess} from '../authorization/branch-scope';
 import {hasPermission,type Permission} from '../authorization/role-policy';
 import {postLedgerJournal} from '../general-ledger/ledger-posting';
+import {authorizeWarrantyTransition,assertWarrantyPartEligible,WarrantyWorkflowError,type WarrantyCaseStatus,type WarrantyCoverage} from './warranty-workflow';
+import {quantityMilli,formatMilli,extendedMinorCost,ProductionQuantityError} from './production-quantities';
 import {EQUIPMENT_SUBTYPES} from '../catalog/equipment-domain-rules';
 import {validateEquipmentSpecs,validateFulfilmentTransition,requireExactSoldUnit,validateMeterReading,exactRefurbishedUnitCost,EquipmentRuleError,type FulfilmentState} from '../catalog/equipment-domain-rules';
 
@@ -274,10 +277,104 @@ export class EquipmentServiceController {
   const actor=await this.actor(req,w,b,'support.write');await this.flag(w,'equipmentServiceV2');const x=obj(raw),serialId=id(x.serialId,'Physical unit'),saleLineId=id(x.saleLineId,'Original sale line'),issue=txt(x.issueSummary,'Warranty issue',500);
   if(issue.length<5)throw new BadRequestException('Provide a meaningful warranty issue summary.');
   return this.prisma.$transaction(async tx=>{
+   // Serialize claim creation against the exact physical unit. A duplicate
+   // request must not create a second open case or a second liability.
+   await tx.$queryRaw`SELECT id FROM inventory_serials WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${serialId}::uuid FOR UPDATE`;
    const {line}=await this.soldLine(tx,w,b,saleLineId,serialId);
+   const active=await tx.equipmentWarrantyCase.findFirst({where:{tenantId:w,branchId:b,serialId,status:{in:['opened','inspecting','repair_approved','repairing','rejected']}}});
+   if(active){
+    if(active.saleLineId===saleLineId&&active.issueSummary===issue)return active;
+    throw new ConflictException('An unresolved warranty claim already exists for this physical device.');
+   }
    const row=await tx.equipmentWarrantyCase.create({data:{tenantId:w,branchId:b,serialId,saleLineId,issueSummary:issue,warrantyPolicySnapshot:{originalSaleLineId:line.id,warrantyMonths:line.warrantyMonthsSnapshot??null,originalSaleId:line.saleId},createdByUserId:actor.userId}});
    await this.audit(tx,w,b,actor.userId,'equipment.warranty.opened','equipment_warranty_case',row.id);return row;
-  });
+  },{isolationLevel:'Serializable'});
+ }
+ @Get('warranty-cases')
+ async listWarrantyCases(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest){
+  await this.actor(req,w,b,'support.write');
+  return this.prisma.equipmentWarrantyCase.findMany({where:{tenantId:w,branchId:b},orderBy:{createdAt:'desc'},take:100,
+   select:{id:true,serialId:true,saleLineId:true,status:true,issueSummary:true,createdByUserId:true,createdAt:true,resolvedAt:true}});
+ }
+ @Get('warranty-cases/:caseId')
+ async warrantyDetail(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('caseId') caseId:string,@Req() req:FastifyRequest){
+  await this.actor(req,w,b,'support.write');const ref=id(caseId,'Warranty case');
+  const record=await this.prisma.equipmentWarrantyCase.findFirst({where:{tenantId:w,branchId:b,id:ref},
+   include:{events:{orderBy:{createdAt:'asc'},take:100},parts:{orderBy:{postedAt:'asc'},take:100}}});
+  if(!record)throw new NotFoundException('Warranty case not found.');return record;
+ }
+ @Post('warranty-cases/:caseId/transition') @UseGuards(CsrfGuard)
+ async transitionWarranty(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('caseId') caseId:string,@Req() req:FastifyRequest,@Body() raw:unknown){
+  const x=obj(raw),next=txt(x.nextStatus,'Warranty status',40) as WarrantyCaseStatus;
+  const permission:Permission=['repair_approved','rejected'].includes(next)?'inventory.approve':'support.write';
+  const actor=await this.actor(req,w,b,permission);await this.flag(w,'equipmentServiceV2');
+  const ref=id(caseId,'Warranty case'),evidenceReference=txt(x.evidenceReference,'Inspection or decision reference',250),notes=txt(x.notes,'Warranty decision notes',1000);
+  const coverage=x.coverageDecision===undefined?undefined:txt(x.coverageDecision,'Warranty responsibility',60) as WarrantyCoverage;
+  return this.prisma.$transaction(async tx=>{
+   await tx.$queryRaw`SELECT id FROM equipment_warranty_cases WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${ref}::uuid FOR UPDATE`;
+   const row=await tx.equipmentWarrantyCase.findFirst({where:{tenantId:w,branchId:b,id:ref}});
+   if(!row)throw new NotFoundException('Warranty case not found.');
+   try{authorizeWarrantyTransition({previous:row.status as WarrantyCaseStatus,next,createdBy:row.createdByUserId,actor:actor.userId,evidenceReference,notes,coverage});}
+   catch(e){if(e instanceof WarrantyWorkflowError)throw new ConflictException(e.message);throw e;}
+   const saved=await tx.equipmentWarrantyCase.update({where:{id:ref},data:{status:next,...(next==='closed'?{resolvedAt:new Date()}:{})}});
+   await tx.equipmentWarrantyEvent.create({data:{tenantId:w,branchId:b,caseId:ref,previousStatus:row.status,nextStatus:next,
+    coverageDecision:coverage??null,evidenceReference,notes,actorUserId:actor.userId}});
+   await this.audit(tx,w,b,actor.userId,`equipment.warranty.${next}`,'equipment_warranty_case',ref);
+   return saved;
+  },{isolationLevel:'Serializable'});
+ }
+ @Post('warranty-cases/:caseId/parts') @UseGuards(CsrfGuard)
+ async issueWarrantyPart(@Param('workspaceId') w:string,@Param('branchId') b:string,@Param('caseId') caseId:string,
+   @Headers('idempotency-key') headerKey:string|undefined,@Req() req:FastifyRequest,@Body() raw:unknown){
+  const actor=await this.actor(req,w,b,'inventory.approve');await this.flag(w,'equipmentServiceV2');
+  const x=obj(raw),ref=id(caseId,'Warranty case'),productId=id(x.productId,'Spare-part product'),
+    variantId=x.variantId?id(x.variantId,'Spare-part variant'):null,
+    lotId=id(x.lotId,'Received part lot'),warehouseId=id(x.warehouseId,'Part warehouse'),
+    evidenceReference=txt(x.evidenceReference,'Repair evidence',250),idempotencyKey=txt(headerKey,'Idempotency-Key',160);
+  if(idempotencyKey.length<8)throw new BadRequestException('Use an idempotency key of at least eight characters.');
+  let qty:bigint;try{qty=quantityMilli(x.quantity,'Issued part quantity');}
+  catch(e){if(e instanceof ProductionQuantityError)throw new BadRequestException(e.message);throw e;}
+  const requestHash=sha({ref,productId,variantId,lotId,warehouseId,quantity:formatMilli(qty),evidenceReference});
+  try{return await this.prisma.$transaction(async tx=>{
+   const previous=await tx.equipmentWarrantyPart.findFirst({where:{tenantId:w,idempotencyKey}});
+   if(previous){if(previous.requestHash!==requestHash)throw new ConflictException('This idempotency key was used for a different warranty part.');return previous;}
+   await tx.$queryRaw`SELECT id FROM equipment_warranty_cases WHERE tenant_id=${w}::uuid AND branch_id=${b}::uuid AND id=${ref}::uuid FOR UPDATE`;
+   const claim=await tx.equipmentWarrantyCase.findFirst({where:{tenantId:w,branchId:b,id:ref}});
+   if(!claim)throw new NotFoundException('Warranty case not found.');
+   const decision=await tx.equipmentWarrantyEvent.findFirst({where:{tenantId:w,branchId:b,caseId:ref,coverageDecision:{not:null}},orderBy:{createdAt:'desc'}});
+   try{assertWarrantyPartEligible(claim.status as WarrantyCaseStatus,decision?.coverageDecision as WarrantyCoverage|undefined);}
+   catch(e){if(e instanceof WarrantyWorkflowError)throw new ConflictException(e.message);throw e;}
+   await tx.$queryRaw`SELECT id FROM products WHERE tenant_id=${w}::uuid AND id=${productId}::uuid FOR UPDATE`;
+   const part=await tx.product.findFirst({where:{tenantId:w,id:productId,active:true,trackStock:true,trackLot:true,trackSerial:false}});
+   if(!part)throw new ConflictException('Only accepted batch-tracked spare parts with a documented cost can be issued under warranty.');
+   if(variantId&&!await tx.productVariant.findFirst({where:{tenantId:w,id:variantId,productId,active:true}}))throw new BadRequestException('Part variant is not valid for this product.');
+   if(!await tx.warehouse.findFirst({where:{tenantId:w,branchId:b,id:warehouseId,active:true}}))throw new NotFoundException('Warehouse is not available in this branch.');
+   await tx.$queryRaw`SELECT id FROM inventory_lots WHERE tenant_id=${w}::uuid AND id=${lotId}::uuid FOR UPDATE`;
+   const tenantClock=await tx.tenant.findFirst({where:{id:w},select:{timezone:true}});
+   if(!tenantClock)throw new NotFoundException('Business not found.');
+   const today=businessCalendarDate(tenantClock.timezone);
+   const lot=await tx.inventoryLot.findFirst({where:{tenantId:w,branchId:b,id:lotId,productId,variantId,warehouseId,status:'available'}});
+   if(!lot||lot.unitCostMinor<=0)throw new ConflictException('This source batch has no accepted, verifiable part cost.');
+   if(inventoryLotExpired(lot.expiryDate,today))throw new ConflictException('Expired parts cannot be issued to a warranty repair.');
+   const reserved=quantityMilli(String(lot.quantityReserved),'Reserved',true),quarantine=quantityMilli(String(lot.quantityQuarantined),'Quarantined',true);
+   if(quantityMilli(String(lot.quantityOnHand),'On hand',true)<qty+reserved+quarantine)throw new ConflictException('Insufficient available part quantity in the selected lot.');
+   let cost:number;try{cost=extendedMinorCost(qty,lot.unitCostMinor);}catch(e){if(e instanceof ProductionQuantityError)throw new ConflictException(e.message);throw e;}
+   const changed=await tx.inventoryLot.updateMany({where:{tenantId:w,id:lotId,quantityOnHand:{gte:formatMilli(qty+reserved+quarantine)}},data:{quantityOnHand:{decrement:formatMilli(qty)}}});
+   if(changed.count!==1)throw new ConflictException('The spare-part lot was changed concurrently; no stock was issued.');
+   const rowId=randomUUID();
+   const movement=await tx.stockMovement.create({data:{tenantId:w,branchId:b,warehouseId,binId:lot.binId,productId,variantId,lotId,
+    type:'production_issue',quantityDelta:`-${formatMilli(qty)}`,unitCostMinor:lot.unitCostMinor,reason:`Warranty repair part for claim ${ref}`,sourceId:rowId}});
+   const journalId=await postLedgerJournal(tx,{tenantId:w,branchId:b,actorUserId:actor.userId,sourceType:'warranty_repair_part',sourceId:rowId,
+    memo:`Documented seller warranty repair ${ref}`,lines:[
+     {accountKey:'warranty_expense',debitMinor:cost,description:'Reviewed seller warranty repair cost'},
+     {accountKey:'inventory',creditMinor:cost,description:'Part issued from accepted stock'},
+    ]});
+   const saved=await tx.equipmentWarrantyPart.create({data:{id:rowId,tenantId:w,branchId:b,caseId:ref,productId,variantId,warehouseId,lotId,
+    quantity:formatMilli(qty),unitCostMinor:lot.unitCostMinor,totalCostMinor:cost,movementId:movement.id,journalId,evidenceReference,
+    idempotencyKey,requestHash,issuedByUserId:actor.userId}});
+   await this.audit(tx,w,b,actor.userId,'equipment.warranty.part_posted','equipment_warranty_part',rowId);
+   return saved;
+  },{isolationLevel:'Serializable'});}catch(e){return mapRuleError(e);}
  }
  @Post('customer-repairs') @UseGuards(CsrfGuard)
  async custody(@Param('workspaceId') w:string,@Param('branchId') b:string,@Req() req:FastifyRequest,@Body() raw:unknown){

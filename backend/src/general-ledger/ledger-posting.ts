@@ -44,6 +44,7 @@ const DEFAULT_ACCOUNTS: Array<[string, string, string, string, string]> = [
   ['5000', 'Cost of goods sold', 'expense', 'debit', 'cost_of_goods_sold'],
   ['5100', 'Purchase price variance', 'expense', 'debit', 'purchase_price_variance'],
   ['5200', 'Inventory shrinkage and write-offs', 'expense', 'debit', 'inventory_shrinkage'],
+  ['5300', 'Warranty repair expense', 'expense', 'debit', 'warranty_expense'],
   ['6000', 'Operating expenses', 'expense', 'debit', 'operating_expenses'],
   ['6100', 'Depreciation expense', 'expense', 'debit', 'depreciation_expense'],
 ];

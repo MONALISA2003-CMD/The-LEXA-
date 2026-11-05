@@ -1,3 +1,4 @@
+import {businessCalendarDate,inventoryLotExpired} from '../commerce/business-calendar';
 import { availableBusinessSpecialties, validateBusinessSpecialties, recommendedBusinessProducts, BUSINESS_SPECIALTY_POLICY_HASH } from '../catalog/business-specialties.generated';
 import {resolveCategoryFields} from '../catalog/category-hierarchy';
 import {familyForCategoryCode,enforceFamilyTracking} from '../catalog/electronics-catalogue-policy';
@@ -25,6 +26,7 @@ import { sendTransactionalEmail } from '../notifications/email-delivery';
 import { PeopleProjectsService } from '../people-projects/people-projects.service';
 import { outstandingSaleMinor, paymentCategoryFromMethod } from '../commerce/increment1-rules';
 import { exactReturnedSerials, validateSerializedReturnDisposition, ExactSerialReturnError, orderedSaleSerialNumbers, matchPhysicalReturnScans } from '../commerce/exact-serial-return';
+import { serializedCostsFromOriginalSale, totalSerializedReturnCost, SerializedSaleCostError } from '../commerce/serialized-sale-cost';
 
 const scrypt = promisify(scryptCallback);
 const SESSION_SECONDS = 60 * 60 * 24 * 7;
@@ -1852,6 +1854,9 @@ export class CoreController {
         if (!lockedSale.length) throw new NotFoundException('Sale not found.');
         const sale = await tx.sale.findFirst({ where: { id: saleId, tenantId: workspaceId, branchId }, include: { lines: true } });
         if (!sale) throw new NotFoundException('Sale not found.');
+        const tenantClock = await tx.tenant.findFirst({where:{id:workspaceId},select:{timezone:true}});
+        if (!tenantClock) throw new NotFoundException('Business not found.');
+        const returnBusinessDay = businessCalendarDate(tenantClock.timezone);
         const returnProductIds = [...new Set(sale.lines.map((line: any) => line.productId))].sort();
         const lockedProducts = returnProductIds.length
           ? await tx.$queryRaw<Array<{ id: string; track_stock: boolean; track_serial: boolean; track_lot: boolean }>>`SELECT id,track_stock,track_serial,track_lot FROM products WHERE tenant_id = ${workspaceId}::uuid AND id = ANY(${returnProductIds}::uuid[]) ORDER BY id FOR UPDATE`
@@ -1884,12 +1889,28 @@ export class CoreController {
           }
           if (serializedProductIds.has(line.productId) && !returnedSerialIds.length)
             throw new ConflictException('This historical serialized sale lacks exact unit evidence; reconcile the original sale before returning stock.');
+          let unitCosts = new Map<string, number>();
+          if (returnedSerialIds.length) {
+            // Use the immutable movement from this *sale*, not today's variant
+            // or batch cost. A single sale line may contain historical mixed-cost
+            // devices even when today's checkout requires separate sale lines.
+            const originalMovements = await tx.stockMovement.findMany({
+              where: { tenantId: workspaceId, branchId, sourceId: saleId, type: 'sale', serialId: { in: returnedSerialIds } },
+              select: { serialId: true, productId: true, variantId: true, quantityDelta: true, unitCostMinor: true },
+            });
+            try {
+              unitCosts = new Map(serializedCostsFromOriginalSale(returnedSerialIds, line.productId, line.variantId ?? null, originalMovements));
+            } catch (error) {
+              if (error instanceof SerializedSaleCostError) throw new ConflictException(error.message);
+              throw error;
+            }
+          }
           if (item.disposition === 'quarantine' && trackedProductIds.has(line.productId) && !returnedSerialIds.length && !lotTrackedProductIds.has(line.productId))
             throw new ConflictException('Quarantine of anonymous quantity stock requires the separately controlled warehouse intake workflow.');
           if (trackedProductIds.has(line.productId) && ['restock','quarantine'].includes(item.disposition) && line.unitCostMinor === null)
             throw new ConflictException('A verified original cost is required before restoring return inventory value.');
           totalMinor += amount;
-          resolved.push({ line, quantity: item.quantity, amount, taxAmount: lineTax, disposition: item.disposition, serialIds:returnedSerialIds, inspection:item.inspection, trackStock: trackedProductIds.has(line.productId) });
+          resolved.push({ line, quantity: item.quantity, amount, taxAmount: lineTax, disposition: item.disposition, serialIds:returnedSerialIds, unitCosts, inspection:item.inspection, trackStock: trackedProductIds.has(line.productId) });
         }
         const returnNumber = `LR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomBytes(4).toString('hex').toUpperCase()}`;
         if (recordRefund) {
@@ -1917,13 +1938,13 @@ export class CoreController {
               const lot = await tx.inventoryLot.findFirst({where:{tenantId:workspaceId,id:lotId}});
               if (!lot || lot.branchId !== branchId || lot.productId !== item.line.productId)
                 throw new ConflictException('Original lot ownership changed; physical return needs inventory reconciliation.');
-              if (item.disposition === 'restock' && (lot.status === 'expired' || lot.status === 'scrap' ||
-                  (lot.expiryDate && lot.expiryDate.getTime() <= Date.now())))
+              if (item.disposition === 'restock' && (!['available','depleted'].includes(lot.status) ||
+                  (inventoryLotExpired(lot.expiryDate,returnBusinessDay))))
                 throw new ConflictException('Expired or scrapped lots cannot be restored as saleable stock. Quarantine and inspect instead.');
               await tx.inventoryLot.update({where:{id:lotId},data:{
                 quantityOnHand:{increment:item.quantity},
                 ...(item.disposition === 'quarantine' ? {quantityQuarantined:{increment:item.quantity}} : {}),
-                ...(lot.status === 'depleted' ? {status:'available'} : {}),
+                ...(lot.status === 'depleted' ? {status:item.disposition==='quarantine'?'quarantine':'available'} : {}),
               }});
             }
             if (item.serialIds.length) {
@@ -1938,7 +1959,7 @@ export class CoreController {
                 await tx.stockMovement.create({data:{
                   tenantId:workspaceId,branchId,productId:item.line.productId,
                   variantId:(item.line as any).variantId??null,lotId:(item.line as any).lotId??null,
-                  serialId,type:'return',quantityDelta:'1',unitCostMinor:item.line.unitCostMinor,
+                  serialId,type:'return',quantityDelta:'1',unitCostMinor:item.unitCosts.get(serialId),
                   reason:`Inspected ${item.disposition} return ${returnNumber}`,sourceId:returned.id,
                 }});
               }
@@ -1971,7 +1992,10 @@ export class CoreController {
           } });
           if (activeCashSession) await tx.cashMovement.create({ data: { tenantId: workspaceId, branchId, cashSessionId: activeCashSession.id, direction: 'out', category: 'pos_sale_refund', amountMinor: BigInt(totalMinor), referenceType: 'sale_payment', referenceId: refundPayment.id, idempotencyKey: `sale-payment:${refundPayment.id}`, createdByUserId: session.userId } });
         }
-        const returnCostMinor = resolved.filter((item) => item.trackStock && ['restock','quarantine'].includes(item.disposition)).reduce((sum, item) => sum + Math.round(Number(item.line.unitCostMinor) * item.quantity), 0);
+        const returnCostMinor = resolved.filter((item) => item.trackStock && ['restock','quarantine'].includes(item.disposition)).reduce((sum, item) =>
+          sum + (item.serialIds.length ? totalSerializedReturnCost(item.unitCosts) : Math.round(Number(item.line.unitCostMinor) * item.quantity)), 0);
+        if (!Number.isSafeInteger(returnCostMinor) || returnCostMinor > 2_000_000_000)
+          throw new ConflictException('Return valuation is outside the supported journal amount.');
         let returnJournalId: string | null = null;
         if (totalMinor > 0 || returnCostMinor > 0) {
           const returnLines: Array<{ accountKey: string; debitMinor?: number; creditMinor?: number; description?: string }> = [];

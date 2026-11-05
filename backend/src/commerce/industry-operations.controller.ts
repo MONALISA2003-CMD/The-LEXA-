@@ -1,3 +1,4 @@
+import {businessCalendarDate,inventoryLotExpired} from './business-calendar';
 /** Business production, measured stock and division reporting. These resources
  * reuse canonical products, lots, movements, sales and GL journals. Production
  * posts only for explicitly enabled tenants after independent approval.
@@ -19,7 +20,8 @@ function text(value:unknown,label:string,max=160):string {if(typeof value!=='str
 function object(value:unknown):Record<string,unknown> {if(!value||typeof value!=='object'||Array.isArray(value))throw new BadRequestException('An object is required.');return value as Record<string,unknown>;}
 function quantity(value:unknown,label:string,allowZero=false):string {try{return formatMilli(quantityMilli(value,label,allowZero));}catch(e){if(e instanceof ProductionQuantityError)throw new BadRequestException(e.message);throw e;}}
 function batchCount(value:unknown):number {if(typeof value!=='number'||!Number.isSafeInteger(value)||value<1||value>10000)throw new BadRequestException('Production batches must be a whole number between 1 and 10,000.');return value;}
-function hash(value:unknown):string{return createHash('sha256').update(JSON.stringify(value)).digest('hex');}
+function requestHashPayload(value:unknown):string{return createHash('sha256').update(JSON.stringify(value)).digest('hex');}
+function sessionTokenHash(token:string):string{return createHash('sha256').update(token).digest('hex');}
 function cookie(request:FastifyRequest):string|undefined {for(const pair of (request.headers.cookie??'').split(';')){const i=pair.indexOf('=');if(i>=0&&pair.slice(0,i).trim()==='lexa_session'){try{return decodeURIComponent(pair.slice(i+1).trim());}catch{return undefined;}}}return undefined;}
 function ruleError(error:unknown):never {if(error instanceof ProductionQuantityError)throw new ConflictException(error.message);if(['P2002','P2034'].includes((error as {code?:string})?.code??''))throw new ConflictException('The reference or operation has changed. Review the latest record before retrying.');throw error;}
 const UNIT_DIMENSIONS:Readonly<Record<string,UomDimension>>={each:'count',pair:'count',box:'count',carton:'count',case:'count',packet:'count',kg:'mass',g:'mass',l:'volume',ml:'volume',m:'length',cm:'length',mm:'length',m2:'area',roll:'length',bag:'mass'};
@@ -29,7 +31,7 @@ export class IndustryOperationsController {
  constructor(private readonly prisma:PrismaService){}
  private async actor(request:FastifyRequest,tenantId:string,branchId:string,permission:Permission){
   const token=cookie(request);if(!token)throw new UnauthorizedException('Sign in to continue.');
-  const session=await this.prisma.session.findFirst({where:{tokenHash:hash(token),expiresAt:{gt:new Date()}},select:{userId:true}});
+  const session=await this.prisma.session.findFirst({where:{tokenHash:sessionTokenHash(token),expiresAt:{gt:new Date()}},select:{userId:true}});
   if(!session)throw new UnauthorizedException('Your session has expired.');
   this.prisma.enterTenantContext(tenantId,session.userId);
   const membership=await this.prisma.membership.findUnique({where:{tenantId_userId:{tenantId,userId:session.userId}}});
@@ -87,7 +89,9 @@ export class IndustryOperationsController {
     AND m.created_at >= CURRENT_DATE-INTERVAL '89 days' AND m.quantity_delta<0 AND m.type IN ('sale','production_issue')
     AND m.product_id IN (SELECT pol.product_id FROM inventory_replenishment_policies pol WHERE pol.tenant_id=${t}::uuid AND pol.branch_id=${b}::uuid AND pol.warehouse_id=${warehouseId}::uuid AND pol.active=true)
    GROUP BY m.product_id,m.created_at::date ORDER BY day`;
-  const asOf=new Date().toISOString().slice(0,10),source=new Map<string,Map<string,string>>();
+  const tenantClock=await this.prisma.tenant.findFirst({where:{id:t},select:{timezone:true}});
+  if(!tenantClock)throw new NotFoundException('Business not found.');
+  const asOf=businessCalendarDate(tenantClock.timezone),source=new Map<string,Map<string,string>>();
   for(const r of outflow){const day=r.day instanceof Date?r.day.toISOString().slice(0,10):String(r.day).slice(0,10);if(!source.has(r.productId))source.set(r.productId,new Map());source.get(r.productId)!.set(day,r.quantity);}
   const days=Array.from({length:90},(_,i)=>{const d=new Date(`${asOf}T00:00:00Z`);d.setUTCDate(d.getUTCDate()-(89-i));return d.toISOString().slice(0,10);});
   const items=policies.map(row=>{
@@ -175,7 +179,7 @@ export class IndustryOperationsController {
   if(!Array.isArray(input.inputs)||input.inputs.length<1||input.inputs.length>30)throw new BadRequestException('Each formula ingredient requires a source batch.');
   const inputs=input.inputs.map(v=>{const x=object(v);return {formulaComponentId:id(x.formulaComponentId,'Formula ingredient'),sourceLotId:id(x.sourceLotId,'Source lot'),wasteQuantity:quantity(x.wasteQuantity??'0','Documented waste',true)};});
   if(new Set(inputs.map(v=>v.formulaComponentId)).size!==inputs.length||new Set(inputs.map(v=>v.sourceLotId)).size!==inputs.length)throw new BadRequestException('Each ingredient and source lot may appear only once in one order.');
-  const requestHash=hash({formulaId,warehouseId,batches,saleLineId,outputLotNumber,inputs});
+  const requestHash=requestHashPayload({formulaId,warehouseId,batches,saleLineId,outputLotNumber,inputs});
   try{return await this.prisma.$transaction(async tx=>{
    const prior=await tx.inventoryProductionOrder.findFirst({where:{tenantId:t,idempotencyKey:key}});
    if(prior){if(prior.requestHash!==requestHash)throw new ConflictException('Idempotency key was used for a different production order.');return prior;}
@@ -228,6 +232,9 @@ export class IndustryOperationsController {
    }else if(!target.trackLot||target.trackSerial)throw new ConflictException('Finished batch requires a non-serialized lot-tracked product.');
    // PostgreSQL locks source lots in a stable UUID order; changes to available
    // quantity are conditional and roll back with the ledger on any conflict.
+   const tenantClock=await tx.tenant.findFirst({where:{id:t},select:{timezone:true}});
+   if(!tenantClock)throw new NotFoundException('Business not found.');
+   const today=businessCalendarDate(tenantClock.timezone);
    const sourceLotIds=[...new Set(order.inputs.map(i=>i.sourceLotId))].sort();
    if(sourceLotIds.length!==order.inputs.length)throw new ConflictException('A source lot cannot be allocated twice to the same order.');
    for(const sourceLotId of sourceLotIds)await tx.$queryRaw`SELECT id FROM inventory_lots WHERE tenant_id=${t}::uuid AND id=${sourceLotId}::uuid FOR UPDATE`;
@@ -240,7 +247,7 @@ export class IndustryOperationsController {
     const loss=quantityMilli(String(allocation.wasteQuantity),'Waste',true),total=exact+loss;
     const lot=await tx.inventoryLot.findFirst({where:{tenantId:t,branchId:b,id:allocation.sourceLotId,productId:component.productId,variantId:component.variantId,warehouseId:order.warehouseId,status:'available'}});
     if(!lot)throw new ConflictException('Selected ingredient lot is unavailable in this warehouse.');
-    if(lot.expiryDate && lot.expiryDate.getTime()<Date.now()-86_400_000)throw new ConflictException('An ingredient lot is expired.');
+    if(inventoryLotExpired(lot.expiryDate,today))throw new ConflictException('An ingredient lot is expired.');
     const product=await tx.product.findFirst({where:{tenantId:t,id:component.productId,trackLot:true,trackSerial:false,active:true}});
     if(!product||!product.unitOfMeasure||canonicalStockUnit(product.unitOfMeasure)!==component.unitCode)throw new ConflictException('Ingredient stock profile or base unit no longer matches the approved formula.');
     const available=quantityMilli(String(lot.quantityOnHand),'On hand',true)-quantityMilli(String(lot.quantityReserved),'Reserved',true)-quantityMilli(String(lot.quantityQuarantined),'Quarantined',true);
@@ -303,7 +310,7 @@ export class IndustryOperationsController {
   const saleLineId=id(input.saleLineId,'Sale line'),wasteQuantity=quantity(input.wasteQuantity,'Measured cutting waste'),reason=text(input.reason,'Reason',500);
   const key=text(idem,'Idempotency-Key',160);
   if(key.length<8||reason.length<8)throw new BadRequestException('Use a unique operation key and document the cutting loss.');
-  const requestHash=hash({saleLineId,wasteQuantity,reason});
+  const requestHash=requestHashPayload({saleLineId,wasteQuantity,reason});
   try{return await this.prisma.$transaction(async tx=>{
    const existing=await tx.measuredStockCut.findFirst({where:{tenantId:t,OR:[{idempotencyKey:key},{saleLineId}]}});
    if(existing){if(existing.requestHash!==requestHash)throw new ConflictException('This cutting loss or operation key is already registered with different evidence.');return existing;}

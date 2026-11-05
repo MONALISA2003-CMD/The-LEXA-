@@ -1849,10 +1849,57 @@ model EquipmentWarrantyCase {
  createdByUserId String @map("created_by_user_id") @db.Uuid
  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+ events EquipmentWarrantyEvent[]
+ parts EquipmentWarrantyPart[]
  @@unique([tenantId,id])
  @@index([tenantId,serialId,createdAt])
  @@map("equipment_warranty_cases")
 }
+// Immutable warranty decisions and received-stock repair parts. Seller warranty
+// expense never changes the original customer's sold device cost or identity.
+model EquipmentWarrantyEvent {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ caseId String @map("case_id") @db.Uuid
+ previousStatus String @map("previous_status")
+ nextStatus String @map("next_status")
+ coverageDecision String? @map("coverage_decision")
+ evidenceReference String @map("evidence_reference")
+ notes String
+ actorUserId String @map("actor_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ warrantyCase EquipmentWarrantyCase @relation(fields:[tenantId,caseId],references:[tenantId,id],onDelete:Restrict)
+ @@unique([tenantId,id])
+ @@index([tenantId,caseId,createdAt])
+ @@map("equipment_warranty_events")
+}
+model EquipmentWarrantyPart {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ caseId String @map("case_id") @db.Uuid
+ productId String @map("product_id") @db.Uuid
+ variantId String? @map("variant_id") @db.Uuid
+ warehouseId String @map("warehouse_id") @db.Uuid
+ lotId String @map("lot_id") @db.Uuid
+ quantity Decimal @db.Decimal(14,3)
+ unitCostMinor Int @map("unit_cost_minor")
+ totalCostMinor Int @map("total_cost_minor")
+ movementId String @map("movement_id") @db.Uuid
+ journalId String @map("journal_id") @db.Uuid
+ evidenceReference String @map("evidence_reference")
+ idempotencyKey String @map("idempotency_key")
+ requestHash String @map("request_hash")
+ issuedByUserId String @map("issued_by_user_id") @db.Uuid
+ postedAt DateTime @default(now()) @map("posted_at") @db.Timestamptz(3)
+ warrantyCase EquipmentWarrantyCase @relation(fields:[tenantId,caseId],references:[tenantId,id],onDelete:Restrict)
+ @@unique([tenantId,id])
+ @@unique([tenantId,idempotencyKey])
+ @@index([tenantId,caseId,postedAt])
+ @@map("equipment_warranty_parts")
+}
+
 model EquipmentCustomerRepairCustody {
  id String @id @default(uuid()) @db.Uuid
  tenantId String @map("tenant_id") @db.Uuid

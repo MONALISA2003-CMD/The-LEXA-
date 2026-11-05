@@ -16,7 +16,7 @@ const MODEL_DELEGATES = new Set([
   'productPackage','catalogBrand','catalogDeviceModel','accessoryCompatibility','inventoryUnitInspection',
   'catalogCategoryAlias','catalogBrandAlias','catalogBrandMergeProposal','catalogModelSpecRevision','catalogFamilyPolicy',
   'inventoryUnitIdentifier','inventoryReceiptBatch','catalogProductAlias','packageConversionRevision','productBundle','productBundleComponent',
-  'equipmentUpgradeWorkOrder','equipmentUpgradePart','equipmentUnitConfigurationEvent','equipmentUnitFulfilment','equipmentFulfilmentEvent','equipmentInstalledSystem','equipmentInstalledComponent','equipmentWarrantyCase','equipmentCustomerRepairCustody','equipmentCopierMeterEvent','businessDivision','productDivisionLink','productUomConversion','inventoryFormula','inventoryFormulaComponent','inventoryProductionOrder','inventoryProductionInput','measuredStockCut',
+  'equipmentUpgradeWorkOrder','equipmentUpgradePart','equipmentUnitConfigurationEvent','equipmentUnitFulfilment','equipmentFulfilmentEvent','equipmentInstalledSystem','equipmentInstalledComponent','equipmentWarrantyCase','equipmentWarrantyEvent','equipmentWarrantyPart','equipmentCustomerRepairCustody','equipmentCopierMeterEvent','businessDivision','productDivisionLink','productUomConversion','inventoryFormula','inventoryFormulaComponent','inventoryProductionOrder','inventoryProductionInput','measuredStockCut',
   'cashUp','bankAccount','bankStatementLine','bankReconciliation','bankReconciliationMatch','expenseCategory','expense','fixedAsset',
   'fixedAssetDepreciation','costCentre','costCentreAllocation','taxRule',
 ]);

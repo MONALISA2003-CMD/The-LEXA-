@@ -420,6 +420,18 @@
     "rationale": "Warranty cases linked to original sold unit"
   },
   {
+    "table": "equipment_warranty_events",
+    "disposition": "authoritative",
+    "domain": "equipment_service",
+    "rationale": "Immutable exact-unit warranty coverage decisions, independent approvals and inspection history"
+  },
+  {
+    "table": "equipment_warranty_parts",
+    "disposition": "authoritative",
+    "domain": "equipment_service",
+    "rationale": "Warranty repair parts issued against accepted stock lots and matched posted expense journals"
+  },
+  {
     "table": "expense_categories",
     "disposition": "authoritative",
     "domain": "finance",
