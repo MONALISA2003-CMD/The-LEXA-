@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "prebuild": "python3 ../scripts/sync_industry_catalogue.py --check && python3 ../scripts/sync_electronics_catalogue_v2.py --check && node scripts/apply_auth_security_ui.mjs && python3 scripts/complete_modules.py && python3 scripts/apply_lexa_palette.py && npm test",
+    "prebuild": "node scripts/verify_catalogue_sources.mjs && node scripts/apply_auth_security_ui.mjs && python3 scripts/complete_modules.py && python3 scripts/apply_lexa_palette.py && npm test",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -b --pretty",

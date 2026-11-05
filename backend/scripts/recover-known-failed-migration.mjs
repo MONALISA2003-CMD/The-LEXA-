@@ -2,7 +2,11 @@ import { spawnSync } from 'node:child_process';
 import pg from 'pg';
 
 const { Client } = pg;
-const migrationName = '20261030320000_platform_catalog_finance_rls';
+const recoverableMigrations = [
+  '20261030320000_platform_catalog_finance_rls',
+  '20261105170000_inventory_receipts_identifiers_fitment_bundles',
+];
+const receiptsMigration = '20261105170000_inventory_receipts_identifiers_fitment_bundles';
 const connectionString = process.env.DATABASE_URL_UNPOOLED;
 
 if (!connectionString) {
@@ -10,30 +14,72 @@ if (!connectionString) {
   process.exit(2);
 }
 
+// The inventory migration was observed to roll back fully on PostgreSQL.
+// The recovery must fail closed if the actual database state ever differs.
+const expectedAbsentTables = [
+  'inventory_unit_identifiers',
+  'inventory_receipt_batches',
+  'catalog_product_aliases',
+  'package_conversion_revisions',
+  'product_bundles',
+  'product_bundle_components',
+];
+const expectedAbsentColumns = [
+  'products.gtin',
+  'product_variants.gtin',
+  'product_variants.variant_signature',
+  'product_packages.gtin',
+  'inventory_serials.warehouse_id',
+  'inventory_serials.receipt_batch_id',
+  'inventory_serials.unit_cost_minor',
+  'inventory_serials.accepted_at',
+  'accessory_compatibilities.compatibility_kind',
+  'accessory_compatibilities.evidence',
+  'accessory_compatibilities.review_state',
+  'accessory_compatibilities.revoked_at',
+];
+
+async function assertInventoryMigrationRolledBack(client) {
+  const result = await client.query(`
+    SELECT
+      ARRAY(
+        SELECT candidate.name FROM unnest($1::text[]) AS candidate(name)
+        WHERE to_regclass('public.' || quote_ident(candidate.name)) IS NOT NULL
+      ) AS existing_tables,
+      ARRAY(
+        SELECT c.table_name || '.' || c.column_name
+        FROM information_schema.columns AS c
+        WHERE c.table_schema = 'public'
+          AND (c.table_name || '.' || c.column_name) = ANY($2::text[])
+      ) AS existing_columns
+  `, [expectedAbsentTables, expectedAbsentColumns]);
+  const { existing_tables: tables = [], existing_columns: columns = [] } = result.rows[0] ?? {};
+  if (tables.length || columns.length) {
+    console.error('[migration] Inventory migration recovery refused: partial schema changes detected.');
+    console.error('[migration] Existing tables:', tables.join(', ') || '(none)');
+    console.error('[migration] Existing columns:', columns.join(', ') || '(none)');
+    throw new Error('Database requires manual review before a failed inventory migration can be retried.');
+  }
+  console.log('[migration] Inventory migration recovery preflight confirmed no partial schema changes.');
+}
+
 const client = new Client({ connectionString, connectionTimeoutMillis: 10_000, statement_timeout: 15_000 });
-let shouldResolve = false;
+let failedNames = [];
 
 try {
   await client.connect();
-  const state = await client.query(`
-    SELECT to_regclass('public._prisma_migrations') IS NOT NULL AS migration_table_exists
-  `);
-
+  const state = await client.query(`SELECT to_regclass('public._prisma_migrations') IS NOT NULL AS migration_table_exists`);
   if (state.rows[0]?.migration_table_exists) {
-    const failed = await client.query(
-      `SELECT 1
-         FROM public._prisma_migrations
-        WHERE migration_name = $1
-          AND started_at IS NOT NULL
-          AND finished_at IS NULL
-          AND rolled_back_at IS NULL
-        LIMIT 1`,
-      [migrationName],
-    );
-    shouldResolve = failed.rowCount > 0;
+    const failed = await client.query(`
+      SELECT migration_name FROM public._prisma_migrations
+      WHERE migration_name = ANY($1::text[])
+        AND started_at IS NOT NULL AND finished_at IS NULL AND rolled_back_at IS NULL
+      GROUP BY migration_name
+    `, [recoverableMigrations]);
+    failedNames = failed.rows.map(row => row.migration_name);
+    if (failedNames.includes(receiptsMigration)) await assertInventoryMigrationRolledBack(client);
   }
 } catch (error) {
-  // Do not print connection details; let the deploy fail clearly if the DB cannot be checked.
   console.error(`Migration recovery preflight failed (${error?.code ?? 'database_error'}).`);
   process.exitCode = 1;
 } finally {
@@ -41,21 +87,23 @@ try {
 }
 
 if (process.exitCode) process.exit(process.exitCode);
-if (!shouldResolve) {
+if (failedNames.length === 0) {
   console.log('No known failed migration needs recovery.');
 } else {
-  console.warn(`Recovering the confirmed failed migration ${migrationName} after its SQL correction.`);
-  const result = spawnSync('npx', ['prisma', 'migrate', 'resolve', '--rolled-back', migrationName], {
-    stdio: 'inherit',
-    env: process.env,
-  });
-  if (result.error) {
-    console.error('Could not start Prisma migration recovery.');
-    process.exit(1);
+  for (const migrationName of recoverableMigrations.filter(name => failedNames.includes(name))) {
+    console.warn(`Recovering confirmed failed migration ${migrationName} after checking its prerequisites.`);
+    const result = spawnSync('npx', ['prisma', 'migrate', 'resolve', '--rolled-back', migrationName], {
+      stdio: 'inherit',
+      env: process.env,
+    });
+    if (result.error) {
+      console.error('Could not start Prisma migration recovery.');
+      process.exit(1);
+    }
+    if (result.status !== 0) {
+      console.error(`Prisma could not mark ${migrationName} as rolled back; stopping startup.`);
+      process.exit(result.status ?? 1);
+    }
+    console.log(`Confirmed failed migration ${migrationName} marked rolled back; Prisma can now retry it.`);
   }
-  if (result.status !== 0) {
-    console.error(`Prisma could not mark ${migrationName} as rolled back; stopping startup.`);
-    process.exit(result.status ?? 1);
-  }
-  console.log(`Confirmed failed migration ${migrationName} marked rolled back; Prisma can now retry it.`);
 }

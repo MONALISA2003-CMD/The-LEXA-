@@ -37,7 +37,7 @@ CREATE INDEX unit_identifier_owner_idx ON public.inventory_unit_identifiers(tena
 CREATE INDEX unit_identifier_search_idx ON public.inventory_unit_identifiers(tenant_id,normalized_value);
 -- Historical duplicates are explicitly flagged rather than arbitrarily choosing an owner.
 WITH ids AS (
- SELECT tenant_id,id AS serial_id,
+ SELECT s.tenant_id,s.id AS serial_id,
    CASE WHEN p.product_type IN ('smartphone','feature_phone','cellular_tablet','mifi_router') THEN 'imei' ELSE 'serial' END AS identifier_type,
    btrim(serial_number) AS value
  FROM public.inventory_serials s JOIN public.products p ON p.tenant_id=s.tenant_id AND p.id=s.product_id
@@ -161,6 +161,7 @@ CREATE TABLE public.product_bundles(
  status text NOT NULL DEFAULT 'draft' CHECK(status IN('draft','active','archived')),
  created_by_user_id uuid NOT NULL,created_at timestamptz(3) NOT NULL DEFAULT now(),
  UNIQUE(tenant_id,product_id),
+ UNIQUE(tenant_id,id),
  FOREIGN KEY(tenant_id,product_id) REFERENCES public.products(tenant_id,id) ON DELETE RESTRICT,
  FOREIGN KEY(created_by_user_id) REFERENCES public.users(id) ON DELETE RESTRICT
 );
