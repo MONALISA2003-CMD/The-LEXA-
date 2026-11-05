@@ -1,8 +1,9 @@
 import {resolveCategoryFields} from '../catalog/category-hierarchy';
+import {familyForCategoryCode,validateFamilySpecifications} from '../catalog/electronics-catalogue-policy';
 import {validatePackageSize,PackageQuantityError} from '../catalog/package-quantity';
 import {cleanProductAttributes,validateVariantDimensions,activePreset,assertTypeAllowed} from '../catalog/product-attribute-validation';
 import {productHasIdentifier} from '../catalog/identifier-policy';
-import {validatePhysicalIdentifiers,SerialIdentityError} from '../catalog/serial-identity';
+import {validateAdditionalImeis,validatePhysicalIdentifiers,SerialIdentityError} from '../catalog/serial-identity';
 import { BadRequestException, ConflictException, Controller, ForbiddenException, Get, Headers, NotFoundException, Param, Post, Body, Req, UseGuards, UnauthorizedException } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { createHash, randomUUID } from 'node:crypto';
@@ -21,6 +22,10 @@ function qty(v:unknown):number { const n=typeof v==='number'?v:Number(v); if(!Nu
 function cookie(request:FastifyRequest) { for(const part of (request.headers.cookie??'').split(';')) { const at=part.indexOf('='); if(at>=0&&part.slice(0,at).trim()==='lexa_session') { try{return decodeURIComponent(part.slice(at+1).trim())}catch{return undefined} } } return undefined; }
 function validatedUnitIds(primary:unknown,secondary:unknown,productType:string|null|undefined){
  try{return validatePhysicalIdentifiers(primary,secondary,productHasIdentifier(productType,'imei'))}
+ catch(error){if(error instanceof SerialIdentityError)throw new BadRequestException(error.message);throw error;}
+}
+function validatedExtraImeis(extra:unknown,primary:string,secondary:string|null,productType:string|null|undefined):string[]{
+ try{return validateAdditionalImeis(extra,productHasIdentifier(productType,'imei'),[primary,...(secondary?[secondary]:[])]);}
  catch(error){if(error instanceof SerialIdentityError)throw new BadRequestException(error.message);throw error;}
 }
 function rethrowSerialIdentityConflict(error:unknown):never {
@@ -104,16 +109,16 @@ export class CatalogInventoryController {
   return this.prisma.$transaction(async tx=>{
    const row=await tx.accessoryCompatibility.findFirst({where:{tenantId:w,id}});
    if(!row)throw new NotFoundException('Compatibility not found.');
-   if(row.verifiedAt)return row;
-   const updated=await tx.accessoryCompatibility.update({where:{id},data:{verifiedAt:new Date(),verifiedByUserId:actor}});
-   await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.compatibility.verified',resourceType:'accessory_compatibility',resourceId:id}});
-   return updated;
+   // This legacy endpoint cannot approve an untyped relationship: safety and
+   // evidence must be checked by the typed compatibility-review endpoint.
+   throw new BadRequestException('Use the compatibility review with type, manufacturer evidence and electrical safety checks.');
+
   });
  }
  @Get('catalog/device-models/:modelId/compatible-accessories') async compatibleAccessories(@Param('workspaceId') w:string,@Param('modelId') modelId:string,@Req() req:FastifyRequest) {
   await this.actor(req,w);const id=uuid(modelId,'Device model');
   if(!await this.prisma.catalogDeviceModel.findFirst({where:{tenantId:w,id}}))throw new NotFoundException('Device model not found.');
-  const links=await this.prisma.accessoryCompatibility.findMany({where:{tenantId:w,deviceModelId:id,verifiedAt:{not:null}},take:100});
+  const links=await this.prisma.accessoryCompatibility.findMany({where:{tenantId:w,deviceModelId:id,verifiedAt:{not:null},reviewState:'verified',revokedAt:null},take:100});
   const products=links.length?await this.prisma.product.findMany({where:{tenantId:w,active:true,id:{in:links.map(link=>link.accessoryProductId)}}}):[];
   return products.map(product=>({...product,compatibilityVerified:true}));
  }
@@ -146,13 +151,24 @@ export class CatalogInventoryController {
   return this.prisma.$transaction(async tx=>{
    const serial=await tx.inventorySerial.findFirst({where:{tenantId:w,branchId,id}});
    if(!serial)throw new NotFoundException('The physical unit is not in this branch.');
+   // Serialize inspection status transitions so a concurrent sale cannot reuse
+   // a quarantined exact unit while its condition is being reviewed.
+   await tx.$queryRaw`SELECT id FROM inventory_serials WHERE tenant_id=${w}::uuid AND branch_id=${branchId}::uuid AND id=${id}::uuid FOR UPDATE`;
+   const current=await tx.inventorySerial.findFirst({where:{tenantId:w,branchId,id}});
+   if(!current)throw new NotFoundException('The physical unit is not in this branch.');
+   if(condition==='damaged'&&current.status==='reserved')throw new ConflictException('Release the unit reservation before moving this damaged device into quarantine.');
    const previous=await tx.inventoryUnitInspection.findFirst({where:{tenantId:w,serialId:id},orderBy:[{createdAt:'desc'},{id:'desc'}]});
-   if(previous?.condition==='damaged'&&condition!=='damaged'){
+   const quarantining=condition==='damaged'&&current.status==='available';
+   const releasing=condition!=='damaged'&&current.status==='quarantine'&&previous?.condition==='damaged';
+   if(quarantining||releasing||(previous?.condition==='damaged'&&condition!=='damaged')){
     const member=await tx.membership.findUnique({where:{tenantId_userId:{tenantId:w,userId:actor}},select:{role:true}});
-    if(!member||!hasPermission(member.role,'inventory.approve'))throw new ForbiddenException('Only a business inventory approver can clear a damaged unit after reinspection.');
+    if(!member||!hasPermission(member.role,'inventory.approve'))throw new ForbiddenException('Quarantine and release of a damaged unit require inventory approval.');
+   }
+   if(quarantining||releasing){
+    await tx.inventorySerial.update({where:{id},data:{status:quarantining?'quarantine':'available'}});
    }
    const row=await tx.inventoryUnitInspection.create({data:{tenantId:w,branchId,serialId:id,condition,batteryHealthPercent,notes,inspectedByUserId:actor}});
-   await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.unit.inspected',resourceType:'inventory_serial',resourceId:id}});
+   await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:quarantining?'inventory.unit.quarantined':releasing?'inventory.unit.released':'inventory.unit.inspected',resourceType:'inventory_serial',resourceId:id}});
    return row;
   });
  }
@@ -173,6 +189,7 @@ export class CatalogInventoryController {
    if(variantId&&!await tx.productVariant.findFirst({where:{id:variantId,tenantId:w,productId:id,active:true}}))throw new BadRequestException('Package variant does not belong to this product.');
    if(product.trackSerial&&!Number.isSafeInteger(unitsPerPackage))throw new BadRequestException('A package of serialized units must contain a whole number of items.');
    const row=await tx.productPackage.create({data:{tenantId:w,productId:id,variantId,code:txt(b.code,'Package code',40).toUpperCase(),name:txt(b.name,'Package name',80),unitsPerPackage:String(unitsPerPackage),baseUnit:product.unitOfMeasure??'Each'}});
+   await tx.packageConversionRevision.create({data:{tenantId:w,packageId:row.id,version:1,unitsPerPackage:String(unitsPerPackage),effectiveAt:row.createdAt,actorUserId:actor}});
    await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.product_package.created',resourceType:'product_package',resourceId:row.id}});return row;
   });
  }
@@ -307,8 +324,10 @@ export class CatalogInventoryController {
    const product=await tx.product.findFirst({where:{tenantId:w,id,active:true}});
    if(!product)throw new NotFoundException('Active product not found.');
    const fields=await resolveCategoryFields(tx,w,product.categoryId);
+   const category=product.categoryId?await tx.category.findFirst({where:{tenantId:w,id:product.categoryId},select:{catalogCode:true}}):null;
+   const family=familyForCategoryCode(category?.catalogCode);
    const existing=await tx.productVariant.findMany({where:{tenantId:w,productId:id,active:true},select:{attributes:true}});
-   const variantDimensionKeys=new Set<string>(activePreset(product.productType)?.variants??[]);
+   const variantDimensionKeys=new Set<string>(family?.variantAxes??activePreset(product.productType)?.variants??[]);
    const signature=(attrs:Record<string,unknown>)=>JSON.stringify(Object.entries(attrs).filter(([key,v])=>(!variantDimensionKeys.size||variantDimensionKeys.has(key))&&v!==null&&v!==undefined&&String(v).trim()).sort(([a],[b])=>a.localeCompare(b)));
    const seenDimensions=new Set(existing.map(row=>signature(row.attributes as Record<string,unknown>)));
    const seenSkus=new Set<string>(),seenBarcodes=new Set<string>();
@@ -318,17 +337,36 @@ export class CatalogInventoryController {
     if(seenSkus.has(key))throw new ConflictException('The variant batch contains duplicate SKUs.');
     seenSkus.add(key);
     const attrs=cleanProductAttributes(row.attributes,product.productType??fields.templateKey,fields.customKeys,false,fields.customFields);
-    validateVariantDimensions(product.productType??fields.templateKey,attrs);
+    if(family){
+      if(!family.variantAxes.length)throw new BadRequestException('This product family does not offer separate SKU options.');
+      const familyAttributes=Object.fromEntries(Object.entries(attrs).filter(([key])=>family.fields.some(f=>f.key===key)));
+      validateFamilySpecifications(familyAttributes,family,{required:false});
+      if(family.variantAxes.length&&!family.variantAxes.some(key=>attrs[key]!==undefined&&String(attrs[key]).trim()!==''))
+        throw new BadRequestException(`Choose at least one published variation: ${family.variantAxes.join(', ')}.`);
+      // A family defines which axes are legitimate SKU choices, never guessed from UI labels.
+    }else validateVariantDimensions(product.productType??fields.templateKey,attrs);
     const dimensionKey=signature(attrs);
     if(seenDimensions.has(dimensionKey))throw new ConflictException('A sellable variant with these attributes already exists.');
     seenDimensions.add(dimensionKey);
     const barcode=row.barcode?txt(row.barcode,'Barcode',100):null;
-    if(barcode){if(seenBarcodes.has(barcode))throw new ConflictException('The variant batch contains duplicate barcodes.');seenBarcodes.add(barcode);}
-    return {tenantId:w,productId:id,sku,barcode,attributes:attrs,costPriceMinor:num(row.costPriceMinor??product.costPriceMinor,'Cost price'),sellingPriceMinor:num(row.sellingPriceMinor??product.sellingPriceMinor,'Selling price')};
+    if(barcode){const normalized=barcode.toUpperCase();if(seenBarcodes.has(normalized))throw new ConflictException('The variant batch contains duplicate barcodes.');seenBarcodes.add(normalized);}
+    const gtin=row.gtin?txt(row.gtin,'GTIN',14):null;
+    if(gtin&&!/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(gtin))throw new BadRequestException('GTIN must have 8, 12, 13 or 14 digits.');
+    if(gtin){const check=Number(gtin.at(-1));let total=0;for(let i=gtin.length-2,p=0;i>=0;i--,p++)total+=Number(gtin[i])*(p%2===0?3:1);
+      if((10-total%10)%10!==check)throw new BadRequestException('GTIN check digit is invalid.');
+      if(seenBarcodes.has(gtin))throw new ConflictException('A GTIN or barcode is duplicated in the batch.');seenBarcodes.add(gtin);}
+    return {tenantId:w,productId:id,sku,barcode,gtin,variantSignature:dimensionKey?sha(dimensionKey):null,attributes:attrs,costPriceMinor:num(row.costPriceMinor??product.costPriceMinor,'Cost price'),sellingPriceMinor:num(row.sellingPriceMinor??product.sellingPriceMinor,'Selling price')};
    });
-   const existingSku=await tx.productVariant.findFirst({where:{tenantId:w,sku:{in:prepared.map(p=>p.sku)}}});
+   const existingSku=await tx.productVariant.findFirst({where:{tenantId:w,OR:prepared.map(p=>({sku:{equals:p.sku,mode:'insensitive'}}))}});
+   const collidingProduct=await tx.product.findFirst({where:{tenantId:w,OR:prepared.map(p=>({sku:{equals:p.sku,mode:'insensitive'}}))}});
+   if(collidingProduct)throw new ConflictException('A product already uses a generated variant SKU.');
    if(existingSku)throw new ConflictException('A variant SKU already exists in this business.');
-   if(seenBarcodes.size){const existingBarcode=await tx.productVariant.findFirst({where:{tenantId:w,barcode:{in:[...seenBarcodes]},active:true}});if(existingBarcode)throw new ConflictException('A variant barcode already exists in this business.');}
+   if(seenBarcodes.size){
+    const identifierClaims=[...seenBarcodes].flatMap(code=>[{barcode:{equals:code,mode:'insensitive' as const}},{gtin:{equals:code,mode:'insensitive' as const}}]);
+    const existingBarcode=await tx.productVariant.findFirst({where:{tenantId:w,OR:identifierClaims,active:true}});
+    const existingProductCode=await tx.product.findFirst({where:{tenantId:w,OR:identifierClaims}});
+    if(existingBarcode||existingProductCode)throw new ConflictException('A barcode or GTIN already identifies a different sellable item in this business.');
+   }
    const rows=[];
    for(const data of prepared){const saved=await tx.productVariant.create({data});rows.push(saved);await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.product_variant.created',resourceType:'product_variant',resourceId:saved.id}});}
    return {created:rows.length,variants:rows};
@@ -340,9 +378,9 @@ export class CatalogInventoryController {
  @Post('branches/:branchId/inventory/warehouses') @UseGuards(CsrfGuard) async createWarehouse(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Body() raw:unknown,@Req() req:FastifyRequest) { const actor=await this.actor(req,w,branch),b=obj(raw); return this.prisma.$transaction(async tx=>{const row=await tx.warehouse.create({data:{tenantId:w,branchId:branch,code:txt(b.code,'Code',30).toUpperCase(),name:txt(b.name,'Name',100)}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.warehouse.created',resourceType:'warehouse',resourceId:row.id,metadata:{branchId:branch}}}); return row;}); }
  @Get('branches/:branchId/inventory/warehouses/:warehouseId/bins') async bins(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Param('warehouseId') warehouse:string,@Req() req:FastifyRequest) { await this.actor(req,w,branch); const row=await this.prisma.warehouse.findFirst({where:{id:warehouse,tenantId:w,branchId:branch}}); if(!row) throw new NotFoundException('Warehouse not found.'); return this.prisma.storageBin.findMany({where:{tenantId:w,warehouseId:warehouse},orderBy:{code:'asc'}}); }
  @Post('branches/:branchId/inventory/warehouses/:warehouseId/bins') @UseGuards(CsrfGuard) async createBin(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Param('warehouseId') warehouse:string,@Body() raw:unknown,@Req() req:FastifyRequest) { const actor=await this.actor(req,w,branch),b=obj(raw),wh=await this.prisma.warehouse.findFirst({where:{id:warehouse,tenantId:w,branchId:branch}}); if(!wh) throw new NotFoundException('Warehouse not found.'); const type=String(b.binType??'storage'); if(!['storage','receiving','quarantine','scrap','dispatch'].includes(type)) throw new BadRequestException('Invalid bin type.'); return this.prisma.$transaction(async tx=>{const row=await tx.storageBin.create({data:{tenantId:w,warehouseId:warehouse,code:txt(b.code,'Code',30).toUpperCase(),name:txt(b.name,'Name',100),binType:type}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.storage_bin.created',resourceType:'storage_bin',resourceId:row.id}}); return row;}); }
- @Post('branches/:branchId/inventory/lots') @UseGuards(CsrfGuard) async createLot(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Body() raw:unknown,@Req() req:FastifyRequest) { const actor=await this.actor(req,w,branch),b=obj(raw),productId=uuid(b.productId,'Product'),warehouseId=uuid(b.warehouseId,'Warehouse'); const wh=await this.prisma.warehouse.findFirst({where:{id:warehouseId,tenantId:w,branchId:branch}}); if(!wh) throw new NotFoundException('Warehouse not found.'); const product=await this.prisma.product.findFirst({where:{id:productId,tenantId:w,active:true}}); if(!product||!product.trackStock||!product.trackLot) throw new BadRequestException('Select an active stock-tracked product configured for lot tracking.');
+ @Post('branches/:branchId/inventory/lots') @UseGuards(CsrfGuard) async createLot(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Body() raw:unknown,@Req() req:FastifyRequest) { const actor=await this.actor(req,w,branch),b=obj(raw),productId=uuid(b.productId,'Product'),warehouseId=uuid(b.warehouseId,'Warehouse'); const wh=await this.prisma.warehouse.findFirst({where:{id:warehouseId,tenantId:w,branchId:branch}}); if(!wh) throw new NotFoundException('Warehouse not found.'); const product=await this.prisma.product.findFirst({where:{id:productId,tenantId:w,active:true}}); if(!product||!product.trackStock||!product.trackLot) throw new BadRequestException('Select an active stock-tracked product configured for lot tracking.'); if(product.trackSerial)throw new BadRequestException('Serialized goods require an exact accepted unit receipt, not a quantity-only lot opening.');
  const member=await this.prisma.membership.findUnique({where:{tenantId_userId:{tenantId:w,userId:actor}},select:{role:true}});if(!member||!hasPermission(member.role,'inventory.approve'))throw new ForbiddenException('Opening a batch requires inventory approval. Receive purchased stock through a purchase order.'); const variantId=b.variantId?uuid(b.variantId,'Variant'):null; if(variantId&&!await this.prisma.productVariant.findFirst({where:{id:variantId,tenantId:w,productId,active:true}})) throw new NotFoundException('Product variant not found.'); if(!variantId&&await this.prisma.productVariant.count({where:{tenantId:w,productId,active:true}}))throw new BadRequestException('Choose the actual variant for opening stock.'); const binId=b.binId?uuid(b.binId,'Bin'):null; if(binId&&!await this.prisma.storageBin.findFirst({where:{id:binId,tenantId:w,warehouseId,active:true}})) throw new NotFoundException('Storage bin not found in this warehouse.'); const quantity=qty(b.quantityOnHand),unitCost=num(b.unitCostMinor??0,'Unit cost'); if(product.trackSerial&&!Number.isInteger(quantity))throw new BadRequestException('Serialized stock must be received in whole units.'); const valueMinor=Math.round(quantity*unitCost);if(!Number.isSafeInteger(valueMinor)||valueMinor>2_000_000_000)throw new BadRequestException('Opening stock value is too large.'); const row=await this.prisma.$transaction(async tx=>{const lot=await tx.inventoryLot.create({data:{tenantId:w,branchId:branch,warehouseId,binId,productId,variantId,lotNumber:txt(b.lotNumber,'Lot number',80),expiryDate:b.expiryDate?new Date(`${txt(b.expiryDate,'Expiry date',10)}T00:00:00Z`):null,quantityOnHand:quantity,unitCostMinor:unitCost}}); await tx.stockMovement.create({data:{tenantId:w,branchId:branch,productId,variantId,warehouseId,binId,lotId:lot.id,type:'opening',quantityDelta:String(quantity),unitCostMinor:unitCost,reason:`Approved opening stock for lot ${lot.lotNumber}`,sourceId:lot.id}}); if(valueMinor>0)await postLedgerJournal(tx,{tenantId:w,branchId:branch,actorUserId:actor,sourceType:'inventory_opening_lot',sourceId:lot.id,memo:`Opening batch stock ${lot.lotNumber}`,lines:[{accountKey:'inventory',debitMinor:valueMinor,description:'Opening inventory valuation'},{accountKey:'owner_equity',creditMinor:valueMinor,description:'Opening stock equity'}]}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.opening_lot.created',resourceType:'inventory_lot',resourceId:lot.id,metadata:{branchId:branch,productId,quantity}}}); return lot;}); return row; }
- @Post('branches/:branchId/inventory/lots/:lotId/serials') @UseGuards(CsrfGuard) async createSerial(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Param('lotId') lotId:string,@Body() raw:unknown,@Req() req:FastifyRequest) { const actor=await this.actor(req,w,branch),b=obj(raw),lot=await this.prisma.inventoryLot.findFirst({where:{tenantId:w,branchId:branch,id:lotId}}); if(!lot) throw new NotFoundException('Inventory lot not found.'); if(Number(lot.quantityOnHand)<1) throw new ConflictException('The lot has no available unit to serialize.'); const product=await this.prisma.product.findFirst({where:{tenantId:w,id:lot.productId,trackSerial:true}});if(!product)throw new BadRequestException('Product is not enabled for serial tracking.'); const identifiers=validatedUnitIds(b.serialNumber,b.imei2,product.productType); return this.prisma.$transaction(async tx=>{const locked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM inventory_lots WHERE tenant_id=${w}::uuid AND branch_id=${branch}::uuid AND id=${lotId}::uuid FOR UPDATE`; if(!locked.length) throw new NotFoundException('Inventory lot not found.'); const count=await tx.inventorySerial.count({where:{tenantId:w,branchId:branch,lotId,status:{in:['available','quarantine','reserved','in_transit']}}});if(count>=Number(lot.quantityOnHand))throw new ConflictException('All units in this lot already have serial numbers.'); const row=await tx.inventorySerial.create({data:{tenantId:w,branchId:branch,productId:lot.productId,variantId:lot.variantId,lotId,serialNumber:identifiers.serialNumber,identifiers:identifiers.imei2?{imei2:identifiers.imei2}:{}}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.serial.created',resourceType:'inventory_serial',resourceId:row.id}}); return row;}).catch(rethrowSerialIdentityConflict); }
+ @Post('branches/:branchId/inventory/lots/:lotId/serials') @UseGuards(CsrfGuard) async createSerial(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Param('lotId') lotId:string,@Body() raw:unknown,@Req() req:FastifyRequest) { const actor=await this.actor(req,w,branch),b=obj(raw),lot=await this.prisma.inventoryLot.findFirst({where:{tenantId:w,branchId:branch,id:lotId}}); if(!lot) throw new NotFoundException('Inventory lot not found.'); if(Number(lot.quantityOnHand)<1) throw new ConflictException('The lot has no available unit to serialize.'); const product=await this.prisma.product.findFirst({where:{tenantId:w,id:lot.productId,trackSerial:true}});if(!product)throw new BadRequestException('Product is not enabled for serial tracking.'); const identifiers=validatedUnitIds(b.serialNumber,b.imei2,product.productType),extraImeis=validatedExtraImeis(b.extraImeis,identifiers.serialNumber,identifiers.imei2,product.productType); return this.prisma.$transaction(async tx=>{const locked=await tx.$queryRaw<Array<{id:string;status:string;quantity_on_hand:string}>>`SELECT id,status,quantity_on_hand::text FROM inventory_lots WHERE tenant_id=${w}::uuid AND branch_id=${branch}::uuid AND id=${lotId}::uuid FOR UPDATE`; if(!locked.length) throw new NotFoundException('Inventory lot not found.');if(['expired','scrap'].includes(locked[0].status))throw new ConflictException('Cannot register units against expired or scrapped stock.'); const count=await tx.inventorySerial.count({where:{tenantId:w,branchId:branch,lotId,status:{in:['available','quarantine','reserved','in_transit']}}});if(count>=Number(locked[0].quantity_on_hand))throw new ConflictException('All units in this lot already have serial numbers.'); const row=await tx.inventorySerial.create({data:{tenantId:w,branchId:branch,productId:lot.productId,variantId:lot.variantId,lotId,warehouseId:lot.warehouseId,unitCostMinor:lot.unitCostMinor,acceptedAt:new Date(),serialNumber:identifiers.serialNumber,identifiers:{...(identifiers.imei2?{imei2:identifiers.imei2}:{}),...(extraImeis.length?{extraImeis}:{})},status:locked[0].status==='available'?'available':'quarantine'}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.serial.created',resourceType:'inventory_serial',resourceId:row.id}}); return row;}).catch(rethrowSerialIdentityConflict); }
  @Get('branches/:branchId/inventory/serials/lookup')
  async lookupSerial(@Param('workspaceId') w:string,@Param('branchId') branch:string,@Req() req:FastifyRequest){
   await this.actor(req,w,branch);
@@ -387,13 +425,13 @@ export class CatalogInventoryController {
     if(!locked.length)throw new NotFoundException('Product not found.');
     const product=await tx.product.findFirst({where:{id:productId,tenantId:w,active:true}});
     if(!product?.trackStock||!product.trackSerial||product.trackLot)throw new BadRequestException('Choose an individually serialized product without batch tracking.');
-    const identifiers=validatedUnitIds(b.serialNumber,b.imei2,product.productType);
+    const identifiers=validatedUnitIds(b.serialNumber,b.imei2,product.productType),extraImeis=validatedExtraImeis(b.extraImeis,identifiers.serialNumber,identifiers.imei2,product.productType);
     if(variantId&&!await tx.productVariant.findFirst({where:{id:variantId,tenantId:w,productId,active:true}}))throw new BadRequestException('Variant does not belong to this product.');
     const balances=await tx.stockMovement.aggregate({where:{tenantId:w,branchId:branch,productId,variantId},_sum:{quantityDelta:true}});
     const available=Number(balances._sum.quantityDelta??0);
     const assigned=await tx.inventorySerial.count({where:{tenantId:w,branchId:branch,productId,variantId,status:{in:['available','quarantine','reserved','in_transit']}}});
     if(!Number.isInteger(available)||assigned>=available)throw new ConflictException('Record stock received for this exact product variant before registering its next serial number.');
-    const row=await tx.inventorySerial.create({data:{tenantId:w,branchId:branch,productId,variantId,lotId:null,serialNumber:identifiers.serialNumber,identifiers:identifiers.imei2?{imei2:identifiers.imei2}:{}}});
+    const row=await tx.inventorySerial.create({data:{tenantId:w,branchId:branch,productId,variantId,lotId:null,unitCostMinor:product.costPriceMinor,acceptedAt:new Date(),serialNumber:identifiers.serialNumber,identifiers:{...(identifiers.imei2?{imei2:identifiers.imei2}:{}),...(extraImeis.length?{extraImeis}:{})}}});
     await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.serial.registered',resourceType:'inventory_serial',resourceId:row.id,metadata:{productId,branchId:branch,variantId}}});
     return {id:row.id,serialNumber:row.serialNumber,imei2:identifiers.imei2,variantId:row.variantId};
   },{isolationLevel:'Serializable'}).catch(rethrowSerialIdentityConflict);

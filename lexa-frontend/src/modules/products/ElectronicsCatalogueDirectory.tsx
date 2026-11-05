@@ -61,22 +61,22 @@ export default function ElectronicsCatalogueDirectory({workspaceId,industries,on
     ...(revisionEvidence.trim()?{provenance:{sourceName:revisionEvidence.trim()}}:{})});
  },onSuccess:async()=>{await cache.invalidateQueries({queryKey:['electronics-v2-models',workspaceId]});setRevisionOpen(false);toast.success('New reference specification version saved as a draft');},onError:e=>toast.error('Model revision blocked',{description:e instanceof Error?e.message:'Check the values and review permissions.'})});
  if(!relevant)return null;
- return <section className="lexa-v2-panel" aria-label="LEXA Electronics Catalogue V2">
-  <button type="button" className="button button-secondary button-small" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'Hide Electronics V2 directory':'Explore Electronics V2: 221 categories and specifications'}</button>
+ return <section className="lexa-v2-panel" aria-label="Electronics product catalogue">
+  <button type="button" className="button button-secondary button-small" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>{open?'Hide product catalogue':'Browse product categories and specifications'}</button>
   {open&&<div className="lexa-v2-panel-body">
    <h4>Electronics catalogue, brands and manufacturer models</h4>
    <p>Search stable categories, review manufacturer references and add only the category nodes you choose. Nothing here creates stock, changes old product IDs or reclassifies historical transactions.</p>
-   {summary.data&&<p className="lexa-product-hint">V{summary.data.schemaVersion} · {summary.data.enabledLeafCount} enabled of {summary.data.leaves} category leaves · {summary.data.families} specification families · policy v{summary.data.policyVersion}</p>}
+   {summary.data&&<p className="lexa-product-hint">{summary.data.enabledLeafCount} available categories · {summary.data.families} product families</p>}
    <label className="field-label">Search catalogue, code or historical breadcrumb<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Try keypad phones, air fryer, laptop, printer, UPS…" maxLength={100}/></label>
    {taxonomy.isError&&<p role="alert">Catalogue not available. Refresh after the backend and database upgrade.</p>}
-   <div className="lexa-v2-leaf-picker"><label className="field-label">Choose a V2 category<select value={code} onChange={e=>setCode(e.target.value)}>
+   <div className="lexa-v2-leaf-picker"><label className="field-label">Choose a product category<select value={code} onChange={e=>setCode(e.target.value)}>
     <option value="">Select a category leaf</option>{visibleNodes.map(node=><option key={node.code} value={node.code} disabled={!node.enabled}>{node.breadcrumb}{node.enabled?'':' · Industry not active'}</option>)}
    </select></label></div>
    {(customCategories.data?.nodes.length??0)>0&&<div className="lexa-v2-preview" aria-label="Existing business categories"><strong>Your business's existing categories</strong><small>These are real categories already in your workspace, including your own custom nodes. No category or stock is created by searching.</small>
     {customCategories.data?.nodes.slice(0,12).map(item=><div className="lexa-v2-inline" key={item.categoryId}><span>{item.breadcrumb} · {item.code}</span><button type="button" className="button button-secondary button-small" onClick={()=>{onCategoryChosen?.(item.categoryId,item.templateKey??undefined);toast.success('Existing category selected; inventory was not modified');}}>Use category</button></div>)}
     {(customCategories.data?.total??0)>12&&<small>Refine your search to find more categories ({customCategories.data?.total} matches).</small>}
    </div>}
-   {chosenNode&&<div className="lexa-v2-preview"><strong>{chosenNode.breadcrumb}</strong><span>{chosenNode.code} · {chosenFamily?.stockProfile??'Policy pending'} stock</span>
+   {chosenNode&&<div className="lexa-v2-preview"><strong>{chosenNode.breadcrumb}</strong><span>{chosenNode.code} · {chosenFamily?.stockProfile??'Not configured'} stock</span>
     {chosenFamily&&<small>{chosenFamily.fields.filter(f=>f.required).map(f=>f.key).join(', ')||'Flexible specifications'} · {describeElectronicsStockPolicy(chosenFamily)}</small>}
     {preview.data?.action==='already_adopted'&&<span>Already present in this workspace; existing category preserved.</span>}
     {preview.data?.action==='adopt_new_with_approval'&&<button type="button" className="button button-secondary button-small" disabled={adopted.isPending} onClick={()=>adopted.mutate()}>Add this category to my business</button>}

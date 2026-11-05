@@ -7475,6 +7475,129 @@ paths:
         '403': {description: Business industry or role forbids this operation}
         '409': {description: Duplicate alias or conflicting category mapping}
 
+  /workspaces/{workspaceId}/catalog/products/search:
+    get:
+      operationId: electronicsInventory01Get
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+  /workspaces/{workspaceId}/products/{productId}/search-aliases:
+    get:
+      operationId: electronicsInventory02Get
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+    post:
+      operationId: electronicsInventory02Post
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/receipts/serialized:
+    post:
+      operationId: electronicsInventory03Post
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/identifiers/lookup:
+    get:
+      operationId: electronicsInventory04Get
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/units/reconciliation:
+    get:
+      operationId: electronicsInventory05Get
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+  /workspaces/{workspaceId}/products/{productId}/packages/{packageId}/conversions:
+    get:
+      operationId: electronicsInventory06Get
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+    post:
+      operationId: electronicsInventory06Post
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+  /workspaces/{workspaceId}/catalog/compatibilities/{compatibilityId}/review:
+    post:
+      operationId: electronicsInventory07Post
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/catalog/device-models/{modelId}/available-accessories:
+    get:
+      operationId: electronicsInventory08Get
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+  /workspaces/{workspaceId}/products/{productId}/bundle:
+    get:
+      operationId: electronicsInventory09Get
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+    post:
+      operationId: electronicsInventory09Post
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+  /workspaces/{workspaceId}/products/{productId}/bundle/activate:
+    post:
+      operationId: electronicsInventory10Post
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
+  /workspaces/{workspaceId}/branches/{branchId}/products/{productId}/bundle/assemble:
+    post:
+      operationId: electronicsInventory11Post
+      description: Tenant-scoped electronics stock and catalogue transaction, with strict authorization and audit.
+      responses:
+        '200': {description: Authorized result}
+        '400': {description: Invalid values or incompatible identity}
+        '403': {description: Access denied}
+        '409': {description: Duplicate identity or concurrency conflict}
 components:
   securitySchemes:
     sessionCookie:

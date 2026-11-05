@@ -31,7 +31,7 @@ export interface Category {
   templateKey?: string | null;
   catalogCode?: string | null;
   taxonomyVersion?: number | null;
-  attributeSchema?: Array<{key:string;label:string;kind:'text'|'number'|'select';options?:string[];required?:boolean}>;
+  attributeSchema?: Array<{key:string;label:string;kind:'text'|'number'|'select'|'boolean';options?:string[];required?:boolean}>;
   createdAt: string;
   updatedAt: string;
 }

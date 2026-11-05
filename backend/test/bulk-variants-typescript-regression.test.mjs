@@ -25,7 +25,7 @@ test('bulk-variant input is narrowed once before the async transaction and mappe
   assert.match(method, /const variantEntries:\s*unknown\s*=\s*body\.variants\s*;/);
   assert.match(method, /if\s*\(!Array\.isArray\(variantEntries\)/);
   assert.match(method, /const prepared\s*=\s*variantEntries\.map\(\(entry:\s*unknown\)\s*=>/);
-  assert.match(method, /prepared\.map\(p\s*=>\s*p\.sku\)/);
+  assert.match(method, /prepared\.map\(p\s*=>\s*\(\{sku:\{equals:p\.sku/,'Typed prepared SKUs must be consumed in a case-insensitive uniqueness query.');
   assert.doesNotMatch(method, /body\.variants\.map\(/, 'Using an object property inside the transaction loses type narrowing.');
 
   // Compile the actual validation/narrowing expression with strict TypeScript.

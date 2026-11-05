@@ -3,7 +3,7 @@ import manifest from './industry-manifest.json' with { type: 'json' };
 
 export const INDUSTRY_OPTIONS: readonly (readonly [string,string])[] = manifest.industries.map(i=>[i.code,i.label] as const);
 export const RETIRED_INDUSTRIES: readonly string[] = manifest.retiredIndustryCodes;
-export type ProductField = {key: string; label: string; kind?: 'text'|'number'|'select'; options?: readonly string[]; unit?: string; required?: boolean};
+export type ProductField = {key: string; label: string; kind?: 'text'|'number'|'select'|'boolean'; options?: readonly string[]; unit?: string; required?: boolean};
 export type ProductPreset = {
   key: string; label: string; industries: readonly string[]; path: readonly string[];
   fields: readonly ProductField[]; stock: 'quantity'|'serial'|'batch'|'none'; unit: string;

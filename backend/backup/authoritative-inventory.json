@@ -1072,5 +1072,41 @@
     "disposition": "reconstructed",
     "domain": "catalog",
     "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
+  },
+  {
+    "table": "inventory_unit_identifiers",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
+  },
+  {
+    "table": "inventory_receipt_batches",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
+  },
+  {
+    "table": "catalog_product_aliases",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
+  },
+  {
+    "table": "package_conversion_revisions",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
+  },
+  {
+    "table": "product_bundles",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
+  },
+  {
+    "table": "product_bundle_components",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
   }
 ]

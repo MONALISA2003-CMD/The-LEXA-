@@ -399,6 +399,7 @@ model Product {
   productType        String?   @map("product_type")
   attributes         Json      @default("{}")
   barcode            String?
+  gtin               String?
   brand              String?
   // The additive four-division migration creates tenant-scoped foreign keys for these IDs.
   // Keep their Prisma scalar fields synchronized so generated Product types can read/write them.
@@ -664,6 +665,7 @@ model ProductPackage {
   variantId String? @map("variant_id") @db.Uuid
   code String
   name String
+  gtin String?
   unitsPerPackage Decimal @map("units_per_package") @db.Decimal(14,3)
   baseUnit String @map("base_unit")
   active Boolean @default(true)
@@ -680,6 +682,8 @@ model ProductVariant {
   productId String @map("product_id") @db.Uuid
   sku String
   barcode String?
+  gtin String?
+  variantSignature String? @map("variant_signature")
   attributes Json @default("{}")
   costPriceMinor Int @default(0) @map("cost_price_minor")
   sellingPriceMinor Int @default(0) @map("selling_price_minor")
@@ -782,6 +786,10 @@ model InventorySerial {
   variantId String? @map("variant_id") @db.Uuid
   lotId String? @map("lot_id") @db.Uuid
   serialNumber String @map("serial_number")
+  warehouseId String? @map("warehouse_id") @db.Uuid
+  receiptBatchId String? @map("receipt_batch_id") @db.Uuid
+  unitCostMinor Int? @map("unit_cost_minor")
+  acceptedAt DateTime? @map("accepted_at") @db.Timestamptz(3)
   identifiers Json @default("{}")
   status String @default("available")
   @@unique([tenantId, serialNumber])
@@ -1573,6 +1581,11 @@ model AccessoryCompatibility {
  accessoryProductId String @map("accessory_product_id") @db.Uuid
  deviceModelId String @map("device_model_id") @db.Uuid
  fitmentNotes String? @map("fitment_notes")
+ // Reviewed links remain opt-in; historical links must be revalidated for safe recommendations.
+ compatibilityKind String @default("physical") @map("compatibility_kind")
+ evidence Json @default("{}")
+ reviewState String @default("proposed") @map("review_state")
+ revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
  verifiedByUserId String? @map("verified_by_user_id") @db.Uuid
  verifiedAt DateTime? @map("verified_at") @db.Timestamptz(3)
  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -1594,4 +1607,93 @@ model InventoryUnitInspection {
  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
  @@index([tenantId,serialId,createdAt])
  @@map("inventory_unit_inspections")
+}
+
+
+// One physical item can carry 1..N identifiers; never count identifier rows as stock units.
+model InventoryUnitIdentifier {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  serialId String @map("serial_id") @db.Uuid
+  identifierType String @map("identifier_type")
+  identifierValue String @map("identifier_value")
+  normalizedValue String @map("normalized_value")
+  source String @default("receipt")
+  legacyCollision Boolean @default(false) @map("legacy_collision")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@index([tenantId,serialId])
+  @@index([tenantId,normalizedValue])
+  @@map("inventory_unit_identifiers")
+}
+
+// Posted batches are idempotent; a batch of N serials creates N stock movements.
+model InventoryReceiptBatch {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  variantId String? @map("variant_id") @db.Uuid
+  warehouseId String @map("warehouse_id") @db.Uuid
+  sourceKind String @map("source_kind")
+  reference String
+  idempotencyKey String @map("idempotency_key")
+  payloadHash String @map("payload_hash")
+  quantity Int
+  actorUserId String @map("actor_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([tenantId,idempotencyKey])
+  @@index([tenantId,branchId,productId])
+  @@map("inventory_receipt_batches")
+}
+
+model CatalogProductAlias {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  aliasType String @map("alias_type")
+  aliasValue String @map("alias_value")
+  normalizedValue String @map("normalized_value")
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([tenantId,normalizedValue])
+  @@index([tenantId,productId])
+  @@map("catalog_product_aliases")
+}
+
+model PackageConversionRevision {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  packageId String @map("package_id") @db.Uuid
+  version Int
+  unitsPerPackage Decimal @map("units_per_package") @db.Decimal(14,3)
+  effectiveAt DateTime @map("effective_at") @db.Timestamptz(3)
+  actorUserId String @map("actor_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([tenantId,packageId,version])
+  @@index([tenantId,packageId,effectiveAt])
+  @@map("package_conversion_revisions")
+}
+
+model ProductBundle {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  variantId String? @map("variant_id") @db.Uuid
+  mode String
+  status String @default("draft")
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([tenantId,productId])
+  @@map("product_bundles")
+}
+
+model ProductBundleComponent {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  bundleId String @map("bundle_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  variantId String? @map("variant_id") @db.Uuid
+  quantity Decimal @db.Decimal(14,3)
+  @@index([tenantId,bundleId])
+  @@map("product_bundle_components")
 }

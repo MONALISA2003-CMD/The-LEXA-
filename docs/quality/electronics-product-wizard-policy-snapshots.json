@@ -1,0 +1,370 @@
+{
+  "schemaVersion": 2,
+  "policyVersion": 1,
+  "description": "Canonical policy snapshots for the seven required electronics wizard acceptance forms; no products or stock.",
+  "families": [
+    {
+      "family": "feature_phone",
+      "stockProfile": "serial",
+      "identifiers": [
+        "imei",
+        "imei2?"
+      ],
+      "variantAxes": [
+        "colour"
+      ],
+      "requiredFields": [
+        "model"
+      ],
+      "fieldDefinitions": [
+        {
+          "key": "model",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "colour",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "simSlots",
+          "type": "number",
+          "required": false
+        },
+        {
+          "key": "networkGeneration",
+          "type": "enum",
+          "required": false,
+          "options": [
+            "2g",
+            "3g",
+            "4g"
+          ]
+        },
+        {
+          "key": "keypadStyle",
+          "type": "enum",
+          "required": false,
+          "options": [
+            "standard",
+            "large_button",
+            "flip",
+            "desk"
+          ]
+        },
+        {
+          "key": "fmRadio",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "key": "torch",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "key": "removableBattery",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "key": "batteryMah",
+          "type": "number",
+          "required": false,
+          "unit": "mAh"
+        },
+        {
+          "key": "chargerConnector",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "memoryCardSupport",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    },
+    {
+      "family": "smartphone",
+      "stockProfile": "serial",
+      "identifiers": [
+        "imei",
+        "imei2?"
+      ],
+      "variantAxes": [
+        "storageGb",
+        "colour"
+      ],
+      "requiredFields": [
+        "model"
+      ],
+      "fieldDefinitions": [
+        {
+          "key": "model",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "storageGb",
+          "type": "number",
+          "required": false,
+          "unit": "GB"
+        },
+        {
+          "key": "ramGb",
+          "type": "number",
+          "required": false,
+          "unit": "GB"
+        },
+        {
+          "key": "colour",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "condition",
+          "type": "enum",
+          "required": false,
+          "options": [
+            "new",
+            "open_box",
+            "used",
+            "refurbished"
+          ]
+        },
+        {
+          "key": "simSlots",
+          "type": "number",
+          "required": false
+        },
+        {
+          "key": "networkGeneration",
+          "type": "enum",
+          "required": false,
+          "options": [
+            "2g",
+            "3g",
+            "4g",
+            "5g"
+          ]
+        },
+        {
+          "key": "esim",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    },
+    {
+      "family": "laptop",
+      "stockProfile": "serial",
+      "identifiers": [
+        "serial"
+      ],
+      "variantAxes": [
+        "ramGb",
+        "storageGb"
+      ],
+      "requiredFields": [
+        "model"
+      ],
+      "fieldDefinitions": [
+        {
+          "key": "model",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "processor",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "ramGb",
+          "type": "number",
+          "required": false,
+          "unit": "GB"
+        },
+        {
+          "key": "storageGb",
+          "type": "number",
+          "required": false,
+          "unit": "GB"
+        },
+        {
+          "key": "graphics",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "screenInches",
+          "type": "number",
+          "required": false,
+          "unit": "in"
+        },
+        {
+          "key": "condition",
+          "type": "enum",
+          "required": false,
+          "options": [
+            "new",
+            "open_box",
+            "used",
+            "refurbished"
+          ]
+        }
+      ]
+    },
+    {
+      "family": "charger",
+      "stockProfile": "quantity",
+      "identifiers": [],
+      "variantAxes": [
+        "connector",
+        "powerWatts"
+      ],
+      "requiredFields": [
+        "connector"
+      ],
+      "fieldDefinitions": [
+        {
+          "key": "connector",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "powerWatts",
+          "type": "number",
+          "required": false,
+          "unit": "W"
+        },
+        {
+          "key": "voltage",
+          "type": "number",
+          "required": false,
+          "unit": "V"
+        },
+        {
+          "key": "plugType",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "family": "refrigerator",
+      "stockProfile": "serial",
+      "identifiers": [
+        "serial"
+      ],
+      "variantAxes": [
+        "capacityLitres"
+      ],
+      "requiredFields": [
+        "model",
+        "capacityLitres"
+      ],
+      "fieldDefinitions": [
+        {
+          "key": "model",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "capacityLitres",
+          "type": "number",
+          "required": true,
+          "unit": "L"
+        },
+        {
+          "key": "voltage",
+          "type": "number",
+          "required": false,
+          "unit": "V"
+        },
+        {
+          "key": "energyRating",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "family": "printer",
+      "stockProfile": "serial",
+      "identifiers": [
+        "serial"
+      ],
+      "variantAxes": [
+        "printTechnology"
+      ],
+      "requiredFields": [
+        "model",
+        "printTechnology"
+      ],
+      "fieldDefinitions": [
+        {
+          "key": "model",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "printTechnology",
+          "type": "enum",
+          "required": true,
+          "options": [
+            "inkjet",
+            "ink_tank",
+            "laser",
+            "thermal",
+            "dot_matrix",
+            "other"
+          ]
+        },
+        {
+          "key": "duplex",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    },
+    {
+      "family": "inverter",
+      "stockProfile": "serial",
+      "identifiers": [
+        "serial"
+      ],
+      "variantAxes": [],
+      "requiredFields": [
+        "model"
+      ],
+      "fieldDefinitions": [
+        {
+          "key": "model",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "powerWatts",
+          "type": "number",
+          "required": false,
+          "unit": "W"
+        },
+        {
+          "key": "voltage",
+          "type": "number",
+          "required": false,
+          "unit": "V"
+        },
+        {
+          "key": "batteryVoltage",
+          "type": "number",
+          "required": false,
+          "unit": "V"
+        }
+      ]
+    }
+  ]
+}

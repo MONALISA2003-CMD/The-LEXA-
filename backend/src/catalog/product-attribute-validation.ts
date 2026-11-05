@@ -8,7 +8,7 @@ export const KNOWN_PRODUCT_TYPE_FIELDS: Record<string,readonly string[]> = {
  ...LEGACY_PRODUCT_TYPE_FIELDS,
 };
 
-export type CategoryFieldPolicy={key:string;label:string;kind:'text'|'number'|'select';options?:readonly string[];required?:boolean};
+export type CategoryFieldPolicy={key:string;label:string;kind:'text'|'number'|'select'|'boolean';options?:readonly string[];required?:boolean};
 type TrackingPolicy = {trackStock:boolean;trackSerial:boolean;trackLot:boolean};
 type ProductPresetPolicy = (typeof INDUSTRY_POLICIES)[keyof typeof INDUSTRY_POLICIES];
 export function activePreset(key:string|null|undefined):ProductPresetPolicy|null {
@@ -52,6 +52,7 @@ export function cleanProductAttributes(raw: unknown,productType:string|null,cust
   const field=known.get(key);
   if(field?.kind==='text'&&typeof value!=='string')throw new BadRequestException(`${field.label} must be text.`);
   if(field?.kind==='select'&&typeof value!=='string')throw new BadRequestException(`Choose a valid ${field.label}.`);
+  if(field?.kind==='boolean'){if(value===true||value==='true')clean[key]=true;else if(value===false||value==='false')clean[key]=false;else throw new BadRequestException(`${field.label} must be yes or no.`);continue;}
   if(typeof value==='string'&&value.length<=250) {
     const trimmed=value.trim();
     if(field?.kind==='number') {
@@ -90,11 +91,11 @@ export function cleanCategoryAttributeSchema(raw: unknown): CategoryFieldPolicy[
   if(x.required!==undefined&&typeof x.required!=='boolean')throw new BadRequestException('Category required rule must be true or false.');
   if(typeof key!=='string'||!/^[A-Za-z][A-Za-z0-9_]{0,49}$/.test(key)||seen.has(key))throw new BadRequestException('Category field keys must be unique.');
   if(typeof label!=='string'||label.trim().length<1||label.length>100)throw new BadRequestException('Invalid category field label.');
-  if(!['text','number','select'].includes(String(kind)))throw new BadRequestException('Invalid field type.');
+  if(!['text','number','select','boolean'].includes(String(kind)))throw new BadRequestException('Invalid field type.');
   seen.add(key);
   const options=x.options === undefined ? [] : x.options;
   if(!Array.isArray(options)||options.length>60||options.some(o=>typeof o!=='string'||o.length>100||!o.trim()))throw new BadRequestException('Invalid category field choices.');
   if(kind==='select'&&options.length===0)throw new BadRequestException('Select fields must have at least one choice.');
-  return {key,label:label.trim(),kind:kind as 'text'|'number'|'select',...(x.required===true?{required:true}:{}),...(options.length?{options:[...new Set((options as string[]).map(o=>o.trim()))]}:{})};
+  return {key,label:label.trim(),kind:kind as 'text'|'number'|'select'|'boolean',...(x.required===true?{required:true}:{}),...(options.length?{options:[...new Set((options as string[]).map(o=>o.trim()))]}:{})};
  });
 }

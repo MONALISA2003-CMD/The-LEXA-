@@ -4,12 +4,31 @@ const tenant = (w: string) => `/workspaces/${enc(w)}`;
 const branch = (w: string, b: string) => `${tenant(w)}/branches/${enc(b)}`;
 const key = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `lexa-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+export type ElectronicsReceiptUnit = {serialNumber:string;imei2?:string;extraImeis?:string[];condition?:'new'|'open_box'|'used_good'|'used_fair'|'refurbished'|'damaged';notes?:string};
+export type ElectronicsProductAlias = {id:string;aliasType:string;aliasValue:string;normalizedValue:string};
+export type ElectronicsPackageRevision = {id:string;version:number;unitsPerPackage:string;effectiveAt:string;createdAt:string};
+export type ElectronicsProductBundle = {id:string;productId:string;mode:'sealed_kit'|'assembled_kit';status:'draft'|'active'|'archived'};
+export type ElectronicsFitment = {id:string;deviceModelId:string;verifiedAt:string|null;fitmentNotes:string|null;compatibilityKind:string;reviewState:string;revokedAt:string|null};
 export const apiCatalogInventory = {
+  searchProductsByIdentity:(w:string,q:string)=>apiClient.get<import('../../domain/shared/types').Product[]>(`${tenant(w)}/catalog/products/search`,{q}),
+  productAliases:(w:string,p:string)=>apiClient.get<ElectronicsProductAlias[]>(`${tenant(w)}/products/${enc(p)}/search-aliases`),
+  createProductAlias:(w:string,p:string,aliasType:string,aliasValue:string)=>apiClient.post<ElectronicsProductAlias>(`${tenant(w)}/products/${enc(p)}/search-aliases`,{aliasType,aliasValue},key()),
+  receiveSerializedStock:(w:string,b:string,input:{productId:string;warehouseId:string;variantId?:string;reference:string;sourceKind:'approved_opening';unitCostMinor:number;units:ElectronicsReceiptUnit[]},idempotencyKey:string)=>apiClient.post<{id:string;accepted:number;alreadyPosted:boolean}>(`${branch(w,b)}/inventory/receipts/serialized`,input,idempotencyKey),
+  lookupPhysicalIdentity:(w:string,b:string,identifier:string)=>apiClient.get<{id:string;productId:string;variantId:string|null;status:string;identifierType:string}>(`${branch(w,b)}/inventory/identifiers/lookup`,{identifier}),
+  reconcilePhysicalUnits:(w:string,b:string)=>apiClient.get<{items:Array<{productId:string;name:string;ledgerUnits:number;registeredUnits:number;delta:number;balanced:boolean}>;hasMismatch:boolean}>(`${branch(w,b)}/inventory/units/reconciliation`),
+  packageConversionHistory:(w:string,p:string,pack:string)=>apiClient.get<ElectronicsPackageRevision[]>(`${tenant(w)}/products/${enc(p)}/packages/${enc(pack)}/conversions`),
+  revisePackageConversion:(w:string,p:string,pack:string,unitsPerPackage:number,effectiveAt:string)=>apiClient.post<ElectronicsPackageRevision>(`${tenant(w)}/products/${enc(p)}/packages/${enc(pack)}/conversions`,{unitsPerPackage,effectiveAt},key()),
+  reviewAccessoryFit:(w:string,id:string,input:{outcome:'verified'|'rejected'|'revoked';compatibilityKind:'physical'|'electrical'|'protocol'|'consumable';evidenceReference:string;confirmedElectricalSafety:boolean;voltageRange?:string;currentAmps?:number;connectorType?:string})=>apiClient.post<ElectronicsFitment>(`${tenant(w)}/catalog/compatibilities/${enc(id)}/review`,input,key()),
+  availableCompatibleAccessories:(w:string,b:string,model:string)=>apiClient.get<Array<{product:import('../../domain/shared/types').Product;variantId:string|null;available:number;fitment:Array<{id:string;kind:string}>}>>(`${branch(w,b)}/catalog/device-models/${enc(model)}/available-accessories`),
+  productBundle:(w:string,p:string)=>apiClient.get<ElectronicsProductBundle|null>(`${tenant(w)}/products/${enc(p)}/bundle`),
+  createProductBundle:(w:string,p:string,input:{mode:'sealed_kit'|'assembled_kit';components:Array<{productId:string;variantId?:string;quantity:number}>})=>apiClient.post<ElectronicsProductBundle>(`${tenant(w)}/products/${enc(p)}/bundle`,input,key()),
+  activateProductBundle:(w:string,p:string)=>apiClient.post<ElectronicsProductBundle>(`${tenant(w)}/products/${enc(p)}/bundle/activate`,{},key()),
+  assembleProductBundle:(w:string,b:string,p:string,input:{warehouseId:string;quantity:number},idempotencyKey:string)=>apiClient.post<{batchId:string;quantity:number;alreadyPosted:boolean}>(`${branch(w,b)}/products/${enc(p)}/bundle/assemble`,input,idempotencyKey),
   catalogBrands:(w:string)=>apiClient.get<Array<{id:string;tenantId:string;name:string;normalizedName:string}>>(`${tenant(w)}/catalog/brands`),
   createCatalogBrand:(w:string,name:string)=>apiClient.post<{id:string;name:string}>(`${tenant(w)}/catalog/brands`,{name},key()),
   catalogDeviceModels:(w:string)=>apiClient.get<Array<{id:string;tenantId:string;brandId:string;name:string;productType:string;manufacturerCode:string|null}>>(`${tenant(w)}/catalog/device-models`),
   createCatalogDeviceModel:(w:string,input:{brandId:string;name:string;productType:string;manufacturerCode?:string})=>apiClient.post<{id:string;brandId:string;name:string;productType:string}>(`${tenant(w)}/catalog/device-models`,input,key()),
-  accessoryFits:(w:string,productId:string)=>apiClient.get<Array<{id:string;deviceModelId:string;verifiedAt:string|null;fitmentNotes:string|null}>>(`${tenant(w)}/products/${enc(productId)}/compatible-models`),
+  accessoryFits:(w:string,productId:string)=>apiClient.get<ElectronicsFitment[]>(`${tenant(w)}/products/${enc(productId)}/compatible-models`),
   linkAccessoryFit:(w:string,productId:string,input:{deviceModelId:string;fitmentNotes?:string})=>apiClient.post(`${tenant(w)}/products/${enc(productId)}/compatible-models`,input,key()),
   verifyAccessoryFit:(w:string,id:string)=>apiClient.post(`${tenant(w)}/catalog/compatibilities/${enc(id)}/verify`,{},key()),
   verifiedAccessories:(w:string,modelId:string)=>apiClient.get<Array<import('../../domain/shared/types').Product>>(`${tenant(w)}/catalog/device-models/${enc(modelId)}/compatible-accessories`),
@@ -29,7 +48,7 @@ export const apiCatalogInventory = {
   availableLots:(w:string,b:string,p:string,variantId?:string)=>apiClient.get<Array<{id:string;lotNumber:string;expiryDate:string|null;available:number;variantId:string|null}>>(`${branch(w,b)}/inventory/lots/available`,{productId:p,...(variantId?{variantId}:{})}),
   variants: (w:string,p:string)=>apiClient.get<Array<{id:string;productId:string;sku:string;barcode:string|null;attributes:Record<string,string|number|boolean>;costPriceMinor:number;sellingPriceMinor:number;active:boolean}>>(`${tenant(w)}/products/${enc(p)}/variants`),
   createVariant: (w:string,p:string,input:Record<string,unknown>)=>apiClient.post(`${tenant(w)}/products/${enc(p)}/variants`,input,key()),
-  createVariantBatch: (w:string,p:string,variants:Array<{sku:string;barcode?:string;attributes:Record<string,string>;costPriceMinor:number;sellingPriceMinor:number}>)=>apiClient.post<{created:number}>(`${tenant(w)}/products/${enc(p)}/variants/bulk`,{variants},key()),
+  createVariantBatch: (w:string,p:string,variants:Array<{sku:string;barcode?:string;gtin?:string;attributes:Record<string,string>;costPriceMinor:number;sellingPriceMinor:number}>)=>apiClient.post<{created:number}>(`${tenant(w)}/products/${enc(p)}/variants/bulk`,{variants},key()),
   lookupSerial:(w:string,b:string,identifier:string)=>apiClient.get<{id:string;productId:string;variantId:string|null;lotId:string|null;serialNumber:string;identifiers?:{imei2?:string};status:string}>(`${branch(w,b)}/inventory/serials/lookup`,{identifier}),
   availableSerials:(w:string,b:string,p:string,variantId?:string)=>apiClient.get<Array<{id:string;serialNumber:string;identifiers?:{imei2?:string};lotId:string|null;variantId:string|null}>>(`${branch(w,b)}/inventory/serials`,{productId:p,...(variantId?{variantId}:{})}),
   createStandaloneSerial:(w:string,b:string,input:{productId:string;variantId?:string;serialNumber:string;imei2?:string})=>apiClient.post(`${branch(w,b)}/inventory/serials`,input,key()),

@@ -100,9 +100,23 @@ export function assertModelFamilyProductType(family:FamilyPolicy,productType:str
  * Boolean specifications are exposed in V2 directory; Phase 2 provides the full wizard.
  */
 export function legacyCategoryAttributeSchema(family:FamilyPolicy) {
- return family.fields.filter(f=>f.type!=='boolean').slice(0,25).map(f=>({
+ return family.fields.slice(0,25).map(f=>({
    key:f.key,label:f.key.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/^./,x=>x.toUpperCase())+(f.unit?` (${f.unit})`:''),
-   kind:f.type==='number'?'number':f.type==='enum'?'select':'text',required:f.required,
+   kind:f.type==='number'?'number':f.type==='enum'?'select':f.type==='boolean'?'boolean':'text',required:f.required,
    ...(f.type==='enum'?{options:[...(f.options??[])]}:{})
  }));
+}
+
+/** Resolve a category to its versioned public policy, without changing old product types. */
+export function familyForCategoryCode(code:string|null|undefined):FamilyPolicy|null {
+ if(!code)return null;
+ const node=V2_NODES.find(n=>n.code===code);
+ return node?.familyCode?BY_FAMILY.get(node.familyCode)??null:null;
+}
+/** Only brand-new products must obey the V2 family tracking defaults. */
+export function enforceFamilyTracking(stockProfile:FamilyPolicy['stockProfile'], tracking:{trackStock:boolean;trackSerial:boolean;trackLot:boolean}):void {
+ if(stockProfile==='serial'&&(!tracking.trackStock||!tracking.trackSerial))throw new BadRequestException('This electronics family must track the actual physical serial or IMEI.');
+ if(stockProfile==='quantity'&&!tracking.trackStock)throw new BadRequestException('This family requires quantity stock tracking.');
+ if(stockProfile==='batch'&&(!tracking.trackStock||!tracking.trackLot))throw new BadRequestException('This family requires lot tracking.');
+ if(stockProfile==='none'&&tracking.trackStock)throw new BadRequestException('This family is a non-stock service.');
 }

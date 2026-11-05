@@ -73,7 +73,7 @@ test('queued product and variant imports reject reassignment after preview',()=>
  assert.match(worker,/Category no longer exists at CSV apply time/);
  assert.match(worker,/product type or existing stock tracking policy changed/i);
  assert.match(worker,/Business industry selection changed since import preview/);
- assert.match(worker,/validateVariantDimensions\(p\.rows\[0\]\.product_type,attrs\)/);
+ assert.match(worker,/validateCatalogVariantImport\(p\.rows\[0\]\.product_type,p\.rows\[0\]\.catalog_code/);
 });
 test('old and mixed-industry accounts retain history but do not regain retired selections',()=>{
  assert.equal(availableIndustryCodes.length,13);

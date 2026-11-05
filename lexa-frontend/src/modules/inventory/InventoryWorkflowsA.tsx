@@ -63,8 +63,8 @@ export function GoodsReceivingPage(){
    const matches=(variants.data??[]).filter(v=>v.productId===productId);
    if(matches.length&&(!form?.variantId||!matches.some(v=>v.id===form.variantId))){invalid=true;toast.error('Choose the exact size, colour or model variant for '+(product?.name??'this product')+'.');return null;}
    if(form?.packageId&&!pack){invalid=true;toast.error('Select a package defined for this product variant.');return null;}
-   const serialNumbers=(form?.serials??'').split(/[\n,]+/).map(value=>value.trim()).filter(Boolean).map(value=>{const [primary,second]=value.split('|').map(x=>x.trim());return second?{serialNumber:primary??'',imei2:second}:primary??'';});
-   if((form?.serials??'').split(/[\n,]+/).some(value=>value.split('|').length>2)){invalid=true;toast.error('Use IMEI1|IMEI2 on each line, not multiple delimiters.');return null;}
+   const serialNumbers=(form?.serials??'').split(/[\n,]+/).map(value=>value.trim()).filter(Boolean).map(value=>{const [primary,second,...extra]=value.split('|').map(x=>x.trim());return second?{serialNumber:primary??'',imei2:second,...(extra.length?{extraImeis:extra}:{})}:primary??'';});
+   if((form?.serials??'').split(/[\n,]+/).some(value=>value.split('|').length>8)){invalid=true;toast.error('Enter one device per line: IMEI 1 | optional IMEI 2 | additional assigned IMEIs.');return null;}
    if(product?.trackSerial&&accepted>0&&(!Number.isSafeInteger(accepted)||serialNumbers.length!==accepted)){
     invalid=true;toast.error('Enter one IMEI or serial per accepted physical unit of '+product.name+'.');return null;
    }

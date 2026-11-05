@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 export type ImportType = 'products'|'categories'|'product_variants'|'customers'|'suppliers'|'warehouses'|'storage_bins';
 export const IMPORT_TEMPLATES: Record<ImportType,{version:number;required:string[];optional:string[]}> = {
  products:{version:2,required:['sku','name','product_type'],optional:['attributes_json','barcode','brand','unit_of_measure','category_name','cost_price_minor','selling_price_minor','low_stock_threshold','track_stock','track_lot','track_serial','active']},
- categories:{version:1,required:['name'],optional:[]}, product_variants:{version:1,required:['product_sku','sku'],optional:['barcode','attributes_json','cost_price_minor','selling_price_minor','active']},
+ categories:{version:1,required:['name'],optional:[]}, product_variants:{version:2,required:['product_sku','sku'],optional:['barcode','gtin','attributes_json','cost_price_minor','selling_price_minor','active']},
  customers:{version:1,required:['customer_code','name'],optional:['email','phone','tax_number','address']}, suppliers:{version:1,required:['supplier_code','name'],optional:['email','phone','tax_number','address']},
  warehouses:{version:1,required:['code','name'],optional:['active']}, storage_bins:{version:1,required:['warehouse_code','code','name'],optional:['bin_type','active']}
 };

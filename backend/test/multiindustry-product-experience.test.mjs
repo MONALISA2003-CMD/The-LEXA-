@@ -67,7 +67,7 @@ test('bulk and single variant APIs share atomic checks, client adapter and contr
  assert.match(controller,/this\.createVariantBatch\(w,id,\{variants:\[raw\]\},req\)/);
  assert.match(controller,/isolationLevel:'Serializable'/);
  assert.match(controller,/seenDimensions\.has\(dimensionKey\)/);
- assert.match(controller,/seenBarcodes\.has\(barcode\)/);
+ assert.match(controller,/seenBarcodes\.has\(normalized\)/);
  assert.match(client,/createVariantBatch:/);
  assert.match(contract,/\/products\/\{productId\}\/variants\/bulk:/);
 });

@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { assertBranchAccess } from '../authorization/branch-scope';
 import { hasPermission, normalizeRole, permissionForRequest, type Permission } from '../authorization/role-policy';
 import { postLedgerJournal } from '../general-ledger/ledger-posting';
-import {validatePhysicalIdentifiers, SerialIdentityError} from '../catalog/serial-identity';
+import {validateAdditionalImeis, validatePhysicalIdentifiers, SerialIdentityError} from '../catalog/serial-identity';
 import {packagesToBase,PackageQuantityError,requireSerializedUnits} from '../catalog/package-quantity';
 import {productHasIdentifier} from '../catalog/identifier-policy';
 import { CsrfGuard } from '../core/csrf.guard';
@@ -181,7 +181,10 @@ if(packageId){
  if(x.quantityAccepted!==undefined||x.quantityRejected!==undefined)throw new BadRequestException('Choose either base quantities or package quantities, not both.');
  const pack=await tx.productPackage.findFirst({where:{id:packageId,tenantId:t,productId:p.id,variantId,active:true}});
  if(!pack||pack.baseUnit!==(p.unitOfMeasure??'Each'))throw new BadRequestException('Package is inactive, belongs to another variant, or uses a different base unit.');
- try{accepted=packagesToBase(x.packagesAccepted??0,pack.unitsPerPackage.toString(),true);rejected=packagesToBase(x.packagesRejected??0,pack.unitsPerPackage.toString(),true);}
+ const receiptTimestamp=new Date();
+ const applicableRevision=await tx.packageConversionRevision.findFirst({where:{tenantId:t,packageId,effectiveAt:{lte:receiptTimestamp}},orderBy:[{effectiveAt:'desc'},{version:'desc'}]});
+ const packageFactor=(applicableRevision?.unitsPerPackage??pack.unitsPerPackage).toString();
+ try{accepted=packagesToBase(x.packagesAccepted??0,packageFactor,true);rejected=packagesToBase(x.packagesRejected??0,packageFactor,true);}
  catch(error){if(error instanceof PackageQuantityError)throw new BadRequestException(error.message);throw error;}
 }else{
  if(x.packagesAccepted!==undefined||x.packagesRejected!==undefined)throw new BadRequestException('Package quantities require an approved package ID.');
@@ -196,12 +199,15 @@ if(accepted+rejected<=0)throw new BadRequestException('Each receipt line needs a
  const isPhone=productHasIdentifier(p.productType,'imei');
  const serials=x.serialNumbers.map((item:unknown)=>{
   const info=typeof item==='string'?{serialNumber:item}:obj(item,'Received device identifier');
-  try{return validatePhysicalIdentifiers(info.serialNumber,info.imei2,isPhone);}
+  try{const identifiers=validatePhysicalIdentifiers(info.serialNumber,info.imei2,isPhone);
+   const extraImeis=validateAdditionalImeis(info.extraImeis,isPhone,[identifiers.serialNumber,...(identifiers.imei2?[identifiers.imei2]:[])]);
+   return {...identifiers,extraImeis};}
   catch(error){if(error instanceof SerialIdentityError)throw new BadRequestException(error.message);throw error;}
  });
- const allIdentifiers=serials.flatMap(s=>[s.serialNumber,...(s.imei2?[s.imei2]:[])]).map(s=>s.trim().toUpperCase());
+ const allIdentifiers=serials.flatMap(s=>[s.serialNumber,...(s.imei2?[s.imei2]:[]),...s.extraImeis]).map(s=>s.trim().toUpperCase());
  if(new Set(allIdentifiers).size!==allIdentifiers.length)throw new BadRequestException('Duplicate IMEI or serial number within this goods receipt.');
- for(const serial of serials){const serialId=randomUUID();await tx.$executeRaw`INSERT INTO inventory_serials(id,tenant_id,branch_id,product_id,variant_id,lot_id,serial_number,identifiers,status) VALUES(${serialId}::uuid,${t}::uuid,${b}::uuid,${p.id}::uuid,${variantId}::uuid,${lotId}::uuid,${serial.serialNumber},${JSON.stringify(serial.imei2?{imei2:serial.imei2}:{})}::jsonb,${quarantine?'quarantine':'available'})`;
+ for(const serial of serials){const serialId=randomUUID();await tx.$executeRaw`INSERT INTO inventory_serials(id,tenant_id,branch_id,product_id,variant_id,lot_id,warehouse_id,unit_cost_minor,accepted_at,serial_number,identifiers,status) VALUES(${serialId}::uuid,${t}::uuid,${b}::uuid,${p.id}::uuid,${variantId}::uuid,${lotId}::uuid,${warehouseId}::uuid,${Number(l.unit_cost_minor)},now(),${serial.serialNumber},${JSON.stringify({...(serial.imei2?{imei2:serial.imei2}:{}),...(serial.extraImeis.length?{extraImeis:serial.extraImeis}:{})})}::jsonb,${quarantine?'quarantine':'available'})`;
+ await tx.inventoryUnitInspection.create({data:{tenantId:t,branchId:b,serialId,condition:quarantine?'damaged':'new',inspectedByUserId:a.userId,notes:quarantine?'Held for quality inspection on receipt':null}});
  await this.movement(tx,{t,b,product:String(p.id),variant:variantId,type:'receiving',amount:1,reason:`Goods receipt ${rno}`,source:rid,cost:Number(l.unit_cost_minor),warehouse:warehouseId,lot:lotId,serial:serialId});
  }}
         else if(accepted>0&&p.trackStock)await this.movement(tx,{t,b,product:String(p.id),variant:variantId,type:'receiving',amount:accepted,reason:`Goods receipt ${rno}`,source:rid,cost:Number(l.unit_cost_minor),warehouse:warehouseId,lot:lotId});

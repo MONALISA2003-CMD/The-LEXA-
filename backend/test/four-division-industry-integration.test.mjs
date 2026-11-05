@@ -53,9 +53,10 @@ test('no compatibility advice without a verified human approval and actual branc
  const checkout=source('../../lexa-frontend/src/modules/checkout/CheckoutPage.tsx');
  assert.match(api,/verifiedAt:\{not:null\}/);
  assert.match(api,/hasPermission\(member\.role,'inventory\.approve'\)/);
- assert.match(api,/verifiedByUserId:actor/);
+ assert.match(source('../src/commerce/electronics-inventory-operations.controller.ts'),/verifiedByUserId:outcome==='verified'\?actor:null/);
+ assert.match(source('../src/commerce/electronics-inventory-operations.controller.ts'),/reviewState:'verified',verifiedAt:\{not:null\},revokedAt:null/);
  assert.match(api,/where:\{tenantId:w,active:true,id:\{in:links\.map/);
- assert.match(checkout,/apiCatalogInventory\.verifiedAccessories/);
+ assert.match(checkout,/apiCatalogInventory\.availableCompatibleAccessories\(workspace\.id,branch\.id,id\)/);
  assert.match(checkout,/choiceBalance\(choice\)>0/);
 });
 

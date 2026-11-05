@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {isValidImei, validatePhysicalIdentifiers, SerialIdentityError} from '../src/catalog/serial-identity.ts';
+import {productFieldsForFamily, mergeProductFields} from '../../lexa-frontend/src/domain/catalog/electronicsProductFieldAdapter.ts';
+import {ELECTRONICS_V2_CONTRACT} from '../../lexa-frontend/src/domain/catalog/electronics-catalogue-v2.generated.ts';
 const src=path=>readFileSync(new URL(path,import.meta.url),'utf8');
 const db=src('../prisma/migrations/20261104180000_serial_identity_enforcement/migration.sql');
 const api=src('../src/commerce/catalog-inventory.controller.ts');
@@ -56,13 +58,29 @@ test('both serial registration APIs apply the same server validation and map dup
  assert.doesNotMatch(api,/'quarantined'/);
 });
 
-test('web client displays both IMEIs and category field requirements with strict type enabled',()=>{
- assert.match(productForm,/const customFields:ProductField\[\]/);
- assert.match(productForm,/const fields:ProductField\[\]/);
- assert.match(productForm,/required:f\.required===true/);
+test('web client renders both IMEIs and required catalogue fields',()=>{
+ assert.match(productForm,/\bmergeProductFields\s*\(/);
+ assert.match(productForm,/required=\{field\.required===true\}/);
  assert.match(productForm,/Primary IMEI \(15 digits\)/);
  assert.match(client,/imei2\?:string/);
  assert.match(checkout,/serial\.identifiers\?\.imei2/);
+});
+
+test('published product fields are adapted and merged without mutating readonly catalogue definitions',()=>{
+ const family=ELECTRONICS_V2_CONTRACT.families.find(item=>item.code==='smartphone');
+ assert.ok(family,'Smartphone catalogue policy must exist.');
+ const fields=productFieldsForFamily({...family,enabled:true});
+ assert.deepEqual(fields.find(field=>field.key==='model'),{key:'model',label:'Model',kind:'text',required:true});
+ assert.equal(Object.hasOwn(fields.find(field=>field.key==='model'),'options'),false);
+ assert.deepEqual(fields.find(field=>field.key==='networkGeneration')?.options,['2g','3g','4g','5g']);
+ const published=Object.freeze(fields.map(field=>Object.freeze(field)));
+ const extras=Object.freeze([{key:'model',label:'Incorrectly overridden model'},{key:'shelfLocation',label:'Shelf location'}]);
+ const merged=mergeProductFields(published,extras);
+ assert.equal(merged.find(field=>field.key==='model')?.required,true);
+ assert.equal(merged.filter(field=>field.key==='model').length,1);
+ assert.equal(merged.find(field=>field.key==='shelfLocation')?.label,'Shelf location');
+ assert.notEqual(merged,published);
+ assert.equal(published.length,fields.length);
 });
 
 test('the exact-device lookup resolves either identifier under tenant/branch scope and checkout adds the exact unit',()=>{

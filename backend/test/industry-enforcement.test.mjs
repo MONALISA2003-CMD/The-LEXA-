@@ -65,7 +65,7 @@ test('staged and direct product import paths use the shared policy rather than b
  const jobs=readFileSync(new URL('../src/platform/platform-jobs.ts',import.meta.url),'utf8');
  const direct=core.slice(core.indexOf("@Post('workspaces/:workspaceId/imports/products-csv')"));
  assert.match(jobs,/enforceTrackingPolicy\(d\.product_type/);
- assert.match(jobs,/validateVariantDimensions\(p\.rows\[0\]\.product_type,attrs\)/);
+ assert.match(jobs,/validateCatalogVariantImport\(p\.rows\[0\]\.product_type,p\.rows\[0\]\.catalog_code/);
  assert.match(direct,/requiredCsvCell\(row,headers,'productType'/);
  assert.match(direct,/await Promise\.all\(\[\.\.\.new Set\(items\.map\(item=>item\.productType\)\)\]/);
  assert.match(direct,/productType:item\.productType,attributes:item\.attributes/);

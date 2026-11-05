@@ -1,4 +1,5 @@
 import {resolveCategoryFields} from '../catalog/category-hierarchy';
+import {familyForCategoryCode,enforceFamilyTracking} from '../catalog/electronics-catalogue-policy';
 import {ensureRootCategory} from '../catalog/ensure-category';
 import {INDUSTRY_CODES,INDUSTRY_CATEGORIES,INDUSTRY_LABELS,INDUSTRY_POLICIES,INDUSTRY_CATALOGUE_VERSION} from '../catalog/industry-contract.generated';
 import {normaliseSavedIndustries} from '../business-setup/business-setup.rules';
@@ -586,6 +587,8 @@ export class CoreController {
   @UseGuards(CsrfGuard)
   async createWorkspace(@Body() raw: unknown, @Req() request: RequestWithBody) {
     const body = asObject(raw);
+    if(['initialStock','openingQuantity','quantityOnHand','serialNumbers','stockMovements'].some(field=>body[field]!==undefined))
+      throw new BadRequestException('Product setup cannot create stock. Post an approved receipt in Inventory.');
     const session = await this.sessionFor(request);
     const existingMemberships = await this.prisma.runWithTenantContext({ userId: session.userId }, () =>
       this.prisma.membership.count({ where: { userId: session.userId, status: 'ACTIVE' } }));
@@ -979,6 +982,9 @@ export class CoreController {
     if (trackLot && !trackStock) throw new BadRequestException('Lot tracking requires stock tracking.');
     if (trackSerial && !trackStock) throw new BadRequestException('Serial tracking requires stock tracking.');
     enforceTrackingPolicy(effectiveType,{trackStock,trackLot,trackSerial});
+    const selectedCategory=categoryId?await this.prisma.category.findFirst({where:{tenantId:workspaceId,id:categoryId},select:{catalogCode:true}}):null;
+    const family=familyForCategoryCode(selectedCategory?.catalogCode);
+    if(family)enforceFamilyTracking(family.stockProfile,{trackStock,trackLot,trackSerial});
     try {
       const product = await this.prisma.$transaction(async (tx) => {
         const created = await tx.product.create({ data: {
@@ -2755,6 +2761,7 @@ export class CoreController {
         const product = await tx.product.findFirst({ where: { tenantId: workspaceId, sku: { equals: item.sku, mode: 'insensitive' } } });
         if (!product) throw new NotFoundException(`CSV row ${item.rowNumber}: SKU ${item.sku} was not found. Import products first.`);
         if (!product.trackStock) throw new BadRequestException(`CSV row ${item.rowNumber}: stock tracking is disabled for ${product.name}.`);
+        if (product.trackSerial) throw new BadRequestException(`CSV row ${item.rowNumber}: serialized products require a validated per-unit receipt with actual IMEIs or serial numbers.`);
         await tx.$queryRaw`SELECT id FROM products WHERE id=${product.id}::uuid AND tenant_id=${workspaceId}::uuid FOR UPDATE`;
         const prior = await tx.stockMovement.count({ where: { tenantId: workspaceId, branchId, productId: product.id } });
         if (prior) throw new ConflictException(`CSV row ${item.rowNumber}: opening stock already exists for ${product.name}. Use the stock adjustment workflow instead.`);

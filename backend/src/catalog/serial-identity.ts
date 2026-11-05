@@ -32,3 +32,17 @@ export function validatePhysicalIdentifiers(primary:unknown,secondary:unknown,ph
   }
   return {serialNumber,imei2};
 }
+
+/** Validate 1..N actual manufacturer-assigned IMEIs for one physical unit. */
+export function validateAdditionalImeis(raw:unknown,phone:boolean,existing:readonly string[]):string[]{
+ if(raw===undefined||raw===null)return [];
+ if(!phone||!Array.isArray(raw)||raw.length>6)throw new SerialIdentityError('Additional IMEIs are only supported for cellular units, up to six extra identifiers.');
+ const seen=new Set(existing.filter(Boolean).map(value=>value.trim().toUpperCase()));
+ return raw.map((entry:unknown)=>{
+  if(typeof entry!=='string'||!isValidImei(entry.trim()))throw new SerialIdentityError('Each extra IMEI must have 15 digits and a valid check digit.');
+  const normalized=entry.trim().toUpperCase();
+  if(seen.has(normalized))throw new SerialIdentityError('A physical handset cannot repeat the same IMEI.');
+  seen.add(normalized);
+  return entry.trim();
+ });
+}

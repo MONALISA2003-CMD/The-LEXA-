@@ -15,6 +15,7 @@ const MODEL_DELEGATES = new Set([
   // transaction-scoped runtime role + app.tenant_id context (including reads).
   'productPackage','catalogBrand','catalogDeviceModel','accessoryCompatibility','inventoryUnitInspection',
   'catalogCategoryAlias','catalogBrandAlias','catalogBrandMergeProposal','catalogModelSpecRevision','catalogFamilyPolicy',
+  'inventoryUnitIdentifier','inventoryReceiptBatch','catalogProductAlias','packageConversionRevision','productBundle','productBundleComponent',
   'cashUp','bankAccount','bankStatementLine','bankReconciliation','bankReconciliationMatch','expenseCategory','expense','fixedAsset',
   'fixedAssetDepreciation','costCentre','costCentreAllocation','taxRule',
 ]);

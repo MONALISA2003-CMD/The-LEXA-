@@ -4,11 +4,13 @@ import { toast } from 'sonner';
 import { Boxes, Plus, RefreshCw } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiCatalogInventory } from '../../data/remote/apiWorkstream03';
+import {ElectronicsSerializedReceiving,ElectronicsBundleManager} from '../products/ElectronicsStockOperations';
 
 export default function CatalogInventoryPanel() {
  const {workspace,branch}=useWorkspace(); const cache=useQueryClient();
  const [unitCode,setUnitCode]=useState('EA'),[unitName,setUnitName]=useState('Each');
  const [warehouseCode,setWarehouseCode]=useState('MAIN'),[warehouseName,setWarehouseName]=useState('Main warehouse');
+ const [stockProductId,setStockProductId]=useState('');
  const [lotProductId,setLotProductId]=useState(''),[lotVariantId,setLotVariantId]=useState(''),[lotExpiry,setLotExpiry]=useState(''),[lotWarehouseId,setLotWarehouseId]=useState(''),[lotNumber,setLotNumber]=useState(''),[lotQty,setLotQty]=useState('1'),[unitCost,setUnitCost]=useState('0');
  const units=useQuery({queryKey:['catalog-units',workspace.id],queryFn:()=>apiCatalogInventory.units(workspace.id)});
  const taxes=useQuery({queryKey:['catalog-taxes',workspace.id],queryFn:()=>apiCatalogInventory.taxCodes(workspace.id)});
@@ -17,6 +19,7 @@ export default function CatalogInventoryPanel() {
  const variants=useQuery({queryKey:['all-variants',workspace.id],queryFn:()=>apiCatalogInventory.allVariants(workspace.id)});
  const selectedVariants=(variants.data??[]).filter(v=>v.productId===lotProductId);
  const products=useQuery({queryKey:['products',workspace.id],queryFn:async()=>{const {products:repo}=await import('../../data/repositories');return repo.list({workspaceId:workspace.id,activeOnly:false});}});
+ const selectedStockProduct=products.data?.find(product=>product.id===stockProductId&&product.trackStock&&product.active);
  async function refresh(){await Promise.all([units.refetch(),taxes.refetch(),warehouses.refetch(),reservations.refetch(),variants.refetch()]); await cache.invalidateQueries({queryKey:['inventory-balances',workspace.id,branch.id]});}
  const unitCreate=useMutation({mutationFn:()=>apiCatalogInventory.createUnit(workspace.id,{code:unitCode,name:unitName}),onSuccess:()=>{toast.success('Unit of measure created');void refresh();},onError:e=>toast.error(e instanceof Error?e.message:'Unit was not saved')});
  const warehouseCreate=useMutation({mutationFn:()=>apiCatalogInventory.createWarehouse(workspace.id,branch.id,{code:warehouseCode,name:warehouseName}),onSuccess:()=>{toast.success('Warehouse created');void refresh();},onError:e=>toast.error(e instanceof Error?e.message:'Warehouse was not saved')});
@@ -28,6 +31,13 @@ export default function CatalogInventoryPanel() {
    <form className="section-card" onSubmit={e=>{e.preventDefault();warehouseCreate.mutate();}}><h4>Create warehouse</h4><label className="field-label">Code<input required maxLength={30} value={warehouseCode} onChange={e=>setWarehouseCode(e.target.value)}/></label><label className="field-label">Name<input required maxLength={100} value={warehouseName} onChange={e=>setWarehouseName(e.target.value)}/></label><button className="button button-primary" disabled={warehouseCreate.isPending}><Plus size={14}/> Add warehouse</button></form>
   </div>
   <form className="section-card" style={{marginTop:12}} onSubmit={e=>{e.preventDefault();lotCreate.mutate();}}><h4>Receive a tracked lot</h4><div className="inventory-layout"><label className="field-label">Product<select required value={lotProductId} onChange={e=>{setLotProductId(e.target.value);setLotVariantId('');}}><option value="">Choose product</option>{(products.data??[]).filter(p=>p.trackStock&&p.trackLot&&p.active).map(p=><option key={p.id} value={p.id}>{p.name} · {p.sku}</option>)}</select></label>{selectedVariants.length>0&&<label className="field-label">Actual size, colour or model<select required value={lotVariantId} onChange={e=>setLotVariantId(e.target.value)}><option value="">Choose variant</option>{selectedVariants.map(v=><option key={v.id} value={v.id}>{v.sku} · {Object.values(v.attributes??{}).join(' · ')}</option>)}</select></label>}<label className="field-label">Warehouse<select required value={lotWarehouseId} onChange={e=>setLotWarehouseId(e.target.value)}><option value="">Choose warehouse</option>{(warehouses.data??[]).map(w=><option key={String(w.id)} value={String(w.id)}>{String(w.name)}</option>)}</select></label><label className="field-label">Lot number<input required maxLength={80} value={lotNumber} onChange={e=>setLotNumber(e.target.value)}/></label><label className="field-label">Quantity<input required type="number" min="0.001" step="0.001" value={lotQty} onChange={e=>setLotQty(e.target.value)}/></label><label className="field-label">Expiry / best-before date (optional)<input type="date" value={lotExpiry} onChange={e=>setLotExpiry(e.target.value)}/></label><label className="field-label">Unit cost<input required type="number" min="0" step="1" value={unitCost} onChange={e=>setUnitCost(e.target.value)}/></label></div><button className="button button-primary" disabled={lotCreate.isPending||!warehouses.data?.length}><Plus size={14}/> Receive lot</button><p className="panel-footnote">This master-data endpoint only creates the auditable lot record. Use the approved goods-receipt workflow for purchase receiving and cost postings.</p></form>
+  <div className="section-card" style={{marginTop:12}} aria-label="Device receiving and kit assembly">
+   <h4>Device receiving and kit assembly</h4>
+   <p>Choose a saved product. Only an approved exact-unit receipt or a complete kit assembly changes physical stock.</p>
+   <label className="field-label">Product for stock operations<select value={stockProductId} onChange={e=>setStockProductId(e.target.value)}><option value="">Choose saved product</option>{(products.data??[]).filter(product=>product.trackStock&&product.active&&!product.trackLot).map(product=><option value={product.id} key={product.id}>{product.name} · {product.sku}</option>)}</select></label>
+   {selectedStockProduct?.trackSerial&&<ElectronicsSerializedReceiving workspaceId={workspace.id} branchId={branch.id} product={selectedStockProduct}/>}
+   {selectedStockProduct&&!selectedStockProduct.trackSerial&&!selectedStockProduct.trackLot&&<ElectronicsBundleManager workspaceId={workspace.id} branchId={branch.id} product={selectedStockProduct}/>}
+  </div>
   <div className="section-card" style={{marginTop:12}}><h4>Active stock reservations</h4>{reservations.isLoading?<p>Loading reservations…</p>:<div className="compact-list">{(reservations.data??[]).filter(r=>r.status==='active').map(r=><div key={String(r.id)}><strong>{String(r.orderModule)} · {String(r.orderId)}</strong><span>{String(r.quantity)} units · lot {String(r.lotId??'unassigned')}</span></div>)}{!(reservations.data??[]).some(r=>r.status==='active')&&<p>No active reservations.</p>}</div>}</div>
  </section>;
 }
