@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {ShieldCheck, Activity, AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, Box, CalendarDays, CheckCircle2, CircleDollarSign, Clock3, Sparkles, Package, RefreshCw, ShoppingBag, ShoppingCart, Users, Wallet, } from 'lucide-react';
 import { useWorkspace } from '../../app/WorkspaceContext';
+import { useBusinessAssortment } from '../../components/business/BusinessAssortmentSelector';
 import StaffDashboard from './StaffDashboard';
 import { reports } from '../../data/repositories';
 import { apiDashboard } from '../../data/remote/apiDashboard';
@@ -21,6 +22,7 @@ const dateLabel = (timezone: string) => { try { return new Intl.DateTimeFormat('
 
 function ExecutiveDashboardPage() {
   const { workspace, branch } = useWorkspace();
+  const businessFocus=useBusinessAssortment(workspace.id);
   const navigate = useNavigate();
   const [period, setPeriod] = useState<DashboardPeriod>('30d');
   const [overviewMode, setOverviewMode] = useState<OverviewMode>('owner');
@@ -70,6 +72,7 @@ function ExecutiveDashboardPage() {
     {snapshotQuery.isError && <div className="inline-error" role="alert"><strong>Could not load the overview totals.</strong><span>{snapshotQuery.error instanceof Error ? snapshotQuery.error.message : 'Check the data connection and retry.'}</span><button className="button button-secondary button-small" onClick={() => void snapshotQuery.refetch()}>Retry</button></div>}
 
     {!accessQuery.isLoading && !canViewReports && <div className="overview-service-note"><ShieldCheck size={18}/><div><strong>Welcome to your business workspace</strong><span>Your CEO has granted access to the tasks for your role. Business-wide financial totals are reserved for authorized managers.</span></div></div>}
+    {canViewReports && businessFocus.config.data?.industries.length!==0&&<p className="overview-service-note" role="note">Figures on this overview include the entire business. The activity selector changes product and stock views; accounting figures remain consolidated.</p>}
     {canViewReports && <section className="overview-kpi-section"><div className="overview-section-heading"><div><span className="eyebrow eyebrow-blue">PERFORMANCE SNAPSHOT</span><h3>Key business indicators</h3><p>Verified totals from your business records. Trend changes appear only when underlying data is available.</p></div></div>
       {kpis.length ? <div className="overview-kpi-grid">{kpis.map((item) => <KpiCard key={item.key} label={item.label} value={item.value} note={item.note} icon={item.icon} accent={item.accent} onClick={() => navigate(item.href)}/>)}</div> : <div className="overview-service-note"><Activity size={17}/><div><strong>No KPIs for this view yet</strong><span>No business measures are available for {overviewModeLabels[overviewMode]}. No invented values are substituted.</span></div></div>}
     </section>}

@@ -48,6 +48,11 @@ export default function AdaptiveProductFields({industries,subActivityCodes=[],wo
 
  const paths=suggestedCategoryPaths(industries);
  const byId=useMemo(()=>new Map(categories.map(c=>[c.id,c])),[categories]);
+ const allowedRoots=new Set(paths.map(path=>path[0]));
+ const firstViewTypes=new Set(firstView.map(preset=>preset.key));
+ const relevantCategories=showMoreCategories||!subActivityCodes.length?categories:categories.filter(category=>
+   category.id===categoryId||firstViewTypes.has(category.templateKey??'')||
+   allowedRoots.has(categoryPath(category,byId).split(' › ')[0]??''));
  const category=categories.find(c=>c.id===categoryId);
  const wizard=familyForCategory(category);
  const wizardFields=wizard?productFieldsForFamily(wizard):[];
@@ -86,7 +91,7 @@ export default function AdaptiveProductFields({industries,subActivityCodes=[],wo
      <label className="field-label">Existing category / subcategory
        <select value={categoryId} onChange={e=>{const selected=categories.find(c=>c.id===e.target.value);onChange({categoryId:e.target.value,categoryName:'',...(selected?.templateKey?{productType:selected.templateKey,attributes:{}}:{})});}}>
          <option value="">Use suggested or enter custom category</option>
-         {categories.map(c=><option key={c.id} value={c.id}>{categoryPath(c,byId)}</option>)}
+         {relevantCategories.map(c=><option key={c.id} value={c.id}>{categoryPath(c,byId)}</option>)}
        </select>
      </label>
    </div>

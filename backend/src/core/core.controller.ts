@@ -1,3 +1,4 @@
+import { recommendedNavigationSections } from '../catalog/business-presentation';
 import {businessCalendarDate,inventoryLotExpired} from '../commerce/business-calendar';
 import { availableBusinessSpecialties, validateBusinessSpecialties, recommendedBusinessProducts, BUSINESS_SPECIALTY_POLICY_HASH } from '../catalog/business-specialties.generated';
 import {resolveCategoryFields} from '../catalog/category-hierarchy';
@@ -855,6 +856,7 @@ export class CoreController {
     const recommendedProductTypes=recommendedBusinessProducts(selected,subActivityCodes);
     const policyHash=createHash('sha256').update(JSON.stringify({version:INDUSTRY_CATALOGUE_VERSION,industries:selected,subActivityCodes,activityRevision:profile?.activityRevision??0,registry:BUSINESS_SPECIALTY_POLICY_HASH})).digest('hex');
     return {schemaVersion:INDUSTRY_CATALOGUE_VERSION,activityRevision:profile?.activityRevision??0,policyHash,
+      presentation:{recommendedNavigationSections:recommendedNavigationSections(selected),navigationSectionsByIndustry:Object.fromEntries(selected.map(code=>[code,recommendedNavigationSections([code])])),defaultBusinessFocus:'all_selected',historicalProductSearch:true},
       subActivityCodes,availableSpecialties:availableBusinessSpecialties(selected),recommendedProductTypes,industries:selected,supportedIndustries:INDUSTRY_CODES.map(code=>({code,label:INDUSTRY_LABELS[code]})),
       categoryPaths:Object.fromEntries(selected.map(code=>[code,(INDUSTRY_CATEGORIES as Record<string,readonly (readonly string[])[]>)[code]??[]])),
       productPolicies:Object.fromEntries(Object.entries(INDUSTRY_POLICIES).filter(([key,policy])=>key==='general'||!selected.length||policy.industries.some(code=>selected.includes(code))))};

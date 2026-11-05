@@ -24,3 +24,8 @@
 .bs-error{padding:13px 16px;background:#fff0f0;border:1px solid #f5c9d2;color:#ad173c;font-size:12px;line-height:1.6;border-radius:12px;margin-top:18px}.bs-save-note{font-size:11px;color:#7a8da5;display:flex;align-items:center;gap:6px;margin-top:23px}
 .bs-review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-bottom:20px}.bs-review-grid>div{display:grid;gap:8px;padding:17px;border-radius:13px;background:#f8fbff;border:1px solid #e3ebf5;min-width:0;overflow-wrap:anywhere}.bs-review-grid svg{color:#0c73db}.bs-review-grid span{font-size:10px;color:#70829b;text-transform:uppercase;font-weight:800;letter-spacing:.07em}.bs-review-grid strong{font-size:14px;color:#162e4e}.bs-review-grid small{font-size:11px;line-height:1.6;color:#647b96}
 @media(max-width:970px){.bs-shell{grid-template-columns:1fr;max-width:740px}.bs-hero{position:static;min-height:0;padding:24px}.bs-eyebrow{margin:20px 0 8px}.bs-hero-foot{padding-top:18px}.bs-hero h1{font-size:32px}}@media(max-width:550px){.bs-shell{padding:12px;gap:12px}.bs-card{padding:19px;border-radius:16px}.bs-hero{border-radius:16px}.bs-grid,.bs-payment-grid,.bs-review-grid{grid-template-columns:1fr}.bs-actions{gap:10px}.bs-actions .button{flex:1}.bs-progress-header{font-size:9px}.bs-step-title h2{font-size:22px}}
+
+/* Search is available for long industry and specialty lists; selection has no arbitrary cap. */
+.bs-activity-search{display:flex;align-items:center;gap:9px;font-size:13px;flex-wrap:wrap;margin:10px 0}
+.bs-activity-search input{flex:1;min-width:170px;padding:9px 12px;border:1px solid var(--border-color,#d8dde5);border-radius:9px;background:var(--surface,#fff);color:inherit}
+.bs-activity-search input:focus-visible{outline:2px solid currentColor;outline-offset:2px}

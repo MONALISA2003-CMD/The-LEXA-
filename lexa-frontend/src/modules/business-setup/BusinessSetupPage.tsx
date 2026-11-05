@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Building2, Check, ChevronLeft, ChevronRight, CircleCheck, CreditCard, MapPin, PackageCheck, ShieldCheck, Store, Wallet } from 'lucide-react';
@@ -18,16 +19,22 @@ const STEP_NAMES = ['Business identity','Business activities','Payment records',
 function Picker({ label, choices, values, onChange }: {
   label: string; choices: readonly (readonly [string,string])[]; values: string[]; onChange: (next: string[]) => void;
 }) {
-  return <fieldset className="bs-fieldset"><legend>{label}</legend><div className="bs-picks">{choices.map(([value, text]) =>
+  const [search,setSearch]=useState('');
+  const filtered=choices.filter(([code,text])=>`${text} ${code}`.toLowerCase().includes(search.trim().toLowerCase()));
+  return <fieldset className="bs-fieldset"><legend>{label}</legend>
+    {choices.length>9&&<label className="bs-activity-search">Find an activity<input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Search business activities"/></label>}
+    <p className="bs-activity-hint">{values.length} selected · Choose as many as you operate.</p>
+    <div className="bs-picks">{filtered.map(([value, text]) =>
     <button type="button" key={value} className={`bs-pick ${values.includes(value) ? 'bs-pick-on' : ''}`} aria-pressed={values.includes(value)}
       onClick={() => onChange(values.includes(value) ? values.filter(v => v !== value) : [...values,value])}>
       {values.includes(value) && <Check size={15}/>} {text}
     </button>
-  )}</div></fieldset>;
+  )}{filtered.length===0&&<p>No business activities match your search.</p>}</div></fieldset>;
 }
 
 export default function BusinessSetupPage() {
   const { workspace, refreshWorkspaces } = useWorkspace();
+  const queryClient=useQueryClient();
   const navigate = useNavigate();
   const [data, setData] = useState<BusinessSetupRecord | null>(null);
   const [step, setStep] = useState(1);
@@ -71,7 +78,7 @@ export default function BusinessSetupPage() {
       else payload = { step:3,currency:data.currency,timezone:data.timezone,methods:selectedMethods,confirmation:confirmed };
       const response = await businessSetupApi.save(workspace.id,payload);
       setStep(Math.max(step+1,response.nextStep));
-      if(step===2){setSavedIndustries([...data.industries]);setActivityChangeAcknowledged(false);const latest=await businessSetupApi.read(workspace.id);setData(latest);}
+      if(step===2){setSavedIndustries([...data.industries]);setActivityChangeAcknowledged(false);const latest=await businessSetupApi.read(workspace.id);setData(latest);await queryClient.invalidateQueries({queryKey:['industry-catalogue',workspace.id]});await queryClient.invalidateQueries({queryKey:['business-setup',workspace.id]});}
       if (step === 1 || step === 2 || step === 3) await refreshWorkspaces();
       toast.success('Business settings saved');
     } catch (cause) { setError(businessErrorMessage(cause)); }
