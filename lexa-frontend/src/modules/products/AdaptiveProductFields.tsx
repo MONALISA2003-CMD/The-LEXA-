@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { parseMajorAmount, formatMinorAmount } from '../../domain/money/money';
 import { apiCatalogInventory } from '../../data/remote/apiWorkstream03';
-import { PRODUCT_PRESETS, presetFor, suggestedPresets, permittedPresets, suggestedCategoryPaths, type ProductField } from '../../domain/catalog/industryCatalog';
+import { PRODUCT_PRESETS, presetFor, suggestedPresets, firstViewPresets, permittedPresets, suggestedCategoryPaths, type ProductField } from '../../domain/catalog/industryCatalog';
 import type { Category, Product } from '../../domain/shared/types';
 import {buildVariantMatrix} from '../../domain/catalog/variantMatrix';
 import {BarcodeCapture} from '../../components/barcode/BarcodeCapture';
@@ -15,6 +15,7 @@ import './adaptive-products.css';
 
 type FieldsProps = {
   industries: readonly string[];
+  subActivityCodes?:readonly string[];
   workspaceId: string;
   categories: readonly Category[];
   productType: string;
@@ -28,11 +29,13 @@ function categoryPath(category:Category, byId:Map<string,Category>):string {
  while(parent && !seen.has(parent) && names.length<12){seen.add(parent);const row=byId.get(parent);if(!row)break;names.unshift(row.name);parent=row.parentId;}
  return names.join(' › ');
 }
-export default function AdaptiveProductFields({industries,workspaceId,categories,productType,categoryId,categoryName,attributes,onChange}:FieldsProps){
+export default function AdaptiveProductFields({industries,subActivityCodes=[],workspaceId,categories,productType,categoryId,categoryName,attributes,onChange}:FieldsProps){
  const queryClient=useQueryClient();
  const ensurePath=useMutation({mutationFn:(path:readonly string[])=>apiCatalogInventory.ensureCategoryPath(workspaceId,path),onSuccess:async record=>{onChange({categoryId:record.categoryId,categoryName:''});await queryClient.invalidateQueries({queryKey:['categories',workspaceId]});toast.success('Industry category hierarchy created');},onError:error=>toast.error('Could not create category hierarchy',{description:error instanceof Error?error.message:'Check your business industry selection.'})});
  const preset=presetFor(productType);
- const relevant=suggestedPresets(industries,productType);
+ const [showMoreCategories,setShowMoreCategories]=useState(false);
+ const firstView=firstViewPresets(industries,subActivityCodes,productType);
+ const relevant=showMoreCategories?suggestedPresets(industries,productType):firstView;
  const [division,setDivision]=useState<'all'|'phones'|'accessories'|'electronics'|'appliances'>('all');
  const divisions:Record<Exclude<typeof division,'all'>,readonly string[]>={
   phones:['smartphone','feature_phone','cellular_tablet','mifi_router'],
@@ -78,6 +81,7 @@ export default function AdaptiveProductFields({industries,workspaceId,categories
          {productType&&!PRODUCT_PRESETS.some(p=>p.key===productType)&&<option value={productType}>Historical product type — edit existing details only</option>}
          <optgroup label="For your business">{visiblePresets.map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</optgroup>
        </select>
+       {subActivityCodes.length>0&&<small className="field-help"><button type="button" className="button button-secondary button-small" onClick={()=>setShowMoreCategories(previous=>!previous)}>{showMoreCategories?'Show my selected specialties':'More products from my industries'}</button></small>}
      </label>
      <label className="field-label">Existing category / subcategory
        <select value={categoryId} onChange={e=>{const selected=categories.find(c=>c.id===e.target.value);onChange({categoryId:e.target.value,categoryName:'',...(selected?.templateKey?{productType:selected.templateKey,attributes:{}}:{})});}}>

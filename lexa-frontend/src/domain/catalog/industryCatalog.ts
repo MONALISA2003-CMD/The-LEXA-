@@ -1,5 +1,7 @@
 /** Same versioned catalogue as backend. Do not edit the generated JSON by hand. */
 import manifest from './industry-manifest.json' with { type: 'json' };
+import { availableBusinessSpecialties,recommendedBusinessProducts } from './business-specialties.generated.ts';
+export { availableBusinessSpecialties,recommendedBusinessProducts } from './business-specialties.generated.ts';
 
 export const INDUSTRY_OPTIONS: readonly (readonly [string,string])[] = manifest.industries.map(i=>[i.code,i.label] as const);
 export const RETIRED_INDUSTRIES: readonly string[] = manifest.retiredIndustryCodes;
@@ -28,6 +30,18 @@ export function suggestedPresets(industries: readonly string[], currentType?:str
     const bRelevant = b.industries.some(k=>selected.has(k)) ? 0 : 1;
     return aRelevant-bRelevant || a.label.localeCompare(b.label);
   });
+}
+/** The first product menu follows the niches picked by the owner; historical products remain readable. */
+export function firstViewPresets(industries:readonly string[], specialties:readonly string[], currentType?:string):ProductPreset[]{
+ const permitted=suggestedPresets(industries,currentType);
+ const selected=availableBusinessSpecialties(industries).filter(item=>specialties.includes(item.code));
+ if(!selected.length)return permitted;
+ const preferred=new Set(recommendedBusinessProducts(industries,specialties));
+ const selectedIndustries=new Set(selected.map(item=>item.industryCode));
+ const unscoped=permitted.filter(item=>item.industries.some(industry=>!selectedIndustries.has(industry)));
+ const first=permitted.filter(item=>preferred.has(item.key)||item.key===currentType);
+ const result=[...first,...unscoped.filter(item=>!first.includes(item))];
+ return result.length?result:permitted;
 }
 export function suggestedCategoryPaths(industries:readonly string[]): readonly (readonly string[])[] {
   const paths=industries.flatMap(code=>INDUSTRY_CATEGORY_PATHS[code]??[]);

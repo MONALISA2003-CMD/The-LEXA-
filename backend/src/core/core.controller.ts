@@ -1,3 +1,4 @@
+import { availableBusinessSpecialties, validateBusinessSpecialties, recommendedBusinessProducts, BUSINESS_SPECIALTY_POLICY_HASH } from '../catalog/business-specialties.generated';
 import {resolveCategoryFields} from '../catalog/category-hierarchy';
 import {familyForCategoryCode,enforceFamilyTracking} from '../catalog/electronics-catalogue-policy';
 import {ensureRootCategory} from '../catalog/ensure-category';
@@ -846,9 +847,13 @@ export class CoreController {
   async industryConfig(@Param('workspaceId') workspaceId:string,@Req() request:FastifyRequest){
     const session=await this.sessionFor(request);
     await this.membershipFor(session.userId,workspaceId);
-    const profile=await this.prisma.businessProfile.findUnique({where:{tenantId:workspaceId},select:{industries:true,industry:true}});
+    const profile=await this.prisma.businessProfile.findUnique({where:{tenantId:workspaceId},select:{industries:true,industry:true,subActivityCodes:true,activityRevision:true}});
     const selected=normaliseSavedIndustries(profile?.industries,profile?.industry);
-    return {schemaVersion:INDUSTRY_CATALOGUE_VERSION,industries:selected,supportedIndustries:INDUSTRY_CODES.map(code=>({code,label:INDUSTRY_LABELS[code]})),
+    const subActivityCodes=validateBusinessSpecialties(profile?.subActivityCodes??[],selected);
+    const recommendedProductTypes=recommendedBusinessProducts(selected,subActivityCodes);
+    const policyHash=createHash('sha256').update(JSON.stringify({version:INDUSTRY_CATALOGUE_VERSION,industries:selected,subActivityCodes,activityRevision:profile?.activityRevision??0,registry:BUSINESS_SPECIALTY_POLICY_HASH})).digest('hex');
+    return {schemaVersion:INDUSTRY_CATALOGUE_VERSION,activityRevision:profile?.activityRevision??0,policyHash,
+      subActivityCodes,availableSpecialties:availableBusinessSpecialties(selected),recommendedProductTypes,industries:selected,supportedIndustries:INDUSTRY_CODES.map(code=>({code,label:INDUSTRY_LABELS[code]})),
       categoryPaths:Object.fromEntries(selected.map(code=>[code,(INDUSTRY_CATEGORIES as Record<string,readonly (readonly string[])[]>)[code]??[]])),
       productPolicies:Object.fromEntries(Object.entries(INDUSTRY_POLICIES).filter(([key,policy])=>key==='general'||!selected.length||policy.industries.some(code=>selected.includes(code))))};
   }

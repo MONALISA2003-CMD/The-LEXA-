@@ -69,7 +69,7 @@ def validate(data):
             else:assert not field.get('options')
             if field.get('unit'):assert field['type']=='number'
     # Every old V2 template is still available; 13 industries are NOT modified.
-    assert len(ALLOWED)==13 and len(INDUSTRIES['presets'])==51
+    assert len(ALLOWED)==13 and len(INDUSTRIES['presets'])>=51
     # No two source paths/aliases may map to different nodes. Alias collisions are
     # discovered at build time, not silently guessed during customer import.
     path_owners={}

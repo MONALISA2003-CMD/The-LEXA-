@@ -7,7 +7,7 @@ import { currentCorrelationId } from '../request-correlation';
 type TenantDbContext = { tenantId?: string; userId?: string; sessionTokenHash?: string; resetTokenHash?: string; signupEmail?: string; signupTokenHash?: string };
 const tenantDbContext = new AsyncLocalStorage<TenantDbContext>();
 const MODEL_DELEGATES = new Set([
-  'tenant','businessProfile','businessPaymentMethod','user','membership','branch','branchMembership','ledgerAccount','accountingPeriod','ledgerJournal','ledgerJournalLine',
+  'tenant','businessProfile','businessActivityRevision','businessPaymentMethod','user','membership','branch','branchMembership','ledgerAccount','accountingPeriod','ledgerJournal','ledgerJournalLine',
   'auditEvent','idempotencyRecord','session','passwordResetToken','signupVerification','category','product','moduleRecord','stockMovement','sale','saleLine',
   'salePayment','saleReturn','saleReturnLine','workspaceInvitation','unitOfMeasure','productVariant','taxCode','priceList','priceListItem',
   'warehouse','storageBin','inventoryLot','inventorySerial','stockReservation','creditNote','creditNoteLine','cashSession','cashMovement',

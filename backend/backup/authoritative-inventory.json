@@ -114,6 +114,12 @@
     "rationale": "Branch and location structure"
   },
   {
+    "table": "business_activity_revisions",
+    "disposition": "authoritative",
+    "domain": "business_identity",
+    "rationale": "Owner activity and specialty change history; mandatory for audit and restore"
+  },
+  {
     "table": "business_notifications",
     "disposition": "authoritative",
     "domain": "notifications",
@@ -150,16 +156,52 @@
     "rationale": "Cash-up records"
   },
   {
+    "table": "catalog_brand_aliases",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
+  },
+  {
+    "table": "catalog_brand_merge_proposals",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
+  },
+  {
     "table": "catalog_brands",
     "disposition": "authoritative",
     "domain": "catalog",
     "rationale": "Tenant-owned manufacturer model, verified compatibility or serialized unit inspection history; mandatory backup/restore"
   },
   {
+    "table": "catalog_category_aliases",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
+  },
+  {
     "table": "catalog_device_models",
     "disposition": "authoritative",
     "domain": "catalog",
     "rationale": "Tenant-owned manufacturer model, verified compatibility or serialized unit inspection history; mandatory backup/restore"
+  },
+  {
+    "table": "catalog_family_policies",
+    "disposition": "reconstructed",
+    "domain": "catalog",
+    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
+  },
+  {
+    "table": "catalog_model_spec_revisions",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
+  },
+  {
+    "table": "catalog_product_aliases",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
   },
   {
     "table": "categories",
@@ -312,6 +354,66 @@
     "rationale": "Tenant-owned customer interactions and follow-up commitments; retained in encrypted business backups"
   },
   {
+    "table": "equipment_copier_meter_events",
+    "disposition": "authoritative",
+    "domain": "support",
+    "rationale": "Immutable copier meter reads"
+  },
+  {
+    "table": "equipment_customer_repair_custody",
+    "disposition": "authoritative",
+    "domain": "support",
+    "rationale": "Customer owned repair custody outside sale stock"
+  },
+  {
+    "table": "equipment_fulfilment_events",
+    "disposition": "authoritative",
+    "domain": "fulfilment",
+    "rationale": "Append-only delivery, evidence, and return-to-warehouse status history"
+  },
+  {
+    "table": "equipment_installed_components",
+    "disposition": "authoritative",
+    "domain": "fulfilment",
+    "rationale": "Component serial assignment to installed systems"
+  },
+  {
+    "table": "equipment_installed_systems",
+    "disposition": "authoritative",
+    "domain": "fulfilment",
+    "rationale": "Customer on-site systems and commissioning"
+  },
+  {
+    "table": "equipment_unit_configuration_events",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Append-only unit configuration and exact cost events"
+  },
+  {
+    "table": "equipment_unit_fulfilments",
+    "disposition": "authoritative",
+    "domain": "fulfilment",
+    "rationale": "Exact physical sold-unit fulfilment status"
+  },
+  {
+    "table": "equipment_upgrade_parts",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Approved component issue and cost evidence"
+  },
+  {
+    "table": "equipment_upgrade_work_orders",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Approved exact-unit upgrade service work orders"
+  },
+  {
+    "table": "equipment_warranty_cases",
+    "disposition": "authoritative",
+    "domain": "support",
+    "rationale": "Warranty cases linked to original sold unit"
+  },
+  {
     "table": "expense_categories",
     "disposition": "authoritative",
     "domain": "finance",
@@ -444,6 +546,12 @@
     "rationale": "Picklist state"
   },
   {
+    "table": "inventory_receipt_batches",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
+  },
+  {
     "table": "inventory_replenishment_policies",
     "disposition": "authoritative",
     "domain": "inventory",
@@ -478,6 +586,12 @@
     "disposition": "authoritative",
     "domain": "inventory",
     "rationale": "Stock transfer source records"
+  },
+  {
+    "table": "inventory_unit_identifiers",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
   },
   {
     "table": "inventory_unit_inspections",
@@ -598,6 +712,12 @@
     "disposition": "authoritative",
     "domain": "notifications",
     "rationale": "Per-user event and channel delivery preferences"
+  },
+  {
+    "table": "package_conversion_revisions",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
   },
   {
     "table": "password_reset_tokens",
@@ -796,6 +916,18 @@
     "disposition": "authoritative",
     "domain": "procurement",
     "rationale": "Supplier master"
+  },
+  {
+    "table": "product_bundle_components",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
+  },
+  {
+    "table": "product_bundles",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
   },
   {
     "table": "product_packages",
@@ -1042,131 +1174,5 @@
     "disposition": "excluded",
     "domain": "identity",
     "rationale": "Pending invitations and tokens must be reissued"
-  },
-  {
-    "table": "catalog_category_aliases",
-    "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
-  },
-  {
-    "table": "catalog_brand_aliases",
-    "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
-  },
-  {
-    "table": "catalog_brand_merge_proposals",
-    "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
-  },
-  {
-    "table": "catalog_model_spec_revisions",
-    "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
-  },
-  {
-    "table": "catalog_family_policies",
-    "disposition": "reconstructed",
-    "domain": "catalog",
-    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
-  },
-  {
-    "table": "inventory_unit_identifiers",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
-  },
-  {
-    "table": "inventory_receipt_batches",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
-  },
-  {
-    "table": "catalog_product_aliases",
-    "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
-  },
-  {
-    "table": "package_conversion_revisions",
-    "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
-  },
-  {
-    "table": "product_bundles",
-    "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
-  },
-  {
-    "table": "product_bundle_components",
-    "disposition": "authoritative",
-    "domain": "catalog",
-    "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
-  },
-  {
-    "table": "equipment_upgrade_work_orders",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Approved exact-unit upgrade service work orders"
-  },
-  {
-    "table": "equipment_upgrade_parts",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Approved component issue and cost evidence"
-  },
-  {
-    "table": "equipment_unit_configuration_events",
-    "disposition": "authoritative",
-    "domain": "inventory",
-    "rationale": "Append-only unit configuration and exact cost events"
-  },
-  {
-    "table": "equipment_unit_fulfilments",
-    "disposition": "authoritative",
-    "domain": "fulfilment",
-    "rationale": "Exact physical sold-unit fulfilment status"
-  },
-  {
-    "table": "equipment_fulfilment_events",
-    "disposition": "authoritative",
-    "domain": "fulfilment",
-    "rationale": "Append-only delivery, evidence, and return-to-warehouse status history"
-  },
-  {
-    "table": "equipment_installed_systems",
-    "disposition": "authoritative",
-    "domain": "fulfilment",
-    "rationale": "Customer on-site systems and commissioning"
-  },
-  {
-    "table": "equipment_installed_components",
-    "disposition": "authoritative",
-    "domain": "fulfilment",
-    "rationale": "Component serial assignment to installed systems"
-  },
-  {
-    "table": "equipment_warranty_cases",
-    "disposition": "authoritative",
-    "domain": "support",
-    "rationale": "Warranty cases linked to original sold unit"
-  },
-  {
-    "table": "equipment_customer_repair_custody",
-    "disposition": "authoritative",
-    "domain": "support",
-    "rationale": "Customer owned repair custody outside sale stock"
-  },
-  {
-    "table": "equipment_copier_meter_events",
-    "disposition": "authoritative",
-    "domain": "support",
-    "rationale": "Immutable copier meter reads"
   }
 ]

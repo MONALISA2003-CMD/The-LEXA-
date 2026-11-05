@@ -50,6 +50,7 @@ model Tenant {
   branches           Branch[]
   businessProfile    BusinessProfile?
   businessPaymentMethods BusinessPaymentMethod[]
+  businessActivityRevisions BusinessActivityRevision[]
   ledgerAccounts     LedgerAccount[]
   accountingPeriods  AccountingPeriod[]
   ledgerJournals     LedgerJournal[]
@@ -88,6 +89,8 @@ model BusinessProfile {
   taxIdentificationNumber    String?   @map("tax_identification_number")
   industry                   String?
   industries                 String[]  @default([])
+  subActivityCodes            String[]  @default([]) @map("sub_activity_codes")
+  activityRevision            Int       @default(0) @map("activity_revision")
   businessModels             String[]  @default([]) @map("business_models")
   offeringTypes              String[]  @default([]) @map("offering_types")
   offeringsDescription       String?   @map("offerings_description")
@@ -100,6 +103,26 @@ model BusinessProfile {
   tenant                     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("business_profiles")
+}
+
+// Append-only owner-confirmed business activity selection changes; neither stock nor posted history is rewritten.
+model BusinessActivityRevision {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  version Int
+  previousIndustries String[] @map("previous_industries")
+  currentIndustries String[] @map("current_industries")
+  previousSpecialties String[] @map("previous_specialties")
+  currentSpecialties String[] @map("current_specialties")
+  policyHash String @map("policy_hash")
+  actorUserId String @map("actor_user_id") @db.Uuid
+  changedAt DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+  tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Restrict)
+  actor User @relation("BusinessActivityChangeActor",fields:[actorUserId],references:[id],onDelete:Restrict)
+
+  @@unique([tenantId,version])
+  @@index([tenantId,changedAt])
+  @@map("business_activity_revisions")
 }
 
 // Payment options only: neither this table nor its API initiates or verifies transfers.
@@ -129,6 +152,7 @@ model User {
   auditEvents        AuditEvent[]        @relation("AuditActor")
   sessions           Session[]
   passwordResetTokens PasswordResetToken[]
+  businessActivityChanges BusinessActivityRevision[] @relation("BusinessActivityChangeActor")
   branchGrantsCreated BranchMembership[] @relation("BranchGrantCreator")
   accountingPeriodsClosed AccountingPeriod[] @relation("AccountingPeriodCloser")
   ledgerJournalsCreated LedgerJournal[] @relation("LedgerJournalCreator")

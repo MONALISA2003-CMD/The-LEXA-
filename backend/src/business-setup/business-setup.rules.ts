@@ -1,3 +1,5 @@
+import { validateBusinessSpecialties } from '../catalog/business-specialties.generated.ts';
+
 export class SetupValidationError extends Error {
   constructor(message: string) { super(message); this.name = 'SetupValidationError'; }
 }
@@ -94,7 +96,15 @@ export function validateSetupStep(value: unknown) {
   if (body.step === 2) {
     const selected = selectIndustries(body.industries, body.industry);
     const industry = selected.includes(body.industry as string) ? body.industry as string : selected[0]!;
-    return {step:2 as const,industry,industries:selected,businessModels:picks(body.businessModels,businessModels,'business models'),offeringTypes:picks(body.offeringTypes,offeringTypes,'offerings'),offeringsDescription:text(body.offeringsDescription,'What you sell or do',500,true),sellingChannels:picks(body.sellingChannels,sellingChannels,'selling channels',false)};
+    // An older client omits specialties. Keep the existing selections in that case.
+    // An explicit [] is the owner's deliberate request to clear them.
+    const suppliedSpecialties = Object.prototype.hasOwnProperty.call(body,'subActivityCodes') && body.subActivityCodes!==undefined;
+    let subActivityCodes:string[]|undefined;
+    try{subActivityCodes=suppliedSpecialties?validateBusinessSpecialties(body.subActivityCodes,selected):undefined;}
+    catch(error){throw new SetupValidationError(error instanceof Error?error.message:'Choose valid business specialties.');}
+    if(body.activityRevision!==undefined && (typeof body.activityRevision!=='number' || !Number.isSafeInteger(body.activityRevision) || body.activityRevision<0))
+      throw new SetupValidationError('The saved business activity revision is invalid. Refresh your business profile.');
+    return {step:2 as const,industry,industries:selected,subActivityCodes,activityRevision:body.activityRevision as number|undefined,confirmActivityChange:body.confirmActivityChange===true,businessModels:picks(body.businessModels,businessModels,'business models'),offeringTypes:picks(body.offeringTypes,offeringTypes,'offerings'),offeringsDescription:text(body.offeringsDescription,'What you sell or do',500,true),sellingChannels:picks(body.sellingChannels,sellingChannels,'selling channels',false)};
   }
   if (body.step === 3) {
     const currency = text(body.currency,'Currency',3,true).toUpperCase();

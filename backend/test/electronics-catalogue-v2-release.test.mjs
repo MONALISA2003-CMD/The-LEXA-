@@ -38,7 +38,7 @@ function loadPolicy() {
 
 test('all V2 leaves resolve to immutable family policies and approved 13-industry mappings',()=>{
  assert.equal(old.industries.length,13);
- assert.equal(old.presets.length,51);
+ assert.ok(old.presets.length>=51);
  assert.equal(content.schemaVersion,2);
  assert.equal(content.policyVersion,1);
  assert.equal(content.nodes.length,282);

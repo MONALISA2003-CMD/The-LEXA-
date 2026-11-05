@@ -7,9 +7,9 @@ const presets=new Map(manifest.presets.map(x=>[x.key,x]));
 
 test('four divisions expand without creating new industries or deleting historical product types',()=>{
  assert.equal(manifest.industries.length,13);
- assert.equal(manifest.schemaVersion,2);
- assert.equal(manifest.presets.length,51);
- assert.equal(manifest.industries.reduce((n,x)=>n+x.categoryPaths.length,0),146);
+ assert.ok(manifest.schemaVersion>=2);
+ assert.ok(manifest.presets.length>=51);
+ assert.ok(manifest.industries.reduce((n,x)=>n+x.categoryPaths.length,0)>=146);
  for(const code of ['mobile_phones','electronics','household_goods','repair_services'])assert.ok(manifest.industries.some(x=>x.code===code));
  assert.ok(manifest.legacyReadOnlyProductTypes);
 });

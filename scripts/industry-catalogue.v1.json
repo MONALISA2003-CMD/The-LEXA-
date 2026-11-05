@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 2,
-  "description": "LEXA 13 supported industries; version 2 expands phone, accessory, electronics and appliance subtypes. Definitions never create customer products or stock.",
+  "schemaVersion": 3,
+  "description": "LEXA 13 supported industries; version 3 adds approved multi-business family templates. Definitions never create customer products or stock.",
   "retiredIndustryCodes": [
     "agriculture",
     "healthcare",
@@ -51,6 +51,36 @@
         [
           "Baby care",
           "Nappies"
+        ],
+        [
+          "Food",
+          "Dairy",
+          "Dairy products"
+        ],
+        [
+          "Baby care",
+          "Nappies",
+          "Baby essentials"
+        ],
+        [
+          "Home care",
+          "Cleaning",
+          "Cleaning supplies"
+        ],
+        [
+          "Food",
+          "Produce",
+          "Fresh produce"
+        ],
+        [
+          "Home",
+          "Homeware",
+          "Household utensils"
+        ],
+        [
+          "Education",
+          "Books",
+          "Workbooks"
         ]
       ]
     },
@@ -92,6 +122,36 @@
           "Wholesale",
           "Stationery",
           "Exercise books"
+        ],
+        [
+          "Food",
+          "Dairy",
+          "Dairy products"
+        ],
+        [
+          "Baby care",
+          "Nappies",
+          "Baby essentials"
+        ],
+        [
+          "Home care",
+          "Cleaning",
+          "Cleaning supplies"
+        ],
+        [
+          "Food",
+          "Produce",
+          "Fresh produce"
+        ],
+        [
+          "Hardware",
+          "Building materials",
+          "Cement"
+        ],
+        [
+          "Hardware",
+          "Fasteners",
+          "Fixings"
         ]
       ]
     },
@@ -405,6 +465,21 @@
           "Fashion",
           "Accessories",
           "Belts"
+        ],
+        [
+          "Fashion",
+          "Accessories",
+          "Jewellery"
+        ],
+        [
+          "Fashion",
+          "Textiles",
+          "Fabric rolls"
+        ],
+        [
+          "Fashion",
+          "Services",
+          "Alterations"
         ]
       ]
     },
@@ -456,6 +531,21 @@
           "Beauty",
           "Hair care",
           "Conditioner"
+        ],
+        [
+          "Beauty",
+          "Fragrances",
+          "Fragrance oils"
+        ],
+        [
+          "Beauty",
+          "Hair care",
+          "Hair products"
+        ],
+        [
+          "Beauty",
+          "Makeup",
+          "Makeup products"
         ]
       ]
     },
@@ -502,6 +592,21 @@
           "Kitchen",
           "Ingredients",
           "Cooking oils"
+        ],
+        [
+          "Food",
+          "Produce",
+          "Fresh produce"
+        ],
+        [
+          "Menu",
+          "Beverages",
+          "Prepared drinks"
+        ],
+        [
+          "Bakery",
+          "Pastries",
+          "Pastries"
         ]
       ]
     },
@@ -548,6 +653,11 @@
           "Bakery",
           "Ingredients",
           "Sugar"
+        ],
+        [
+          "Bakery",
+          "Pastries",
+          "Pastries"
         ]
       ]
     },
@@ -599,6 +709,26 @@
           "Hardware",
           "Paint",
           "Interior paint"
+        ],
+        [
+          "Fashion",
+          "Textiles",
+          "Fabric rolls"
+        ],
+        [
+          "Hardware",
+          "Building materials",
+          "Timber"
+        ],
+        [
+          "Hardware",
+          "Finishes",
+          "Tiles"
+        ],
+        [
+          "Hardware",
+          "Fasteners",
+          "Fixings"
         ]
       ]
     },
@@ -675,6 +805,21 @@
           "Home",
           "Appliances",
           "Air conditioners"
+        ],
+        [
+          "Home",
+          "Bedding",
+          "Bed linen"
+        ],
+        [
+          "Home",
+          "Furniture",
+          "Mattresses"
+        ],
+        [
+          "Home",
+          "Homeware",
+          "Household utensils"
         ]
       ]
     },
@@ -792,6 +937,11 @@
           "Education",
           "Courses",
           "Lessons"
+        ],
+        [
+          "Education",
+          "Books",
+          "Workbooks"
         ]
       ]
     },
@@ -2940,6 +3090,834 @@
           "key": "warrantyMonths",
           "label": "Warranty (months)",
           "kind": "number"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "body_mist",
+      "label": "Body mist",
+      "industries": [
+        "perfumes_cosmetics"
+      ],
+      "path": [
+        "Beauty",
+        "Fragrances",
+        "Body mists"
+      ],
+      "unit": "Bottle",
+      "stock": "quantity",
+      "variants": [
+        "volumeMl",
+        "scent"
+      ],
+      "fields": [
+        {
+          "key": "scent",
+          "label": "Scent",
+          "required": true
+        },
+        {
+          "key": "volumeMl",
+          "label": "Bottle volume (mL)",
+          "required": true,
+          "kind": "number"
+        },
+        {
+          "key": "fragranceFamily",
+          "label": "Fragrance family"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "fragrance_oil",
+      "label": "Fragrance oil",
+      "industries": [
+        "perfumes_cosmetics"
+      ],
+      "path": [
+        "Beauty",
+        "Fragrances",
+        "Fragrance oils"
+      ],
+      "unit": "Bottle",
+      "stock": "batch",
+      "variants": [
+        "volumeMl",
+        "scent"
+      ],
+      "fields": [
+        {
+          "key": "scent",
+          "label": "Fragrance name",
+          "required": true
+        },
+        {
+          "key": "volumeMl",
+          "label": "Bottle volume (mL)",
+          "required": true,
+          "kind": "number"
+        },
+        {
+          "key": "oilType",
+          "label": "Oil type"
+        },
+        {
+          "key": "sourceReference",
+          "label": "Source reference"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "haircare",
+      "label": "Hair care",
+      "industries": [
+        "perfumes_cosmetics"
+      ],
+      "path": [
+        "Beauty",
+        "Hair care",
+        "Hair products"
+      ],
+      "unit": "Bottle",
+      "stock": "batch",
+      "variants": [
+        "volumeMl",
+        "formula"
+      ],
+      "fields": [
+        {
+          "key": "productUse",
+          "label": "Product use",
+          "required": true
+        },
+        {
+          "key": "volumeMl",
+          "label": "Volume (mL)",
+          "required": true,
+          "kind": "number"
+        },
+        {
+          "key": "formula",
+          "label": "Formulation"
+        },
+        {
+          "key": "ingredientDeclaration",
+          "label": "Ingredient declaration"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "makeup",
+      "label": "Makeup",
+      "industries": [
+        "perfumes_cosmetics"
+      ],
+      "path": [
+        "Beauty",
+        "Makeup",
+        "Makeup products"
+      ],
+      "unit": "Each",
+      "stock": "batch",
+      "variants": [
+        "shade",
+        "size"
+      ],
+      "fields": [
+        {
+          "key": "makeupType",
+          "label": "Makeup type",
+          "required": true
+        },
+        {
+          "key": "shade",
+          "label": "Shade",
+          "required": true
+        },
+        {
+          "key": "size",
+          "label": "Size"
+        },
+        {
+          "key": "finish",
+          "label": "Finish"
+        },
+        {
+          "key": "ingredientDeclaration",
+          "label": "Ingredient declaration"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "jewellery",
+      "label": "Jewellery & accessories",
+      "industries": [
+        "fashion_beauty"
+      ],
+      "path": [
+        "Fashion",
+        "Accessories",
+        "Jewellery"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "size",
+        "finish"
+      ],
+      "fields": [
+        {
+          "key": "style",
+          "label": "Style",
+          "required": true
+        },
+        {
+          "key": "material",
+          "label": "Material"
+        },
+        {
+          "key": "size",
+          "label": "Size"
+        },
+        {
+          "key": "finish",
+          "label": "Finish"
+        },
+        {
+          "key": "metalEvidence",
+          "label": "Metal documentation reference"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "fabric",
+      "label": "Fabric by length",
+      "industries": [
+        "fashion_beauty",
+        "construction"
+      ],
+      "path": [
+        "Fashion",
+        "Textiles",
+        "Fabric rolls"
+      ],
+      "unit": "Metre",
+      "stock": "quantity",
+      "variants": [
+        "colour",
+        "widthCm"
+      ],
+      "fields": [
+        {
+          "key": "fabricType",
+          "label": "Fabric type",
+          "required": true
+        },
+        {
+          "key": "widthCm",
+          "label": "Roll width (cm)",
+          "required": true,
+          "kind": "number"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "material",
+          "label": "Composition"
+        },
+        {
+          "key": "pattern",
+          "label": "Pattern"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "alteration_service",
+      "label": "Tailoring & alterations",
+      "industries": [
+        "fashion_beauty"
+      ],
+      "path": [
+        "Fashion",
+        "Services",
+        "Alterations"
+      ],
+      "unit": "Service",
+      "stock": "none",
+      "variants": [],
+      "fields": [
+        {
+          "key": "serviceDescription",
+          "label": "Work description",
+          "required": true
+        },
+        {
+          "key": "durationMinutes",
+          "label": "Estimated minutes",
+          "kind": "number"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "dairy",
+      "label": "Dairy & refrigerated food",
+      "industries": [
+        "retail_trade",
+        "wholesale_distribution"
+      ],
+      "path": [
+        "Food",
+        "Dairy",
+        "Dairy products"
+      ],
+      "unit": "Each",
+      "stock": "batch",
+      "variants": [
+        "packSize"
+      ],
+      "fields": [
+        {
+          "key": "packSize",
+          "label": "Pack size",
+          "required": true
+        },
+        {
+          "key": "brand",
+          "label": "Brand"
+        },
+        {
+          "key": "storageTemperature",
+          "label": "Storage instructions"
+        },
+        {
+          "key": "allergens",
+          "label": "Allergens on label"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "baby_care",
+      "label": "Baby care goods",
+      "industries": [
+        "retail_trade",
+        "wholesale_distribution"
+      ],
+      "path": [
+        "Baby care",
+        "Nappies",
+        "Baby essentials"
+      ],
+      "unit": "Pack",
+      "stock": "batch",
+      "variants": [
+        "size",
+        "packCount"
+      ],
+      "fields": [
+        {
+          "key": "size",
+          "label": "Size",
+          "required": true
+        },
+        {
+          "key": "packCount",
+          "label": "Units per pack",
+          "required": true,
+          "kind": "number"
+        },
+        {
+          "key": "brand",
+          "label": "Brand"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "cleaning_goods",
+      "label": "Cleaning & hygiene supplies",
+      "industries": [
+        "retail_trade",
+        "wholesale_distribution"
+      ],
+      "path": [
+        "Home care",
+        "Cleaning",
+        "Cleaning supplies"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "volumeMl",
+        "packSize"
+      ],
+      "fields": [
+        {
+          "key": "productUse",
+          "label": "Intended use",
+          "required": true
+        },
+        {
+          "key": "volumeMl",
+          "label": "Volume (mL)",
+          "kind": "number"
+        },
+        {
+          "key": "packSize",
+          "label": "Pack size"
+        },
+        {
+          "key": "hazardEvidence",
+          "label": "Hazard label reference"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "weighed_produce",
+      "label": "Fresh produce by weight",
+      "industries": [
+        "retail_trade",
+        "food_hospitality",
+        "wholesale_distribution"
+      ],
+      "path": [
+        "Food",
+        "Produce",
+        "Fresh produce"
+      ],
+      "unit": "Kg",
+      "stock": "batch",
+      "variants": [
+        "grade"
+      ],
+      "fields": [
+        {
+          "key": "produceType",
+          "label": "Produce type",
+          "required": true
+        },
+        {
+          "key": "grade",
+          "label": "Grade"
+        },
+        {
+          "key": "origin",
+          "label": "Origin"
+        },
+        {
+          "key": "storageInstructions",
+          "label": "Handling instructions"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "prepared_drink",
+      "label": "Prepared beverage",
+      "industries": [
+        "food_hospitality"
+      ],
+      "path": [
+        "Menu",
+        "Beverages",
+        "Prepared drinks"
+      ],
+      "unit": "Service",
+      "stock": "none",
+      "variants": [
+        "portionSize"
+      ],
+      "fields": [
+        {
+          "key": "beverageType",
+          "label": "Drink type",
+          "required": true
+        },
+        {
+          "key": "portionSize",
+          "label": "Serving size"
+        },
+        {
+          "key": "allergens",
+          "label": "Declared allergens"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "pastry",
+      "label": "Pastry & confectionery",
+      "industries": [
+        "bakery",
+        "food_hospitality"
+      ],
+      "path": [
+        "Bakery",
+        "Pastries",
+        "Pastries"
+      ],
+      "unit": "Each",
+      "stock": "batch",
+      "variants": [
+        "flavour",
+        "size"
+      ],
+      "fields": [
+        {
+          "key": "pastryType",
+          "label": "Pastry type",
+          "required": true
+        },
+        {
+          "key": "flavour",
+          "label": "Flavour"
+        },
+        {
+          "key": "size",
+          "label": "Size"
+        },
+        {
+          "key": "allergens",
+          "label": "Allergens"
+        },
+        {
+          "key": "shelfLifeDays",
+          "label": "Shelf life (days)",
+          "kind": "number"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "cement",
+      "label": "Cement & dry mixes",
+      "industries": [
+        "construction",
+        "wholesale_distribution"
+      ],
+      "path": [
+        "Hardware",
+        "Building materials",
+        "Cement"
+      ],
+      "unit": "Bag",
+      "stock": "quantity",
+      "variants": [
+        "weightKg",
+        "grade"
+      ],
+      "fields": [
+        {
+          "key": "grade",
+          "label": "Grade",
+          "required": true
+        },
+        {
+          "key": "weightKg",
+          "label": "Bag weight (kg)",
+          "required": true,
+          "kind": "number"
+        },
+        {
+          "key": "manufacturer",
+          "label": "Manufacturer"
+        },
+        {
+          "key": "standardsReference",
+          "label": "Standard or test reference"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "timber",
+      "label": "Timber & boards",
+      "industries": [
+        "construction"
+      ],
+      "path": [
+        "Hardware",
+        "Building materials",
+        "Timber"
+      ],
+      "unit": "Metre",
+      "stock": "quantity",
+      "variants": [
+        "section",
+        "lengthMetres"
+      ],
+      "fields": [
+        {
+          "key": "woodType",
+          "label": "Timber species",
+          "required": true
+        },
+        {
+          "key": "section",
+          "label": "Cross-section",
+          "required": true
+        },
+        {
+          "key": "lengthMetres",
+          "label": "Length (m)",
+          "required": true,
+          "kind": "number"
+        },
+        {
+          "key": "grade",
+          "label": "Grade"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "tiles",
+      "label": "Tiles & floor finishes",
+      "industries": [
+        "construction"
+      ],
+      "path": [
+        "Hardware",
+        "Finishes",
+        "Tiles"
+      ],
+      "unit": "Box",
+      "stock": "quantity",
+      "variants": [
+        "dimensions",
+        "finish"
+      ],
+      "fields": [
+        {
+          "key": "tileType",
+          "label": "Tile type",
+          "required": true
+        },
+        {
+          "key": "dimensions",
+          "label": "Tile dimensions",
+          "required": true
+        },
+        {
+          "key": "coverageSqm",
+          "label": "Area per box (m²)",
+          "kind": "number"
+        },
+        {
+          "key": "finish",
+          "label": "Finish"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "fasteners",
+      "label": "Nails, bolts & fixings",
+      "industries": [
+        "construction",
+        "wholesale_distribution"
+      ],
+      "path": [
+        "Hardware",
+        "Fasteners",
+        "Fixings"
+      ],
+      "unit": "Pack",
+      "stock": "quantity",
+      "variants": [
+        "dimensions",
+        "packCount"
+      ],
+      "fields": [
+        {
+          "key": "fastenerType",
+          "label": "Fastener type",
+          "required": true
+        },
+        {
+          "key": "dimensions",
+          "label": "Dimensions",
+          "required": true
+        },
+        {
+          "key": "packCount",
+          "label": "Count per pack",
+          "required": true,
+          "kind": "number"
+        },
+        {
+          "key": "material",
+          "label": "Material"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "bedding",
+      "label": "Bedding & linen",
+      "industries": [
+        "household_goods"
+      ],
+      "path": [
+        "Home",
+        "Bedding",
+        "Bed linen"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "size",
+        "colour"
+      ],
+      "fields": [
+        {
+          "key": "productKind",
+          "label": "Bedding type",
+          "required": true
+        },
+        {
+          "key": "size",
+          "label": "Bed size",
+          "required": true
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        },
+        {
+          "key": "material",
+          "label": "Material"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "mattress",
+      "label": "Mattresses",
+      "industries": [
+        "household_goods"
+      ],
+      "path": [
+        "Home",
+        "Furniture",
+        "Mattresses"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "size",
+        "firmness"
+      ],
+      "fields": [
+        {
+          "key": "size",
+          "label": "Mattress size",
+          "required": true
+        },
+        {
+          "key": "firmness",
+          "label": "Firmness"
+        },
+        {
+          "key": "thicknessCm",
+          "label": "Thickness (cm)",
+          "kind": "number"
+        },
+        {
+          "key": "material",
+          "label": "Material"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "homeware",
+      "label": "Homeware & utensils",
+      "industries": [
+        "household_goods",
+        "retail_trade"
+      ],
+      "path": [
+        "Home",
+        "Homeware",
+        "Household utensils"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "size",
+        "colour"
+      ],
+      "fields": [
+        {
+          "key": "productKind",
+          "label": "Item type",
+          "required": true
+        },
+        {
+          "key": "material",
+          "label": "Material"
+        },
+        {
+          "key": "size",
+          "label": "Size"
+        },
+        {
+          "key": "colour",
+          "label": "Colour"
+        }
+      ],
+      "identifiers": []
+    },
+    {
+      "key": "book_workbook",
+      "label": "Workbooks & revision books",
+      "industries": [
+        "education",
+        "retail_trade"
+      ],
+      "path": [
+        "Education",
+        "Books",
+        "Workbooks"
+      ],
+      "unit": "Each",
+      "stock": "quantity",
+      "variants": [
+        "edition"
+      ],
+      "fields": [
+        {
+          "key": "title",
+          "label": "Title",
+          "required": true
+        },
+        {
+          "key": "author",
+          "label": "Author"
+        },
+        {
+          "key": "isbn",
+          "label": "ISBN"
+        },
+        {
+          "key": "edition",
+          "label": "Edition"
+        },
+        {
+          "key": "level",
+          "label": "Class or level"
         }
       ],
       "identifiers": []
