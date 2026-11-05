@@ -11,6 +11,10 @@ const MODEL_DELEGATES = new Set([
   'auditEvent','idempotencyRecord','session','passwordResetToken','signupVerification','category','product','moduleRecord','stockMovement','sale','saleLine',
   'salePayment','saleReturn','saleReturnLine','workspaceInvitation','unitOfMeasure','productVariant','taxCode','priceList','priceListItem',
   'warehouse','storageBin','inventoryLot','inventorySerial','stockReservation','creditNote','creditNoteLine','cashSession','cashMovement',
+  // Every tenant-owned electronics and inventory delegate MUST run through the
+  // transaction-scoped runtime role + app.tenant_id context (including reads).
+  'productPackage','catalogBrand','catalogDeviceModel','accessoryCompatibility','inventoryUnitInspection',
+  'catalogCategoryAlias','catalogBrandAlias','catalogBrandMergeProposal','catalogModelSpecRevision','catalogFamilyPolicy',
   'cashUp','bankAccount','bankStatementLine','bankReconciliation','bankReconciliationMatch','expenseCategory','expense','fixedAsset',
   'fixedAssetDepreciation','costCentre','costCentreAllocation','taxRule',
 ]);

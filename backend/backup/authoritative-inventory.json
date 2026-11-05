@@ -1042,5 +1042,35 @@
     "disposition": "excluded",
     "domain": "identity",
     "rationale": "Pending invitations and tokens must be reissued"
+  },
+  {
+    "table": "catalog_category_aliases",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
+  },
+  {
+    "table": "catalog_brand_aliases",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
+  },
+  {
+    "table": "catalog_brand_merge_proposals",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
+  },
+  {
+    "table": "catalog_model_spec_revisions",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
+  },
+  {
+    "table": "catalog_family_policies",
+    "disposition": "reconstructed",
+    "domain": "catalog",
+    "rationale": "V2 read-safe category/model master data and immutable policy snapshots"
   }
 ]

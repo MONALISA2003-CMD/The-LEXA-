@@ -17,7 +17,7 @@
     "test": "node --experimental-strip-types --test test/*.test.mjs",
     "db:migrate:status": "prisma migrate status",
     "db:verify": "node scripts/verify-schema-integrity.mjs",
-    "contract:check": "python ../scripts/sync_industry_catalogue.py --check && python scripts/check-openapi-coverage.py && python scripts/check-route-adapter-coverage.py",
+    "contract:check": "python ../scripts/sync_industry_catalogue.py --check && python ../scripts/sync_electronics_catalogue_v2.py --check && python scripts/check-openapi-coverage.py && python scripts/check-route-adapter-coverage.py",
     "ledger:coverage": "node scripts/verify-ledger-posting-coverage.mjs",
     "adapter:check": "python scripts/check-route-adapter-coverage.py",
     "test:tenant-http": "node scripts/test-tenant-idor.mjs",

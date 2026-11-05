@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Canonical LEXA electronics V2 taxonomy / published policy generator.
+
+Only regenerates checked-in source contracts; NEVER connects to or seeds a customer DB.
+Consumers: NestJS, browser, public/mobile clients, and the published policy SQL migration.
+"""
+import hashlib, json, re, sys
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE = ROOT/'scripts/electronics-catalogue-v2.v1.json'
+POLICY_MIGRATION = ROOT/'backend/prisma/migrations/20261105120000_electronics_catalogue_v2_phase1/migration.sql'
+OUTPUTS = [
+    ROOT/'backend/src/catalog/electronics-catalogue-v2.generated.ts',
+    ROOT/'lexa-frontend/src/domain/catalog/electronics-catalogue-v2.generated.ts',
+    ROOT/'docs/contracts/public/electronics-catalogue-v2.json',
+    ROOT/'lexa-frontend/public/catalog/electronics-catalogue-v2.json',
+]
+INDUSTRIES=json.loads((ROOT/'scripts/industry-catalogue.v1.json').read_text(encoding='utf-8'))
+ALLOWED={x['code'] for x in INDUSTRIES['industries']}
+LEGACY={x['key'] for x in INDUSTRIES['presets']}
+NAME=re.compile(r'^ELEC\.[A-Z0-9_]+(?:\.[A-Z0-9_]+){0,2}$')
+FIELD=re.compile(r'^[A-Za-z][A-Za-z0-9_]{0,49}$')
+
+
+def canonical(value): return json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':'))
+def norm(text):return ' '.join(text.split()).casefold()
+
+def validate(data):
+    assert data['schemaVersion']==2 and data['policyVersion']>=1
+    assert len(data['divisions'])==10
+    divisions={d['code']:d for d in data['divisions']}
+    nodes={n['code']:n for n in data['nodes']}
+    families={f['code']:f for f in data['families']}
+    assert len(nodes)==len(data['nodes']) and len(families)==len(data['families'])
+    assert all(NAME.fullmatch(k) for k in nodes)
+    assert all(d['code'] in nodes for d in data['divisions'])
+    assert all(set(d['industryCodes'])<=ALLOWED and d['industryCodes'] for d in data['divisions'])
+    for n in data['nodes']:
+        parts=n['code'].split('.')
+        assert set(n['industryCodes'])<=ALLOWED and n['industryCodes'],n['code']
+        assert n['path'][-1]==n['label'] and len(n['path'])==len(parts)-1,n['code']
+        if n['parentCode']:
+            parent=nodes[n['parentCode']]
+            assert n['code'].startswith(parent['code']+'.') and n['path'][:-1]==parent['path']
+            assert set(n['industryCodes'])<=set(parent['industryCodes'])
+        else: assert len(parts)==2 and n['code'] in divisions
+        if n['selectable']:
+            assert n['familyCode'] in families and len(parts)==4
+            assert set(n['industryCodes']) <= set(families[n['familyCode']]['industryCodes']),n['code']
+        else:assert 'familyCode' not in n
+    assert len([n for n in nodes.values() if n['selectable']])>=180
+    for f in data['families']:
+        assert f['policyVersion']==data['policyVersion'] and f['reviewStatus']=='published'
+        assert set(f['industryCodes'])<=ALLOWED and f['industryCodes']
+        assert f['legacyProductType'] in LEGACY
+        assert f['stockProfile'] in ('serial','batch','quantity','none')
+        assert f['baseUnits'] and len(set(f['baseUnits']))==len(f['baseUnits'])
+        assert set(f['identifiers'])<=set(['imei','imei2?','serial'])
+        assert f['stockProfile']=='serial' or not f['identifiers']
+        fields={p['key']:p for p in f['fields']}
+        assert len(fields)==len(f['fields']) and all(FIELD.fullmatch(k) for k in fields)
+        assert set(f['variantAxes'])<=set(fields)
+        for field in f['fields']:
+            assert field['type'] in ('text','number','enum','boolean')
+            assert isinstance(field['required'],bool)
+            if field['type']=='enum':
+                assert field.get('options') and len(set(field['options']))==len(field['options'])
+            else:assert not field.get('options')
+            if field.get('unit'):assert field['type']=='number'
+    # Every old V2 template is still available; 13 industries are NOT modified.
+    assert len(ALLOWED)==13 and len(INDUSTRIES['presets'])==51
+    # No two source paths/aliases may map to different nodes. Alias collisions are
+    # discovered at build time, not silently guessed during customer import.
+    path_owners={}
+    for n in data['nodes']:
+        for value in [n['code'],' > '.join(n['path']),'/'.join(n['path']),*(n.get('aliases') or [])]:
+            k=norm(value)
+            owner=path_owners.setdefault(k,n['code'])
+            assert owner==n['code'],f'Collision {value}: {owner} != {n["code"]}'
+
+
+def rendered():
+    data=json.loads(SOURCE.read_text(encoding='utf-8'))
+    validate(data)
+    bundle={'schemaVersion':data['schemaVersion'],'policyVersion':data['policyVersion'],
+            'divisions':data['divisions'],'nodes':data['nodes'],'families':data['families']}
+    bundle['contentHash']=hashlib.sha256(canonical(bundle).encode()).hexdigest()
+    text=json.dumps(bundle,indent=2,ensure_ascii=False)+'\n'
+    ts='// GENERATED by scripts/sync_electronics_catalogue_v2.py; DO NOT EDIT.\n'
+    ts+='export const ELECTRONICS_V2_CONTRACT = '+canonical(bundle)+' as const;\n'
+    ts+='export const ELECTRONICS_V2_HASH = '+json.dumps(bundle['contentHash'])+' as const;\n'
+    return data,{OUTPUTS[0]:ts,OUTPUTS[1]:ts,OUTPUTS[2]:text,OUTPUTS[3]:text}
+
+def verify_immutable_seed(data):
+    """Phase 1 SQL-seeded policy hashes must equal the canonical published pack.
+
+    Never rewrite an already-deployed migration to change a policy version;
+    later versions require a new append-only migration.
+    """
+    sql=POLICY_MIGRATION.read_text(encoding='utf-8')
+    pattern=r"INSERT INTO public\.catalog_family_policies\(family_code,policy_version,manifest_version,checksum,policy\) VALUES \('([^']+)',([0-9]+),([0-9]+),'([0-9a-f]{64})',"
+    rows=re.findall(pattern,sql)
+    expected={f['code']:(str(f['policyVersion']),str(data['schemaVersion']),hashlib.sha256(canonical(f).encode('utf-8')).hexdigest()) for f in data['families']}
+    assert len(rows)==len(expected),f'Published SQL policies: {len(rows)} expected {len(expected)}'
+    for code,version,schema_version,checksum in rows:
+        assert code in expected and (version,schema_version,checksum)==expected[code],f'SQL seed drift for {code}'
+
+
+def main():
+    data,files=rendered()
+    if '--check' in sys.argv:
+        verify_immutable_seed(data)
+        drift=[str(p.relative_to(ROOT)) for p,s in files.items() if not p.is_file() or p.read_text(encoding='utf-8')!=s]
+        if drift:raise SystemExit('Electronics V2 client contract drift: '+', '.join(drift))
+        print(f"Electronics V2 contract synchronized: {len(data['nodes'])} nodes, {sum(n['selectable'] for n in data['nodes'])} leaves, {len(data['families'])} published family policies, all 13 industries unchanged.")
+    else:
+        for p,s in files.items():p.parent.mkdir(parents=True,exist_ok=True);p.write_text(s,encoding='utf-8')
+        print('Generated electronics V2 backend/browser/mobile/public policy contracts.')
+if __name__=='__main__':main()

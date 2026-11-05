@@ -48,7 +48,11 @@ if (ROOT / "backend/prisma/migrations").is_dir():
     dirs = [p for p in (ROOT / "backend/prisma/migrations").iterdir() if p.is_dir()]
     if len(dirs) < 30: errors.append(f"Expected at least 30 preserved Prisma migrations; found {len(dirs)}")
 else: errors.append("Missing Prisma migrations directory")
+# Dependency graph must be deterministic. After the cleaner restores the
+# repository's known-good committed lockfiles, never tolerate silent drift.
 import subprocess
+lock_check = subprocess.run(['python3',str(ROOT/'scripts/verify_dependency_locks.py'),'--check'],capture_output=True,text=True)
+if lock_check.returncode: errors.append('Dependency-lock mismatch: '+lock_check.stdout+lock_check.stderr)
 result = subprocess.run(['python3',str(ROOT/'scripts/sync_industry_catalogue.py'),'--check'],capture_output=True,text=True)
 if result.returncode: errors.append('Industry contract mismatch: '+result.stdout+result.stderr)
 if errors:

@@ -166,3 +166,20 @@ Runbook: `docs/operations/runbooks/serial-identity-enforcement.md`.
 This is **source prepared for CI**, not confirmation of an applied production
 migration or a verified complete frontend build. The existing 13-industry
 manifest remains canonical and no customer data is removed.
+
+## Electronics Catalogue V2 — taxonomy and directory (read-safe)
+
+This source release adds versioned electronics taxonomy/policy contracts while preserving
+all 13 industries and historical product/stock identities. See
+`docs/quality/electronics-catalogue-v2-release.md` for the staging migration,
+role/tenant checks, safe category adoption, source parity and rollback gates.
+
+Preview a feature-phone category without changing business data:
+
+```bash
+python3 scripts/sync_electronics_catalogue_v2.py --check
+python3 scripts/plan_electronics_v2_import.py --codes ELEC.MOB.FEATURE.GSM
+```
+
+New owner-authorized changes are visible under Products > Electronics V2 directory
+only once the database migration, backend and frontend have been deployed.

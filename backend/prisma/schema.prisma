@@ -376,6 +376,9 @@ model Category {
   name      String
   parentId  String?  @map("parent_id") @db.Uuid
   templateKey String? @map("template_key")
+  // Optional Phase 1 V2 reference; historical category IDs and paths are unchanged.
+  catalogCode String? @map("catalog_code")
+  taxonomyVersion Int? @map("taxonomy_version")
   attributeSchema Json @default("[]") @map("attribute_schema")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1480,7 +1483,15 @@ model CatalogDeviceModel {
  normalizedName String @map("normalized_name")
  productType String @map("product_type")
  manufacturerCode String? @map("manufacturer_code")
- createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ // Additive V2 manufacturer reference specification (never overwrites saved products).
+  familyCode String? @map("family_code")
+  referenceSpecs Json @default("{}") @map("reference_specs")
+  referenceVersion Int @default(0) @map("reference_version")
+  provenance Json @default("{}")
+  reviewStatus String @default("draft") @map("review_status")
+  reviewedByUserId String? @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
  @@unique([tenantId,id])
  @@unique([tenantId,brandId,productType,normalizedName])
  @@index([tenantId,brandId])
@@ -1488,6 +1499,74 @@ model CatalogDeviceModel {
 }
 
 // Compatibility must be explicitly verified; never infer fit from matching text alone.
+// Aliases are tenant-owned and immutable identifiers for lookup; do not merge brands automatically.
+model CatalogBrandAlias {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ brandId String @map("brand_id") @db.Uuid
+ alias String
+ normalizedAlias String @map("normalized_alias")
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,normalizedAlias])
+ @@index([tenantId,brandId])
+ @@map("catalog_brand_aliases")
+}
+
+model CatalogBrandMergeProposal {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ sourceBrandId String @map("source_brand_id") @db.Uuid
+ targetBrandId String @map("target_brand_id") @db.Uuid
+ rationale String?
+ status String @default("proposed")
+ proposedByUserId String @map("proposed_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,sourceBrandId,targetBrandId,status])
+ @@map("catalog_brand_merge_proposals")
+}
+
+model CatalogCategoryAlias {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ categoryId String @map("category_id") @db.Uuid
+ aliasText String @map("alias_text")
+ normalizedAlias String @map("normalized_alias")
+ sourceVersion Int? @map("source_version")
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,normalizedAlias])
+ @@index([tenantId,categoryId])
+ @@map("catalog_category_aliases")
+}
+
+// Immutable model specification versions: a reviewed reference is never silently rewritten.
+model CatalogModelSpecRevision {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ modelId String @map("model_id") @db.Uuid
+ version Int
+ familyCode String @map("family_code")
+ referenceSpecs Json @map("reference_specs")
+ provenance Json @default("{}")
+ reviewStatus String @default("draft") @map("review_status")
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,modelId,version])
+ @@map("catalog_model_spec_revisions")
+}
+
+model CatalogFamilyPolicy {
+ code String @map("family_code")
+ version Int @map("policy_version")
+ manifestVersion Int @map("manifest_version")
+ checksum String
+ policy Json
+ publishedAt DateTime @default(now()) @map("published_at") @db.Timestamptz(3)
+ @@id([code,version])
+ @@map("catalog_family_policies")
+}
+
 model AccessoryCompatibility {
  id String @id @default(uuid()) @db.Uuid
  tenantId String @map("tenant_id") @db.Uuid

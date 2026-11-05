@@ -7278,6 +7278,203 @@ paths:
         '200': {description: Authorized physical-unit history}
         '403': {description: Tenant or branch access denied}
         '404': {description: Unit not found}
+  /workspaces/{workspaceId}/catalog/v2/summary:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: electronicsV2SummaryGet
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/taxonomy:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: electronicsV2TaxonomyGet
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/taxonomy/custom:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: electronicsCatalogueCustomCategoriesGet
+      summary: Search the authenticated business' existing custom and historical category breadcrumbs
+      description: Read-only tenant-scoped category search. Identifiers derive from existing category UUIDs; no stock or category records are changed.
+      parameters:
+        - {name: q, in: query, schema: {type: string, maxLength: 100}}
+      responses:
+        '200': {description: Existing categories and breadcrumbs belonging to the authenticated tenant}
+        '401': {description: Sign-in required}
+        '403': {description: Catalogue access denied}
+  /workspaces/{workspaceId}/catalog/v2/taxonomy/{code}:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: code, in: path, required: true, schema: {type: string}}
+    get:
+      operationId: electronicsV2TaxonomyCodeGet
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/families:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: electronicsV2FamiliesGet
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/families/{code}:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: code, in: path, required: true, schema: {type: string}}
+    get:
+      operationId: electronicsV2FamiliesCodeGet
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/categories/preview:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: electronicsV2CategoriesPreviewGet
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/categories/adopt:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: electronicsV2CategoriesAdoptPost
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/categories/link-existing:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: electronicsV2CategoriesLinkExistingPost
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/brands/search:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: electronicsV2BrandsSearchGet
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/brands/{brandId}/aliases:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: brandId, in: path, required: true, schema: {type: string}}
+    post:
+      operationId: electronicsV2BrandsBrandidAliasesPost
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/brands/merge-proposals:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: electronicsV2BrandsMergeProposalsGet
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+    post:
+      operationId: electronicsV2BrandsMergeProposalsPost
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/models:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: electronicsV2ModelsGet
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+    post:
+      operationId: electronicsV2ModelsPost
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/models/{modelId}/revisions:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: modelId, in: path, required: true, schema: {type: string}}
+    get:
+      operationId: electronicsV2ModelsModelidRevisionsGet
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+    post:
+      operationId: electronicsV2ModelsModelidRevisionsPost
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+  /workspaces/{workspaceId}/catalog/v2/models/{modelId}/review:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: modelId, in: path, required: true, schema: {type: string}}
+    post:
+      operationId: electronicsV2ModelsModelidReviewPost
+      description: Authenticated tenant-scoped Electronics Catalogue V2 Phase 1 operation. Specified industry and role permissions are checked on the server; historical stock is preserved.
+      responses:
+        '200': {description: Authorized records or non-destructive catalogue update}
+        '400': {description: Invalid category code, specification, or reference}
+        '403': {description: Business industry or role forbids this operation}
+        '409': {description: Duplicate alias or conflicting category mapping}
+
 components:
   securitySchemes:
     sessionCookie:
