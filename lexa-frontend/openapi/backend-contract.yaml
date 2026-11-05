@@ -20,6 +20,17 @@ servers:
 security:
 - sessionCookie: []
 paths:
+  /workspaces/{workspaceId}/branches/{branchId}/operational-advice:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: operationalAdviceList
+      summary: Read-only, permission- and branch-scoped operational recommendations from actual records
+      responses:
+        '200': {description: Evidence-backed work list with no posting or approval capability}
+        '401': {description: Authentication required}
+        '404': {description: Business or branch unavailable to the user}
   /workspaces/{workspaceId}/branches/{branchId}/industry-operations/eligible-measured-lines:
     parameters:
       - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}

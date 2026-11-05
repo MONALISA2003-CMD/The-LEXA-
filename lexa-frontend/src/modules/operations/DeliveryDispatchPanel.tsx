@@ -1,3 +1,4 @@
+import OperationalWorkQueue from './OperationalWorkQueue';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -230,6 +231,7 @@ export default function DeliveryDispatchPanel() {
 
   return (
     <section className="commerce-workflow-panel" style={{ marginBottom: 18 }}>
+      <OperationalWorkQueue areas={['fulfilment']} compact maxItems={5}/>
       <div className="commerce-panel-heading">
         <div className="commerce-panel-icon" aria-hidden="true">DM</div>
         <div><span className="eyebrow eyebrow-blue">DELIVERY MANAGEMENT</span><h3>Deliveries, riders & collections</h3><p>Manage dispatch, proof of delivery and rider collections.</p></div>

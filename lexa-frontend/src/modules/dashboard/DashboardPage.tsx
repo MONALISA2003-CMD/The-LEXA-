@@ -5,6 +5,7 @@ import {ShieldCheck, Activity, AlertTriangle, ArrowRight, ArrowUpRight, BarChart
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { useBusinessAssortment } from '../../components/business/BusinessAssortmentSelector';
 import StaffDashboard from './StaffDashboard';
+import OperationalWorkQueue from '../operations/OperationalWorkQueue';
 import { reports } from '../../data/repositories';
 import { apiDashboard } from '../../data/remote/apiDashboard';
 import { apiTeamAccess } from '../../data/remote/apiTeamAccess';
@@ -73,6 +74,7 @@ function ExecutiveDashboardPage() {
 
     {!accessQuery.isLoading && !canViewReports && <div className="overview-service-note"><ShieldCheck size={18}/><div><strong>Welcome to your business workspace</strong><span>Your CEO has granted access to the tasks for your role. Business-wide financial totals are reserved for authorized managers.</span></div></div>}
     {canViewReports && businessFocus.config.data?.industries.length!==0&&<p className="overview-service-note" role="note">Figures on this overview include the entire business. The activity selector changes product and stock views; accounting figures remain consolidated.</p>}
+    <OperationalWorkQueue/>
     {canViewReports && <section className="overview-kpi-section"><div className="overview-section-heading"><div><span className="eyebrow eyebrow-blue">PERFORMANCE SNAPSHOT</span><h3>Key business indicators</h3><p>Verified totals from your business records. Trend changes appear only when underlying data is available.</p></div></div>
       {kpis.length ? <div className="overview-kpi-grid">{kpis.map((item) => <KpiCard key={item.key} label={item.label} value={item.value} note={item.note} icon={item.icon} accent={item.accent} onClick={() => navigate(item.href)}/>)}</div> : <div className="overview-service-note"><Activity size={17}/><div><strong>No KPIs for this view yet</strong><span>No business measures are available for {overviewModeLabels[overviewMode]}. No invented values are substituted.</span></div></div>}
     </section>}

@@ -1,3 +1,4 @@
+import OperationalWorkQueue from './OperationalWorkQueue';
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
@@ -77,6 +78,7 @@ export default function ProductionQualityPage({moduleId}:{moduleId:string}) {
   const stats=selected==='boms'?[{label:'Defined BOMs',value:boms.length},{label:'Active BOMs',value:boms.filter(b=>b.status==='active').length},{label:'Draft BOMs',value:boms.filter(b=>b.status==='draft').length}]:selected==='work-orders'?[{label:'Open work orders',value:orders.filter(o=>!['completed','cancelled'].includes(o.status)).length},{label:'Ready for issue',value:orders.filter(o=>o.status==='draft').length},{label:'Quality holds',value:orders.filter(o=>o.status==='quality_hold').length}]:selected==='job-cards'?[{label:'Job cards',value:cards.length},{label:'In progress',value:cards.filter(c=>c.status==='in_progress').length},{label:'Completed',value:cards.filter(c=>c.status==='completed').length}]:[{label:'Inspections',value:inspections.length},{label:'Awaiting decision',value:inspections.filter(i=>i.status==='pending').length},{label:'Failed inspections',value:inspections.filter(i=>i.status==='failed').length}];
   return <div className="page-stack pq-page" data-module-accent="blaze">
     <header className="pq-hero"><div><div className="pq-eyebrow">PRODUCTION & QUALITY · {branch.name}</div><h2>{headings[selected]}</h2><p>{descriptions[selected]}</p></div><div className="pq-hero-actions"><span><ShieldCheck size={16}/>{workspace.businessName}</span><button type="button" onClick={()=>void refresh()}><RefreshCw size={15}/> Refresh</button></div></header>
+    <OperationalWorkQueue areas={['production']} compact maxItems={5}/>
     <nav className="pq-nav" aria-label="Production and quality modules">{modules.map(m=><Link className={selected===m.id?'is-active':''} key={m.id} to={`/modules/${m.id}`}><m.icon size={15}/>{m.label}</Link>)}</nav>
     {main.isLoading||supportingLoading?<div className="pq-loading"><RefreshCw size={17}/> Loading production records…</div>:main.isError||supportingFailed?<DataError message={`${headings[selected]} and the required reference records could not be loaded.`} retry={()=>void refresh()}/>:<>
       <div className="pq-kpis">{stats.map(s=><Stat key={s.label} {...s}/>)}</div>

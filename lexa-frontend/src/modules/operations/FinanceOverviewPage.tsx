@@ -1,3 +1,4 @@
+import OperationalWorkQueue from './OperationalWorkQueue';
 import { BusinessAssortmentSelector } from '../../components/business/BusinessAssortmentSelector';
 import DivisionSalesSummary from './DivisionSalesSummary';
 import { useMemo } from 'react';
@@ -48,6 +49,7 @@ export default function FinanceOverviewPage() {
       <div className="fin-hero-actions"><span className="fin-secure"><ShieldCheck size={15}/> Scoped to this business and branch</span><button className="fin-btn fin-btn-light" onClick={refresh} type="button"><RefreshCw size={15}/> Refresh</button></div>
     </header>
     <BusinessAssortmentSelector workspaceId={workspace.id} context="finance"/>
+    <OperationalWorkQueue areas={['finance']} compact maxItems={5}/>
     {hasError&&<section className="fin-alert" role="alert"><strong>Some financial reports could not be loaded.</strong><p>Unavailable figures are not treated as zero. Check your access or connection and retry.</p><button type="button" onClick={refresh} className="fin-btn">Retry reports</button></section>}
     {overview.isPending&&<div className="fin-loader" role="status">Loading posted accounting totals…</div>}
     <div className="fin-metrics">

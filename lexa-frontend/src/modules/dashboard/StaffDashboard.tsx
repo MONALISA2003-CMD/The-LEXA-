@@ -5,6 +5,7 @@ import { Activity, ArrowRight, BriefcaseBusiness, ClipboardList, Package, Shield
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { isEmployeeNavigationAllowed } from '../../domain/shared/staffNavigation';
 import EmployeeWorkPanel from './EmployeeWorkPanel';
+import OperationalWorkQueue from '../operations/OperationalWorkQueue';
 import { apiTeamAccess, type BusinessAccess } from '../../data/remote/apiTeamAccess';
 
 type LinkItem={label:string;to:string;permission:string;icon:typeof Activity};
@@ -55,6 +56,7 @@ export default function StaffDashboard({access}:{access:BusinessAccess}){
   <div className="overview-service-note"><ShieldCheck size={20}/><div><strong>Your CEO has assigned your business permissions</strong>
     <span>Only the screens needed for your role are shown. Your workspace never reveals private payroll, accounts or other employees' records unless expressly authorized.</span></div></div>
   {(access.role==='employee'||access.role==='field_agent'||access.role==='technician')&&<EmployeeWorkPanel role={access.role}/> }
+  <OperationalWorkQueue/>
   <section className="overview-section">
    <div className="overview-section-heading"><div><span className="eyebrow eyebrow-blue">YOUR WORK TOOLS</span><h3>What you can access</h3><p>Choose a business task to get started.</p></div></div>
    <div className="overview-workflow-grid">

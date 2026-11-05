@@ -36,6 +36,7 @@ import { NotificationCentreController } from './notifications/notification-centr
 import { ResendWebhookController } from './notifications/resend-webhook.controller';
 import { RecurringInvoicesController } from './receivables/recurring-invoices.controller';
 import { OperationsController } from './operations/operations.controller';
+import { OperationalAdviceController } from './operations/operational-advice.controller';
 import { SentryExceptionInterceptor } from './observability-interceptor';
 import { CorrelationInterceptor } from './correlation-interceptor';
 import { Workstream8Controller } from './workstream8/workstream8.controller';
@@ -44,7 +45,7 @@ import { AiRouterService } from './workstream8/ai-router.service';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [CustomerGrowthController, HealthController, CoreController, BusinessSetupController, StaffProvisioningController, PublicRegistrationController, ModuleGraphController, CommerceController, DeliveryWorkflowController, LogisticsPackagesController, InventoryIntelligenceController, ReceivablesController, RecurringInvoicesController, NotificationCentreController, ResendWebhookController, OperationsController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, ElectronicsInventoryOperationsController, EquipmentServiceController, IndustryOperationsController, ElectronicsV2Controller, FinanceOperationsController, FinanceIntelligenceController, SupplyChainController, PeopleProjectsController, PlatformController, TaxReferenceController, Workstream8Controller],
+  controllers: [CustomerGrowthController, HealthController, CoreController, BusinessSetupController, StaffProvisioningController, PublicRegistrationController, ModuleGraphController, CommerceController, DeliveryWorkflowController, LogisticsPackagesController, InventoryIntelligenceController, ReceivablesController, RecurringInvoicesController, NotificationCentreController, ResendWebhookController, OperationsController, OperationalAdviceController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, ElectronicsInventoryOperationsController, EquipmentServiceController, IndustryOperationsController, ElectronicsV2Controller, FinanceOperationsController, FinanceIntelligenceController, SupplyChainController, PeopleProjectsController, PlatformController, TaxReferenceController, Workstream8Controller],
   providers: [ReportInsightsService, CsrfGuard, PeopleProjectsService, AiRouterService, { provide: APP_INTERCEPTOR, useClass: TenantRequestContextInterceptor }, { provide: APP_INTERCEPTOR, useClass: CorrelationInterceptor }, { provide: APP_INTERCEPTOR, useClass: SentryExceptionInterceptor }, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
 })
 export class AppModule {}

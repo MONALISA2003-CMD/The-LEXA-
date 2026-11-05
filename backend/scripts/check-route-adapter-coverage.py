@@ -20,6 +20,7 @@ checks = {
     "Team and Access": ("lexa-frontend/src/data/remote/apiTeamAccess.ts", "/memberships/"),
     "Collaboration": ("lexa-frontend/src/data/remote/apiCollaboration.ts", "/inbox/"),
     "Dashboard and analytics": ("lexa-frontend/src/data/remote/apiDashboard.ts", "/analytics/overview"),
+    "Operational work queue": ("lexa-frontend/src/data/remote/apiOperationalAdvice.ts", "/operational-advice"),
     "Global search": ("lexa-frontend/src/data/remote/apiGlobalSearch.ts", "/search"),
     "Catalogue and inventory controls": ("lexa-frontend/src/data/remote/apiWorkstream03.ts", "/inventory/warehouses"),
     "Equipment service and exact-unit after-sales": ("lexa-frontend/src/data/remote/apiEquipmentService.ts", "/equipment"),
