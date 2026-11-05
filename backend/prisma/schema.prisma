@@ -397,6 +397,10 @@ model Product {
   attributes         Json      @default("{}")
   barcode            String?
   brand              String?
+  // The additive four-division migration creates tenant-scoped foreign keys for these IDs.
+  // Keep their Prisma scalar fields synchronized so generated Product types can read/write them.
+  catalogBrandId     String?   @map("catalog_brand_id") @db.Uuid
+  catalogModelId     String?   @map("catalog_model_id") @db.Uuid
   unitOfMeasure      String?   @map("unit_of_measure")
   unitOfMeasureId    String?   @map("unit_of_measure_id") @db.Uuid
   defaultTaxCodeId   String?   @map("default_tax_code_id") @db.Uuid
@@ -421,6 +425,8 @@ model Product {
   @@unique([tenantId, id], map: "product_packages_product_identity_idx")
   @@index([tenantId, active, name])
   @@index([tenantId, categoryId])
+  @@index([tenantId, catalogBrandId], map: "products_catalog_brand_idx")
+  @@index([tenantId, catalogModelId], map: "products_catalog_model_idx")
   @@map("products")
 }
 
@@ -525,6 +531,7 @@ model SaleLine {
   variantDescriptionSnapshot String? @map("variant_description_snapshot")
   unitNameSnapshot String? @map("unit_name_snapshot")
   serialNumbersSnapshot String[] @default([]) @map("serial_numbers_snapshot")
+  warrantyMonthsSnapshot Int? @map("warranty_months_snapshot")
   skuSnapshot         String?  @map("sku_snapshot")
   barcodeSnapshot     String?  @map("barcode_snapshot")
   quantity            Decimal  @db.Decimal(12, 3)
@@ -1451,4 +1458,61 @@ model FinanceBudget {
   @@unique([tenantId,branchId,accountingPeriodId,costCentreId])
   @@index([tenantId,branchId,accountingPeriodId,status])
   @@map("finance_budgets")
+}
+
+// Tenant-owned brand and manufacturer model registry. Never seed fictitious SKUs or stock.
+model CatalogBrand {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ name String
+ normalizedName String @map("normalized_name")
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,id])
+ @@unique([tenantId,normalizedName])
+ @@map("catalog_brands")
+}
+
+model CatalogDeviceModel {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ brandId String @map("brand_id") @db.Uuid
+ name String
+ normalizedName String @map("normalized_name")
+ productType String @map("product_type")
+ manufacturerCode String? @map("manufacturer_code")
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,id])
+ @@unique([tenantId,brandId,productType,normalizedName])
+ @@index([tenantId,brandId])
+ @@map("catalog_device_models")
+}
+
+// Compatibility must be explicitly verified; never infer fit from matching text alone.
+model AccessoryCompatibility {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ accessoryProductId String @map("accessory_product_id") @db.Uuid
+ deviceModelId String @map("device_model_id") @db.Uuid
+ fitmentNotes String? @map("fitment_notes")
+ verifiedByUserId String? @map("verified_by_user_id") @db.Uuid
+ verifiedAt DateTime? @map("verified_at") @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,accessoryProductId,deviceModelId])
+ @@index([tenantId,deviceModelId,verifiedAt])
+ @@map("accessory_compatibilities")
+}
+
+// Immutable physical-unit inspection events support condition grading and after-sales history.
+model InventoryUnitInspection {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ serialId String @map("serial_id") @db.Uuid
+ condition String
+ batteryHealthPercent Int? @map("battery_health_percent")
+ notes String?
+ inspectedByUserId String @map("inspected_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@index([tenantId,serialId,createdAt])
+ @@map("inventory_unit_inspections")
 }

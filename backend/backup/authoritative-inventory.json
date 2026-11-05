@@ -1,5 +1,11 @@
 [
   {
+    "table": "accessory_compatibilities",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Tenant-owned manufacturer model, verified compatibility or serialized unit inspection history; mandatory backup/restore"
+  },
+  {
     "table": "accounting_periods",
     "disposition": "authoritative",
     "domain": "ledger",
@@ -142,6 +148,18 @@
     "disposition": "authoritative",
     "domain": "cash",
     "rationale": "Cash-up records"
+  },
+  {
+    "table": "catalog_brands",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Tenant-owned manufacturer model, verified compatibility or serialized unit inspection history; mandatory backup/restore"
+  },
+  {
+    "table": "catalog_device_models",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Tenant-owned manufacturer model, verified compatibility or serialized unit inspection history; mandatory backup/restore"
   },
   {
     "table": "categories",
@@ -460,6 +478,12 @@
     "disposition": "authoritative",
     "domain": "inventory",
     "rationale": "Stock transfer source records"
+  },
+  {
+    "table": "inventory_unit_inspections",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Tenant-owned manufacturer model, verified compatibility or serialized unit inspection history; mandatory backup/restore"
   },
   {
     "table": "ledger_accounts",

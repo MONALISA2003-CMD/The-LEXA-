@@ -43,6 +43,8 @@ export interface Product {
   attributes?: Record<string,string|number|boolean>;
   barcode?: string;
   brand?: string;
+  catalogBrandId?: Id;
+  catalogModelId?: Id;
   unitOfMeasure?: string;
   supplierSku?: string;
   categoryId?: Id;
@@ -100,6 +102,7 @@ export interface SaleLine {
   variantDescriptionSnapshot?:string|null;
   unitNameSnapshot?:string|null;
   serialNumbersSnapshot?:string[];
+  warrantyMonthsSnapshot?:number|null;
   skuSnapshot?:string|null;
   barcodeSnapshot?:string|null;
   quantity: number;
@@ -187,6 +190,8 @@ export interface CreateProductInput {
   categoryId?: Id;
   barcode?: string;
   brand?: string;
+  catalogBrandId?: Id;
+  catalogModelId?: Id;
   unitOfMeasure?: string;
   supplierSku?: string;
   categoryName?: string;

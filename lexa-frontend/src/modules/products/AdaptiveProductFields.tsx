@@ -7,6 +7,7 @@ import { PRODUCT_PRESETS, presetFor, suggestedPresets, permittedPresets, suggest
 import type { Category, Product } from '../../domain/shared/types';
 import {buildVariantMatrix} from '../../domain/catalog/variantMatrix';
 import {BarcodeCapture} from '../../components/barcode/BarcodeCapture';
+import {UnitConditionManager} from './DeviceCatalogExperiences';
 import './adaptive-products.css';
 
 type FieldsProps = {
@@ -29,6 +30,16 @@ export default function AdaptiveProductFields({industries,workspaceId,categories
  const ensurePath=useMutation({mutationFn:(path:readonly string[])=>apiCatalogInventory.ensureCategoryPath(workspaceId,path),onSuccess:async record=>{onChange({categoryId:record.categoryId,categoryName:''});await queryClient.invalidateQueries({queryKey:['categories',workspaceId]});toast.success('Industry category hierarchy created');},onError:error=>toast.error('Could not create category hierarchy',{description:error instanceof Error?error.message:'Check your business industry selection.'})});
  const preset=presetFor(productType);
  const relevant=suggestedPresets(industries,productType);
+ const [division,setDivision]=useState<'all'|'phones'|'accessories'|'electronics'|'appliances'>('all');
+ const divisions:Record<Exclude<typeof division,'all'>,readonly string[]>={
+  phones:['smartphone','feature_phone','cellular_tablet','mifi_router'],
+  accessories:['phone_accessory','phone_case','screen_protector','charger','usb_cable','power_bank','earphones'],
+  electronics:['tv','audio','laptop','network_router','printer','cctv_camera','gaming_console'],
+  appliances:['appliance','refrigerator','washing_machine','cooker','air_conditioner','small_appliance'],
+ };
+ const specialized=industries.some(x=>['mobile_phones','electronics','household_goods'].includes(x))||[...Object.values(divisions).flat()].includes(productType);
+ const visiblePresets=division==='all'?relevant:relevant.filter(p=>divisions[division].includes(p.key)||p.key===productType);
+
  const paths=suggestedCategoryPaths(industries);
  const byId=useMemo(()=>new Map(categories.map(c=>[c.id,c])),[categories]);
  const category=categories.find(c=>c.id===categoryId);
@@ -40,11 +51,12 @@ export default function AdaptiveProductFields({industries,workspaceId,categories
  const fields:ProductField[]=[...preset.fields,...customFields.filter(f=>!preset.fields.some(p=>p.key===f.key))];
  return <div className="lexa-adaptive-product-fields">
    <div className="lexa-product-field-heading"><strong>Product type & relevant details</strong><span>LEXA shows fields appropriate for this item—not every industry.</span></div>
+   {specialized&&<div className="lexa-product-hint"><strong>Choose the correct retail product family:</strong><div className="lexa-division-filters">{(['all','phones','accessories','electronics','appliances'] as const).map(key=><button type="button" key={key} aria-pressed={division===key} className={`button button-small ${division===key?'button-primary':'button-secondary'}`} onClick={()=>setDivision(key)}>{key==='all'?'All business types':key[0]!.toUpperCase()+key.slice(1)}</button>)}</div><small>Phones are identified by actual device IMEIs. Accessories use fitment and quantity; electronics and appliances use their own specifications and serial rules.</small></div>}
    <div className="form-two-col">
      <label className="field-label">What are you adding?
        <select value={productType} onChange={e=>{const next=presetFor(e.target.value);onChange({productType:next.key,categoryId:'',categoryName:'',attributes:{},unit:next.unit,tracking:next.stock});}}>
          {productType&&!PRODUCT_PRESETS.some(p=>p.key===productType)&&<option value={productType}>Historical product type — edit existing details only</option>}
-         <optgroup label="For your business">{relevant.map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</optgroup>
+         <optgroup label="For your business">{visiblePresets.map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</optgroup>
        </select>
      </label>
      <label className="field-label">Existing category / subcategory
@@ -149,6 +161,7 @@ export function SerializedUnitManager({workspaceId,branchId,product}:{workspaceI
  <div className="form-two-col"><label className="field-label">{requiresImei?'Primary IMEI (15 digits)':'Unique serial number'}<input value={serial} maxLength={requiresImei?15:120} inputMode={requiresImei?'numeric':'text'} onChange={e=>setSerial(e.target.value)}/></label>{requiresImei&&<label className="field-label">Second IMEI (if dual SIM)<input value={imei2} maxLength={15} inputMode="numeric" onChange={e=>setImei2(e.target.value)}/></label>}</div><small className="field-help">{requiresImei?'Scan the genuine device IMEI(s). The server verifies the check digits and rejects duplicate identifiers across all branches.':'Use the real manufacturer serial; LEXA checks uniqueness across the business.'}</small>
  <button type="button" className="button button-secondary button-small" disabled={!serial.trim()||create.isPending} onClick={()=>create.mutate()}>{create.isPending?'Registering…':'Register device'}</button>
  <small>{serials.data?.length??0} currently available serialized units {serials.isLoading?'· loading':''}</small>
+ <UnitConditionManager workspaceId={workspaceId} branchId={branchId} productId={product.id} variantId={variantId}/>
  </section>;
 }
 

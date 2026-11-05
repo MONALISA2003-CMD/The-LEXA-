@@ -74,6 +74,8 @@ export const localProductRepository: ProductRepository = {
         sku,
         ...(input.barcode?.trim() ? { barcode: input.barcode.trim() } : {}),
         ...(input.brand?.trim() ? { brand: input.brand.trim() } : {}),
+        ...(input.catalogBrandId?{catalogBrandId:input.catalogBrandId}:{}),
+        ...(input.catalogModelId?{catalogModelId:input.catalogModelId}:{}),
         ...(input.unitOfMeasure?.trim() ? { unitOfMeasure: input.unitOfMeasure.trim() } : {}),
         ...(input.supplierSku?.trim() ? { supplierSku: input.supplierSku.trim() } : {}),
         ...(categoryId ? { categoryId } : {}),

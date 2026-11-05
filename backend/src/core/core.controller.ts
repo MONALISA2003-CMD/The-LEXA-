@@ -1,6 +1,6 @@
 import {resolveCategoryFields} from '../catalog/category-hierarchy';
 import {ensureRootCategory} from '../catalog/ensure-category';
-import {INDUSTRY_CODES,INDUSTRY_CATEGORIES,INDUSTRY_LABELS,INDUSTRY_POLICIES} from '../catalog/industry-contract.generated';
+import {INDUSTRY_CODES,INDUSTRY_CATEGORIES,INDUSTRY_LABELS,INDUSTRY_POLICIES,INDUSTRY_CATALOGUE_VERSION} from '../catalog/industry-contract.generated';
 import {normaliseSavedIndustries} from '../business-setup/business-setup.rules';
 import { validateProductType,cleanProductAttributes,cleanCategoryAttributeSchema,assertTypeAllowed,enforceTrackingPolicy,activePreset } from '../catalog/product-attribute-validation';
 import { selectIndustries, SetupValidationError } from '../business-setup/business-setup.rules';
@@ -123,6 +123,20 @@ function toBranch(branch: any) {
   };
 }
 
+/** Verify canonical manufacturer identity across all clients before any write. */
+async function resolveManufacturerIdentity(db:any,tenantId:string,productType:string|null|undefined,brandId:string|null|undefined,modelId:string|null|undefined):Promise<{catalogBrandId:string|null;catalogModelId:string|null;name:string|null}> {
+ const valid=(value:string|undefined|null,label:string)=>{if(value&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))throw new BadRequestException(`${label} must be a valid UUID.`);return value??null;};
+ let catalogBrandId=valid(brandId,'Brand'),catalogModelId=valid(modelId,'Manufacturer model');
+ const model=catalogModelId?await db.catalogDeviceModel.findFirst({where:{tenantId,id:catalogModelId}}):null;
+ if(catalogModelId&&!model)throw new BadRequestException('Manufacturer model must belong to this business.');
+ if(model&&model.productType!==productType)throw new BadRequestException('Manufacturer model does not match the selected product type.');
+ if(model&&catalogBrandId&&model.brandId!==catalogBrandId)throw new BadRequestException('Manufacturer model does not belong to the selected brand.');
+ if(model)catalogBrandId=model.brandId;
+ const brand=catalogBrandId?await db.catalogBrand.findFirst({where:{tenantId,id:catalogBrandId}}):null;
+ if(catalogBrandId&&!brand)throw new BadRequestException('Brand does not belong to this business.');
+ return {catalogBrandId,catalogModelId,name:brand?.name??null};
+}
+
 function toProduct(product: any) {
   return {
     id: product.id,
@@ -131,6 +145,8 @@ function toProduct(product: any) {
     sku: product.sku,
     ...(product.barcode ? { barcode: product.barcode } : {}),
     ...(product.brand ? { brand: product.brand } : {}),
+    ...(product.catalogBrandId ? { catalogBrandId: product.catalogBrandId } : {}),
+    ...(product.catalogModelId ? { catalogModelId: product.catalogModelId } : {}),
     ...(product.unitOfMeasure ? { unitOfMeasure: product.unitOfMeasure } : {}),
     ...(product.unitOfMeasureId ? { unitOfMeasureId: product.unitOfMeasureId } : {}),
     ...(product.defaultTaxCodeId ? { defaultTaxCodeId: product.defaultTaxCodeId } : {}),
@@ -828,7 +844,7 @@ export class CoreController {
     await this.membershipFor(session.userId,workspaceId);
     const profile=await this.prisma.businessProfile.findUnique({where:{tenantId:workspaceId},select:{industries:true,industry:true}});
     const selected=normaliseSavedIndustries(profile?.industries,profile?.industry);
-    return {schemaVersion:1,industries:selected,supportedIndustries:INDUSTRY_CODES.map(code=>({code,label:INDUSTRY_LABELS[code]})),
+    return {schemaVersion:INDUSTRY_CATALOGUE_VERSION,industries:selected,supportedIndustries:INDUSTRY_CODES.map(code=>({code,label:INDUSTRY_LABELS[code]})),
       categoryPaths:Object.fromEntries(selected.map(code=>[code,(INDUSTRY_CATEGORIES as Record<string,readonly (readonly string[])[]>)[code]??[]])),
       productPolicies:Object.fromEntries(Object.entries(INDUSTRY_POLICIES).filter(([key,policy])=>key==='general'||!selected.length||policy.industries.some(code=>selected.includes(code))))};
   }
@@ -953,6 +969,9 @@ export class CoreController {
     if(!effectiveType)throw new BadRequestException('Choose a supported product type (general for uncategorized goods).');
     if(productType&&categoryFields.templateKey&&productType!==categoryFields.templateKey)throw new BadRequestException('Product type must match the selected category template.');
     await assertTypeAllowed(this.prisma,workspaceId,effectiveType);
+    const catalogueIdentity=await resolveManufacturerIdentity(this.prisma,workspaceId,effectiveType,
+      body.catalogBrandId===undefined?null:optionalString(body.catalogBrandId,80),
+      body.catalogModelId===undefined?null:optionalString(body.catalogModelId,80));
     const attributes=cleanProductAttributes(body.attributes,effectiveType,categoryFields.customKeys,true,categoryFields.customFields);
     const trackStock = body.trackStock !== false;
     const trackLot = body.trackLot === true;
@@ -964,7 +983,8 @@ export class CoreController {
       const product = await this.prisma.$transaction(async (tx) => {
         const created = await tx.product.create({ data: {
           tenantId: workspaceId, name, sku, categoryId, productType:effectiveType, attributes, unitOfMeasureId, defaultTaxCodeId, trackLot, trackSerial,
-          barcode: optionalString(body.barcode, 100), brand: optionalString(body.brand, 100),
+          barcode: optionalString(body.barcode, 100), brand: catalogueIdentity.name??optionalString(body.brand, 100),
+          catalogBrandId:catalogueIdentity.catalogBrandId,catalogModelId:catalogueIdentity.catalogModelId,
           unitOfMeasure: optionalString(body.unitOfMeasure, 40), supplierSku: optionalString(body.supplierSku, 100),
           costPriceMinor, sellingPriceMinor, lowStockThreshold: String(lowStockThreshold),
           trackStock, active: true,
@@ -1009,6 +1029,9 @@ export class CoreController {
     const categoryFields=await resolveCategoryFields(this.prisma,workspaceId,categoryId);
     const effectiveType=updatedType??categoryFields.templateKey;
     if(updatedType&&categoryFields.templateKey&&updatedType!==categoryFields.templateKey)throw new BadRequestException('Product type must match the selected category template.');
+    const catalogueIdentity=await resolveManufacturerIdentity(this.prisma,workspaceId,effectiveType,
+      body.catalogBrandId===undefined?existing.catalogBrandId:optionalString(body.catalogBrandId,80),
+      body.catalogModelId===undefined?existing.catalogModelId:optionalString(body.catalogModelId,80));
     const policyChanged=(body.productType!==undefined&&updatedType!==existing.productType)||(body.categoryId!==undefined&&categoryId!==existing.categoryId)||(body.categoryName!==undefined&&String(body.categoryName).trim()!=='')||(body.trackStock!==undefined&&trackStock!==existing.trackStock)||(body.trackLot!==undefined&&trackLot!==existing.trackLot)||(body.trackSerial!==undefined&&trackSerial!==existing.trackSerial)||(body.attributes!==undefined&&JSON.stringify(body.attributes)!==JSON.stringify(existing.attributes));
     if(policyChanged)await assertTypeAllowed(this.prisma,workspaceId,effectiveType,existing.productType);
     const attributes=body.attributes===undefined?existing.attributes:cleanProductAttributes(body.attributes,effectiveType,categoryFields.customKeys,policyChanged,categoryFields.customFields);
@@ -1024,7 +1047,8 @@ export class CoreController {
           name: body.name === undefined ? existing.name : requiredString(body.name, 'Product name', 150),
           sku: body.sku === undefined ? existing.sku : requiredString(body.sku, 'SKU', 100),
           barcode: body.barcode === undefined ? existing.barcode : optionalString(body.barcode, 100) ?? null,
-          brand: body.brand === undefined ? existing.brand : optionalString(body.brand, 100) ?? null,
+          brand: catalogueIdentity.name??(body.brand === undefined ? existing.brand : optionalString(body.brand, 100) ?? null),
+          catalogBrandId:catalogueIdentity.catalogBrandId,catalogModelId:catalogueIdentity.catalogModelId,
           unitOfMeasure: body.unitOfMeasure === undefined ? existing.unitOfMeasure : optionalString(body.unitOfMeasure, 40) ?? null,
           supplierSku: body.supplierSku === undefined ? existing.supplierSku : optionalString(body.supplierSku, 100) ?? null,
           categoryId,
@@ -1267,7 +1291,7 @@ export class CoreController {
     return {
       sale: toSale(sale),
       lines: sale.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, saleId: line.saleId, productId: line.productId, productNameSnapshot: line.productNameSnapshot,skuSnapshot:line.skuSnapshot,barcodeSnapshot:line.barcodeSnapshot,quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor,
-        taxMinor:line.taxMinor, taxableMinor:line.taxableMinor,taxRateBasisPoints:line.taxRateBasisPoints,taxCodeSnapshot:line.taxCodeSnapshot,serialIds:line.serialIds,serialNumbersSnapshot:line.serialNumbersSnapshot?.length?line.serialNumbersSnapshot:(line.serialIds??[]).map((id:string)=>oldSerialNumbers.get(id)).filter((v:unknown):v is string=>typeof v==='string'),variantDescriptionSnapshot:line.variantDescriptionSnapshot,unitNameSnapshot:line.unitNameSnapshot,unitOfMeasureId:line.unitOfMeasureId })), 
+        taxMinor:line.taxMinor, taxableMinor:line.taxableMinor,taxRateBasisPoints:line.taxRateBasisPoints,taxCodeSnapshot:line.taxCodeSnapshot,serialIds:line.serialIds,serialNumbersSnapshot:line.serialNumbersSnapshot?.length?line.serialNumbersSnapshot:(line.serialIds??[]).map((id:string)=>oldSerialNumbers.get(id)).filter((v:unknown):v is string=>typeof v==='string'),warrantyMonthsSnapshot:line.warrantyMonthsSnapshot,variantDescriptionSnapshot:line.variantDescriptionSnapshot,unitNameSnapshot:line.unitNameSnapshot,unitOfMeasureId:line.unitOfMeasureId })), 
       returns: sale.returns.map((r: any) => ({ id: r.id, workspaceId: r.tenantId, branchId: r.branchId, saleId: r.saleId, returnNumber: r.returnNumber, totalMinor: r.totalMinor, reason: r.reason, refundRecorded: r.refundRecorded, createdAt: r.createdAt.toISOString() })),
       returnLines: sale.returns.flatMap((r: any) => r.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, returnId: line.returnId, originalSaleLineId: line.originalSaleLineId, productId: line.productId, productNameSnapshot: line.productNameSnapshot, quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor, disposition: line.disposition }))),
       payments: sale.payments.map((p: any) => ({ id: p.id, workspaceId: p.tenantId, saleId: p.saleId, kind: p.kind, method: p.method, methodCategory: p.methodCategory ?? paymentCategoryFromMethod(p.method), ...(p.methodLabel ? { methodLabel: p.methodLabel } : {}), amountMinor: p.amountMinor, ...(p.reference ? { reference: p.reference } : {}), ...(p.notes ? { notes: p.notes } : {}), ...(p.reportedReceivedAt ? { reportedReceivedAt: p.reportedReceivedAt.toISOString() } : {}), ...(p.recordedByUserId ? { recordedByUserId: p.recordedByUserId, recordedByName: paymentActorNames.get(p.recordedByUserId) ?? 'Unknown / legacy actor' } : { recordedByName: 'Unknown / legacy actor' }), ...(p.reversalOfPaymentId ? { reversalOfPaymentId: p.reversalOfPaymentId } : {}), recordedAt: (p.recordedAt ?? p.createdAt).toISOString(), ...(p.sourceType ? { sourceType: p.sourceType } : {}), createdAt: p.createdAt.toISOString() })),
@@ -1540,6 +1564,15 @@ export class CoreController {
             if (!Number.isInteger(item.quantity) || item.serialIds.length !== item.quantity || new Set(item.serialIds).size !== item.serialIds.length) throw new BadRequestException(`${product.name} requires one unique available serial number per unit.`);
             const serialRows = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM inventory_serials WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND lot_id IS NOT DISTINCT FROM ${lot?.id??null}::uuid AND product_id=${product.id}::uuid AND variant_id IS NOT DISTINCT FROM ${variant?.id??null}::uuid AND status='available' AND id=ANY(${item.serialIds}::uuid[]) ORDER BY id FOR UPDATE`;
             if (serialRows.length !== item.quantity) throw new ConflictException('One or more selected serial numbers are unavailable or do not belong to this lot.');
+            // Condition is physical-unit history, not only a screen label. The
+            // latest damaged inspection blocks every checkout client until a
+            // managed reinspection/stock disposition clears the defect.
+            const latestInspections=await tx.$queryRaw<Array<{serial_id:string;condition:string}>>`
+              SELECT DISTINCT ON (serial_id) serial_id,condition
+              FROM inventory_unit_inspections WHERE tenant_id=${workspaceId}::uuid
+                AND serial_id=ANY(${item.serialIds}::uuid[])
+              ORDER BY serial_id,created_at DESC,id DESC`;
+            if(latestInspections.some(entry=>entry.condition==='damaged'))throw new ConflictException('A selected device is damaged and must be reviewed before sale.');
             serialIds = item.serialIds;
           } else if (item.serialIds.length) throw new BadRequestException(`${product.name} is not configured for serial tracking.`);
           if (product.trackStock && !product.trackLot && !stockValidatedProducts.has(stockKey(product.id,variant?.id))) {
@@ -1596,7 +1629,7 @@ export class CoreController {
           const serialRows=line.serialIds.length?await tx.inventorySerial.findMany({where:{tenantId:workspaceId,branchId,id:{in:line.serialIds}},select:{serialNumber:true}}):[];
           const serialNumbersSnapshot=serialRows.map(s=>s.serialNumber);
           if(serialNumbersSnapshot.length!==line.serialIds.length)throw new ConflictException('Device identifiers changed during checkout.');
-          await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, variantId: line.variant?.id ?? null, unitOfMeasureId: line.product.unitOfMeasureId ?? null, taxCodeId: line.taxCodeId, taxRateBasisPoints: line.taxRateBasisPoints, taxMinor: line.taxMinor, taxableMinor: line.netMinor, taxCodeSnapshot: line.taxCodeSnapshot, taxDescriptionSnapshot: line.taxDescriptionSnapshot, taxRuleVersionId: line.taxRuleVersionId, taxCalculationMethod: line.taxCalculationMethod, taxRoundingMethod: line.taxRoundingMethod, taxReferenceDocumentVersionId: line.taxReferenceDocumentVersionId, taxReferenceDocumentVersion: line.taxReferenceDocumentVersion, priceListId: line.priceListId, lotId: line.lot?.id ?? null, serialIds: line.serialIds, productNameSnapshot: line.product.name, variantDescriptionSnapshot:visibleVariant||null, unitNameSnapshot:line.product.unitOfMeasure??'Each',serialNumbersSnapshot, skuSnapshot:line.variant?.sku??line.product.sku,barcodeSnapshot:line.product.barcode??null,quantity: String(line.quantity), unitCostMinor: line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
+          await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, variantId: line.variant?.id ?? null, unitOfMeasureId: line.product.unitOfMeasureId ?? null, taxCodeId: line.taxCodeId, taxRateBasisPoints: line.taxRateBasisPoints, taxMinor: line.taxMinor, taxableMinor: line.netMinor, taxCodeSnapshot: line.taxCodeSnapshot, taxDescriptionSnapshot: line.taxDescriptionSnapshot, taxRuleVersionId: line.taxRuleVersionId, taxCalculationMethod: line.taxCalculationMethod, taxRoundingMethod: line.taxRoundingMethod, taxReferenceDocumentVersionId: line.taxReferenceDocumentVersionId, taxReferenceDocumentVersion: line.taxReferenceDocumentVersion, priceListId: line.priceListId, lotId: line.lot?.id ?? null, serialIds: line.serialIds, productNameSnapshot: line.product.name, variantDescriptionSnapshot:visibleVariant||null, unitNameSnapshot:line.product.unitOfMeasure??'Each',serialNumbersSnapshot, skuSnapshot:line.variant?.sku??line.product.sku,barcodeSnapshot:line.product.barcode??null,quantity: String(line.quantity), warrantyMonthsSnapshot:(()=>{const months=Number((line.product.attributes as Record<string,unknown> | null)?.warrantyMonths??NaN);return Number.isSafeInteger(months)&&months>=0&&months<=240?months:null;})(), unitCostMinor: line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
           if (line.product.trackStock) {
             if (line.lot) {
               const updatedLot = await tx.inventoryLot.updateMany({ where: { id: line.lot.id, tenantId: workspaceId, branchId, quantityOnHand: { gte: line.quantity + Number(line.lot.quantityReserved) } }, data: { quantityOnHand: { decrement: line.quantity }, status: Number(line.lot.quantityOnHand)-line.quantity<=0?'depleted':'available' } });

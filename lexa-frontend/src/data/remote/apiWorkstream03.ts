@@ -5,6 +5,17 @@ const branch = (w: string, b: string) => `${tenant(w)}/branches/${enc(b)}`;
 const key = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `lexa-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export const apiCatalogInventory = {
+  catalogBrands:(w:string)=>apiClient.get<Array<{id:string;tenantId:string;name:string;normalizedName:string}>>(`${tenant(w)}/catalog/brands`),
+  createCatalogBrand:(w:string,name:string)=>apiClient.post<{id:string;name:string}>(`${tenant(w)}/catalog/brands`,{name},key()),
+  catalogDeviceModels:(w:string)=>apiClient.get<Array<{id:string;tenantId:string;brandId:string;name:string;productType:string;manufacturerCode:string|null}>>(`${tenant(w)}/catalog/device-models`),
+  createCatalogDeviceModel:(w:string,input:{brandId:string;name:string;productType:string;manufacturerCode?:string})=>apiClient.post<{id:string;brandId:string;name:string;productType:string}>(`${tenant(w)}/catalog/device-models`,input,key()),
+  accessoryFits:(w:string,productId:string)=>apiClient.get<Array<{id:string;deviceModelId:string;verifiedAt:string|null;fitmentNotes:string|null}>>(`${tenant(w)}/products/${enc(productId)}/compatible-models`),
+  linkAccessoryFit:(w:string,productId:string,input:{deviceModelId:string;fitmentNotes?:string})=>apiClient.post(`${tenant(w)}/products/${enc(productId)}/compatible-models`,input,key()),
+  verifyAccessoryFit:(w:string,id:string)=>apiClient.post(`${tenant(w)}/catalog/compatibilities/${enc(id)}/verify`,{},key()),
+  verifiedAccessories:(w:string,modelId:string)=>apiClient.get<Array<import('../../domain/shared/types').Product>>(`${tenant(w)}/catalog/device-models/${enc(modelId)}/compatible-accessories`),
+  unitLifecycle:(w:string,b:string,serialId:string)=>apiClient.get<{unit:{id:string;serialNumber:string;productId:string;status:string};movements:Array<{id:string;type:string;createdAt:string;reason:string}>;inspections:Array<{id:string;condition:string;createdAt:string}>;sales:Array<{id:string;saleId:string;sale:{receiptNumber:string;createdAt:string}}> ;returns:Array<{id:string;disposition:string;returnRecord:{returnNumber:string;createdAt:string}}>}>(`${branch(w,b)}/inventory/serials/${enc(serialId)}/history`),
+  unitInspections:(w:string,b:string,serialId:string)=>apiClient.get<Array<{id:string;condition:string;batteryHealthPercent:number|null;notes:string|null;createdAt:string}>>(`${branch(w,b)}/inventory/serials/${enc(serialId)}/inspections`),
+  addUnitInspection:(w:string,b:string,serialId:string,input:{condition:string;batteryHealthPercent?:number;notes?:string})=>apiClient.post(`${branch(w,b)}/inventory/serials/${enc(serialId)}/inspections`,input,key()),
   industryConfig: (w:string)=>apiClient.get<{schemaVersion:number;industries:string[];supportedIndustries:Array<{code:string;label:string}>;categoryPaths:Record<string,string[][]>;productPolicies:Record<string,unknown>}>(`${tenant(w)}/catalog/industry-config`),
   ensureCategoryPath: (w:string,path:readonly string[])=>apiClient.post<{categoryId:string;path:string[]}>(`${tenant(w)}/categories/ensure-path`,{path:[...path]},key()),
   productPackages:(w:string,p:string)=>apiClient.get<Array<{id:string;tenantId:string;productId:string;variantId:string|null;code:string;name:string;unitsPerPackage:string;baseUnit:string;active:boolean}>>(`${tenant(w)}/products/${enc(p)}/packages`),

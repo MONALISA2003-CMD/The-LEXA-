@@ -18,3 +18,6 @@
 .lexa-matrix-row{display:grid;grid-template-columns:minmax(100px,1fr) repeat(3,minmax(92px,1fr));gap:8px;padding:8px 0;border-bottom:1px solid var(--module-accent-border,#dae2ec);align-items:center}
 .lexa-matrix-row>span{font-size:12px;font-weight:600}.lexa-matrix-row label{font-size:11px;display:grid;gap:4px}.lexa-matrix-row input{max-width:100%;min-width:0;border:1px solid #bdd0e8;border-radius:6px;padding:6px;font-size:12px}
 @media(max-width:700px){.lexa-matrix-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.lexa-matrix-row>span{grid-column:1 / -1}}
+
+/* Four retail divisions remain a filter, not four different tenant catalogues. */
+.lexa-division-filters{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}.lexa-division-filters .button{min-height:34px}.lexa-division-filters .button[aria-pressed="true"]{font-weight:750}

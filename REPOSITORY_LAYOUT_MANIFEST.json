@@ -1,13 +1,13 @@
 {
   "name": "LEXA canonical source archive",
-  "version": "2026-11-04-13-industry-release-security-and-recovery-gates",
+  "version": "2026-11-05-four-retail-divisions-catalogue-v2",
   "archive_root": "Repository root; no wrapper directory",
   "source_baseline": {
     "repository": "MONALISA2003-CMD/The-LEXA-",
     "branch": "main",
-    "commit": "6bbd59a197a6fe976689d55cd179f9ba7e40f9ec",
-    "note": "13-industry role, CSV apply-time, backup/restore data integrity, migration history, and executable policy acceptance gates. Production E2E and Neon restore rehearsal pending.",
-    "archive_basis": "Current LEXA 13-industry Phase B1 inventory identity source, preserving its migration history."
+    "commit": "239d0a7a8984e579305300112bfbadc9aa7856ed",
+    "note": "Source package expands 13-industry v2 with four specialized electronic retail divisions, additive brand/model/compatibility/inspection model, warranty snapshots. Staging migration and full live E2E required.",
+    "archive_basis": "Current validated source from LEXA_GITHUB_ACTIONS_41968568458_TS18046_TS7006_FIXED_20261105.zip; original production identifiers, migrations and files preserved."
   },
   "applications": {
     "backend": "backend/",

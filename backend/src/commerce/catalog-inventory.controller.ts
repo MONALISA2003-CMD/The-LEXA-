@@ -1,6 +1,6 @@
 import {resolveCategoryFields} from '../catalog/category-hierarchy';
 import {validatePackageSize,PackageQuantityError} from '../catalog/package-quantity';
-import {cleanProductAttributes,validateVariantDimensions,activePreset} from '../catalog/product-attribute-validation';
+import {cleanProductAttributes,validateVariantDimensions,activePreset,assertTypeAllowed} from '../catalog/product-attribute-validation';
 import {productHasIdentifier} from '../catalog/identifier-policy';
 import {validatePhysicalIdentifiers,SerialIdentityError} from '../catalog/serial-identity';
 import { BadRequestException, ConflictException, Controller, ForbiddenException, Get, Headers, NotFoundException, Param, Post, Body, Req, UseGuards, UnauthorizedException } from '@nestjs/common';
@@ -42,6 +42,119 @@ export class CatalogInventoryController {
   if(!membership||membership.status!=='ACTIVE') throw new NotFoundException('Workspace not found.');
   if(branchId) await assertBranchAccess(this.prisma,workspaceId,branchId,session.userId,membership.role);
   return session.userId;
+ }
+
+ // Four-division catalogue registry: brands are NOT category nodes and brand/model
+ // entries never create fake products, prices, stock or manufacturer claims.
+ @Get('catalog/brands') async catalogBrands(@Param('workspaceId') w:string,@Req() req:FastifyRequest) {
+  await this.actor(req,w);
+  return this.prisma.catalogBrand.findMany({where:{tenantId:w},orderBy:{name:'asc'},take:500});
+ }
+ @Post('catalog/brands') @UseGuards(CsrfGuard)
+ async createCatalogBrand(@Param('workspaceId') w:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
+  const actor=await this.actor(req,w),body=obj(raw),name=txt(body.name,'Brand name',100);
+  const normalizedName=name.toLocaleLowerCase('en-US');
+  try{return await this.prisma.$transaction(async tx=>{
+   const row=await tx.catalogBrand.create({data:{tenantId:w,name,normalizedName}});
+   await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.brand.created',resourceType:'catalog_brand',resourceId:row.id}});
+   return row;
+  });}catch(error){if((error as {code?:string}).code==='P2002')throw new ConflictException('This brand is already in the business catalogue.');throw error;}
+ }
+ @Get('catalog/device-models') async deviceModels(@Param('workspaceId') w:string,@Req() req:FastifyRequest) {
+  await this.actor(req,w);
+  return this.prisma.catalogDeviceModel.findMany({where:{tenantId:w},orderBy:[{brandId:'asc'},{name:'asc'}],take:3000});
+ }
+ @Post('catalog/device-models') @UseGuards(CsrfGuard)
+ async createDeviceModel(@Param('workspaceId') w:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
+  const actor=await this.actor(req,w),body=obj(raw),brandId=uuid(body.brandId,'Brand'),name=txt(body.name,'Model name',120),productType=txt(body.productType,'Product type',80);
+  if(!activePreset(productType))throw new BadRequestException('Choose a supported device type.');
+  await assertTypeAllowed(this.prisma,w,productType);
+  const normalizedName=name.toLocaleLowerCase('en-US');
+  try{return await this.prisma.$transaction(async tx=>{
+   if(!await tx.catalogBrand.findFirst({where:{tenantId:w,id:brandId}}))throw new NotFoundException('Brand does not belong to this business.');
+   const row=await tx.catalogDeviceModel.create({data:{tenantId:w,brandId,name,normalizedName,productType,manufacturerCode:body.manufacturerCode?txt(body.manufacturerCode,'Manufacturer model code',100):null}});
+   await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.device_model.created',resourceType:'catalog_device_model',resourceId:row.id}});
+   return row;
+  });}catch(error){if((error as {code?:string}).code==='P2002')throw new ConflictException('This model is already registered for this brand and type.');throw error;}
+ }
+ @Get('products/:productId/compatible-models') async productCompatibleModels(@Param('workspaceId') w:string,@Param('productId') productId:string,@Req() req:FastifyRequest) {
+  await this.actor(req,w);const id=uuid(productId,'Product');
+  if(!await this.prisma.product.findFirst({where:{tenantId:w,id}}))throw new NotFoundException('Product not found.');
+  return this.prisma.accessoryCompatibility.findMany({where:{tenantId:w,accessoryProductId:id},orderBy:{createdAt:'desc'},take:100});
+ }
+ @Post('products/:productId/compatible-models') @UseGuards(CsrfGuard)
+ async linkCompatibleModel(@Param('workspaceId') w:string,@Param('productId') productId:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
+  const actor=await this.actor(req,w),body=obj(raw),id=uuid(productId,'Product'),deviceModelId=uuid(body.deviceModelId,'Device model');
+  const fitmentNotes=body.fitmentNotes?txt(body.fitmentNotes,'Compatibility notes',500):null;
+  try{return await this.prisma.$transaction(async tx=>{
+   const product=await tx.product.findFirst({where:{tenantId:w,id,active:true}});
+   const allowedAccessoryTypes=new Set(['phone_accessory','phone_case','screen_protector','charger','usb_cable','power_bank','earphones','spare_part']);
+   if(!product||!allowedAccessoryTypes.has(product.productType??''))throw new BadRequestException('Choose an active accessory or spare-part product to register compatibility.');
+   if(!await tx.catalogDeviceModel.findFirst({where:{tenantId:w,id:deviceModelId}}))throw new NotFoundException('Compatible device model does not belong to this business.');
+   const row=await tx.accessoryCompatibility.create({data:{tenantId:w,accessoryProductId:id,deviceModelId,fitmentNotes}});
+   await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.compatibility.proposed',resourceType:'accessory_compatibility',resourceId:row.id}});
+   return row;
+  });}catch(error){if((error as {code?:string}).code==='P2002')throw new ConflictException('Compatibility was already recorded for this product and device model.');throw error;}
+ }
+ @Post('catalog/compatibilities/:compatibilityId/verify') @UseGuards(CsrfGuard)
+ async verifyAccessoryCompatibility(@Param('workspaceId') w:string,@Param('compatibilityId') compatibilityId:string,@Req() req:FastifyRequest) {
+  const actor=await this.actor(req,w),id=uuid(compatibilityId,'Compatibility');
+  const member=await this.prisma.membership.findUnique({where:{tenantId_userId:{tenantId:w,userId:actor}},select:{role:true}});
+  if(!member||!hasPermission(member.role,'inventory.approve'))throw new ForbiddenException('A business inventory approver must verify accessory compatibility.');
+  return this.prisma.$transaction(async tx=>{
+   const row=await tx.accessoryCompatibility.findFirst({where:{tenantId:w,id}});
+   if(!row)throw new NotFoundException('Compatibility not found.');
+   if(row.verifiedAt)return row;
+   const updated=await tx.accessoryCompatibility.update({where:{id},data:{verifiedAt:new Date(),verifiedByUserId:actor}});
+   await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.compatibility.verified',resourceType:'accessory_compatibility',resourceId:id}});
+   return updated;
+  });
+ }
+ @Get('catalog/device-models/:modelId/compatible-accessories') async compatibleAccessories(@Param('workspaceId') w:string,@Param('modelId') modelId:string,@Req() req:FastifyRequest) {
+  await this.actor(req,w);const id=uuid(modelId,'Device model');
+  if(!await this.prisma.catalogDeviceModel.findFirst({where:{tenantId:w,id}}))throw new NotFoundException('Device model not found.');
+  const links=await this.prisma.accessoryCompatibility.findMany({where:{tenantId:w,deviceModelId:id,verifiedAt:{not:null}},take:100});
+  const products=links.length?await this.prisma.product.findMany({where:{tenantId:w,active:true,id:{in:links.map(link=>link.accessoryProductId)}}}):[];
+  return products.map(product=>({...product,compatibilityVerified:true}));
+ }
+ @Get('branches/:branchId/inventory/serials/:serialId/history') async unitLifecycle(@Param('workspaceId') w:string,@Param('branchId') branchId:string,@Param('serialId') serialId:string,@Req() req:FastifyRequest){
+  await this.actor(req,w,branchId);const id=uuid(serialId,'Physical unit');
+  const unit=await this.prisma.inventorySerial.findFirst({where:{tenantId:w,branchId,id}});
+  if(!unit)throw new NotFoundException('Unit not found in this business branch.');
+  const [movements,inspections,sales,returns]=await Promise.all([
+   this.prisma.stockMovement.findMany({where:{tenantId:w,serialId:id},select:{id:true,type:true,quantityDelta:true,reason:true,branchId:true,warehouseId:true,createdAt:true},orderBy:{createdAt:'asc'},take:500}),
+   this.prisma.inventoryUnitInspection.findMany({where:{tenantId:w,serialId:id},orderBy:{createdAt:'desc'},take:100}),
+   this.prisma.saleLine.findMany({where:{tenantId:w,serialIds:{has:id},sale:{branchId}},select:{id:true,saleId:true,sale:{select:{receiptNumber:true,createdAt:true}},productNameSnapshot:true,unitPriceMinor:true,warrantyMonthsSnapshot:true},take:100}),
+   this.prisma.saleReturnLine.findMany({where:{tenantId:w,serialIds:{has:id},returnRecord:{branchId}},select:{id:true,returnId:true,disposition:true,returnRecord:{select:{returnNumber:true,createdAt:true}}},take:100}),
+  ]);
+  // Inventory readers receive only stable receipt/return references, not customer PII
+  // or payment credentials. Full customer details remain behind sales/CRM permissions.
+  return {unit:{id:unit.id,serialNumber:unit.serialNumber,productId:unit.productId,variantId:unit.variantId,lotId:unit.lotId,status:unit.status,identifiers:unit.identifiers},movements,inspections,sales,returns};
+ }
+ @Get('branches/:branchId/inventory/serials/:serialId/inspections') async unitInspections(@Param('workspaceId') w:string,@Param('branchId') branchId:string,@Param('serialId') serialId:string,@Req() req:FastifyRequest) {
+  await this.actor(req,w,branchId);const id=uuid(serialId,'Inventory unit');
+  const serial=await this.prisma.inventorySerial.findFirst({where:{tenantId:w,branchId,id}});
+  if(!serial)throw new NotFoundException('Unit not found in this branch.');
+  return this.prisma.inventoryUnitInspection.findMany({where:{tenantId:w,serialId:id},orderBy:{createdAt:'desc'},take:100});
+ }
+ @Post('branches/:branchId/inventory/serials/:serialId/inspections') @UseGuards(CsrfGuard)
+ async recordUnitInspection(@Param('workspaceId') w:string,@Param('branchId') branchId:string,@Param('serialId') serialId:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
+  const actor=await this.actor(req,w,branchId),body=obj(raw),id=uuid(serialId,'Inventory unit'),condition=txt(body.condition,'Condition',30);
+  if(!['new','open_box','used_good','used_fair','refurbished','damaged'].includes(condition))throw new BadRequestException('Choose a supported inspection condition.');
+  const batteryHealthPercent=body.batteryHealthPercent===undefined||body.batteryHealthPercent===null||body.batteryHealthPercent===''?null:num(body.batteryHealthPercent,'Battery health',0,100);
+  const notes=body.notes?txt(body.notes,'Inspection notes',1000):null;
+  return this.prisma.$transaction(async tx=>{
+   const serial=await tx.inventorySerial.findFirst({where:{tenantId:w,branchId,id}});
+   if(!serial)throw new NotFoundException('The physical unit is not in this branch.');
+   const previous=await tx.inventoryUnitInspection.findFirst({where:{tenantId:w,serialId:id},orderBy:[{createdAt:'desc'},{id:'desc'}]});
+   if(previous?.condition==='damaged'&&condition!=='damaged'){
+    const member=await tx.membership.findUnique({where:{tenantId_userId:{tenantId:w,userId:actor}},select:{role:true}});
+    if(!member||!hasPermission(member.role,'inventory.approve'))throw new ForbiddenException('Only a business inventory approver can clear a damaged unit after reinspection.');
+   }
+   const row=await tx.inventoryUnitInspection.create({data:{tenantId:w,branchId,serialId:id,condition,batteryHealthPercent,notes,inspectedByUserId:actor}});
+   await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'inventory.unit.inspected',resourceType:'inventory_serial',resourceId:id}});
+   return row;
+  });
  }
 
  @Get('products/:productId/packages') async productPackages(@Param('workspaceId') w:string,@Param('productId') productId:string,@Req() req:FastifyRequest) {

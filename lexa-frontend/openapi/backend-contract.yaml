@@ -7174,6 +7174,110 @@ paths:
         '404': {description: Unit not found within this branch}
         '409': {description: Historical duplicate identifiers require reconciliation}
 
+  /workspaces/{workspaceId}/catalog/brands:
+    get:
+      operationId: getCatalogBrands
+      description: Tenant-scoped and audited catalogue or physical-unit workflow.
+      responses:
+        '200': {description: Authorized data or update}
+        '201': {description: Record created}
+        '400': {description: Validation failed}
+        '403': {description: Permission denied}
+        '409': {description: Conflicting or duplicate record}
+    post:
+      operationId: createCatalogBrand
+      description: Tenant-scoped and audited catalogue or physical-unit workflow.
+      responses:
+        '200': {description: Authorized data or update}
+        '201': {description: Record created}
+        '400': {description: Validation failed}
+        '403': {description: Permission denied}
+        '409': {description: Conflicting or duplicate record}
+  /workspaces/{workspaceId}/catalog/device-models:
+    get:
+      operationId: getCatalogDeviceModels
+      description: Tenant-scoped and audited catalogue or physical-unit workflow.
+      responses:
+        '200': {description: Authorized data or update}
+        '201': {description: Record created}
+        '400': {description: Validation failed}
+        '403': {description: Permission denied}
+        '409': {description: Conflicting or duplicate record}
+    post:
+      operationId: createCatalogDeviceModel
+      description: Tenant-scoped and audited catalogue or physical-unit workflow.
+      responses:
+        '200': {description: Authorized data or update}
+        '201': {description: Record created}
+        '400': {description: Validation failed}
+        '403': {description: Permission denied}
+        '409': {description: Conflicting or duplicate record}
+  /workspaces/{workspaceId}/products/{productId}/compatible-models:
+    get:
+      operationId: getProductCompatibleModels
+      description: Tenant-scoped and audited catalogue or physical-unit workflow.
+      responses:
+        '200': {description: Authorized data or update}
+        '201': {description: Record created}
+        '400': {description: Validation failed}
+        '403': {description: Permission denied}
+        '409': {description: Conflicting or duplicate record}
+    post:
+      operationId: proposeProductCompatibility
+      description: Tenant-scoped and audited catalogue or physical-unit workflow.
+      responses:
+        '200': {description: Authorized data or update}
+        '201': {description: Record created}
+        '400': {description: Validation failed}
+        '403': {description: Permission denied}
+        '409': {description: Conflicting or duplicate record}
+  /workspaces/{workspaceId}/catalog/compatibilities/{compatibilityId}/verify:
+    post:
+      operationId: verifyProductCompatibility
+      description: Tenant-scoped and audited catalogue or physical-unit workflow.
+      responses:
+        '200': {description: Authorized data or update}
+        '201': {description: Record created}
+        '400': {description: Validation failed}
+        '403': {description: Permission denied}
+        '409': {description: Conflicting or duplicate record}
+  /workspaces/{workspaceId}/catalog/device-models/{modelId}/compatible-accessories:
+    get:
+      operationId: getVerifiedCompatibleAccessories
+      description: Tenant-scoped and audited catalogue or physical-unit workflow.
+      responses:
+        '200': {description: Authorized data or update}
+        '201': {description: Record created}
+        '400': {description: Validation failed}
+        '403': {description: Permission denied}
+        '409': {description: Conflicting or duplicate record}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/serials/{serialId}/inspections:
+    get:
+      operationId: getPhysicalUnitInspections
+      description: Tenant-scoped and audited catalogue or physical-unit workflow.
+      responses:
+        '200': {description: Authorized data or update}
+        '201': {description: Record created}
+        '400': {description: Validation failed}
+        '403': {description: Permission denied}
+        '409': {description: Conflicting or duplicate record}
+    post:
+      operationId: createPhysicalUnitInspection
+      description: Tenant-scoped and audited catalogue or physical-unit workflow.
+      responses:
+        '200': {description: Authorized data or update}
+        '201': {description: Record created}
+        '400': {description: Validation failed}
+        '403': {description: Permission denied}
+        '409': {description: Conflicting or duplicate record}
+  /workspaces/{workspaceId}/branches/{branchId}/inventory/serials/{serialId}/history:
+    get:
+      operationId: getSerializedUnitLifecycle
+      description: Audit-only device receiving, transfer, sale, return and inspection history; no customer PII.
+      responses:
+        '200': {description: Authorized physical-unit history}
+        '403': {description: Tenant or branch access denied}
+        '404': {description: Unit not found}
 components:
   securitySchemes:
     sessionCookie:
