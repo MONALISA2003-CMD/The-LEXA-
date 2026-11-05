@@ -4,3 +4,17 @@
 .lexa-product-attributes{display:grid;gap:12px}.lexa-product-attributes>p{font-size:12px;margin:0}.lexa-variant-manager h4{margin:0;font-size:15px}.lexa-variant-row{padding:9px 11px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;border-radius:8px;background:var(--surface-secondary,#f1f5f9)}
 .lexa-variant-row small{color:var(--text-secondary,#64748b)}.lexa-category-manager{display:grid;gap:10px}
 @media(max-width:650px){.lexa-adaptive-product-fields,.lexa-variant-manager,.lexa-category-editor{padding:12px}.lexa-product-attributes .form-two-col{grid-template-columns:minmax(0,1fr)}}
+
+/* One product journey for all industries, accessible on a narrow phone screen. */
+.lexa-product-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0 0 8px}
+.lexa-product-steps button{background:var(--surface-secondary,#edf3fc);border:1px solid var(--module-accent-border,#cbd8ed);color:var(--text-primary,#143056);border-radius:9px;padding:10px 6px;font-size:12px;font-weight:600;min-height:45px;cursor:pointer}
+.lexa-product-steps button.lexa-step-active{border-color:var(--module-accent,#145bbc);background:var(--module-accent-soft,#e6f0ff);box-shadow:inset 0 -3px 0 var(--module-accent,#145bbc)}
+.lexa-product-steps button:disabled{opacity:.45;cursor:not-allowed}
+.lexa-matrix-builder{border-top:1px solid var(--module-accent-border,#d3dfed);padding-top:15px;display:grid;gap:12px}
+.lexa-matrix-preview{display:grid;gap:5px;max-height:340px;overflow:auto;background:var(--surface-secondary,#f2f6fc);border-radius:9px;padding:12px}
+.lexa-matrix-preview small{font-family:ui-monospace,monospace;font-size:11px;overflow-wrap:anywhere}
+@media(max-width:650px){.lexa-product-steps button{font-size:10px;padding:9px 4px}}
+
+.lexa-matrix-row{display:grid;grid-template-columns:minmax(100px,1fr) repeat(3,minmax(92px,1fr));gap:8px;padding:8px 0;border-bottom:1px solid var(--module-accent-border,#dae2ec);align-items:center}
+.lexa-matrix-row>span{font-size:12px;font-weight:600}.lexa-matrix-row label{font-size:11px;display:grid;gap:4px}.lexa-matrix-row input{max-width:100%;min-width:0;border:1px solid #bdd0e8;border-radius:6px;padding:6px;font-size:12px}
+@media(max-width:700px){.lexa-matrix-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.lexa-matrix-row>span{grid-column:1 / -1}}

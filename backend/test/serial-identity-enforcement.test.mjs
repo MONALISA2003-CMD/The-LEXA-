@@ -56,10 +56,10 @@ test('both serial registration APIs apply the same server validation and map dup
  assert.doesNotMatch(api,/'quarantined'/);
 });
 
-test('web client displays both IMEIs and custom category fields are explicitly optional with strict type enabled',()=>{
+test('web client displays both IMEIs and category field requirements with strict type enabled',()=>{
  assert.match(productForm,/const customFields:ProductField\[\]/);
  assert.match(productForm,/const fields:ProductField\[\]/);
- assert.match(productForm,/required:false/);
+ assert.match(productForm,/required:f\.required===true/);
  assert.match(productForm,/Primary IMEI \(15 digits\)/);
  assert.match(client,/imei2\?:string/);
  assert.match(checkout,/serial\.identifiers\?\.imei2/);

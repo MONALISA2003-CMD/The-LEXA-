@@ -953,7 +953,7 @@ export class CoreController {
     if(!effectiveType)throw new BadRequestException('Choose a supported product type (general for uncategorized goods).');
     if(productType&&categoryFields.templateKey&&productType!==categoryFields.templateKey)throw new BadRequestException('Product type must match the selected category template.');
     await assertTypeAllowed(this.prisma,workspaceId,effectiveType);
-    const attributes=cleanProductAttributes(body.attributes,effectiveType,categoryFields.customKeys,true);
+    const attributes=cleanProductAttributes(body.attributes,effectiveType,categoryFields.customKeys,true,categoryFields.customFields);
     const trackStock = body.trackStock !== false;
     const trackLot = body.trackLot === true;
     const trackSerial = body.trackSerial === true;
@@ -1009,12 +1009,12 @@ export class CoreController {
     const categoryFields=await resolveCategoryFields(this.prisma,workspaceId,categoryId);
     const effectiveType=updatedType??categoryFields.templateKey;
     if(updatedType&&categoryFields.templateKey&&updatedType!==categoryFields.templateKey)throw new BadRequestException('Product type must match the selected category template.');
-    const policyChanged=['productType','attributes','trackStock','trackLot','trackSerial','categoryId','categoryName'].some(key=>body[key]!==undefined);
+    const policyChanged=(body.productType!==undefined&&updatedType!==existing.productType)||(body.categoryId!==undefined&&categoryId!==existing.categoryId)||(body.categoryName!==undefined&&String(body.categoryName).trim()!=='')||(body.trackStock!==undefined&&trackStock!==existing.trackStock)||(body.trackLot!==undefined&&trackLot!==existing.trackLot)||(body.trackSerial!==undefined&&trackSerial!==existing.trackSerial)||(body.attributes!==undefined&&JSON.stringify(body.attributes)!==JSON.stringify(existing.attributes));
     if(policyChanged)await assertTypeAllowed(this.prisma,workspaceId,effectiveType,existing.productType);
-    const attributes=body.attributes===undefined?existing.attributes:cleanProductAttributes(body.attributes,effectiveType,categoryFields.customKeys,policyChanged);
+    const attributes=body.attributes===undefined?existing.attributes:cleanProductAttributes(body.attributes,effectiveType,categoryFields.customKeys,policyChanged,categoryFields.customFields);
     if(policyChanged) {
       enforceTrackingPolicy(effectiveType,{trackStock,trackLot,trackSerial});
-      if(body.attributes===undefined)cleanProductAttributes(existing.attributes,effectiveType,categoryFields.customKeys,true);
+      if(body.attributes===undefined)cleanProductAttributes(existing.attributes,effectiveType,categoryFields.customKeys,true,categoryFields.customFields);
     }
     try {
       if (body.lowStockThreshold !== undefined && (!Number.isFinite(Number(body.lowStockThreshold)) || Number(body.lowStockThreshold) < 0)) throw new BadRequestException('Low-stock threshold must be zero or greater.');
@@ -2753,6 +2753,18 @@ export class CoreController {
     const session = await this.sessionFor(request);
     const membership = await this.membershipFor(session.userId, workspaceId);
     if (!isWorkspaceAdministrator(membership.role)) throw new ForbiddenException('Only workspace owners and administrators can export a complete workspace backup.');
+    // The v1 workspace backup is a legacy 10-table format. It cannot round-trip
+    // modern variants, units, packages, lots or serialized devices. Never let an
+    // owner receive a misleading 'full backup' for a customized business.
+    const richCounts=await Promise.all([
+      this.prisma.productVariant.count({where:{tenantId:workspaceId}}),
+      this.prisma.productPackage.count({where:{tenantId:workspaceId}}),
+      this.prisma.inventoryLot.count({where:{tenantId:workspaceId}}),
+      this.prisma.inventorySerial.count({where:{tenantId:workspaceId}}),
+      this.prisma.unitOfMeasure.count({where:{tenantId:workspaceId}}),
+      this.prisma.stockReservation.count({where:{tenantId:workspaceId}}),
+    ]);
+    if(richCounts.some(count=>count>0))throw new ConflictException('Legacy workspace export cannot preserve variant, package, batch or serialized stock. Use the authoritative encrypted backup workflow instead.');
     const [workspace, branches, categories, products, stockMovements, sales, saleLines, salePayments, saleReturns, saleReturnLines, moduleRecords] = await Promise.all([
       this.prisma.tenant.findUnique({ where: { id: workspaceId }, select: { id: true, name: true, slug: true, businessType: true, currency: true, timezone: true, enabledModules: true } }),
       this.prisma.branch.findMany({ where: { tenantId: workspaceId }, orderBy: { createdAt: 'asc' } }),
@@ -2811,17 +2823,18 @@ export class CoreController {
     if (branchIds.size !== branches.length) throw new BadRequestException('Backup contains duplicate branch IDs.');
     const categories = rawCategories.map((r) => {
       if (r.tenantId !== workspaceId) throw new BadRequestException('Backup category belongs to a different workspace.');
-      return { id: backupUuid(r.id, 'category.id'), tenantId: workspaceId, name: requiredString(r.name, 'category.name', 150), createdAt: backupDate(r.createdAt, 'category.createdAt')!, updatedAt: backupDate(r.updatedAt, 'category.updatedAt')! };
+      return { id: backupUuid(r.id, 'category.id'), tenantId: workspaceId, name: requiredString(r.name, 'category.name', 150), parentId:r.parentId?backupUuid(r.parentId,'category.parentId'):null, templateKey:optionalString(r.templateKey,80)??null, attributeSchema:cleanCategoryAttributeSchema(r.attributeSchema), createdAt: backupDate(r.createdAt, 'category.createdAt')!, updatedAt: backupDate(r.updatedAt, 'category.updatedAt')! };
     });
     const categoryIds = new Set(categories.map((r) => r.id));
     if (categoryIds.size !== categories.length) throw new BadRequestException('Backup contains duplicate category IDs.');
+    if(categories.some(c=>c.parentId&&!categoryIds.has(c.parentId)))throw new BadRequestException('Backup category references a missing parent category.');
     const products = rawProducts.map((r) => {
       if (r.tenantId !== workspaceId) throw new BadRequestException('Backup product belongs to a different workspace.');
       const categoryId = optionalString(r.categoryId, 80) ?? null;
       if (categoryId && !categoryIds.has(categoryId)) throw new BadRequestException('Backup product references a category that is missing from the backup.');
       const threshold = Number(r.lowStockThreshold ?? 0);
       if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1_000_000) throw new BadRequestException('Backup product has an invalid low-stock threshold.');
-      return { id: backupUuid(r.id, 'product.id'), tenantId: workspaceId, name: requiredString(r.name, 'product.name', 150), sku: requiredString(r.sku, 'product.sku', 100), barcode: optionalString(r.barcode, 100) ?? null, brand: optionalString(r.brand, 100) ?? null, unitOfMeasure: optionalString(r.unitOfMeasure, 40) ?? null, supplierSku: optionalString(r.supplierSku, 100) ?? null, categoryId, costPriceMinor: moneyMinor(r.costPriceMinor, 'product.costPriceMinor'), sellingPriceMinor: moneyMinor(r.sellingPriceMinor, 'product.sellingPriceMinor'), lowStockThreshold: String(threshold), trackStock: r.trackStock === true, active: r.active !== false, createdAt: backupDate(r.createdAt, 'product.createdAt')!, updatedAt: backupDate(r.updatedAt, 'product.updatedAt')! };
+      return { id: backupUuid(r.id, 'product.id'), tenantId: workspaceId, name: requiredString(r.name, 'product.name', 150), sku: requiredString(r.sku, 'product.sku', 100), barcode: optionalString(r.barcode, 100) ?? null, brand: optionalString(r.brand, 100) ?? null, unitOfMeasure: optionalString(r.unitOfMeasure, 40) ?? null, supplierSku: optionalString(r.supplierSku, 100) ?? null, categoryId, costPriceMinor: moneyMinor(r.costPriceMinor, 'product.costPriceMinor'), sellingPriceMinor: moneyMinor(r.sellingPriceMinor, 'product.sellingPriceMinor'), lowStockThreshold: String(threshold), trackStock: r.trackStock === true, trackLot:r.trackLot===true, trackSerial:r.trackSerial===true,productType:optionalString(r.productType,80)??null,attributes:r.attributes&&typeof r.attributes==='object'&&!Array.isArray(r.attributes)?r.attributes:{},active: r.active !== false, createdAt: backupDate(r.createdAt, 'product.createdAt')!, updatedAt: backupDate(r.updatedAt, 'product.updatedAt')! };
     });
     const productIds = new Set(products.map((r) => r.id));
     if (productIds.size !== products.length) throw new BadRequestException('Backup contains duplicate product IDs.');
@@ -2877,6 +2890,17 @@ export class CoreController {
     const timezone = requiredString(workspaceData.timezone ?? 'Africa/Kampala', 'backup.workspace.timezone', 80);
     const tablesRestored = 10;
     await this.prisma.$transaction(async (tx) => {
+      // Never run the legacy destructive replacement over stock with advanced
+      // identities or packages. This check is in the same SERIALIZABLE transaction.
+      const richCounts=await Promise.all([
+        tx.productVariant.count({where:{tenantId:workspaceId}}),
+        tx.productPackage.count({where:{tenantId:workspaceId}}),
+        tx.inventoryLot.count({where:{tenantId:workspaceId}}),
+        tx.inventorySerial.count({where:{tenantId:workspaceId}}),
+        tx.unitOfMeasure.count({where:{tenantId:workspaceId}}),
+        tx.stockReservation.count({where:{tenantId:workspaceId}}),
+      ]);
+      if(richCounts.some(count=>count>0))throw new ConflictException('Legacy restore is unsafe for businesses using variants, packages, lots or serials. Use the reviewed isolated database recovery process. No records were changed.');
       // Restore is workspace-scoped and transactional. Audit history and authentication records are preserved separately.
       await tx.saleReturnLine.deleteMany({ where: { tenantId: workspaceId } });
       await tx.salePayment.deleteMany({ where: { tenantId: workspaceId } });

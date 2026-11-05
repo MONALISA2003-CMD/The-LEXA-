@@ -4068,6 +4068,33 @@ paths:
         '404': {description: Resource not found}
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/products/{productId}/variants/bulk:
+    post:
+      operationId: postWorkspacesWorkspaceidProductsProductidVariantsBulk
+      tags: [Workstream 0-3]
+      summary: Atomically create up to 80 distinct product variants
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: {type: string}
+        - name: productId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [variants], properties: {variants: {type: array, minItems: 1, maxItems: 80, items: {type: object}}}}
+      responses:
+        '200': {description: Created variants}
+        '400': {description: Invalid variant dimensions}
+        '401': {description: Authentication required}
+        '403': {description: Permission denied}
+        '404': {description: Product not found}
+        '409': {description: Duplicate variant}
+        '500': {description: Unexpected server error}
   /workspaces/{workspaceId}/products/{productId}/variants:
     get:
       operationId: getWorkspacesWorkspaceidProductsProductidVariants

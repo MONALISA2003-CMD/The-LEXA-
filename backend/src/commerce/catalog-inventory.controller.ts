@@ -1,6 +1,6 @@
 import {resolveCategoryFields} from '../catalog/category-hierarchy';
 import {validatePackageSize,PackageQuantityError} from '../catalog/package-quantity';
-import {cleanProductAttributes,validateVariantDimensions} from '../catalog/product-attribute-validation';
+import {cleanProductAttributes,validateVariantDimensions,activePreset} from '../catalog/product-attribute-validation';
 import {productHasIdentifier} from '../catalog/identifier-policy';
 import {validatePhysicalIdentifiers,SerialIdentityError} from '../catalog/serial-identity';
 import { BadRequestException, ConflictException, Controller, ForbiddenException, Get, Headers, NotFoundException, Param, Post, Body, Req, UseGuards, UnauthorizedException } from '@nestjs/common';
@@ -174,13 +174,52 @@ export class CatalogInventoryController {
  }
 
  @Post('products/:productId/variants') @UseGuards(CsrfGuard) async createVariant(@Param('workspaceId') w:string,@Param('productId') id:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
-  const actor=await this.actor(req,w),b=obj(raw),product=await this.prisma.product.findFirst({where:{tenantId:w,id}}); if(!product) throw new NotFoundException('Product not found.');
-  const fields=await resolveCategoryFields(this.prisma,w,product.categoryId);
-  const attributes=cleanProductAttributes(b.attributes,product.productType??fields.templateKey,fields.customKeys);
-  validateVariantDimensions(product.productType??fields.templateKey,attributes);
-  const barcode=b.barcode?txt(b.barcode,'Barcode',100):null;
-  if(barcode&&await this.prisma.productVariant.findFirst({where:{tenantId:w,barcode,active:true}}))throw new ConflictException('Variant barcode already exists in this business.');
-  return this.prisma.$transaction(async tx=>{const row=await tx.productVariant.create({data:{tenantId:w,productId:id,sku:txt(b.sku,'SKU',80),barcode,attributes,costPriceMinor:num(b.costPriceMinor??product.costPriceMinor,'Cost price'),sellingPriceMinor:num(b.sellingPriceMinor??product.sellingPriceMinor,'Selling price')}}); await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.product_variant.created',resourceType:'product_variant',resourceId:row.id}}); return row;});
+  // One-item and matrix creation must have identical checks for every client.
+  const result=await this.createVariantBatch(w,id,{variants:[raw]},req);
+  return result.variants[0];
+ }
+ @Post('products/:productId/variants/bulk') @UseGuards(CsrfGuard)
+ async createVariantBatch(@Param('workspaceId') w:string,@Param('productId') id:string,@Body() raw:unknown,@Req() req:FastifyRequest) {
+  const actor=await this.actor(req,w),body=obj(raw);
+  // Narrow this untrusted property once before entering the transaction:
+  // the control-flow type guard on `body.variants` is not retained in a closure.
+  const variantEntries: unknown = body.variants;
+  if(!Array.isArray(variantEntries)||!variantEntries.length||variantEntries.length>80)
+   throw new BadRequestException('Choose 1–80 sellable variants per batch.');
+  // Serialize against the product row so concurrent variant batches for the same
+  // product cannot both validate an identical dimension combination.
+  return this.prisma.$transaction(async tx=>{
+   const parents=await tx.$queryRaw<any[]>`SELECT id FROM products WHERE id=${id}::uuid AND tenant_id=${w}::uuid FOR UPDATE`;
+   if(!parents.length)throw new NotFoundException('Product not found.');
+   const product=await tx.product.findFirst({where:{tenantId:w,id,active:true}});
+   if(!product)throw new NotFoundException('Active product not found.');
+   const fields=await resolveCategoryFields(tx,w,product.categoryId);
+   const existing=await tx.productVariant.findMany({where:{tenantId:w,productId:id,active:true},select:{attributes:true}});
+   const variantDimensionKeys=new Set<string>(activePreset(product.productType)?.variants??[]);
+   const signature=(attrs:Record<string,unknown>)=>JSON.stringify(Object.entries(attrs).filter(([key,v])=>(!variantDimensionKeys.size||variantDimensionKeys.has(key))&&v!==null&&v!==undefined&&String(v).trim()).sort(([a],[b])=>a.localeCompare(b)));
+   const seenDimensions=new Set(existing.map(row=>signature(row.attributes as Record<string,unknown>)));
+   const seenSkus=new Set<string>(),seenBarcodes=new Set<string>();
+   const prepared=variantEntries.map((entry:unknown)=>{
+    const row=obj(entry);
+    const sku=txt(row.sku,'SKU',80),key=sku.toLowerCase();
+    if(seenSkus.has(key))throw new ConflictException('The variant batch contains duplicate SKUs.');
+    seenSkus.add(key);
+    const attrs=cleanProductAttributes(row.attributes,product.productType??fields.templateKey,fields.customKeys,false,fields.customFields);
+    validateVariantDimensions(product.productType??fields.templateKey,attrs);
+    const dimensionKey=signature(attrs);
+    if(seenDimensions.has(dimensionKey))throw new ConflictException('A sellable variant with these attributes already exists.');
+    seenDimensions.add(dimensionKey);
+    const barcode=row.barcode?txt(row.barcode,'Barcode',100):null;
+    if(barcode){if(seenBarcodes.has(barcode))throw new ConflictException('The variant batch contains duplicate barcodes.');seenBarcodes.add(barcode);}
+    return {tenantId:w,productId:id,sku,barcode,attributes:attrs,costPriceMinor:num(row.costPriceMinor??product.costPriceMinor,'Cost price'),sellingPriceMinor:num(row.sellingPriceMinor??product.sellingPriceMinor,'Selling price')};
+   });
+   const existingSku=await tx.productVariant.findFirst({where:{tenantId:w,sku:{in:prepared.map(p=>p.sku)}}});
+   if(existingSku)throw new ConflictException('A variant SKU already exists in this business.');
+   if(seenBarcodes.size){const existingBarcode=await tx.productVariant.findFirst({where:{tenantId:w,barcode:{in:[...seenBarcodes]},active:true}});if(existingBarcode)throw new ConflictException('A variant barcode already exists in this business.');}
+   const rows=[];
+   for(const data of prepared){const saved=await tx.productVariant.create({data});rows.push(saved);await tx.auditEvent.create({data:{tenantId:w,actorUserId:actor,action:'catalog.product_variant.created',resourceType:'product_variant',resourceId:saved.id}});}
+   return {created:rows.length,variants:rows};
+  },{isolationLevel:'Serializable'});
  }
  @Get('products/:productId/variants') async variants(@Param('workspaceId') w:string,@Param('productId') id:string,@Req() req:FastifyRequest) { await this.actor(req,w); return this.prisma.productVariant.findMany({where:{tenantId:w,productId:id,active:true},orderBy:{sku:'asc'}}); }
 

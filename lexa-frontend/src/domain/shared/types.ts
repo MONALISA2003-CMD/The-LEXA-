@@ -29,7 +29,7 @@ export interface Category {
   name: string;
   parentId?: Id | null;
   templateKey?: string | null;
-  attributeSchema?: Array<{key:string;label:string;kind:'text'|'number'|'select';options?:string[]}>;
+  attributeSchema?: Array<{key:string;label:string;kind:'text'|'number'|'select';options?:string[];required?:boolean}>;
   createdAt: string;
   updatedAt: string;
 }

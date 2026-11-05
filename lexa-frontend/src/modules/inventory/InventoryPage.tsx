@@ -24,12 +24,20 @@ export default function InventoryPage() {
   const [direction, setDirection] = useState<'increase' | 'decrease'>('increase');
   const [quantity, setQuantity] = useState('1');
   const [reason, setReason] = useState('Opening stock');
+  const [inspectProductId,setInspectProductId]=useState('');
+  const [inspectVariantId,setInspectVariantId]=useState('');
   const [saving, setSaving] = useState(false);
 
   const productQuery = useQuery({ queryKey: ['products', workspace.id], queryFn: () => products.list({ workspaceId: workspace.id, activeOnly: false }) });
   const variants=useQuery({queryKey:['all-variants',workspace.id],queryFn:()=>apiCatalogInventory.allVariants(workspace.id),enabled:dataProviderMode==='api',staleTime:30000,retry:1});
   const variantBalances=useQuery({queryKey:['checkout-variant-balances',workspace.id,branch.id],queryFn:()=>apiCatalogInventory.variantBalances(workspace.id,branch.id),enabled:dataProviderMode==='api',staleTime:10000,retry:1});
   const selectedVariants=(variants.data??[]).filter(v=>v.productId===productId);
+  const inspectProduct=(productQuery.data??[]).find(p=>p.id===inspectProductId);
+  const inspectVariants=(variants.data??[]).filter(v=>v.productId===inspectProductId);
+  const canInspectUnit=Boolean(inspectProductId)&&(!inspectVariants.length||Boolean(inspectVariantId));
+  const lotDetails=useQuery({queryKey:['stock-drilldown-lots',workspace.id,branch.id,inspectProductId,inspectVariantId],queryFn:()=>apiCatalogInventory.availableLots(workspace.id,branch.id,inspectProductId,inspectVariantId||undefined),enabled:dataProviderMode==='api'&&canInspectUnit&&Boolean(inspectProduct?.trackLot),retry:1});
+  const serialDetails=useQuery({queryKey:['stock-drilldown-serials',workspace.id,branch.id,inspectProductId,inspectVariantId],queryFn:()=>apiCatalogInventory.availableSerials(workspace.id,branch.id,inspectProductId,inspectVariantId||undefined),enabled:dataProviderMode==='api'&&canInspectUnit&&Boolean(inspectProduct?.trackSerial),retry:1});
+
   const balanceQuery = useQuery({ queryKey: ['inventory-balances', workspace.id, branch.id], queryFn: () => inventory.getBalances({ workspaceId: workspace.id, branchId: branch.id }) });
   const movementQuery = useQuery({ queryKey: ['inventory-movements', workspace.id, branch.id], queryFn: () => inventory.listMovements({ workspaceId: workspace.id, branchId: branch.id, limit: 100 }) });
   const trackedProducts = useMemo(() => (productQuery.data ?? []).filter((item) => item.trackStock && item.active), [productQuery.data]);
@@ -55,10 +63,11 @@ export default function InventoryPage() {
 
   function handleStockBarcode(code: string) {
     const normalized = code.trim().toLocaleLowerCase();
-    const match = trackedProducts.find((item) => item.sku.toLocaleLowerCase() === normalized || (item.barcode ?? '').toLocaleLowerCase() === normalized);
+    const matchingVariant=(variants.data??[]).find(v=>v.sku.toLocaleLowerCase()===normalized||(v.barcode??'').toLocaleLowerCase()===normalized);
+    const match = matchingVariant?trackedProducts.find(p=>p.id===matchingVariant.productId):trackedProducts.find((item) => item.sku.toLocaleLowerCase() === normalized || (item.barcode ?? '').toLocaleLowerCase() === normalized);
     if (!match) { toast.error('Product code not found', { description: 'Check the barcode or SKU and confirm that the product is active and stock-tracked.' }); return; }
-    setProductId(match.id);setVariantId('');
-    toast.success('Product selected', { description: `${match.name} · current stock ${balanceQuery.data?.get(match.id) ?? 0}` });
+    setProductId(match.id);setVariantId(matchingVariant?.id??'');
+    toast.success('Product and variant selected', { description: `${match.name} · current stock ${balanceQuery.data?.get(match.id) ?? 0}` });
   }
 
   function openForm(type: 'opening' | 'adjustment') {
@@ -103,9 +112,23 @@ export default function InventoryPage() {
 
       <div className="inventory-layout">
         <section className="section-card table-card inventory-balance-card"><div className="table-toolbar"><div><h3>Stock balances</h3><p>On-hand quantities by product</p></div><span className="branch-chip"><Package size={14} /> {branch.name}</span></div>{balanceQuery.isError ? <div className="inline-error" role="alert"><strong>Could not load stock balances.</strong><span>{balanceQuery.error instanceof Error ? balanceQuery.error.message : 'Check the connection and retry.'}</span><button className="button button-secondary button-small" onClick={() => void balanceQuery.refetch()}>Retry</button></div> : trackedProducts.length === 0 ? <div className="empty-state"><div className="empty-icon"><Package size={23} /></div><h3>No stock-tracked products</h3><p>Create products and enable inventory tracking to record opening stock.</p></div> : <StandardDataTable rows={balanceRows} columns={balanceColumns} rowLabel="products" emptyTitle="No stock-tracked products" emptyDescription="Create products and enable inventory tracking to record opening stock." />}</section>
-        <section className="section-card low-stock-panel"><div className="section-card-heading"><div className="heading-icon amber-icon"><ArrowDownLeft size={18} /></div><div><h3>Low-stock review</h3><p>Items that need attention</p></div></div>{lowStockProducts.length ? <div className="low-stock-list">{lowStockProducts.slice(0, 6).map(({ product, onHand }) => <div className="low-stock-row" key={product.id}><div><strong>{product.name}</strong><span>{product.sku}</span></div><div className="low-stock-amount"><strong>{onHand}</strong><span>min {product.lowStockThreshold}</span></div></div>)}</div> : <div className="compact-empty"><div className="success-ring"><ArrowUpRight size={18} /></div><strong>Nothing below threshold</strong><span>When stock runs low, it will appear here.</span></div>}<div className="panel-footnote">Alerts use product-level minimum quantities; purchasing and reorder automation are not connected.</div></section>
+        <section className="section-card low-stock-panel"><div className="section-card-heading"><div className="heading-icon amber-icon"><ArrowDownLeft size={18} /></div><div><h3>Low-stock review</h3><p>Items that need attention</p></div></div>{lowStockProducts.length ? <div className="low-stock-list">{lowStockProducts.slice(0, 6).map(({ product, onHand }) => <div className="low-stock-row" key={product.id}><div><strong>{product.name}</strong><span>{product.sku}</span></div><div className="low-stock-amount"><strong>{onHand}</strong><span>min {product.lowStockThreshold}</span></div></div>)}</div> : <div className="compact-empty"><div className="success-ring"><ArrowUpRight size={18} /></div><strong>Nothing below threshold</strong><span>When stock runs low, it will appear here.</span></div>}<div className="panel-footnote">Review shortages before creating a purchase request; no order is placed automatically. <Link to="/modules/replenishment">Review reorder planning</Link> · <Link to="/modules/purchase-requests">Create purchase request</Link></div></section>
       </div>
 
+      <section className="section-card table-card lexa-stock-drilldown">
+       <div className="table-toolbar"><div><h3>Inspect actual stock</h3><p>Drill down from a product to its sellable variant, available batches or individual serial/IMEI.</p></div><Link to="/modules/replenishment" className="button button-secondary button-small">Review replenishment</Link></div>
+       <div className="form-two-col"><label className="field-label">Product<select value={inspectProductId} onChange={e=>{setInspectProductId(e.target.value);setInspectVariantId('');}}><option value="">Choose a product</option>{trackedProducts.map(product=><option key={product.id} value={product.id}>{product.name} · {product.sku}</option>)}</select></label>
+       {inspectVariants.length>0&&<label className="field-label">Sellable variant<select value={inspectVariantId} onChange={e=>setInspectVariantId(e.target.value)}><option value="">Select a size, colour, storage or model</option>{inspectVariants.map(v=><option key={v.id} value={v.id}>{v.sku} · {Object.values(v.attributes??{}).join(' · ')}</option>)}</select></label>}</div>
+       {inspectProduct&&<div className="lexa-stock-detail">
+        <p><strong>{inspectProduct.name}</strong> · Branch stock: {balanceQuery.data?.get(inspectProduct.id)??0} {inspectProduct.unitOfMeasure??'units'}</p>
+        {inspectVariants.length>0&&<table className="lexa-stock-detail-table"><caption>Recorded stock movements by sellable variant</caption><thead><tr><th>Variant</th><th>Attributes</th><th>On hand</th></tr></thead><tbody>{inspectVariants.map(v=><tr key={v.id}><td>{v.sku}</td><td>{Object.values(v.attributes??{}).join(' · ')}</td><td>{variantBalances.data?.find(b=>b.productId===inspectProductId&&b.variantId===v.id)?.quantity??0}</td></tr>)}</tbody></table>}
+        {inspectVariants.length>0&&!inspectVariantId&&<p role="status">Select a variant to see its available lots or individual units.</p>}
+        {canInspectUnit&&inspectProduct.trackLot&&<div><h4>Available unexpired lots</h4>{lotDetails.isError?<p role="alert">Lot details could not be loaded. Retry the stock lookup.</p>:lotDetails.isLoading?<p>Loading batches…</p>:!lotDetails.data?.length?<p>No available lots for this selection.</p>:<table className="lexa-stock-detail-table"><thead><tr><th>Batch</th><th>Expiry</th><th>Available</th></tr></thead><tbody>{lotDetails.data.map(lot=><tr key={lot.id}><td>{lot.lotNumber}</td><td>{lot.expiryDate??'Not set'}</td><td>{lot.available}</td></tr>)}</tbody></table>}</div>}
+        {canInspectUnit&&inspectProduct.trackSerial&&<div><h4>Available physical units</h4>{serialDetails.isError?<p role="alert">Serial details could not be loaded.</p>:serialDetails.isLoading?<p>Loading devices…</p>:!serialDetails.data?.length?<p>No available serials for this selection.</p>:<div className="lexa-stock-serial-list">{serialDetails.data.slice(0,120).map(unit=><code key={unit.id}>{unit.serialNumber}{unit.identifiers?.imei2?' / IMEI 2: '+unit.identifiers.imei2:''}</code>)}{serialDetails.data.length>120&&<small>Showing 120 of {serialDetails.data.length}. Use the scanner to find a specific unit.</small>}</div>}</div>}
+        {!inspectProduct.trackLot&&!inspectProduct.trackSerial&&<p>Quantity-managed stock: individual serial or lot IDs are not required for this product.</p>}
+       </div>}
+       <p className="field-help">Figures reflect authorized branch records. For batch goods, availability excludes reserved, quarantined and expired stock. Read-only drill-down never changes quantities.</p>
+      </section>
       <section className="section-card table-card"><div className="table-toolbar"><div><h3>Movement history</h3><p>Auditable changes to stock at this branch</p></div><span className="muted-count">{movementQuery.data?.length ?? 0} records</span></div>{movementQuery.isError ? <div className="inline-error" role="alert"><strong>Could not load movement history.</strong><span>{movementQuery.error instanceof Error ? movementQuery.error.message : 'Check the connection and retry.'}</span><button className="button button-secondary button-small" onClick={() => void movementQuery.refetch()}>Retry</button></div> : movementQuery.isLoading ? <div className="loading-state">Loading movement history…</div> : !(movementQuery.data ?? []).length ? <div className="empty-state compact"><div className="empty-icon"><ArrowDownLeft size={23} /></div><h3>No stock movements yet</h3><p>Record opening quantities or a stock adjustment to begin the ledger.</p>{trackedProducts.length > 0 && <button className="button button-primary" onClick={() => openForm('opening')}><Plus size={15} /> Record opening stock</button>}</div> : <StandardDataTable rows={movementQuery.data ?? []} columns={movementColumns} rowLabel="movements" emptyTitle="No stock movements yet" emptyDescription="Stock ledger events will appear here after a validated movement is recorded." />}</section>
 
 
