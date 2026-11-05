@@ -2,7 +2,7 @@ import { apiCatalogInventory } from '../../data/remote/apiWorkstream03';
 import { dataProviderMode } from '../../data/remote/runtimeConfig';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {Link} from 'react-router';
+import {Link,useLocation} from 'react-router';
 import { ArrowDownLeft, ArrowUpRight, ClipboardCheck, Package, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
@@ -18,6 +18,10 @@ import EquipmentServicePanel from './EquipmentServicePanel';
 export default function InventoryPage() {
   const { workspace, branch } = useWorkspace();
   const client = useQueryClient();
+  const inventoryLocation = useLocation();
+  const unitHistoryQuery = new URLSearchParams(inventoryLocation.search);
+  const initialUnitId = unitHistoryQuery.get('unitId') ?? '';
+  const initialSaleLineId = unitHistoryQuery.get('saleLineId') ?? '';
   const [formOpen, setFormOpen] = useState(false);
   const [productId, setProductId] = useState('');
   const [variantId,setVariantId] = useState('');
@@ -130,7 +134,7 @@ export default function InventoryPage() {
        </div>}
        <p className="field-help">Figures reflect authorized branch records. For batch goods, availability excludes reserved, quarantined and expired stock. Read-only drill-down never changes quantities.</p>
       </section>
-      {dataProviderMode==='api'&&<EquipmentServicePanel workspaceId={workspace.id} branchId={branch.id} products={productQuery.data??[]}/>}
+      {dataProviderMode==='api'&&<EquipmentServicePanel workspaceId={workspace.id} branchId={branch.id} products={productQuery.data??[]} initialUnitId={initialUnitId} initialSaleLineId={initialSaleLineId}/>}
       <section className="section-card table-card"><div className="table-toolbar"><div><h3>Movement history</h3><p>Auditable changes to stock at this branch</p></div><span className="muted-count">{movementQuery.data?.length ?? 0} records</span></div>{movementQuery.isError ? <div className="inline-error" role="alert"><strong>Could not load movement history.</strong><span>{movementQuery.error instanceof Error ? movementQuery.error.message : 'Check the connection and retry.'}</span><button className="button button-secondary button-small" onClick={() => void movementQuery.refetch()}>Retry</button></div> : movementQuery.isLoading ? <div className="loading-state">Loading movement history…</div> : !(movementQuery.data ?? []).length ? <div className="empty-state compact"><div className="empty-icon"><ArrowDownLeft size={23} /></div><h3>No stock movements yet</h3><p>Record opening quantities or a stock adjustment to begin the ledger.</p>{trackedProducts.length > 0 && <button className="button button-primary" onClick={() => openForm('opening')}><Plus size={15} /> Record opening stock</button>}</div> : <StandardDataTable rows={movementQuery.data ?? []} columns={movementColumns} rowLabel="movements" emptyTitle="No stock movements yet" emptyDescription="Stock ledger events will appear here after a validated movement is recorded." />}</section>
 
 

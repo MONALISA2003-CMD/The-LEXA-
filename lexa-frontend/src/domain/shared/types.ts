@@ -104,6 +104,7 @@ export interface SaleLine {
   variantDescriptionSnapshot?:string|null;
   unitNameSnapshot?:string|null;
   serialNumbersSnapshot?:string[];
+  serialUnitEvidence?: Array<{unitId: Id; serialNumber: string}>;
   warrantyMonthsSnapshot?:number|null;
   skuSnapshot?:string|null;
   barcodeSnapshot?:string|null;
@@ -155,6 +156,7 @@ export interface ReturnLine {
   workspaceId: Id;
   returnId: Id;
   originalSaleLineId: Id;
+  serialIds?: Id[];
   productId: Id;
   productNameSnapshot: string;
   quantity: number;
@@ -243,6 +245,8 @@ export interface ReturnItemInput {
   saleLineId: Id;
   quantity: number;
   disposition?: ReturnDisposition;
+  serialIds?: Id[];
+  inspection?: { physicalSerialScanned: boolean; conditionChecked: boolean; notes: string; scannedSerialNumbers: string[] };
 }
 
 export interface RecordReturnInput {

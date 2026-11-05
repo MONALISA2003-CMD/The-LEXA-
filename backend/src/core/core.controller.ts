@@ -23,6 +23,7 @@ import { meetsNewPasswordPolicy, PASSWORD_POLICY_MESSAGE } from '../auth/new-pas
 import { sendTransactionalEmail } from '../notifications/email-delivery';
 import { PeopleProjectsService } from '../people-projects/people-projects.service';
 import { outstandingSaleMinor, paymentCategoryFromMethod } from '../commerce/increment1-rules';
+import { exactReturnedSerials, validateSerializedReturnDisposition, ExactSerialReturnError, orderedSaleSerialNumbers, matchPhysicalReturnScans } from '../commerce/exact-serial-return';
 
 const scrypt = promisify(scryptCallback);
 const SESSION_SECONDS = 60 * 60 * 24 * 7;
@@ -1300,15 +1301,15 @@ export class CoreController {
       ? await this.prisma.user.findMany({ where: { id: { in: paymentActorIds } }, select: { id: true, displayName: true, email: true } })
       : [];
     const paymentActorNames = new Map(paymentActors.map((actor) => [actor.id, actor.displayName || actor.email]));
-    const olderSerialIds=[...new Set(sale.lines.flatMap((line:any)=>!line.serialNumbersSnapshot?.length?(line.serialIds??[]):[]))];
+    const olderSerialIds=[...new Set(sale.lines.flatMap((line:any)=>(line.serialIds??[])))];
     const serialRows=olderSerialIds.length?await this.prisma.inventorySerial.findMany({where:{tenantId:workspaceId,id:{in:olderSerialIds}},select:{id:true,serialNumber:true}}):[];
     const oldSerialNumbers=new Map(serialRows.map(row=>[row.id,row.serialNumber]));
     return {
       sale: toSale(sale),
       lines: sale.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, saleId: line.saleId, productId: line.productId, productNameSnapshot: line.productNameSnapshot,skuSnapshot:line.skuSnapshot,barcodeSnapshot:line.barcodeSnapshot,quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor,
-        taxMinor:line.taxMinor, taxableMinor:line.taxableMinor,taxRateBasisPoints:line.taxRateBasisPoints,taxCodeSnapshot:line.taxCodeSnapshot,serialIds:line.serialIds,serialNumbersSnapshot:line.serialNumbersSnapshot?.length?line.serialNumbersSnapshot:(line.serialIds??[]).map((id:string)=>oldSerialNumbers.get(id)).filter((v:unknown):v is string=>typeof v==='string'),warrantyMonthsSnapshot:line.warrantyMonthsSnapshot,variantDescriptionSnapshot:line.variantDescriptionSnapshot,unitNameSnapshot:line.unitNameSnapshot,unitOfMeasureId:line.unitOfMeasureId })), 
+        taxMinor:line.taxMinor, taxableMinor:line.taxableMinor,taxRateBasisPoints:line.taxRateBasisPoints,taxCodeSnapshot:line.taxCodeSnapshot,serialIds:line.serialIds,serialNumbersSnapshot:line.serialNumbersSnapshot?.length?line.serialNumbersSnapshot:(line.serialIds??[]).map((id:string)=>oldSerialNumbers.get(id)).filter((v:unknown):v is string=>typeof v==='string'),serialUnitEvidence:(line.serialIds??[]).map((unitId:string)=>({unitId,serialNumber:oldSerialNumbers.get(unitId)})).filter((unit:{unitId:string;serialNumber:string|undefined}):unit is {unitId:string;serialNumber:string}=>typeof unit.serialNumber==='string'&&unit.serialNumber.length>0),warrantyMonthsSnapshot:line.warrantyMonthsSnapshot,variantDescriptionSnapshot:line.variantDescriptionSnapshot,unitNameSnapshot:line.unitNameSnapshot,unitOfMeasureId:line.unitOfMeasureId })), 
       returns: sale.returns.map((r: any) => ({ id: r.id, workspaceId: r.tenantId, branchId: r.branchId, saleId: r.saleId, returnNumber: r.returnNumber, totalMinor: r.totalMinor, reason: r.reason, refundRecorded: r.refundRecorded, createdAt: r.createdAt.toISOString() })),
-      returnLines: sale.returns.flatMap((r: any) => r.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, returnId: line.returnId, originalSaleLineId: line.originalSaleLineId, productId: line.productId, productNameSnapshot: line.productNameSnapshot, quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor, disposition: line.disposition }))),
+      returnLines: sale.returns.flatMap((r: any) => r.lines.map((line: any) => ({ id: line.id, workspaceId: line.tenantId, returnId: line.returnId, originalSaleLineId: line.originalSaleLineId, serialIds:line.serialIds??[], productId: line.productId, productNameSnapshot: line.productNameSnapshot, quantity: Number(line.quantity), unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor, disposition: line.disposition }))),
       payments: sale.payments.map((p: any) => ({ id: p.id, workspaceId: p.tenantId, saleId: p.saleId, kind: p.kind, method: p.method, methodCategory: p.methodCategory ?? paymentCategoryFromMethod(p.method), ...(p.methodLabel ? { methodLabel: p.methodLabel } : {}), amountMinor: p.amountMinor, ...(p.reference ? { reference: p.reference } : {}), ...(p.notes ? { notes: p.notes } : {}), ...(p.reportedReceivedAt ? { reportedReceivedAt: p.reportedReceivedAt.toISOString() } : {}), ...(p.recordedByUserId ? { recordedByUserId: p.recordedByUserId, recordedByName: paymentActorNames.get(p.recordedByUserId) ?? 'Unknown / legacy actor' } : { recordedByName: 'Unknown / legacy actor' }), ...(p.reversalOfPaymentId ? { reversalOfPaymentId: p.reversalOfPaymentId } : {}), recordedAt: (p.recordedAt ?? p.createdAt).toISOString(), ...(p.sourceType ? { sourceType: p.sourceType } : {}), createdAt: p.createdAt.toISOString() })),
     };
   }
@@ -1649,8 +1650,8 @@ export class CoreController {
         for (const line of createdLines) {
           const variantAttributes=(line.variant?.attributes&&typeof line.variant.attributes==='object'&&!Array.isArray(line.variant.attributes))?line.variant.attributes as Record<string,unknown>:{};
           const visibleVariant=Object.entries(variantAttributes).filter(([key,value])=>!/^(secret|password|token|internal)/i.test(key)&&(typeof value==='string'||typeof value==='number')).map(([key,value])=>`${key.replace(/([A-Z])/g,' $1')}: ${String(value)}`).join(' · ').slice(0,500);
-          const serialRows=line.serialIds.length?await tx.inventorySerial.findMany({where:{tenantId:workspaceId,branchId,id:{in:line.serialIds}},select:{serialNumber:true}}):[];
-          const serialNumbersSnapshot=serialRows.map(s=>s.serialNumber);
+          const serialRows=line.serialIds.length?await tx.inventorySerial.findMany({where:{tenantId:workspaceId,branchId,id:{in:line.serialIds}},select:{id:true,serialNumber:true}}):[];
+          const serialNumbersSnapshot=orderedSaleSerialNumbers(line.serialIds,serialRows);
           if(serialNumbersSnapshot.length!==line.serialIds.length)throw new ConflictException('Device identifiers changed during checkout.');
           await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, variantId: line.variant?.id ?? null, unitOfMeasureId: line.product.unitOfMeasureId ?? null, taxCodeId: line.taxCodeId, taxRateBasisPoints: line.taxRateBasisPoints, taxMinor: line.taxMinor, taxableMinor: line.netMinor, taxCodeSnapshot: line.taxCodeSnapshot, taxDescriptionSnapshot: line.taxDescriptionSnapshot, taxRuleVersionId: line.taxRuleVersionId, taxCalculationMethod: line.taxCalculationMethod, taxRoundingMethod: line.taxRoundingMethod, taxReferenceDocumentVersionId: line.taxReferenceDocumentVersionId, taxReferenceDocumentVersion: line.taxReferenceDocumentVersion, priceListId: line.priceListId, lotId: line.lot?.id ?? null, serialIds: line.serialIds, productNameSnapshot: line.product.name, variantDescriptionSnapshot:visibleVariant||null, unitNameSnapshot:line.product.unitOfMeasure??'Each',serialNumbersSnapshot, skuSnapshot:line.variant?.sku??line.product.sku,barcodeSnapshot:line.product.barcode??null,quantity: String(line.quantity), warrantyMonthsSnapshot:(()=>{const months=Number((line.product.attributes as Record<string,unknown> | null)?.warrantyMonths??NaN);return Number.isSafeInteger(months)&&months>=0&&months<=240?months:null;})(), unitCostMinor: line.exactUnitCostMinor ?? line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
           if (line.product.trackStock) {
@@ -1809,7 +1810,20 @@ export class CoreController {
     if (!recordRefund && refundPaymentId) throw new BadRequestException('Choose an original receipt only when recording a refund.');
     const refundMethod = requiredString(body.refundMethod ?? 'other', 'Refund method', 40);
     if (!PAYMENT_METHODS.has(refundMethod)) throw new BadRequestException('Unsupported refund method.');
-    const requested = body.items.map((item) => { const row = asObject(item, 'return item'); const disposition = optionalString(row.disposition, 20) ?? 'restock'; if (!['restock', 'quarantine', 'scrap'].includes(disposition)) throw new BadRequestException('Return disposition must be restock, quarantine or scrap.'); return { saleLineId: requiredString(row.saleLineId, 'Sale line ID', 80), quantity: positiveQuantity(row.quantity), disposition }; });
+    const requested = body.items.map((item) => {
+      const row = asObject(item, 'return item');
+      const disposition = optionalString(row.disposition, 20) ?? 'restock';
+      if (!['restock', 'quarantine', 'scrap'].includes(disposition)) throw new BadRequestException('Return disposition must be restock, quarantine or scrap.');
+      if (row.serialIds !== undefined && !Array.isArray(row.serialIds)) throw new BadRequestException('Returned serial IDs must be an array.');
+      const serialIds = (row.serialIds ?? []) as unknown[];
+      if (serialIds.length > 200) throw new BadRequestException('Too many physical units in one return line.');
+      const inspection = row.inspection === undefined ? null : asObject(row.inspection, 'return inspection');
+      return {
+        saleLineId: requiredString(row.saleLineId, 'Sale line ID', 80), quantity: positiveQuantity(row.quantity), disposition,
+        serialIds: serialIds.map(value => requiredString(value, 'Returned serial ID', 80)),
+        inspection,
+      };
+    });
     if (new Set(requested.map((item) => item.saleLineId)).size !== requested.length) {
       throw new BadRequestException('A sale line can appear only once in a return request. Combine quantities for the same line.');
     }
@@ -1834,9 +1848,11 @@ export class CoreController {
         if (!sale) throw new NotFoundException('Sale not found.');
         const returnProductIds = [...new Set(sale.lines.map((line: any) => line.productId))].sort();
         const lockedProducts = returnProductIds.length
-          ? await tx.$queryRaw<Array<{ id: string; track_stock: boolean }>>`SELECT id,track_stock FROM products WHERE tenant_id = ${workspaceId}::uuid AND id = ANY(${returnProductIds}::uuid[]) ORDER BY id FOR UPDATE`
+          ? await tx.$queryRaw<Array<{ id: string; track_stock: boolean; track_serial: boolean; track_lot: boolean }>>`SELECT id,track_stock,track_serial,track_lot FROM products WHERE tenant_id = ${workspaceId}::uuid AND id = ANY(${returnProductIds}::uuid[]) ORDER BY id FOR UPDATE`
           : [];
         const trackedProductIds = new Set(lockedProducts.filter((product) => product.track_stock).map((product) => String(product.id)));
+        const serializedProductIds = new Set(lockedProducts.filter((product) => product.track_serial).map((product) => String(product.id)));
+        const lotTrackedProductIds = new Set(lockedProducts.filter((product) => product.track_lot).map((product) => String(product.id)));
         const oldReturns = await tx.saleReturn.findMany({ where: { tenantId: workspaceId, saleId }, include: { lines: true } });
         let totalMinor = 0;
         const resolved: any[] = [];
@@ -1848,11 +1864,26 @@ export class CoreController {
           const amount = Math.round(Number(line.lineTotalMinor) * item.quantity / Math.max(Number(line.quantity), 0.001));
           const lineTax = Math.max(0, Math.round(Number((line as any).taxMinor ?? 0) * item.quantity / Math.max(Number(line.quantity), 0.001)));
           const previouslyReturnedSerials = oldReturns.flatMap((r:any)=>r.lines).filter((l:any)=>l.originalSaleLineId===line.id).flatMap((l:any)=>l.serialIds??[]);
-          const availableSerials = ((line as any).serialIds??[]).filter((serialId:string)=>!previouslyReturnedSerials.includes(serialId));
-          if ((line as any).serialIds?.length && (!Number.isInteger(item.quantity) || availableSerials.length < item.quantity)) throw new ConflictException('Returned serial quantity exceeds the serials still assigned to this sale.');
-          const returnedSerialIds = availableSerials.slice(0,Math.ceil(item.quantity));
+          let returnedSerialIds: string[];
+          try {
+            returnedSerialIds = exactReturnedSerials(line.serialIds,previouslyReturnedSerials,item.serialIds,item.quantity);
+            if (returnedSerialIds.length) {
+              validateSerializedReturnDisposition(item.disposition,item.inspection);
+              const originalUnits = await tx.inventorySerial.findMany({where:{tenantId:workspaceId,branchId,id:{in:returnedSerialIds}},select:{id:true,serialNumber:true}});
+              matchPhysicalReturnScans(returnedSerialIds,item.inspection?.scannedSerialNumbers,originalUnits);
+            }
+          } catch (error) {
+            if (error instanceof ExactSerialReturnError) throw new ConflictException(error.message);
+            throw error;
+          }
+          if (serializedProductIds.has(line.productId) && !returnedSerialIds.length)
+            throw new ConflictException('This historical serialized sale lacks exact unit evidence; reconcile the original sale before returning stock.');
+          if (item.disposition === 'quarantine' && trackedProductIds.has(line.productId) && !returnedSerialIds.length && !lotTrackedProductIds.has(line.productId))
+            throw new ConflictException('Quarantine of anonymous quantity stock requires the separately controlled warehouse intake workflow.');
+          if (trackedProductIds.has(line.productId) && ['restock','quarantine'].includes(item.disposition) && line.unitCostMinor === null)
+            throw new ConflictException('A verified original cost is required before restoring return inventory value.');
           totalMinor += amount;
-          resolved.push({ line, quantity: item.quantity, amount, taxAmount: lineTax, disposition: item.disposition, serialIds:returnedSerialIds, trackStock: trackedProductIds.has(line.productId) });
+          resolved.push({ line, quantity: item.quantity, amount, taxAmount: lineTax, disposition: item.disposition, serialIds:returnedSerialIds, inspection:item.inspection, trackStock: trackedProductIds.has(line.productId) });
         }
         const returnNumber = `LR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomBytes(4).toString('hex').toUpperCase()}`;
         if (recordRefund) {
@@ -1872,16 +1903,56 @@ export class CoreController {
         const returned = await tx.saleReturn.create({ data: { tenantId: workspaceId, branchId, saleId, returnNumber, totalMinor, reason, refundRecorded: recordRefund } });
         for (const item of resolved) {
           await tx.saleReturnLine.create({ data: { tenantId: workspaceId, returnId: returned.id, originalSaleLineId: item.line.id, productId: item.line.productId, productNameSnapshot: item.line.productNameSnapshot, quantity: String(item.quantity), unitPriceMinor: item.line.unitPriceMinor, lineTotalMinor: item.amount, disposition: item.disposition, serialIds: item.serialIds } });
-          if (item.trackStock && item.disposition === 'restock') {
-            if ((item.line as any).lotId) await tx.inventoryLot.update({ where:{id:(item.line as any).lotId}, data:{quantityOnHand:{increment:item.quantity},status:'available'} });
-            if (item.serialIds.length) await tx.inventorySerial.updateMany({ where:{tenantId:workspaceId,branchId,id:{in:item.serialIds},status:'sold'}, data:{status:'available'} });
+          if (item.trackStock && (item.disposition === 'restock' || item.disposition === 'quarantine')) {
+            // Quarantined returns increase physical custody but never available quantity.
+            // Do not fabricate a serial or select a different sold unit by array position.
+            if ((item.line as any).lotId) {
+              const lotId = (item.line as any).lotId as string;
+              const lot = await tx.inventoryLot.findFirst({where:{tenantId:workspaceId,id:lotId}});
+              if (!lot || lot.branchId !== branchId || lot.productId !== item.line.productId)
+                throw new ConflictException('Original lot ownership changed; physical return needs inventory reconciliation.');
+              if (item.disposition === 'restock' && (lot.status === 'expired' || lot.status === 'scrap' ||
+                  (lot.expiryDate && lot.expiryDate.getTime() <= Date.now())))
+                throw new ConflictException('Expired or scrapped lots cannot be restored as saleable stock. Quarantine and inspect instead.');
+              await tx.inventoryLot.update({where:{id:lotId},data:{
+                quantityOnHand:{increment:item.quantity},
+                ...(item.disposition === 'quarantine' ? {quantityQuarantined:{increment:item.quantity}} : {}),
+                ...(lot.status === 'depleted' ? {status:'available'} : {}),
+              }});
+            }
             if (item.serialIds.length) {
-              for (const serialId of item.serialIds) await tx.stockMovement.create({data:{tenantId:workspaceId,branchId,productId:item.line.productId,variantId:(item.line as any).variantId??null,lotId:(item.line as any).lotId??null,serialId,type:'return',quantityDelta:'1',unitCostMinor:item.line.unitCostMinor??0,reason:`Return ${returnNumber}`,sourceId:returned.id}});
-            } else await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: item.line.productId, type: 'return', quantityDelta: String(item.quantity), variantId: (item.line as any).variantId ?? null, lotId:(item.line as any).lotId??null, unitCostMinor: item.line.unitCostMinor ?? 0, reason: `Return ${returnNumber}`, sourceId: returned.id } });
-          } else if (item.serialIds.length && item.disposition !== 'restock') {
-            await tx.inventorySerial.updateMany({where:{tenantId:workspaceId,branchId,id:{in:item.serialIds},status:'sold'},data:{status:item.disposition==='quarantine'?'quarantined':'scrapped'}});
-            if(item.disposition==='quarantine'&&(item.line as any).lotId) await tx.inventoryLot.update({where:{id:(item.line as any).lotId},data:{quantityQuarantined:{increment:item.quantity}}});
-          } else if (item.disposition==='quarantine'&&(item.line as any).lotId) await tx.inventoryLot.update({where:{id:(item.line as any).lotId},data:{quantityQuarantined:{increment:item.quantity}}});
+              const nextStatus = item.disposition === 'quarantine' ? 'quarantine' : 'available';
+              const changed = await tx.inventorySerial.updateMany({
+                where:{tenantId:workspaceId,branchId,id:{in:item.serialIds},productId:item.line.productId,status:'sold'},
+                data:{status:nextStatus},
+              });
+              if (changed.count !== item.serialIds.length)
+                throw new ConflictException('A selected physical unit is not sold or has already been returned. No stock was posted.');
+              for (const serialId of item.serialIds) {
+                await tx.stockMovement.create({data:{
+                  tenantId:workspaceId,branchId,productId:item.line.productId,
+                  variantId:(item.line as any).variantId??null,lotId:(item.line as any).lotId??null,
+                  serialId,type:'return',quantityDelta:'1',unitCostMinor:item.line.unitCostMinor,
+                  reason:`Inspected ${item.disposition} return ${returnNumber}`,sourceId:returned.id,
+                }});
+              }
+              await tx.auditEvent.create({data:{
+                tenantId:workspaceId,actorUserId:session.userId,action:'inventory.serial_return.inspected',
+                resourceType:'sale_return',resourceId:returned.id,
+                metadata:{saleLineId:item.line.id,unitIds:item.serialIds,disposition:item.disposition,
+                  conditionNotes:item.inspection?.notes,physicalSerialScanned:true,conditionChecked:true},
+              }});
+            } else {
+              await tx.stockMovement.create({data:{tenantId:workspaceId,branchId,
+                productId:item.line.productId,type:'return',quantityDelta:String(item.quantity),
+                variantId:(item.line as any).variantId??null,lotId:(item.line as any).lotId??null,
+                unitCostMinor:item.line.unitCostMinor,reason:`Return ${returnNumber} (${item.disposition})`,sourceId:returned.id}});
+            }
+          } else if (item.serialIds.length) {
+            // No direct serialized scrap: a later approved inventory write-off must
+            // record the matching stock and GL reversals before disposal.
+            throw new ConflictException('Serialized devices must be inspected and quarantined before a separately approved write-off.');
+          }
         }
         if (recordRefund) {
           const activeCashSession = refundMethod === 'cash' ? await tx.cashSession.findFirst({ where: { tenantId: workspaceId, branchId, openedByUserId: session.userId, status: 'open' }, select: { id: true } }) : null;
@@ -1894,7 +1965,7 @@ export class CoreController {
           } });
           if (activeCashSession) await tx.cashMovement.create({ data: { tenantId: workspaceId, branchId, cashSessionId: activeCashSession.id, direction: 'out', category: 'pos_sale_refund', amountMinor: BigInt(totalMinor), referenceType: 'sale_payment', referenceId: refundPayment.id, idempotencyKey: `sale-payment:${refundPayment.id}`, createdByUserId: session.userId } });
         }
-        const returnCostMinor = resolved.filter((item) => item.trackStock && item.disposition === 'restock').reduce((sum, item) => sum + Math.round(Number(item.line.unitCostMinor ?? 0) * item.quantity), 0);
+        const returnCostMinor = resolved.filter((item) => item.trackStock && ['restock','quarantine'].includes(item.disposition)).reduce((sum, item) => sum + Math.round(Number(item.line.unitCostMinor) * item.quantity), 0);
         let returnJournalId: string | null = null;
         if (totalMinor > 0 || returnCostMinor > 0) {
           const returnLines: Array<{ accountKey: string; debitMinor?: number; creditMinor?: number; description?: string }> = [];

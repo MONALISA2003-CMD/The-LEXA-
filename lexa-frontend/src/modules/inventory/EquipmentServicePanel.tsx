@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import {useMutation,useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
 import {apiCatalogInventory} from '../../data/remote/apiWorkstream03';
@@ -6,11 +6,13 @@ import {apiEquipmentService,type EquipmentDelivery,type EquipmentUpgrade} from '
 import type {Product} from '../../domain/shared/types';
 
 /** Only the server may commit inventory or accounting. Operations are tenant-flag gated. */
-export default function EquipmentServicePanel({workspaceId,branchId,products}:{workspaceId:string;branchId:string;products:readonly Product[]}){
+export default function EquipmentServicePanel({workspaceId,branchId,products,initialUnitId='',initialSaleLineId=''}:{workspaceId:string;branchId:string;products:readonly Product[];initialUnitId?:string;initialSaleLineId?:string}){
  const client=useQueryClient();
  const [serialInput,setSerialInput]=useState('');
- const [unitId,setUnitId]=useState('');
- const [saleLineId,setSaleLineId]=useState('');
+ const [unitId,setUnitId]=useState(initialUnitId);
+ const [saleLineId,setSaleLineId]=useState(initialSaleLineId);
+ useEffect(()=>{if(initialUnitId)setUnitId(initialUnitId);},[initialUnitId]);
+ useEffect(()=>{if(initialSaleLineId)setSaleLineId(initialSaleLineId);},[initialSaleLineId]);
  const [partProductId,setPartProductId]=useState('');
  const [partVariantId,setPartVariantId]=useState('');
  const [partLotId,setPartLotId]=useState('');
