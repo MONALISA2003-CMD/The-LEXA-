@@ -105,6 +105,18 @@ export function permissionForRequest(method: string, pathname: string, params: R
   const moduleId = typeof params.moduleId === 'string' ? params.moduleId : undefined;
   const choose = (read: Permission, mutation: Permission): Permission => write ? mutation : read;
 
+  // Electronics unit/service routes have operation-specific permission requirements;
+  // never fall through to the generic workspace.manage default.
+  if (/\/branches\/[^/]+\/equipment\/subtypes$/.test(path)) return 'catalog.read';
+  if (/\/branches\/[^/]+\/equipment\/subtypes\/validate$/.test(path)) return 'catalog.write';
+  if (/\/branches\/[^/]+\/equipment\/rollout-status$/.test(path)) return 'workspace.read';
+  if (/\/branches\/[^/]+\/equipment\/reports\/physical-units$/.test(path)) return 'reports.read';
+  if (/\/branches\/[^/]+\/equipment\/reports\/reconciliation$/.test(path)) return 'finance.read';
+  if (/\/branches\/[^/]+\/equipment\/serials\/[^/]+\/service-history$/.test(path)) return 'inventory.read';
+  if (/\/branches\/[^/]+\/equipment\/upgrades\/[^/]+\/(?:approve|apply)$/.test(path)) return 'inventory.approve';
+  if (/\/branches\/[^/]+\/equipment\/upgrades$/.test(path)) return choose('inventory.read','inventory.write');
+  if (/\/branches\/[^/]+\/equipment\/(?:fulfilments|installed-systems)(?:\/|$)/.test(path)) return choose('fulfilment.read','fulfilment.write');
+  if (/\/branches\/[^/]+\/equipment\/(?:warranty-cases|customer-repairs|copier-meters)$/.test(path)) return 'support.write';
   if (/\/workspaces\/[^/]+\/staff(?:\/|$)/.test(path)) return 'workspace.manage';
   if (/\/workspaces\/[^/]+\/roles\/catalog$/.test(path)) return 'workspace.manage';
   if (/\/workspaces\/[^/]+\/my-employment$/.test(path)) return 'workspace.read';

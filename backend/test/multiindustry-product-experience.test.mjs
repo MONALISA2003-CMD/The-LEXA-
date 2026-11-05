@@ -15,6 +15,7 @@ function loadPolicy(){
   if(name==='@nestjs/common')return {BadRequestException};
   if(name==='./industry-contract.generated')return {INDUSTRY_POLICIES:{smartphone:preset},LEGACY_PRODUCT_TYPE_FIELDS:{}};
   if(name==='../business-setup/business-setup.rules')return {normaliseSavedIndustries:(codes)=>codes??[]};
+  if(name==='./equipment-domain-rules')return {subtypePolicy:()=>{throw Error('No equipment subtype expected in legacy policy test.');},validateEquipmentSpecs:()=>{throw Error('No equipment specs expected in legacy policy test.');},EquipmentRuleError:class EquipmentRuleError extends Error{}};
   throw new Error('Unmocked module '+name);
  };
  new Function('require','exports',js)(requireStub,exports);

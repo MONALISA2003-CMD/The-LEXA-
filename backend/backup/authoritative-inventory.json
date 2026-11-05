@@ -1108,5 +1108,65 @@
     "disposition": "authoritative",
     "domain": "catalog",
     "rationale": "Electronic inventory unit identity, package or bundle records; tenant-scoped and backed up"
+  },
+  {
+    "table": "equipment_upgrade_work_orders",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Approved exact-unit upgrade service work orders"
+  },
+  {
+    "table": "equipment_upgrade_parts",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Approved component issue and cost evidence"
+  },
+  {
+    "table": "equipment_unit_configuration_events",
+    "disposition": "authoritative",
+    "domain": "inventory",
+    "rationale": "Append-only unit configuration and exact cost events"
+  },
+  {
+    "table": "equipment_unit_fulfilments",
+    "disposition": "authoritative",
+    "domain": "fulfilment",
+    "rationale": "Exact physical sold-unit fulfilment status"
+  },
+  {
+    "table": "equipment_fulfilment_events",
+    "disposition": "authoritative",
+    "domain": "fulfilment",
+    "rationale": "Append-only delivery, evidence, and return-to-warehouse status history"
+  },
+  {
+    "table": "equipment_installed_systems",
+    "disposition": "authoritative",
+    "domain": "fulfilment",
+    "rationale": "Customer on-site systems and commissioning"
+  },
+  {
+    "table": "equipment_installed_components",
+    "disposition": "authoritative",
+    "domain": "fulfilment",
+    "rationale": "Component serial assignment to installed systems"
+  },
+  {
+    "table": "equipment_warranty_cases",
+    "disposition": "authoritative",
+    "domain": "support",
+    "rationale": "Warranty cases linked to original sold unit"
+  },
+  {
+    "table": "equipment_customer_repair_custody",
+    "disposition": "authoritative",
+    "domain": "support",
+    "rationale": "Customer owned repair custody outside sale stock"
+  },
+  {
+    "table": "equipment_copier_meter_events",
+    "disposition": "authoritative",
+    "domain": "support",
+    "rationale": "Immutable copier meter reads"
   }
 ]

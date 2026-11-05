@@ -10,6 +10,7 @@ import {BarcodeCapture} from '../../components/barcode/BarcodeCapture';
 import {UnitConditionManager} from './DeviceCatalogExperiences';
 import {familyForCategory,validateWizardVariants,validateWizardVariantAxes} from '../../domain/catalog/electronicsFamilyWizard';
 import {productFieldsForFamily,mergeProductFields} from '../../domain/catalog/electronicsProductFieldAdapter';
+import {EQUIPMENT_SUBTYPE_CONTRACT} from '../../domain/catalog/equipment-subtypes.generated';
 import './adaptive-products.css';
 
 type FieldsProps = {
@@ -53,7 +54,21 @@ export default function AdaptiveProductFields({industries,workspaceId,categories
  // before merging so strict TS never assumes their persisted schema has `required`.
  const customFields:ProductField[]=[...new Map(ancestorCategories.flatMap(c=>c.attributeSchema??[]).map(f=>[f.key,{...f,required:f.required===true}] as const)).values()];
  const coreFields:readonly ProductField[]=wizard?wizardFields:preset.fields;
- const fields=mergeProductFields(coreFields,customFields);
+ const familyCode=wizard?.code??productType;
+ const equipmentOptions=EQUIPMENT_SUBTYPE_CONTRACT.subtypes.filter(entry=>entry.familyCode===familyCode);
+ const equipment=equipmentOptions.find(entry=>entry.code===attributes.equipmentSubtypeCode);
+ const subtypeFields:ProductField[]=equipment?.fields.map(field=>({
+  key:field.key,
+  label:field.key.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/^./,value=>value.toUpperCase()),
+  kind:field.type==='enum'?'select':field.type,
+  required:field.required,
+  ...('choices' in field?{options:field.choices}:{}),
+ }))??[];
+ const baseFields=mergeProductFields(coreFields,subtypeFields);
+ const fields=mergeProductFields(baseFields,customFields).map(field=>({
+  ...field,
+  required:field.required===true||subtypeFields.some(required=>required.key===field.key&&required.required===true),
+ }));
  return <div className="lexa-adaptive-product-fields">
    <div className="lexa-product-field-heading"><strong>Product type & relevant details</strong><span>LEXA shows fields appropriate for this item—not every industry.</span></div>
    {specialized&&<div className="lexa-product-hint"><strong>Choose the correct retail product family:</strong><div className="lexa-division-filters">{(['all','phones','accessories','electronics','appliances'] as const).map(key=><button type="button" key={key} aria-pressed={division===key} className={`button button-small ${division===key?'button-primary':'button-secondary'}`} onClick={()=>setDivision(key)}>{key==='all'?'All business types':key[0]!.toUpperCase()+key.slice(1)}</button>)}</div><small>Phones are identified by actual device IMEIs. Accessories use fitment and quantity; electronics and appliances use their own specifications and serial rules.</small></div>}
@@ -76,6 +91,27 @@ export default function AdaptiveProductFields({industries,workspaceId,categories
      <small className="field-help">Choose a suggested category path below or create a nested category with the category manager. Existing categories remain unchanged.</small>
      {paths.length>0&&<div className="lexa-catalogue-path-suggestions"><label className="field-label">Suggested industry hierarchy<select value="" onChange={e=>{const path=paths.find(p=>p.join(' › ')===e.target.value);if(path){const full=path.join(' › ');const matched=categories.find(c=>categoryPath(c,byId)===full);if(matched){onChange({categoryId:matched.id,categoryName:'',attributes:{}});}else ensurePath.mutate([...path]);}}}><option value="">Choose a category path</option>{paths.map(path=><option key={path.join('/')} value={path.join(' › ')}>{path.join(' › ')}</option>)}</select></label><small className="field-help">LEXA will create a missing approved path in your workspace, without inventing products or stock.</small></div>}
    </div>}
+   {equipmentOptions.length>0&&<section className="lexa-product-attributes" aria-label="Equipment manufacturer specifications">
+     <p><strong>Manufacturer configuration</strong> · Choose the exact equipment subtype. The SKU and the physical unit are recorded separately.</p>
+     <div className="form-two-col">
+       <label className="field-label">Equipment subtype
+         <select value={equipment?.code??''} onChange={event=>{
+           const selected=equipmentOptions.find(entry=>entry.code===event.target.value);
+           const retained=Object.fromEntries(Object.entries(attributes).filter(([key])=>
+             key!=='equipmentSubtypeCode'&&key!=='manufacturerModelCode'&&
+             !EQUIPMENT_SUBTYPE_CONTRACT.subtypes.some(entry=>entry.fields.some(field=>field.key===key))));
+           onChange({attributes:{...retained,...(selected?{equipmentSubtypeCode:selected.code}:{})},tracking:selected?(selected.tracking==='serial'?'serial':'quantity'):preset.stock});
+         }}>
+           <option value="">Choose specific equipment</option>
+           {equipmentOptions.map(entry=><option key={entry.code} value={entry.code}>{entry.code.split('.').slice(-2).join(' ').replace(/_/g,' ')}</option>)}
+         </select>
+       </label>
+       {equipment&&<label className="field-label">Manufacturer model code *
+         <input required maxLength={120} value={attributes.manufacturerModelCode??''} onChange={event=>onChange({attributes:{...attributes,manufacturerModelCode:event.target.value}})} placeholder="Exact code from the device or manufacturer"/>
+       </label>}
+     </div>
+     {equipment&&<small className="field-help">{equipment.tracking==='serial'?'Track each physical item by its real manufacturer serial during receiving.':'Receive this subtype by verified quantity; do not fabricate a serial number.'} Inspect used or refurbished units before sale.</small>}
+   </section>}
    {fields.length>0&&<div className="lexa-product-attributes">
      <p><strong>{preset.label} details</strong> · Enter the information relevant to this product.</p>
      <div className="form-two-col">{fields.map(field=><label className="field-label" key={field.key}>{field.label}{field.required?' *':''}
@@ -85,9 +121,9 @@ export default function AdaptiveProductFields({industries,workspaceId,categories
      </label>)}</div>
    </div>}
    {(wizard?.variantAxes.length??preset.variants.length)>0&&<p className="lexa-product-hint">This type supports variants by {(wizard?.variantAxes??preset.variants).join(', ')}. Save the product, then add its sellable variants below. Each variant has its own SKU and stock.</p>}
-   {preset.stock!=='none'&&<p className="lexa-product-hint"><strong>Inventory rule:</strong> {preset.stock==='serial'?'Track each physical unit with an IMEI or serial number.':preset.stock==='batch'?'Track lots or production batches.':'Track quantity per product variant.'} Follow this tracking method when receiving or selling the item.</p>}
-   {preset.stock==='serial'&&<p className="lexa-product-hint">Each physical device must have its actual IMEI or serial recorded when stock is received. A batch number is optional.</p>}
-   {preset.stock==='batch'&&<p className="lexa-product-hint">Use batches and expiry dates for products requiring expiry or lot tracking.</p>}
+   {preset.stock!=='none'&&<p className="lexa-product-hint"><strong>Inventory rule:</strong> {(equipment?.tracking??preset.stock)==='serial'?'Track each physical unit with an IMEI or serial number.':(equipment?.tracking??preset.stock)==='batch'?'Track lots or production batches.':'Track quantity per product variant.'} Follow this tracking method when receiving or selling the item.</p>}
+   {(equipment?.tracking??preset.stock)==='serial'&&<p className="lexa-product-hint">Each physical device must have its actual IMEI or serial recorded when stock is received. A batch number is optional.</p>}
+   {(equipment?.tracking??preset.stock)==='batch'&&<p className="lexa-product-hint">Use batches and expiry dates for products requiring expiry or lot tracking.</p>}
  </div>;
 }
 

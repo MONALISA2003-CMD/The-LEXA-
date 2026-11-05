@@ -126,6 +126,21 @@ export class CommerceController {
     return { lines: normalized, totalsByProduct, totalMinor };
   }
 
+  /** This legacy order screen cannot select an exact variant, lot or physical serial.
+   * Refuse these products before reserving or posting anything; the canonical
+   * procurement/checkout endpoints provide the required identity and cost links.
+   */
+  private async assertLegacyOrderCanTrackProducts(tx: Tx, tenantId: string, lines: ReadonlyArray<{ product: { id: string; trackSerial: boolean; trackLot: boolean } }>): Promise<void> {
+    for (const { product } of lines) {
+      if (product.trackSerial || product.trackLot) {
+        throw new BadRequestException('Use the inventory-aware workflow for serialized or lot-tracked goods. The order must identify each actual unit or lot.');
+      }
+      if (await tx.productVariant.count({ where: { tenantId, productId: product.id, active: true } })) {
+        throw new BadRequestException('This product has sellable variants. Choose the exact SKU in the inventory-aware order workflow.');
+      }
+    }
+  }
+
   private async audit(tx: Tx, tenantId: string, actorId: string, action: string, type: string, id: string) {
     await tx.auditEvent.create({ data: { tenantId, actorUserId: actorId, action, resourceType: type, resourceId: id } });
   }
@@ -165,6 +180,7 @@ export class CommerceController {
         if(prior.length)throw new ConflictException('An order already exists for this quotation. Open your orders instead.');
       }
       const values = await this.productsFor(tx, workspaceId, body.lines, 'sell');
+      await this.assertLegacyOrderCanTrackProducts(tx, workspaceId, values.lines);
       let quoteLines:any=quote?.quoteProductLines;
       if(quote&&typeof quote.quoteProductLinesJson==='string'){
         try{quoteLines=JSON.parse(quote.quoteProductLinesJson);}catch{throw new ConflictException('The quotation products could not be read.');}
@@ -211,6 +227,7 @@ export class CommerceController {
       if(productIds.length) await tx.$queryRaw`SELECT id FROM products WHERE tenant_id=${workspaceId}::uuid AND id=ANY(${productIds}::uuid[]) ORDER BY id FOR UPDATE`;
       for(const line of lines){
         const product=await tx.product.findFirst({where:{id:line.product_id,tenantId:workspaceId,active:true}}); if(!product) throw new NotFoundException('An ordered product is no longer active.');
+        await this.assertLegacyOrderCanTrackProducts(tx,workspaceId,[{product}]);
         if(!product.trackStock) continue;
         const movement=await tx.stockMovement.aggregate({where:{tenantId:workspaceId,branchId,productId:line.product_id},_sum:{quantityDelta:true}});
         const reserved=await tx.$queryRaw<Array<{qty:any}>>`SELECT COALESCE(SUM(quantity_reserved),0) AS qty FROM commerce_stock_reservations WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND product_id=${line.product_id}::uuid`;
@@ -269,6 +286,7 @@ export class CommerceController {
         const outstanding=Number(line.quantity)-Number(line.quantity_fulfilled); const selected=requested?.find((x)=>x.orderLineId===line.id)?.quantity??(requested?0:outstanding);
         if(selected<=0) continue; if(selected>outstanding) throw new ConflictException(`Cannot fulfil more than ${outstanding} remaining for ${line.product_name_snapshot}.`);
         const product=await tx.product.findFirst({where:{id:line.product_id,tenantId:workspaceId,active:true}}); if(!product) throw new NotFoundException('An ordered product is unavailable.');
+        await this.assertLegacyOrderCanTrackProducts(tx,workspaceId,[{product}]);
         if(product.trackStock){
           const reservation=await tx.$queryRaw<Array<{qty:any}>>`SELECT quantity_reserved AS qty FROM commerce_stock_reservations WHERE order_line_id=${line.id}::uuid FOR UPDATE`;
           const reserved=Number(reservation[0]?.qty??0); if(reserved<selected) throw new ConflictException('The stock reservation is no longer sufficient. Reconfirm the order with an administrator.');
@@ -387,7 +405,7 @@ export class CommerceController {
     const actor=await this.access(req,workspaceId,branchId);const body=object(raw);const supplierId=text(body.supplierRecordId,'Supplier record',160,true)??null;const supplierName=text(body.supplierName,'Supplier name',180)!;const expectedDate=dateValue(body.expectedDate,'Expected delivery date');
     return this.prisma.$transaction(async(tx)=>{
       if(supplierId){const supplier=await this.moduleRecordExists(tx,workspaceId,branchId,'suppliers',supplierId);if(supplier.status&&supplier.status!=='Active')throw new ConflictException('The selected supplier is not active.');}
-      const values=await this.productsFor(tx,workspaceId,body.lines,'cost');const tenant=await tx.tenant.findUnique({where:{id:workspaceId},select:{currency:true}});const currency=tenant?.currency??'UGX';const id=randomUUID();const orderNumber=doc('PO');const createdAt=new Date().toISOString();
+      const values=await this.productsFor(tx,workspaceId,body.lines,'cost');await this.assertLegacyOrderCanTrackProducts(tx,workspaceId,values.lines);const tenant=await tx.tenant.findUnique({where:{id:workspaceId},select:{currency:true}});const currency=tenant?.currency??'UGX';const id=randomUUID();const orderNumber=doc('PO');const createdAt=new Date().toISOString();
       await tx.$executeRaw`INSERT INTO commerce_purchase_orders (id,tenant_id,branch_id,order_number,supplier_record_id,supplier_name,expected_date,status,total_minor,created_by_user_id) VALUES (${id}::uuid,${workspaceId}::uuid,${branchId}::uuid,${orderNumber},${supplierId},${supplierName},${expectedDate}::date,'draft',${values.totalMinor},${actor.userId}::uuid)`;
       for(const line of values.lines)await tx.$executeRaw`INSERT INTO commerce_purchase_order_lines (id,tenant_id,order_id,product_id,product_name_snapshot,sku_snapshot,quantity,unit_cost_minor,line_total_minor) VALUES (${randomUUID()}::uuid,${workspaceId}::uuid,${id}::uuid,${line.product.id}::uuid,${line.product.name},${line.product.sku},${String(line.quantity)}::numeric,${line.product.costPriceMinor},${line.lineTotal})`;
       await this.moduleRecord(tx,workspaceId,branchId,'purchases',id,{id,poNumber:orderNumber,supplier:supplierName,supplierRecordId:supplierId??'',orderDate:createdAt.slice(0,10),expectedDate:expectedDate??'',itemSummary:values.lines.map(l=>l.product.name).join(', '),quantity:String(values.lines.reduce((sum,l)=>sum+l.quantity,0)),unitCost:values.lines.length?majorAmount(values.lines[0]!.product.costPriceMinor,currency):'0',total:majorAmount(values.totalMinor,currency),totalMinor:String(values.totalMinor),currency,status:'Draft',createdAt});
@@ -415,7 +433,7 @@ export class CommerceController {
       const selectedLineIds = new Set(receiptLineIds as string[]);
       const selectedProductIds = [...new Set(poLines.filter((line:any)=>selectedLineIds.has(String(line.id))).map((line:any)=>String(line.product_id)))].sort();
       if (selectedProductIds.length) await tx.$queryRaw`SELECT id FROM products WHERE tenant_id=${workspaceId}::uuid AND id=ANY(${selectedProductIds}::uuid[]) ORDER BY id FOR UPDATE`;
-      for(const itemValue of receiptLineValues){const item=object(itemValue,'Receipt line');const line=poLines.find(l=>l.id===item.orderLineId);if(!line)throw new BadRequestException('A receipt line does not belong to this purchase order.');const accepted=item.acceptedQuantity===undefined||item.acceptedQuantity===''?0:nonNegativeQuantity(item.acceptedQuantity,'Accepted quantity');const rejected=item.rejectedQuantity===undefined||item.rejectedQuantity===''?0:nonNegativeQuantity(item.rejectedQuantity,'Rejected quantity');if(!accepted&&!rejected)throw new BadRequestException('Enter an accepted or rejected quantity for every receipt line.');const remaining=Number(line.quantity)-Number(line.quantity_accepted);if(accepted>remaining)throw new ConflictException(`Accepted quantity exceeds ${remaining} still outstanding for ${line.product_name_snapshot}. Rejected units do not satisfy the purchase commitment.`);const product=await tx.product.findFirst({where:{id:line.product_id,tenantId:workspaceId,active:true}});if(!product)throw new NotFoundException('A purchase-order product is unavailable.');if(product.trackSerial||product.trackLot)throw new BadRequestException('Serialized and batch-tracked goods must use the validated procurement receiving workflow with actual unit identifiers or lot details.');const expiry=dateValue(item.expiryDate,'Expiry date');received.push({line,accepted,rejected,product,batch:text(item.batchNumber,'Batch number',100,true),expiry:expiry??undefined,rejectReason:text(item.rejectionReason,'Rejection reason',300,true)});}
+      for(const itemValue of receiptLineValues){const item=object(itemValue,'Receipt line');const line=poLines.find(l=>l.id===item.orderLineId);if(!line)throw new BadRequestException('A receipt line does not belong to this purchase order.');const accepted=item.acceptedQuantity===undefined||item.acceptedQuantity===''?0:nonNegativeQuantity(item.acceptedQuantity,'Accepted quantity');const rejected=item.rejectedQuantity===undefined||item.rejectedQuantity===''?0:nonNegativeQuantity(item.rejectedQuantity,'Rejected quantity');if(!accepted&&!rejected)throw new BadRequestException('Enter an accepted or rejected quantity for every receipt line.');const remaining=Number(line.quantity)-Number(line.quantity_accepted);if(accepted>remaining)throw new ConflictException(`Accepted quantity exceeds ${remaining} still outstanding for ${line.product_name_snapshot}. Rejected units do not satisfy the purchase commitment.`);const product=await tx.product.findFirst({where:{id:line.product_id,tenantId:workspaceId,active:true}});if(!product)throw new NotFoundException('A purchase-order product is unavailable.');await this.assertLegacyOrderCanTrackProducts(tx,workspaceId,[{product}]);const expiry=dateValue(item.expiryDate,'Expiry date');received.push({line,accepted,rejected,product,batch:text(item.batchNumber,'Batch number',100,true),expiry:expiry??undefined,rejectReason:text(item.rejectionReason,'Rejection reason',300,true)});}
       const receiptId=randomUUID();const receiptNumber=doc('GRN');
       await tx.$executeRaw`INSERT INTO commerce_goods_receipts (id,tenant_id,branch_id,purchase_order_id,receipt_number,status,reason,created_by_user_id) VALUES (${receiptId}::uuid,${workspaceId}::uuid,${branchId}::uuid,${orderId}::uuid,${receiptNumber},'posted',${reason},${actor.userId}::uuid)`;
       let inventoryValueMinor = 0;

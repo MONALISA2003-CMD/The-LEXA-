@@ -3,7 +3,7 @@ import {familyForCategoryCode,enforceFamilyTracking} from '../catalog/electronic
 import {ensureRootCategory} from '../catalog/ensure-category';
 import {INDUSTRY_CODES,INDUSTRY_CATEGORIES,INDUSTRY_LABELS,INDUSTRY_POLICIES,INDUSTRY_CATALOGUE_VERSION} from '../catalog/industry-contract.generated';
 import {normaliseSavedIndustries} from '../business-setup/business-setup.rules';
-import { validateProductType,cleanProductAttributes,cleanCategoryAttributeSchema,assertTypeAllowed,enforceTrackingPolicy,activePreset } from '../catalog/product-attribute-validation';
+import { validateProductType,cleanProductAttributes,cleanCategoryAttributeSchema,assertTypeAllowed,enforceTrackingPolicy,enforceEquipmentSubtypeTracking,activePreset } from '../catalog/product-attribute-validation';
 import { selectIndustries, SetupValidationError } from '../business-setup/business-setup.rules';
 import {
   BadRequestException, ConflictException, Controller, ForbiddenException, Get, HttpCode,
@@ -981,10 +981,11 @@ export class CoreController {
     const trackSerial = body.trackSerial === true;
     if (trackLot && !trackStock) throw new BadRequestException('Lot tracking requires stock tracking.');
     if (trackSerial && !trackStock) throw new BadRequestException('Serial tracking requires stock tracking.');
-    enforceTrackingPolicy(effectiveType,{trackStock,trackLot,trackSerial});
+    enforceTrackingPolicy(effectiveType,{trackStock,trackLot,trackSerial},attributes as Record<string,unknown>);
+    enforceEquipmentSubtypeTracking(attributes as Record<string,unknown>,{trackStock,trackLot,trackSerial});
     const selectedCategory=categoryId?await this.prisma.category.findFirst({where:{tenantId:workspaceId,id:categoryId},select:{catalogCode:true}}):null;
     const family=familyForCategoryCode(selectedCategory?.catalogCode);
-    if(family)enforceFamilyTracking(family.stockProfile,{trackStock,trackLot,trackSerial});
+    if(family&&!(typeof attributes.equipmentSubtypeCode==='string'))enforceFamilyTracking(family.stockProfile,{trackStock,trackLot,trackSerial});
     try {
       const product = await this.prisma.$transaction(async (tx) => {
         const created = await tx.product.create({ data: {
@@ -1040,9 +1041,17 @@ export class CoreController {
       body.catalogModelId===undefined?existing.catalogModelId:optionalString(body.catalogModelId,80));
     const policyChanged=(body.productType!==undefined&&updatedType!==existing.productType)||(body.categoryId!==undefined&&categoryId!==existing.categoryId)||(body.categoryName!==undefined&&String(body.categoryName).trim()!=='')||(body.trackStock!==undefined&&trackStock!==existing.trackStock)||(body.trackLot!==undefined&&trackLot!==existing.trackLot)||(body.trackSerial!==undefined&&trackSerial!==existing.trackSerial)||(body.attributes!==undefined&&JSON.stringify(body.attributes)!==JSON.stringify(existing.attributes));
     if(policyChanged)await assertTypeAllowed(this.prisma,workspaceId,effectiveType,existing.productType);
+    if(policyChanged&&((body.trackStock!==undefined&&trackStock!==existing.trackStock)||(body.trackSerial!==undefined&&trackSerial!==existing.trackSerial)||(body.trackLot!==undefined&&trackLot!==existing.trackLot)||(body.attributes!==undefined&&(body.attributes as Record<string,unknown>|null)?.equipmentSubtypeCode!==(existing.attributes as Record<string,unknown>|null)?.equipmentSubtypeCode))){
+      const [movementCount,saleCount]=await Promise.all([
+        this.prisma.stockMovement.count({where:{tenantId:workspaceId,productId:existing.id}}),
+        this.prisma.saleLine.count({where:{tenantId:workspaceId,productId:existing.id}}),
+      ]);
+      if(movementCount||saleCount)throw new ConflictException('Tracking or equipment subtype cannot change after stock movements or sales. Request an audited conversion instead.');
+    }
     const attributes=body.attributes===undefined?existing.attributes:cleanProductAttributes(body.attributes,effectiveType,categoryFields.customKeys,policyChanged,categoryFields.customFields);
+    enforceEquipmentSubtypeTracking(attributes as Record<string,unknown>,{trackStock,trackLot,trackSerial});
     if(policyChanged) {
-      enforceTrackingPolicy(effectiveType,{trackStock,trackLot,trackSerial});
+      enforceTrackingPolicy(effectiveType,{trackStock,trackLot,trackSerial},attributes as Record<string,unknown>);
       if(body.attributes===undefined)cleanProductAttributes(existing.attributes,effectiveType,categoryFields.customKeys,true,categoryFields.customFields);
     }
     try {
@@ -1566,10 +1575,18 @@ export class CoreController {
             throw new BadRequestException(`${product.name} is not configured for lot tracking.`);
           }
           let serialIds: string[] = [];
+          let exactUnitCostMinor: number | null = null;
           if (product.trackSerial) {
             if (!Number.isInteger(item.quantity) || item.serialIds.length !== item.quantity || new Set(item.serialIds).size !== item.serialIds.length) throw new BadRequestException(`${product.name} requires one unique available serial number per unit.`);
-            const serialRows = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM inventory_serials WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND lot_id IS NOT DISTINCT FROM ${lot?.id??null}::uuid AND product_id=${product.id}::uuid AND variant_id IS NOT DISTINCT FROM ${variant?.id??null}::uuid AND status='available' AND id=ANY(${item.serialIds}::uuid[]) ORDER BY id FOR UPDATE`;
+            const serialRows = await tx.$queryRaw<Array<{ id: string; unit_cost_minor: number | null }>>`SELECT id,unit_cost_minor FROM inventory_serials WHERE tenant_id=${workspaceId}::uuid AND branch_id=${branchId}::uuid AND lot_id IS NOT DISTINCT FROM ${lot?.id??null}::uuid AND product_id=${product.id}::uuid AND variant_id IS NOT DISTINCT FROM ${variant?.id??null}::uuid AND status='available' AND id=ANY(${item.serialIds}::uuid[]) ORDER BY id FOR UPDATE`;
             if (serialRows.length !== item.quantity) throw new ConflictException('One or more selected serial numbers are unavailable or do not belong to this lot.');
+            // A physical device carries its own receipt/upgrade cost. A sale
+            // line can represent only one unit cost, so require separate sale
+            // lines for mixed-cost serialized units to preserve exact COGS.
+            const fallbackCost = lot?.unitCostMinor ?? variant?.costPriceMinor ?? product.costPriceMinor;
+            const unitCosts = serialRows.map(row => row.unit_cost_minor ?? fallbackCost);
+            if (unitCosts.some(cost => cost !== unitCosts[0])) throw new ConflictException('Serialized units have different costs. Sell them as separate lines to preserve exact stock valuation.');
+            exactUnitCostMinor = unitCosts[0] ?? null;
             // Condition is physical-unit history, not only a screen label. The
             // latest damaged inspection blocks every checkout client until a
             // managed reinspection/stock disposition clears the defect.
@@ -1588,7 +1605,7 @@ export class CoreController {
             if (balance < requestedQuantity) throw new ConflictException({ code: 'INSUFFICIENT_STOCK', message: `${product.name} does not have enough stock to complete this sale.` });
             stockValidatedProducts.add(stockKey(product.id,variant?.id));
           }
-          createdLines.push({ product, variant, lot, serialIds, quantity: item.quantity, unitPriceMinor, lineTotalMinor, netMinor, taxMinor, taxCodeId: taxCode?.id ?? null, taxRateBasisPoints: approvedRule?.rate_basis_points ?? taxCode?.rateBasisPoints ?? 0, taxCodeSnapshot: taxCode?.code ?? null, taxDescriptionSnapshot: approvedRule?.description_snapshot ?? taxCode?.name ?? null, taxRuleVersionId: approvedRule?.id ?? null, taxCalculationMethod: calculation, taxRoundingMethod: approvedRule?.rounding_method ?? 'half_up', taxReferenceDocumentVersionId: approvedRule?.reference_document_id ?? null, taxReferenceDocumentVersion: approvedRule?.reference_document_version ?? null, priceListId: item.priceListId ?? null });
+          createdLines.push({ product, variant, lot, serialIds, exactUnitCostMinor, quantity: item.quantity, unitPriceMinor, lineTotalMinor, netMinor, taxMinor, taxCodeId: taxCode?.id ?? null, taxRateBasisPoints: approvedRule?.rate_basis_points ?? taxCode?.rateBasisPoints ?? 0, taxCodeSnapshot: taxCode?.code ?? null, taxDescriptionSnapshot: approvedRule?.description_snapshot ?? taxCode?.name ?? null, taxRuleVersionId: approvedRule?.id ?? null, taxCalculationMethod: calculation, taxRoundingMethod: approvedRule?.rounding_method ?? 'half_up', taxReferenceDocumentVersionId: approvedRule?.reference_document_id ?? null, taxReferenceDocumentVersion: approvedRule?.reference_document_version ?? null, priceListId: item.priceListId ?? null });
           totalMinor += lineTotalMinor;
           if (!Number.isSafeInteger(totalMinor) || totalMinor > 2_000_000_000) throw new BadRequestException('Sale total exceeds the supported amount.');
         }
@@ -1635,7 +1652,7 @@ export class CoreController {
           const serialRows=line.serialIds.length?await tx.inventorySerial.findMany({where:{tenantId:workspaceId,branchId,id:{in:line.serialIds}},select:{serialNumber:true}}):[];
           const serialNumbersSnapshot=serialRows.map(s=>s.serialNumber);
           if(serialNumbersSnapshot.length!==line.serialIds.length)throw new ConflictException('Device identifiers changed during checkout.');
-          await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, variantId: line.variant?.id ?? null, unitOfMeasureId: line.product.unitOfMeasureId ?? null, taxCodeId: line.taxCodeId, taxRateBasisPoints: line.taxRateBasisPoints, taxMinor: line.taxMinor, taxableMinor: line.netMinor, taxCodeSnapshot: line.taxCodeSnapshot, taxDescriptionSnapshot: line.taxDescriptionSnapshot, taxRuleVersionId: line.taxRuleVersionId, taxCalculationMethod: line.taxCalculationMethod, taxRoundingMethod: line.taxRoundingMethod, taxReferenceDocumentVersionId: line.taxReferenceDocumentVersionId, taxReferenceDocumentVersion: line.taxReferenceDocumentVersion, priceListId: line.priceListId, lotId: line.lot?.id ?? null, serialIds: line.serialIds, productNameSnapshot: line.product.name, variantDescriptionSnapshot:visibleVariant||null, unitNameSnapshot:line.product.unitOfMeasure??'Each',serialNumbersSnapshot, skuSnapshot:line.variant?.sku??line.product.sku,barcodeSnapshot:line.product.barcode??null,quantity: String(line.quantity), warrantyMonthsSnapshot:(()=>{const months=Number((line.product.attributes as Record<string,unknown> | null)?.warrantyMonths??NaN);return Number.isSafeInteger(months)&&months>=0&&months<=240?months:null;})(), unitCostMinor: line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
+          await tx.saleLine.create({ data: { tenantId: workspaceId, saleId: sale.id, productId: line.product.id, variantId: line.variant?.id ?? null, unitOfMeasureId: line.product.unitOfMeasureId ?? null, taxCodeId: line.taxCodeId, taxRateBasisPoints: line.taxRateBasisPoints, taxMinor: line.taxMinor, taxableMinor: line.netMinor, taxCodeSnapshot: line.taxCodeSnapshot, taxDescriptionSnapshot: line.taxDescriptionSnapshot, taxRuleVersionId: line.taxRuleVersionId, taxCalculationMethod: line.taxCalculationMethod, taxRoundingMethod: line.taxRoundingMethod, taxReferenceDocumentVersionId: line.taxReferenceDocumentVersionId, taxReferenceDocumentVersion: line.taxReferenceDocumentVersion, priceListId: line.priceListId, lotId: line.lot?.id ?? null, serialIds: line.serialIds, productNameSnapshot: line.product.name, variantDescriptionSnapshot:visibleVariant||null, unitNameSnapshot:line.product.unitOfMeasure??'Each',serialNumbersSnapshot, skuSnapshot:line.variant?.sku??line.product.sku,barcodeSnapshot:line.product.barcode??null,quantity: String(line.quantity), warrantyMonthsSnapshot:(()=>{const months=Number((line.product.attributes as Record<string,unknown> | null)?.warrantyMonths??NaN);return Number.isSafeInteger(months)&&months>=0&&months<=240?months:null;})(), unitCostMinor: line.exactUnitCostMinor ?? line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, unitPriceMinor: line.unitPriceMinor, lineTotalMinor: line.lineTotalMinor } });
           if (line.product.trackStock) {
             if (line.lot) {
               const updatedLot = await tx.inventoryLot.updateMany({ where: { id: line.lot.id, tenantId: workspaceId, branchId, quantityOnHand: { gte: line.quantity + Number(line.lot.quantityReserved) } }, data: { quantityOnHand: { decrement: line.quantity }, status: Number(line.lot.quantityOnHand)-line.quantity<=0?'depleted':'available' } });
@@ -1643,9 +1660,9 @@ export class CoreController {
             }
             if (line.serialIds.length) { const serialUpdate=await tx.inventorySerial.updateMany({ where: { tenantId: workspaceId, branchId, id: { in: line.serialIds }, status: 'available' }, data: { status: 'sold' } }); if(serialUpdate.count!==line.serialIds.length) throw new ConflictException('A selected serial number was sold by another user.'); }
             if (line.serialIds.length) {
-              for (const serialId of line.serialIds) await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: line.product.id, variantId: line.variant?.id ?? null, warehouseId: line.lot?.warehouseId ?? null, binId: line.lot?.binId ?? null, lotId: line.lot?.id ?? null, serialId, type: 'sale', quantityDelta: '-1', unitCostMinor: line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, reason: `Sale ${receiptNumber}`, sourceId: sale.id } });
+              for (const serialId of line.serialIds) await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: line.product.id, variantId: line.variant?.id ?? null, warehouseId: line.lot?.warehouseId ?? null, binId: line.lot?.binId ?? null, lotId: line.lot?.id ?? null, serialId, type: 'sale', quantityDelta: '-1', unitCostMinor: line.exactUnitCostMinor ?? line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, reason: `Sale ${receiptNumber}`, sourceId: sale.id } });
             } else {
-              await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: line.product.id, variantId: line.variant?.id ?? null, warehouseId: line.lot?.warehouseId ?? null, binId: line.lot?.binId ?? null, lotId: line.lot?.id ?? null, type: 'sale', quantityDelta: String(-line.quantity), unitCostMinor: line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, reason: `Sale ${receiptNumber}`, sourceId: sale.id } });
+              await tx.stockMovement.create({ data: { tenantId: workspaceId, branchId, productId: line.product.id, variantId: line.variant?.id ?? null, warehouseId: line.lot?.warehouseId ?? null, binId: line.lot?.binId ?? null, lotId: line.lot?.id ?? null, type: 'sale', quantityDelta: String(-line.quantity), unitCostMinor: line.exactUnitCostMinor ?? line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor, reason: `Sale ${receiptNumber}`, sourceId: sale.id } });
             }
           }
         }
@@ -1674,7 +1691,7 @@ export class CoreController {
         const salesTaxMinor = createdLines.reduce((sum, line) => sum + line.taxMinor, 0);
         if (netSalesMinor > 0) postingLines.push({ accountKey: 'sales_revenue', creditMinor: netSalesMinor, description: `Net revenue - ${receiptNumber}` });
         if (salesTaxMinor > 0) postingLines.push({ accountKey: 'tax_payable', creditMinor: salesTaxMinor, description: `Output tax - ${receiptNumber}` });
-        const costOfGoodsMinor = createdLines.filter((line) => line.product.trackStock).reduce((sum, line) => sum + Math.round((line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor) * line.quantity), 0);
+        const costOfGoodsMinor = createdLines.filter((line) => line.product.trackStock).reduce((sum, line) => sum + Math.round((line.exactUnitCostMinor ?? line.lot?.unitCostMinor ?? line.variant?.costPriceMinor ?? line.product.costPriceMinor) * line.quantity), 0);
         if (costOfGoodsMinor > 0) {
           postingLines.push({ accountKey: 'cost_of_goods_sold', debitMinor: costOfGoodsMinor, description: `Cost of goods sold - ${receiptNumber}` });
           postingLines.push({ accountKey: 'inventory', creditMinor: costOfGoodsMinor, description: `Inventory relieved - ${receiptNumber}` });
@@ -2704,11 +2721,12 @@ export class CoreController {
       const trackStock=parseFlag('trackStock',preset.stock!=='none');
       const trackLot=parseFlag('trackLot',preset.stock==='batch');
       const trackSerial=parseFlag('trackSerial',preset.stock==='serial');
-      enforceTrackingPolicy(productType,{trackStock,trackLot,trackSerial});
       let sourceAttributes:unknown={};
       const attributeText=csvCell(row,headers,'attributesJson');
       if(attributeText){try{sourceAttributes=JSON.parse(attributeText)}catch{throw new BadRequestException(`CSV row ${rowNumber}: attributesJson must be valid JSON.`);}}
       const attributes=cleanProductAttributes(sourceAttributes,productType,[],true);
+      enforceTrackingPolicy(productType,{trackStock,trackLot,trackSerial},attributes);
+      enforceEquipmentSubtypeTracking(attributes,{trackStock,trackLot,trackSerial});
       return { name, sku, barcode, brand: csvCell(row, headers, 'brand'), unitOfMeasure: csvCell(row, headers, 'unitOfMeasure'), supplierSku: csvCell(row, headers, 'supplierSku'), categoryName: csvCell(row, headers, 'categoryName'), costPriceMinor, sellingPriceMinor, lowStockThreshold, trackStock,trackLot,trackSerial,productType,attributes };
     });
     // Validate the effective tenant's allowed industry before any row is committed.

@@ -1,0 +1,383 @@
+{
+  "schemaVersion": 1,
+  "environment": "isolated_staging",
+  "gitSha": null,
+  "backendBuildSha": null,
+  "frontendBuildSha": null,
+  "migrationHead": null,
+  "workspaceId": null,
+  "criticalFindings": [
+    "NOT TESTED"
+  ],
+  "checks": {
+    "backendBuild": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "frontendBuild": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "migrationApplied": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "tenantRls": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "serialLedger": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "financialLedger": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "backupRestore": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "scenarioMatrix": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "crossClientRoles": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "concurrentCheckout": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "perfBenchmarks": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "internalSmoke": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "monitoringReady": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "incidentRollback": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    },
+    "ownerApproval": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewedAt": null
+    }
+  },
+  "ownerAuthorization": {
+    "explicitProductionPromotion": false,
+    "authorizedBy": null,
+    "authorizedAt": null,
+    "approver": null,
+    "signedEvidenceRef": null
+  },
+  "scenarios": {
+    "E2E-001": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-002": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-003": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-004": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-005": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-006": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-007": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-008": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-009": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-010": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-011": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-012": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-013": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-014": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-015": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-016": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-017": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-018": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-019": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-020": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-021": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-022": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-023": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-024": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "E2E-025": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-001": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-002": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-003": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-004": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-005": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-006": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-007": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-008": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-009": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-010": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-011": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-012": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-013": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-014": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-015": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-016": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-017": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-018": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-019": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "NEG-020": {
+      "passed": false,
+      "evidenceRef": null,
+      "reviewer": null,
+      "reviewedAt": null
+    }
+  },
+  "certifiedRoles": [],
+  "testTenants": [],
+  "testBranches": [],
+  "performance": {
+    "searchP95Ms": null,
+    "identifierLookupP95Ms": null,
+    "lastUnitAttempts": null,
+    "lastUnitSuccesses": null,
+    "unitScanBatchSize": null,
+    "unitScanBatchValidated": false
+  },
+  "qaSignoff": {
+    "reviewer": null,
+    "signedEvidenceRef": null
+  }
+}

@@ -20,6 +20,351 @@ servers:
 security:
 - sessionCookie: []
 paths:
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/subtypes:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: equipmentSubtypesGet
+      summary: Subtypes
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/subtypes/validate:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: equipmentSubtypesValidatePost
+      summary: Subtypes validate
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/rollout-status:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: equipmentRolloutStatusGet
+      summary: Rollout status
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/upgrades:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: equipmentPendingUpgradesGet
+      summary: Pending equipment upgrade work orders
+      description: Read-only branch-scoped pending work orders for a separate authorized approver.
+      responses:
+        '200': {description: Pending upgrades for this branch}
+        '403': {description: No permission to read this branch}
+    post:
+      operationId: equipmentUpgradesPost
+      summary: Upgrades
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/upgrades/{orderId}/approve:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: orderId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: equipmentUpgradesOrderIdApprovePost
+      summary: Upgrades orderid approve
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/upgrades/{orderId}/apply:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: orderId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: equipmentUpgradesOrderIdApplyPost
+      summary: Upgrades orderid apply
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/serials/{serialId}/service-history:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: serialId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: equipmentSerialsSerialIdServiceHistoryGet
+      summary: Serials serialid service history
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/fulfilments:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: equipmentFulfilmentsPost
+      summary: Fulfilments
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/fulfilments/{fulfilmentId}/transition:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: fulfilmentId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: equipmentFulfilmentsFulfilmentIdTransitionPost
+      summary: Fulfilments fulfilmentid transition
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/installed-systems:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: equipmentInstalledSystemsPost
+      summary: Installed systems
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/installed-systems/{systemId}/commission:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: systemId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: equipmentInstalledSystemsSystemIdCommissionPost
+      summary: Installed systems systemid commission
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/warranty-cases:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: equipmentWarrantyCasesPost
+      summary: Warranty cases
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/customer-repairs:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: equipmentCustomerRepairsPost
+      summary: Customer repairs
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/copier-meters:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: equipmentCopierMetersPost
+      summary: Copier meters
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      parameters:
+        - {name: Idempotency-Key, in: header, required: false, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/reports/physical-units:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: equipmentReportsPhysicalUnitsGet
+      summary: Reports physical units
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
+  /workspaces/{workspaceId}/branches/{branchId}/equipment/reports/reconciliation:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: branchId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: equipmentReportsReconciliationGet
+      summary: Reports reconciliation
+      description: >-
+        Tenant- and branch-scoped equipment workflow. Authorization, exact physical-unit
+        identity, posted ledger protection and feature approval are enforced server-side.
+      responses:
+        '200': {description: Authorized equipment result or immutable event snapshot}
+        '201': {description: Authorized change committed transactionally}
+        '400': {description: Invalid physical unit, policy or evidence}
+        '403': {description: Role, tenant or feature flag not permitted}
+        '409': {description: Conflicting identity, state or idempotent operation}
   /workspaces/{workspaceId}/roles/catalog:
     parameters:
       - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}

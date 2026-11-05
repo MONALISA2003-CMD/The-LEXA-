@@ -73,5 +73,7 @@ test('stock-changing receiving and kit actions live in Inventory rather than pro
 test('legacy commerce orders cannot receive or fulfil tracked devices without exact identities',()=>{
  const commerce=read('../src/commerce/commerce.controller.ts');
  assert.match(commerce,/if\(item\.product\.trackSerial\|\|item\.product\.trackLot\)throw new BadRequestException/);
- assert.match(commerce,/if\(product\.trackSerial\|\|product\.trackLot\)throw new BadRequestException/);
+ assert.match(commerce,/private async assertLegacyOrderCanTrackProducts\(/);
+ assert.match(commerce,/if \(product\.trackSerial \|\| product\.trackLot\)/);
+ assert.match(commerce,/await this\.assertLegacyOrderCanTrackProducts\(tx,workspaceId,\[\{product\}\]\)/);
 });

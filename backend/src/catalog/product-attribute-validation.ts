@@ -2,6 +2,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { INDUSTRY_POLICIES, LEGACY_PRODUCT_TYPE_FIELDS } from './industry-contract.generated';
 import { normaliseSavedIndustries } from '../business-setup/business-setup.rules';
+import {subtypePolicy,validateEquipmentSpecs,EquipmentRuleError,type EquipmentSubtype} from './equipment-domain-rules';
 
 export const KNOWN_PRODUCT_TYPE_FIELDS: Record<string,readonly string[]> = {
  ...Object.fromEntries(Object.entries(INDUSTRY_POLICIES).map(([key,p])=>[key,p.fields.map(field=>field.key)])),
@@ -31,7 +32,25 @@ export async function assertTypeAllowed(db:{businessProfile:{findUnique:(args:an
  if(!preset.industries.some(code=>selected.includes(code)))throw new BadRequestException('This product type is not enabled for this business. Add its industry in Business Setup first.');
 }
 /** Stock policy is read by all downstream modules using the same product tracking flags. */
-export function enforceTrackingPolicy(productType:string|null|undefined,tracking:TrackingPolicy):void {
+export function enforceEquipmentSubtypeTracking(attributes:Record<string,unknown>,tracking:TrackingPolicy):void {
+ const code=attributes.equipmentSubtypeCode;
+ if(typeof code!=='string')return;
+ let profile:EquipmentSubtype;
+ try{profile=subtypePolicy(code);}catch(error){if(error instanceof EquipmentRuleError)throw new BadRequestException(error.message);throw error;}
+ if(!tracking.trackStock || (profile.tracking==='serial'&&!tracking.trackSerial))
+  throw new BadRequestException('This equipment subtype requires the published physical-unit tracking policy.');
+ if(profile.tracking==='quantity'&&tracking.trackSerial)
+  throw new BadRequestException('Quantity-tracked equipment must not invent physical serial requirements.');
+}
+export function enforceTrackingPolicy(productType:string|null|undefined,tracking:TrackingPolicy,attributes?:Record<string,unknown>):void {
+ if(typeof attributes?.equipmentSubtypeCode==='string'){
+  let subtype:EquipmentSubtype;
+  try{subtype=subtypePolicy(attributes.equipmentSubtypeCode,productType??undefined);}
+  catch(error){if(error instanceof EquipmentRuleError)throw new BadRequestException(error.message);throw error;}
+  enforceEquipmentSubtypeTracking(attributes,tracking);
+  return; // An exact published subtype takes precedence over the broad legacy preset.
+ }
+
  const preset=activePreset(productType);
  if(!preset||productType==='general')return; // Generic products keep configurable stock/non-stock semantics.
  if(preset.stock==='none'&&tracking.trackStock)throw new BadRequestException('Service items cannot be stock-tracked.');
@@ -41,15 +60,22 @@ export function enforceTrackingPolicy(productType:string|null|undefined,tracking
 }
 export function cleanProductAttributes(raw: unknown,productType:string|null,customFieldKeys:readonly string[]=[],strictRequired=false,customFields:readonly CategoryFieldPolicy[]=[]):Record<string,string|number|boolean> {
  const entries = raw===undefined||raw===null ? [] : Object.entries(validateObject(raw));
- if(entries.length>40)throw new BadRequestException('Too many product attributes.');
+ const rawSubtype=entries.find(([key])=>key==='equipmentSubtypeCode')?.[1];
+ let subtype:EquipmentSubtype|undefined;
+ if(rawSubtype!==undefined){
+  if(typeof rawSubtype!=='string')throw new BadRequestException('Choose a published equipment subtype.');
+  try{subtype=subtypePolicy(rawSubtype,productType??undefined);}catch(error){if(error instanceof EquipmentRuleError)throw new BadRequestException(error.message);throw error;}
+ }
+ if(entries.length>45)throw new BadRequestException('Too many product attributes.');
  if(JSON.stringify(raw??{}).length>8000)throw new BadRequestException('Product attributes are too large.');
  const preset=activePreset(productType);
  const known=new Map<string,{kind?:string;label:string;required?:boolean;options?:readonly string[]}>([...customFields.map(f=>[f.key,f] as const),...(preset?.fields.map(f=>[f.key,f] as const)??[])]);
- const allowed=new Set([...(KNOWN_PRODUCT_TYPE_FIELDS[productType??'general']??[]),...customFieldKeys]);
+ const allowed=new Set([...(KNOWN_PRODUCT_TYPE_FIELDS[productType??'general']??[]),...customFieldKeys,...(subtype?.fields.map(f=>f.key)??[]),...(subtype?['equipmentSubtypeCode','manufacturerModelCode']:[])]);
  const clean:Record<string,string|number|boolean>={};
  for(const [key,value] of entries) {
   if(!/^[a-zA-Z][a-zA-Z0-9_]{0,49}$/.test(key)||!allowed.has(key))throw new BadRequestException(`Attribute ${key} is not available for this product category.`);
-  const field=known.get(key);
+  const subtypeField=subtype?.fields.find(field=>field.key===key);
+  const field=known.get(key)??(subtypeField?{label:key.replace(/([A-Z])/g,' $1'),kind:subtypeField.type==='enum'?'select':subtypeField.type,required:subtypeField.required,options:'choices' in subtypeField?subtypeField.choices:undefined}:undefined);
   if(field?.kind==='text'&&typeof value!=='string')throw new BadRequestException(`${field.label} must be text.`);
   if(field?.kind==='select'&&typeof value!=='string')throw new BadRequestException(`Choose a valid ${field.label}.`);
   if(field?.kind==='boolean'){if(value===true||value==='true')clean[key]=true;else if(value===false||value==='false')clean[key]=false;else throw new BadRequestException(`${field.label} must be yes or no.`);continue;}
@@ -65,6 +91,11 @@ export function cleanProductAttributes(raw: unknown,productType:string|null,cust
   } else if(typeof value==='number'&&Number.isFinite(value)&&Math.abs(value)<1e12&&(!(field?.kind==='number')||value>=0))clean[key]=value;
   else if(typeof value==='boolean'&&!field)clean[key]=value;
   else throw new BadRequestException(`Enter a valid value for ${key}.`);
+ }
+ if(subtype){
+  const rawSpecs=Object.fromEntries(subtype.fields.map(field=>[field.key,clean[field.key]]).filter(([,value])=>value!==undefined));
+  try{validateEquipmentSpecs(subtype.code,rawSpecs,clean.manufacturerModelCode,productType??undefined);}
+  catch(error){if(error instanceof EquipmentRuleError)throw new BadRequestException(error.message);throw error;}
  }
  if(strictRequired)for(const field of [...customFields,...(preset?.fields??[])] as readonly {key:string;label:string;required?:boolean}[])if(field.required&&!(''+(clean[field.key]??'')).trim())throw new BadRequestException(`${field.label} is required for this product category.`);
  return clean;

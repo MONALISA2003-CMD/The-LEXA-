@@ -1697,3 +1697,163 @@ model ProductBundleComponent {
   @@index([tenantId,bundleId])
   @@map("product_bundle_components")
 }
+
+// Equipment service contracts: all identifiers reference existing tenant-owned master IDs.
+// This schema is additive; original sale, serial, movement and journal IDs never change.
+model EquipmentUpgradeWorkOrder {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ serialId String @map("serial_id") @db.Uuid
+ idempotencyKey String @map("idempotency_key")
+ requestHash String @map("request_hash")
+ status String @default("draft")
+ beforeSpecs Json @default("{}") @map("before_specs")
+ afterSpecs Json @default("{}") @map("after_specs")
+ inspection Json @default("{}")
+ initialCostMinor Int @map("initial_cost_minor")
+ partsCostMinor Int @default(0) @map("parts_cost_minor")
+ labourCostMinor Int @default(0) @map("labour_cost_minor")
+ journalId String? @map("journal_id") @db.Uuid
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ approvedByUserId String? @map("approved_by_user_id") @db.Uuid
+ approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+ appliedAt DateTime? @map("applied_at") @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,id])
+ @@unique([tenantId,idempotencyKey])
+ @@index([tenantId,serialId,createdAt])
+ @@map("equipment_upgrade_work_orders")
+}
+model EquipmentUpgradePart {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ workOrderId String @map("work_order_id") @db.Uuid
+ productId String @map("product_id") @db.Uuid
+ variantId String? @map("variant_id") @db.Uuid
+ warehouseId String @map("warehouse_id") @db.Uuid
+ lotId String? @map("lot_id") @db.Uuid
+ quantity Decimal @db.Decimal(14,3)
+ actualUnitCostMinor Int? @map("actual_unit_cost_minor")
+ movementId String? @map("movement_id") @db.Uuid
+ @@unique([tenantId,id])
+ @@index([tenantId,workOrderId])
+ @@map("equipment_upgrade_parts")
+}
+model EquipmentUnitConfigurationEvent {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ serialId String @map("serial_id") @db.Uuid
+ workOrderId String @map("work_order_id") @db.Uuid
+ previousSpecs Json @map("previous_specs")
+ configuredSpecs Json @map("configured_specs")
+ initialCostMinor Int @map("initial_cost_minor")
+ addedCostMinor Int @map("added_cost_minor")
+ resultingCostMinor Int @map("resulting_cost_minor")
+ recordedByUserId String @map("recorded_by_user_id") @db.Uuid
+ recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+ @@unique([tenantId,workOrderId])
+ @@index([tenantId,serialId,recordedAt])
+ @@map("equipment_unit_configuration_events")
+}
+model EquipmentUnitFulfilment {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ saleLineId String @map("sale_line_id") @db.Uuid
+ serialId String @map("serial_id") @db.Uuid
+ state String @default("reserved")
+ assignedTechnicianUserId String? @map("assigned_technician_user_id") @db.Uuid
+ deliveredAt DateTime? @map("delivered_at") @db.Timestamptz(3)
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,id])
+ @@unique([tenantId,serialId])
+ @@index([tenantId,branchId,state,createdAt])
+ @@map("equipment_unit_fulfilments")
+}
+model EquipmentFulfilmentEvent {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ fulfilmentId String @map("fulfilment_id") @db.Uuid
+ previousState String? @map("previous_state")
+ nextState String @map("next_state")
+ evidenceReference String? @map("evidence_reference")
+ checklist Json @default("{}")
+ actorUserId String @map("actor_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@index([tenantId,fulfilmentId,createdAt])
+ @@map("equipment_fulfilment_events")
+}
+model EquipmentInstalledSystem {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ kind String
+ saleId String @map("sale_id") @db.Uuid
+ state String @default("planned")
+ technicianUserId String? @map("technician_user_id") @db.Uuid
+ commissioning Json @default("{}")
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ commissionedAt DateTime? @map("commissioned_at") @db.Timestamptz(3)
+ @@unique([tenantId,id])
+ @@map("equipment_installed_systems")
+}
+model EquipmentInstalledComponent {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ systemId String @map("system_id") @db.Uuid
+ serialId String @map("serial_id") @db.Uuid
+ componentRole String @map("component_role")
+ @@unique([tenantId,serialId])
+ @@index([tenantId,systemId])
+ @@map("equipment_installed_components")
+}
+model EquipmentWarrantyCase {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ saleLineId String @map("sale_line_id") @db.Uuid
+ serialId String @map("serial_id") @db.Uuid
+ status String @default("opened")
+ issueSummary String @map("issue_summary")
+ warrantyPolicySnapshot Json @default("{}") @map("warranty_policy_snapshot")
+ partsJournalId String? @map("parts_journal_id") @db.Uuid
+ createdByUserId String @map("created_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+ @@unique([tenantId,id])
+ @@index([tenantId,serialId,createdAt])
+ @@map("equipment_warranty_cases")
+}
+model EquipmentCustomerRepairCustody {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ customerRecordId String? @map("customer_record_id")
+ deviceDescription String @map("device_description")
+ manufacturerSerialMasked String? @map("manufacturer_serial_masked")
+ consentReference String @map("consent_reference")
+ status String @default("received")
+ intakeCondition Json @default("{}") @map("intake_condition")
+ receivedByUserId String @map("received_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@unique([tenantId,id])
+ @@index([tenantId,branchId,status])
+ @@map("equipment_customer_repair_custody")
+}
+model EquipmentCopierMeterEvent {
+ id String @id @default(uuid()) @db.Uuid
+ tenantId String @map("tenant_id") @db.Uuid
+ branchId String @map("branch_id") @db.Uuid
+ serialId String @map("serial_id") @db.Uuid
+ totalCount BigInt @map("total_count")
+ colourCount BigInt @default(0) @map("colour_count")
+ evidenceReference String? @map("evidence_reference")
+ recordedByUserId String @map("recorded_by_user_id") @db.Uuid
+ createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+ @@index([tenantId,serialId,createdAt])
+ @@map("equipment_copier_meter_events")
+}
