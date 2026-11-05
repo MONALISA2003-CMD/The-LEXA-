@@ -774,6 +774,12 @@
     "rationale": "Supplier master"
   },
   {
+    "table": "product_packages",
+    "disposition": "authoritative",
+    "domain": "catalog",
+    "rationale": "Tenant-scoped base-unit packaging definitions and variant references; preserve conversion factors in restore"
+  },
+  {
     "table": "product_variants",
     "disposition": "authoritative",
     "domain": "catalog",

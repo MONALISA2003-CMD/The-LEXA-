@@ -5,6 +5,8 @@ import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
 import {useWorkspace} from '../../app/WorkspaceContext';
 import {products} from '../../data/repositories';
+import {apiCatalogInventory} from '../../data/remote/apiWorkstream03';
+import {packagesToBase} from '../../domain/catalog/packageQuantity';
 import {apiInventoryOperations,type RawInventoryRow} from '../../data/remote/apiInventoryOperations';
 import {InventoryFrame,InventoryPanel,InventoryNotice,InventoryStats,InventoryBarChart,InventoryTable,field,number,day,readable} from './InventoryFrame';
 import {CheckCircle2,ClipboardCheck,Plus,ShoppingBasket} from 'lucide-react';
@@ -32,32 +34,48 @@ function WarehouseField({rows,value,onChange,label='Storage location'}:{rows:Raw
  return <label>{label}<select required value={value} onChange={e=>onChange(e.target.value)}><option value="">Choose a storage location</option>
   {rows.map(w=><option key={String(w.id)} value={String(w.id)}>{String(w.name)} ({String(w.code)})</option>)}</select></label>;
 }
-type ReceiptCount={accepted:string;rejected:string;lot:string;expiry:string;serials:string};
+type ReceiptCount={accepted:string;rejected:string;lot:string;expiry:string;serials:string;variantId:string;packageId:string};
 export function GoodsReceivingPage(){
  const {scope,wh,catalogue,intelligence,cache,refresh}=useInventoryBasics();
+ const variants=useQuery({queryKey:['all-variants',scope.workspaceId],queryFn:()=>apiCatalogInventory.allVariants(scope.workspaceId)});
+ const packages=useQuery({queryKey:['all-product-packages',scope.workspaceId],queryFn:()=>apiCatalogInventory.allProductPackages(scope.workspaceId)});
  const orders=useQuery({queryKey:['supply-purchase-orders',scope.workspaceId,scope.branchId],queryFn:()=>apiInventoryOperations.purchaseOrders(scope)});
  const [poId,setPoId]=useState(''),[warehouseId,setWarehouseId]=useState(''),[receipts,setReceipts]=useState<Record<string,ReceiptCount>>({});
  const [notes,setNotes]=useState(''),[busy,setBusy]=useState(false);
  const selected=orders.data?.find(x=>x.id===poId),lines=recordLines(selected);
  const open=(orders.data??[]).filter(o=>['ordered','partially_received'].includes(String(o.status)));
- const setLine=(id:string,change:Partial<ReceiptCount>)=>setReceipts(r=>({...r,[id]:{accepted:r[id]?.accepted??'0',rejected:r[id]?.rejected??'0',lot:r[id]?.lot??'',expiry:r[id]?.expiry??'',serials:r[id]?.serials??'',...change}}));
+ const setLine=(id:string,change:Partial<ReceiptCount>)=>setReceipts(r=>({...r,[id]:{accepted:r[id]?.accepted??'0',rejected:r[id]?.rejected??'0',lot:r[id]?.lot??'',expiry:r[id]?.expiry??'',serials:r[id]?.serials??'',variantId:r[id]?.variantId??'',packageId:r[id]?.packageId??'',...change}}));
  async function submit(e:FormEvent){
   e.preventDefault();
   if(!poId||!warehouseId){toast.error('Choose the purchase order and receiving location.');return;}
   let invalid=false;
   const payload=lines.map(l=>{
-   const id=String(l.id),form=receipts[id],accepted=Number(form?.accepted??0),rejected=Number(form?.rejected??0);
+   const id=String(l.id),form=receipts[id],productId=String(field(l,'product_id','productId'));
+   const product=catalogue.data?.find(p=>p.id===productId);
+   const pack=(packages.data??[]).find(p=>p.id===form?.packageId&&p.productId===productId&&p.variantId===(form?.variantId||null));
+   const acceptedPackages=Number(form?.accepted??0),rejectedPackages=Number(form?.rejected??0);
+   let accepted:number,rejected:number;
+   try{accepted=pack?packagesToBase(form?.accepted??'0',pack.unitsPerPackage,true):acceptedPackages;
+       rejected=pack?packagesToBase(form?.rejected??'0',pack.unitsPerPackage,true):rejectedPackages;}
+   catch(error){invalid=true;toast.error(error instanceof Error?error.message:'Invalid package conversion.');return null;}
    const outstanding=number(field(l,'quantity'))-number(field(l,'quantity_accepted','quantityAccepted'))-number(field(l,'quantity_rejected','quantityRejected'));
-   if(!Number.isFinite(accepted)||!Number.isFinite(rejected)||accepted<0||rejected<0||accepted+rejected>outstanding+1e-8)
-     {invalid=true;toast.error('Accepted and rejected quantities must not exceed the outstanding purchase quantity.');return null;}
-   const product=catalogue.data?.find(p=>p.id===field(l,'product_id','productId'));
-   const serialNumbers=form?.serials?.split(/[,\s]+/).map(x=>x.trim()).filter(Boolean)??[];
-   if(product?.trackSerial&&accepted>0&&serialNumbers.length!==accepted){
-    invalid=true;toast.error('Enter one unique serial number for every accepted unit of '+product.name+'.');return null;
+   if(!Number.isFinite(accepted)||!Number.isFinite(rejected)||accepted<0||rejected<0||accepted+rejected>outstanding+1e-8){invalid=true;toast.error('Accepted and rejected quantities exceed the unreceived order quantity.');return null;}
+   const matches=(variants.data??[]).filter(v=>v.productId===productId);
+   if(matches.length&&(!form?.variantId||!matches.some(v=>v.id===form.variantId))){invalid=true;toast.error('Choose the exact size, colour or model variant for '+(product?.name??'this product')+'.');return null;}
+   if(form?.packageId&&!pack){invalid=true;toast.error('Select a package defined for this product variant.');return null;}
+   const serialNumbers=(form?.serials??'').split(/[\n,]+/).map(value=>value.trim()).filter(Boolean).map(value=>{const [primary,second]=value.split('|').map(x=>x.trim());return second?{serialNumber:primary??'',imei2:second}:primary??'';});
+   if((form?.serials??'').split(/[\n,]+/).some(value=>value.split('|').length>2)){invalid=true;toast.error('Use IMEI1|IMEI2 on each line, not multiple delimiters.');return null;}
+   if(product?.trackSerial&&accepted>0&&(!Number.isSafeInteger(accepted)||serialNumbers.length!==accepted)){
+    invalid=true;toast.error('Enter one IMEI or serial per accepted physical unit of '+product.name+'.');return null;
    }
-   return {purchaseOrderLineId:id,acceptedQuantity:accepted,rejectedQuantity:rejected,
+   return {purchaseOrderLineId:id,...(form?.variantId?{variantId:form.variantId}:{}),
+      ...(pack?{packageId:pack.id,packagesAccepted:acceptedPackages,packagesRejected:rejectedPackages}:{quantityAccepted:accepted,quantityRejected:rejected}),
       ...(form?.lot?{batchNumber:form.lot}:{}),...(form?.expiry?{expiryDate:form.expiry}:{}),...(product?.trackSerial?{serialNumbers}:{})};
-  }).filter((x):x is NonNullable<typeof x>=>x!==null).filter(x=>x.acceptedQuantity+x.rejectedQuantity>0);
+  }).filter((x):x is NonNullable<typeof x>=>x!==null).filter(x=>{
+   const acceptedQuantity='packagesAccepted' in x ? x.packagesAccepted : x.quantityAccepted;
+   const rejectedQuantity='packagesRejected' in x ? x.packagesRejected : x.quantityRejected;
+   return Number(acceptedQuantity??0)+Number(rejectedQuantity??0)>0;
+  });
   if(invalid)return;
   if(!payload.length){toast.error('Enter at least one valid received quantity.');return;}
   setBusy(true);
@@ -79,15 +97,22 @@ export function GoodsReceivingPage(){
     </div>
     {poId&&lines.length>0&&<div className="solar-rows">{lines.map(l=>{
      const id=String(l.id),outstanding=number(l.quantity)-number(field(l,'quantity_accepted','quantityAccepted'))-number(field(l,'quantity_rejected','quantityRejected'));
-     const p=catalogue.data?.find(p=>p.id===field(l,'product_id','productId'));
+     const productId=String(field(l,'product_id','productId'));
+     const p=catalogue.data?.find(p=>p.id===productId);
+     const choices=(variants.data??[]).filter(v=>v.productId===productId);
+     const packChoices=(packages.data??[]).filter(pack=>pack.productId===productId&&pack.variantId===(receipts[id]?.variantId||null));
+     const selectedPackage=packChoices.find(pack=>pack.id===receipts[id]?.packageId);
      return <article key={id}><div><strong>{String(field(l,'product_name_snapshot','productName')||p?.name||'Product')}</strong>
        <small>Ordered: {number(l.quantity)} · Still expected: {outstanding} · {p?.sku||''}</small></div>
        <div className="solar-grid-two" style={{flex:'2',minWidth:260}}>
-        <label>Accepted<input type="number" min="0" max={outstanding} step=".001" value={receipts[id]?.accepted??'0'} onChange={e=>setLine(id,{accepted:e.target.value})}/></label>
-        <label>Rejected<input type="number" min="0" max={outstanding} step=".001" value={receipts[id]?.rejected??'0'} onChange={e=>setLine(id,{rejected:e.target.value})}/></label>
+        {choices.length>0&&<label>Actual product variant<select required value={receipts[id]?.variantId??''} onChange={e=>setLine(id,{variantId:e.target.value,packageId:''})}><option value="">Choose size, colour or model</option>{choices.map(v=><option value={v.id} key={v.id}>{v.sku}</option>)}</select></label>}
+        {packChoices.length>0&&<label>Receiving unit<select value={receipts[id]?.packageId??''} onChange={e=>setLine(id,{packageId:e.target.value,accepted:'0',rejected:'0'})}><option value="">Base stock unit ({p?.unitOfMeasure??'Each'})</option>{packChoices.map(pack=><option value={pack.id} key={pack.id}>{pack.name} · {pack.unitsPerPackage} {pack.baseUnit}</option>)}</select></label>}
+        {selectedPackage&&<small>Package quantities below convert exactly to base stock units. The order balance remains in base units.</small>}
+        <label>{selectedPackage?'Packages accepted':'Accepted'}<input type="number" min="0" max={outstanding} step=".001" value={receipts[id]?.accepted??'0'} onChange={e=>setLine(id,{accepted:e.target.value})}/></label>
+        <label>{selectedPackage?'Packages rejected':'Rejected'}<input type="number" min="0" max={outstanding} step=".001" value={receipts[id]?.rejected??'0'} onChange={e=>setLine(id,{rejected:e.target.value})}/></label>
         {p?.trackLot&&<label>Batch number<input required={number(receipts[id]?.accepted)>0} value={receipts[id]?.lot??''} onChange={e=>setLine(id,{lot:e.target.value})} placeholder="Printed lot number"/></label>}
         {p?.trackLot&&<label>Expiry date<input type="date" value={receipts[id]?.expiry??''} onChange={e=>setLine(id,{expiry:e.target.value})}/></label>}
-        {p?.trackSerial&&<label>Serial numbers (separate with commas)<textarea required={number(receipts[id]?.accepted)>0} rows={2}
+        {p?.trackSerial&&<label>IMEI / serial numbers (one device per line; IMEI1|IMEI2 for dual SIM)<textarea required={number(receipts[id]?.accepted)>0} rows={2}
           value={receipts[id]?.serials??''} onChange={e=>setLine(id,{serials:e.target.value})}
           placeholder="One unique serial for every accepted unit"/></label>}
        </div>

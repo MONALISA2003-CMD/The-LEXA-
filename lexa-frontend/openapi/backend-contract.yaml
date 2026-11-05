@@ -3940,6 +3940,32 @@ paths:
         '404': {description: Resource not found}
         '409': {description: Conflict or stale state}
         '500': {description: Unexpected server error}
+  /workspaces/{workspaceId}/products/{productId}/packages:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: productId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: listProductPackagesGet
+      description: List active, tenant-owned package sizes for a product; base units and variant ownership are authoritative.
+      responses:
+        '200': {description: Active product packaging definitions}
+        '403': {description: No access to product catalogue}
+    post:
+      operationId: createProductPackagePost
+      description: Add an audited package conversion; physical stock is never created by this action.
+      responses:
+        '201': {description: Package conversion created}
+        '400': {description: Invalid factor or variant}
+        '403': {description: Catalogue write access denied}
+  /workspaces/{workspaceId}/catalog/packages:
+    parameters:
+      - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: listAllProductPackagesGet
+      description: Read tenant-owned active package definitions for receiving and client lookup.
+      responses:
+        '200': {description: Active catalogue package conversions}
+        '403': {description: Catalogue read access denied}
   /workspaces/{workspaceId}/catalog/units:
     get:
       operationId: getWorkspacesWorkspaceidCatalogUnits

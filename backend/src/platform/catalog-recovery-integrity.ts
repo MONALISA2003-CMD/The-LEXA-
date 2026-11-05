@@ -6,7 +6,7 @@
  * This audit is read-only and runs INSIDE the isolated restore transaction.
  */
 export const RECOVERY_CATALOG_TABLES = [
- 'business_profiles','categories','products','product_variants','inventory_lots',
+ 'business_profiles','categories','products','product_variants','product_packages','inventory_lots',
  'inventory_serials','stock_movements','stock_reservations','sale_lines',
  'warehouses','unit_of_measures',
 ] as const;
@@ -47,6 +47,8 @@ const REFERENCE_AUDITS = [
  // Product categories and category ancestors must belong to this tenant.
  `SELECT COUNT(*)::int AS n FROM products p LEFT JOIN categories c ON c.id=p.category_id AND c.tenant_id=p.tenant_id WHERE p.tenant_id=$1 AND p.category_id IS NOT NULL AND c.id IS NULL`,
  `SELECT COUNT(*)::int AS n FROM categories c LEFT JOIN categories parent ON parent.id=c.parent_id AND parent.tenant_id=c.tenant_id WHERE c.tenant_id=$1 AND c.parent_id IS NOT NULL AND parent.id IS NULL`,
+ // Package factors may never point to another business, variant or product.
+ `SELECT COUNT(*)::int AS n FROM product_packages pkg LEFT JOIN products p ON p.id=pkg.product_id AND p.tenant_id=pkg.tenant_id LEFT JOIN product_variants v ON v.id=pkg.variant_id AND v.product_id=pkg.product_id AND v.tenant_id=pkg.tenant_id WHERE pkg.tenant_id=$1 AND (p.id IS NULL OR pkg.units_per_package<=0 OR (pkg.variant_id IS NOT NULL AND v.id IS NULL))`,
  // Variant-to-product links were introduced without a Prisma foreign key.
  `SELECT COUNT(*)::int AS n FROM product_variants v LEFT JOIN products p ON p.id=v.product_id AND p.tenant_id=v.tenant_id WHERE v.tenant_id=$1 AND p.id IS NULL`,
  `SELECT COUNT(*)::int AS n FROM inventory_lots l LEFT JOIN products p ON p.id=l.product_id AND p.tenant_id=l.tenant_id LEFT JOIN product_variants v ON v.id=l.variant_id AND v.product_id=l.product_id AND v.tenant_id=l.tenant_id LEFT JOIN warehouses w ON w.id=l.warehouse_id AND w.tenant_id=l.tenant_id AND w.branch_id=l.branch_id WHERE l.tenant_id=$1 AND (p.id IS NULL OR w.id IS NULL OR (l.variant_id IS NOT NULL AND v.id IS NULL))`,

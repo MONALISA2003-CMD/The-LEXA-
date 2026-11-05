@@ -1068,6 +1068,7 @@ export class CoreController {
     if(variantId && !await this.prisma.productVariant.findFirst({where:{tenantId:workspaceId,productId,id:variantId,active:true}}))throw new BadRequestException('Variant does not belong to this product.');
     const reason = requiredString(body.reason, 'Reason', 500);
     const type = body.movementType === 'opening' ? 'opening' : 'adjustment';
+    if (type === 'opening' && !hasPermission(membership.role,'inventory.approve')) throw new ForbiddenException('Only an inventory approver can record opening stock.');
     if (!Number.isFinite(delta) || delta === 0 || Math.abs(delta) > 1_000_000 || Math.round(delta * 1000) !== delta * 1000) throw new BadRequestException('Quantity adjustment must be a non-zero number, no greater than one million, with at most three decimal places.');
     if (type === 'opening' && delta < 0) throw new BadRequestException('Opening stock must be a positive quantity. Use a stock adjustment to reduce inventory.');
     const rawKey = request.headers['idempotency-key'];
@@ -1089,6 +1090,9 @@ export class CoreController {
         if (!locked.length) throw new NotFoundException('Product not found.');
         const product = await tx.product.findFirst({ where: { id: productId, tenantId: workspaceId } });
         if (!product) throw new NotFoundException('Product not found.');
+        if(!product.trackStock)throw new BadRequestException('Service and non-stock products cannot receive inventory movements.');
+        if(product.trackSerial||product.trackLot)throw new BadRequestException('Adjust serialized or batch-tracked stock through the approved physical-unit or batch workflow, never anonymous quantity adjustments.');
+        if(!variantId&&await tx.productVariant.count({where:{tenantId:workspaceId,productId,active:true}}))throw new BadRequestException('Choose the exact product variant for this stock movement.');
         const aggregate = await tx.stockMovement.aggregate({ where: { tenantId: workspaceId, branchId, productId, variantId }, _sum: { quantityDelta: true } });
         const balance = Number(aggregate._sum.quantityDelta ?? 0);
         if (product.trackStock && balance + delta < 0) throw new ConflictException({ code: 'INSUFFICIENT_STOCK', message: 'This adjustment would make stock negative.' });

@@ -22,7 +22,8 @@
     "adapter:check": "python scripts/check-route-adapter-coverage.py",
     "test:tenant-http": "node scripts/test-tenant-idor.mjs",
     "start:worker": "node dist/src/platform/worker.js",
-    "backup:inventory-check": "node scripts/check-backup-inventory.mjs"
+    "backup:inventory-check": "node scripts/check-backup-inventory.mjs",
+    "audit:industry-staging": "node scripts/audit-industry-stock-staging.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.850.0",

@@ -418,6 +418,7 @@ model Product {
   saleReturnLines    SaleReturnLine[]
 
   @@unique([tenantId, sku])
+  @@unique([tenantId, id], map: "product_packages_product_identity_idx")
   @@index([tenantId, active, name])
   @@index([tenantId, categoryId])
   @@map("products")
@@ -646,6 +647,23 @@ model UnitOfMeasure {
   @@map("unit_of_measures")
 }
 
+model ProductPackage {
+  id String @id @default(uuid()) @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  variantId String? @map("variant_id") @db.Uuid
+  code String
+  name String
+  unitsPerPackage Decimal @map("units_per_package") @db.Decimal(14,3)
+  baseUnit String @map("base_unit")
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@unique([tenantId, id])
+  @@unique([tenantId, productId, code])
+  @@index([tenantId, productId, active], map: "product_packages_active_idx")
+  @@map("product_packages")
+}
+
 model ProductVariant {
   id String @id @default(uuid()) @db.Uuid
   tenantId String @map("tenant_id") @db.Uuid
@@ -657,6 +675,7 @@ model ProductVariant {
   sellingPriceMinor Int @default(0) @map("selling_price_minor")
   active Boolean @default(true)
   @@unique([tenantId, sku])
+  @@unique([tenantId, productId, id], map: "product_packages_variant_identity_idx")
   @@index([tenantId, productId])
   @@map("product_variants")
 }

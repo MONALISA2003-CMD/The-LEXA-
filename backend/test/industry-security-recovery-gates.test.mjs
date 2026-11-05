@@ -104,7 +104,7 @@ test('actual restore transaction independently checks counts and tenant-scoped r
  const db={query:async(sql,params)=>{statements.push({sql,params});return {rows:[{n:sql.includes('COUNT(*)::int AS n FROM "')?1:0}]};}};
  const result=await assertRestoredCatalogIntegrity(db,'workspace-fixture',manifest);
  assert.equal(result.checkedTables,RECOVERY_CATALOG_TABLES.length);
- assert.equal(result.referenceAudits,10);
+ assert.equal(result.referenceAudits,11);
  assert.ok(statements.every(x=>x.params.length===1&&x.params[0]==='workspace-fixture'));
  const wrongCount={query:async()=>({rows:[{n:0}]})};
  await assert.rejects(()=>assertRestoredCatalogIntegrity(wrongCount,'workspace-fixture',manifest),/count mismatch/);

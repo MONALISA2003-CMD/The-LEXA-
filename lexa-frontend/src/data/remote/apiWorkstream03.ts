@@ -7,6 +7,9 @@ const key = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 
 export const apiCatalogInventory = {
   industryConfig: (w:string)=>apiClient.get<{schemaVersion:number;industries:string[];supportedIndustries:Array<{code:string;label:string}>;categoryPaths:Record<string,string[][]>;productPolicies:Record<string,unknown>}>(`${tenant(w)}/catalog/industry-config`),
   ensureCategoryPath: (w:string,path:readonly string[])=>apiClient.post<{categoryId:string;path:string[]}>(`${tenant(w)}/categories/ensure-path`,{path:[...path]},key()),
+  productPackages:(w:string,p:string)=>apiClient.get<Array<{id:string;tenantId:string;productId:string;variantId:string|null;code:string;name:string;unitsPerPackage:string;baseUnit:string;active:boolean}>>(`${tenant(w)}/products/${enc(p)}/packages`),
+  allProductPackages:(w:string)=>apiClient.get<Array<{id:string;tenantId:string;productId:string;variantId:string|null;code:string;name:string;unitsPerPackage:string;baseUnit:string;active:boolean}>>(`${tenant(w)}/catalog/packages`),
+  createProductPackage:(w:string,p:string,input:{code:string;name:string;unitsPerPackage:number;variantId?:string})=>apiClient.post(`${tenant(w)}/products/${enc(p)}/packages`,input,key()),
   categories: (w:string)=>apiClient.get<import('../../domain/shared/types').Category[]>(`${tenant(w)}/categories`),
   createCategory: (w:string,input:{name:string;parentId?:string;templateKey?:string;attributeSchema?:unknown[]})=>apiClient.post<import('../../domain/shared/types').Category>(`${tenant(w)}/categories`,input,key()),
   updateCategory: (w:string,id:string,input:Record<string,unknown>)=>apiClient.patch<import('../../domain/shared/types').Category>(`${tenant(w)}/categories/${enc(id)}`,input),

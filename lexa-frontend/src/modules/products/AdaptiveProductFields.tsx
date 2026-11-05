@@ -117,3 +117,19 @@ export function SerializedUnitManager({workspaceId,branchId,product}:{workspaceI
  <small>{serials.data?.length??0} currently available serialized units {serials.isLoading?'· loading':''}</small>
  </section>;
 }
+
+
+/** Package conversion is master data: purchasing and receiving use its stable id. */
+export function ProductPackagingManager({workspaceId,product}:{workspaceId:string;product:Product}){
+ const queryClient=useQueryClient();
+ const [code,setCode]=useState('');const [name,setName]=useState('');const [size,setSize]=useState('');const [variantId,setVariantId]=useState('');
+ const packages=useQuery({queryKey:['product-packages',workspaceId,product.id],queryFn:()=>apiCatalogInventory.productPackages(workspaceId,product.id)});
+ const variants=useQuery({queryKey:['product-variants',workspaceId,product.id],queryFn:()=>apiCatalogInventory.variants(workspaceId,product.id)});
+ const create=useMutation({mutationFn:()=>apiCatalogInventory.createProductPackage(workspaceId,product.id,{code,name,unitsPerPackage:Number(size),...(variantId?{variantId}:{})}),onSuccess:async()=>{await queryClient.invalidateQueries({queryKey:['product-packages',workspaceId,product.id]});await queryClient.invalidateQueries({queryKey:['all-product-packages',workspaceId]});setCode('');setName('');setSize('');toast.success('Purchasing package saved');},onError:e=>toast.error('Package was not saved',{description:e instanceof Error?e.message:'Check the conversion factor.'})});
+ return <section className="lexa-variant-manager"><h4>Purchasing and stock packages</h4><p>Define cartons, packs or rolls in real base units. LEXA will receive stock in {product.unitOfMeasure??'Each'} and keep this conversion auditable.</p>
+ {(packages.data??[]).map(p=><div className="lexa-variant-row" key={p.id}><strong>{p.code} · {p.name}</strong><small>1 package = {p.unitsPerPackage} {p.baseUnit}{p.variantId?' · Specific variant':''}</small></div>)}
+ <div className="form-two-col"><label className="field-label">Package code<input maxLength={40} value={code} onChange={e=>setCode(e.target.value)} placeholder="e.g. CTN24"/></label><label className="field-label">Name<input maxLength={80} value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Carton of 24"/></label></div>
+ <div className="form-two-col"><label className="field-label">Base units in one package<input type="number" min="0.001" step="0.001" value={size} onChange={e=>setSize(e.target.value)} placeholder="e.g. 24"/></label><label className="field-label">Applicable variant<select value={variantId} onChange={e=>setVariantId(e.target.value)}><option value="">Base product</option>{(variants.data??[]).map(v=><option key={v.id} value={v.id}>{v.sku}</option>)}</select></label></div>
+ <button type="button" className="button button-secondary button-small" disabled={!code.trim()||!name.trim()||!size.trim()||create.isPending} onClick={()=>create.mutate()}>{create.isPending?'Saving…':'Add package conversion'}</button>
+ </section>;
+}
