@@ -3,6 +3,10 @@ name: LEXA isolated browser workflow tests
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Refresh LEXA from a clean repository ZIP
+    types: [completed]
   pull_request:
     paths:
       - 'lexa-frontend/**'
@@ -17,14 +21,19 @@ permissions:
   contents: read
 
 concurrency:
-  group: lexa-browser-${{ github.ref }}
+  group: lexa-browser-${{ github.event.workflow_run.id || github.ref }}
   cancel-in-progress: true
 
 jobs:
   browser-smoke:
     name: Local-only Playwright module + core workflows
+    if: >-
+      ${{ github.event_name != 'workflow_run' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.head_branch == 'main' &&
+           github.event.workflow_run.head_repository.full_name == github.repository) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 25
 
     defaults:
       run:
@@ -36,8 +45,10 @@ jobs:
       VITE_API_BASE_URL: ''
 
     steps:
-      - name: Checkout repository
+      - name: Checkout current main source
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -51,16 +62,17 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run LEXA browser and workflow tests
+      - name: Run isolated LEXA browser tests
         run: npm run test:e2e -- --reporter=line
 
-      - name: Save test failure evidence
+      - name: Preserve failure screenshots and traces
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lexa-playwright-evidence
           path: |
             lexa-frontend/test-results
             lexa-frontend/playwright-report
+          if-no-files-found: warn
           retention-days: 7
           
