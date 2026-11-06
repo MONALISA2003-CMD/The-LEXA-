@@ -28,7 +28,7 @@ test('workspace → product → opening stock → paid sale → refunded return'
   // Verify that inventory really persisted the opening movement before selling.
   const balanceRow = page.locator('.inventory-balance-card').getByRole('row')
     .filter({ hasText: 'Rice 5kg' });
-  await expect(balanceRow.getByRole('cell').nth(2), 'Opening stock must show exactly 10 units on hand').toHaveText('10');
+  await expect(balanceRow.locator('strong.stock-number'), 'Opening stock must show exactly 10 units on hand').toHaveText('10');
 
   await page.goto('/checkout');
   await page.getByRole('button', { name: /Rice 5kg/ }).click();
@@ -44,7 +44,7 @@ test('workspace → product → opening stock → paid sale → refunded return'
   const receiptUrl = page.url();
   await page.goto('/inventory');
   await expect(page.locator('.inventory-balance-card').getByRole('row')
-    .filter({ hasText: 'Rice 5kg' }).getByRole('cell').nth(2),
+    .filter({ hasText: 'Rice 5kg' }).locator('strong.stock-number'),
   'A paid one-unit sale must reduce stock from 10 to 9').toHaveText('9');
   await page.goto(receiptUrl);
   await expect(page.getByRole('heading', { name: 'Sales receipt' })).toBeVisible();
@@ -63,5 +63,5 @@ test('workspace → product → opening stock → paid sale → refunded return'
   await expect(page.locator('.solar-inventory .solar-hero h1')).toHaveText('Stock & movements');
   await expect(page.getByText('Rice 5kg').first()).toBeVisible();
   // One item sold and then restocked: original opening quantity must be restored.
-  await expect(page.locator('.inventory-balance-card').getByRole('row').filter({ hasText: 'Rice 5kg' }).getByRole('cell').nth(2), 'Restocked sale must restore exactly 10 units on hand').toHaveText('10');
+  await expect(page.locator('.inventory-balance-card').getByRole('row').filter({ hasText: 'Rice 5kg' }).locator('strong.stock-number'), 'Restocked sale must restore exactly 10 units on hand').toHaveText('10');
 });
