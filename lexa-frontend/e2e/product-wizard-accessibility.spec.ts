@@ -17,6 +17,7 @@ test('product wizard exposes labelled controls and clear stock separation', asyn
 
   await dialog.getByLabel(/Product name/).fill('USB-C charging cable');
   await dialog.getByLabel(/SKU \/ internal code/).fill('CABLE-USB-C-01');
+  await dialog.getByLabel('What are you adding?').selectOption('general');
   await dialog.getByRole('button', { name: 'Continue to prices' }).click();
   await expect(dialog.getByLabel(/Selling price/)).toBeVisible();
   await expect(dialog.getByLabel(/Unit of measure/)).toBeVisible();

@@ -4,12 +4,13 @@ import {useQuery} from '@tanstack/react-query';
 import {Link} from 'react-router';
 import {useWorkspace} from '../../app/WorkspaceContext';
 import {apiInventoryOperations} from '../../data/remote/apiInventoryOperations';
+import {dataProviderMode} from '../../data/remote/runtimeConfig';
 import {formatMinorAmount} from '../../domain/money/money';
 import {InventoryPanel,InventoryNotice,InventoryStats,InventoryBarChart,InventoryTable,day} from './InventoryFrame';
 export default function InventoryIntelligencePanel({compact=false}:{compact?:boolean}){
  const {workspace,branch}=useWorkspace();
  const query=useQuery({queryKey:['inventory-intelligence',workspace.id,branch.id],
-   queryFn:()=>apiInventoryOperations.intelligence({workspaceId:workspace.id,branchId:branch.id}),staleTime:45000});
+   queryFn:()=>apiInventoryOperations.intelligence({workspaceId:workspace.id,branchId:branch.id}),enabled:dataProviderMode==='api',staleTime:45000});
  const source=query.data;
  const movement=useMemo(()=>{
   const grouped=new Map<string,{inward:number;outward:number}>();
@@ -24,6 +25,7 @@ export default function InventoryIntelligencePanel({compact=false}:{compact?:boo
  const urgent=(source?.products??[]).filter(p=>p.lowStock).sort((a,b)=>a.available-b.available);
  const money=(x:number)=>formatMinorAmount(x,workspace.currency);
  return <div className="solar-intelligence" style={{display:'grid',gap:16}}>
+  {dataProviderMode==='local'&&<p className="solar-fineprint" role="note">Local-only preview: authoritative stock intelligence requires a connected LEXA account. Figures are not available here; use the recorded product and movement registers below.</p>}
   {query.isError&&<InventoryNotice retry={()=>void query.refetch()}>Current inventory intelligence could not load. Stock figures below must not be treated as zero until the connection is restored.</InventoryNotice>}
   <InventoryStats cards={[
    {label:'Available to sell',value:query.isError?'—':source?.totals.available.toLocaleString('en-UG')??'—',help:'On hand less reserved or restricted'},

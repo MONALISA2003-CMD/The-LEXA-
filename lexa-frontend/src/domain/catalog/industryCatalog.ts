@@ -43,6 +43,15 @@ export function firstViewPresets(industries:readonly string[], specialties:reado
  const result=[...first,...unscoped.filter(item=>!first.includes(item))];
  return result.length?result:permitted;
 }
+/**
+ * A business without any selected industry should start with the flexible
+ * general product, not the first alphabetical specialist preset. The latter
+ * may require an IMEI, model or batch attributes that a normal item lacks.
+ */
+export function initialProductPreset(industries:readonly string[], specialties:readonly string[]):ProductPreset {
+  if (!industries.length) return presetFor('general');
+  return firstViewPresets(industries, specialties).find(p => p.key !== 'general') ?? presetFor('general');
+}
 export function suggestedCategoryPaths(industries:readonly string[]): readonly (readonly string[])[] {
   const paths=industries.flatMap(code=>INDUSTRY_CATEGORY_PATHS[code]??[]);
   return paths.filter((path,index)=>paths.findIndex(p=>p.join('/')===path.join('/'))===index);

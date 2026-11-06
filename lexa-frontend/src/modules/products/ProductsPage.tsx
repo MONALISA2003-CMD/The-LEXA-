@@ -5,7 +5,7 @@ import AdaptiveProductFields, { CategoryManager, ProductVariantsManager, Product
 import {DeviceBrandModelSelector,AccessoryCompatibilityManager} from './DeviceCatalogExperiences';
 import ElectronicsCatalogueDirectory from './ElectronicsCatalogueDirectory';
 import {ElectronicsProductIdentityAndPackages} from './ElectronicsStockOperations';
-import { firstViewPresets, validateProductDraft, presetFor, CATALOGUE_VERSION } from '../../domain/catalog/industryCatalog';
+import { initialProductPreset, validateProductDraft, presetFor, CATALOGUE_VERSION } from '../../domain/catalog/industryCatalog';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Edit3, Package, Plus, Power, Search, X } from 'lucide-react';
@@ -58,7 +58,7 @@ export default function ProductsPage() {
     });
   }, [productQuery.data, identitySearch.data, search, categoryFilter, statusFilter, categoryMap]);
 
-  function openNew() {const selected=firstViewPresets(businessQuery.data?.industries??[],assortment.focus?[assortment.focus.code]:businessQuery.data?.subActivityCodes??[]).find(p=>p.key!=='general')??presetFor('general');setEditing(null);setFormStep(1);setForm({...blankForm,productType:selected.key,unitOfMeasure:selected.unit,trackStock:selected.stock!=='none',trackLot:selected.stock==='batch',trackSerial:selected.stock==='serial'});setFormOpen(true);}
+  function openNew() {const selected=initialProductPreset(businessQuery.data?.industries??[],assortment.focus?[assortment.focus.code]:businessQuery.data?.subActivityCodes??[]);setEditing(null);setFormStep(1);setForm({...blankForm,productType:selected.key,unitOfMeasure:selected.unit,trackStock:selected.stock!=='none',trackLot:selected.stock==='batch',trackSerial:selected.stock==='serial'});setFormOpen(true);}
   function openEdit(product: Product) {
     setEditing(product);setFormStep(1);
     setForm({ name: product.name, sku: product.sku, barcode: product.barcode ?? '', brand: product.brand ?? '', catalogBrandId:product.catalogBrandId??'',catalogModelId:product.catalogModelId??'', unitOfMeasure: product.unitOfMeasure ?? 'Each', supplierSku: product.supplierSku ?? '', categoryName: product.categoryId ? (categoryMap.get(product.categoryId) ?? '') : '', categoryId:product.categoryId??'', productType:product.productType??'general', attributes:Object.fromEntries(Object.entries(product.attributes??{}).map(([key,value])=>[key,String(value)])), costPrice: String(product.costPriceMinor / factor()), sellingPrice: String(product.sellingPriceMinor / factor()), lowStockThreshold: String(product.lowStockThreshold), trackStock: product.trackStock, trackLot:product.trackLot??false, trackSerial:product.trackSerial??false });

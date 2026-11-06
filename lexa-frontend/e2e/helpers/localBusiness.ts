@@ -9,6 +9,10 @@ export async function openLocalBusiness(page: Page, businessName: string): Promi
   await page.goto('/onboarding');
   await expect(page.getByRole('textbox', { name: /Business name/i })).toBeVisible();
   await page.getByRole('textbox', { name: /Business name/i }).fill(businessName);
+  // On mobile the essential-only cookie choice covers the submit button.
+  // Record a deliberate privacy choice, never silently accept analytics.
+  const essentialOnly = page.getByRole('button', { name: 'Essential only' });
+  if (await essentialOnly.isVisible()) await essentialOnly.click();
   await page.getByRole('button', { name: /Create and open my business/i }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('heading', { name: /Your business\s+at a glance/i })).toBeVisible();
@@ -26,10 +30,16 @@ export async function createLocalProduct(
   await expect(dialog).toBeVisible();
   await dialog.getByLabel(/Product name/i).fill(draft.name);
   await dialog.getByLabel(/SKU \/ internal code/i).fill(draft.sku);
+  // Explicitly exercise the generic stock item. Specialist presets can require
+  // serial/IMEI or batch specifications that ordinary groceries do not have.
+  await dialog.getByLabel('What are you adding?').selectOption('general');
   await dialog.getByRole('button', { name: 'Continue to prices' }).click();
   await dialog.getByLabel(/^Cost price/i).fill(draft.cost);
   await dialog.getByLabel(/^Selling price/i).fill(draft.price);
   await dialog.getByRole('button', { name: /Save product & continue/ }).click();
+  // The real save transition enters step 3 and exposes the Finish control.
+  // If validation fails this assertion keeps the error visible in the trace.
+  await expect(dialog.getByRole('button', { name: /Finish setup/ })).toBeVisible();
   await expect(dialog.getByText('Product saved.', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: /Finish setup/ }).click();
   await expect(dialog).toHaveCount(0);
