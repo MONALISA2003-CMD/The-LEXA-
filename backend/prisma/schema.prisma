@@ -2185,6 +2185,8 @@ model PlatformSubscription {
   status String @default("pending")
   activatedAt DateTime? @map("activated_at") @db.Timestamptz(3)
   suspensionPreviousStatus String? @map("suspension_previous_status")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  archivedPreviousStatus String? @map("archived_previous_status")
   paidThrough DateTime? @map("paid_through") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)

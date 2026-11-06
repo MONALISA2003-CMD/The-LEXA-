@@ -792,6 +792,12 @@
     "rationale": "Reset tokens are never restored"
   },
   {
+    "table": "platform_account_activity",
+    "disposition": "excluded",
+    "domain": "security",
+    "rationale": "Platform-only recent user activity and observed IP metadata. Never include in a tenant business restore; retain only in protected platform recovery snapshots."
+  },
+  {
     "table": "platform_admin_members",
     "disposition": "excluded",
     "domain": "security",

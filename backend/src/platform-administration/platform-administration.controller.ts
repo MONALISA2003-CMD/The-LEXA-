@@ -18,7 +18,7 @@ type SqlTx = {
   $queryRaw<T = unknown>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T>;
   $executeRaw(strings: TemplateStringsArray, ...values: unknown[]): Promise<number>;
 };
-type SubscriptionRow = { tenant_id: string; business_name: string; owner_email: string | null; status: 'pending'|'active'|'suspended'|'legacy'; paid_through: Date | null; activated_at: Date | null; created_at: Date };
+type SubscriptionRow = { tenant_id: string; business_name: string; owner_email: string | null; status: 'pending'|'active'|'suspended'|'legacy'|'archived'; paid_through: Date | null; activated_at: Date | null; created_at: Date };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
 const cookie = (request: FastifyRequest, name: string): string | undefined => {
   for (const item of (request.headers.cookie ?? '').split(';')) {
@@ -102,7 +102,7 @@ export class BusinessPlatformBillingController extends PlatformIdentity {
       const accounts = await this.prisma.$queryRaw<SubscriptionRow[]>`SELECT tenant_id::text,business_name,owner_email,status,paid_through,activated_at,created_at FROM platform_subscriptions WHERE tenant_id=${workspaceId}::uuid LIMIT 1`;
       const account = accounts[0];
       if (!account) throw new ForbiddenException('Contact LEXA support to finish your subscription setup.');
-      const canManageBilling = ['owner','admin','administrator','owner_administrator'].includes(actor.businessRole||'');
+      const canManageBilling = account.status !== 'archived' && account.status !== 'suspended' && ['owner','admin','administrator','owner_administrator'].includes(actor.businessRole||'');
       const latest = canManageBilling ? await this.prisma.$queryRaw<Array<{ id: string; payment_reference: string; status: string; created_at: Date; review_note: string|null }>>`
         SELECT id::text,payment_reference,status,created_at,review_note FROM platform_payment_claims WHERE tenant_id=${workspaceId}::uuid ORDER BY created_at DESC LIMIT 1` : [];
       const now = new Date();
@@ -141,7 +141,7 @@ export class BusinessPlatformBillingController extends PlatformIdentity {
     return this.prisma.runWithTenantContext({ tenantId: workspaceId, userId: actor.userId }, async () => {
       const accounts = await this.prisma.$queryRaw<Array<{status:string}>>`SELECT status FROM platform_subscriptions WHERE tenant_id=${workspaceId}::uuid`;
       if (!accounts.length) throw new NotFoundException('Subscription not found.');
-      if (accounts[0].status === 'suspended') throw new ForbiddenException('Please contact LEXA support about your suspended account.');
+      if (accounts[0].status === 'suspended' || accounts[0].status === 'archived') throw new ForbiddenException('This account is unavailable. Please contact LEXA support.');
       if (accounts[0].status === 'legacy') throw new ForbiddenException('This protected existing account is not yet enrolled in paid billing. Contact LEXA administration before submitting a payment.');
       const open = await this.prisma.$queryRaw<Array<{id:string,payment_reference:string}>>`
         SELECT id::text,payment_reference FROM platform_payment_claims WHERE tenant_id=${workspaceId}::uuid AND status='submitted' LIMIT 1`;
@@ -197,11 +197,12 @@ export class PlatformAdministrationController extends PlatformIdentity {
   async overview(@Req() request: FastifyRequest) {
     const actor = await this.admin(request,['super_admin','billing_manager','auditor']);
     return this.prisma.runWithTenantContext({ userId: actor.userId }, async () => {
-      const [counts] = await this.prisma.$queryRaw<Array<{businesses:number;active:number;pending:number;legacy:number;expiring:number;expired:number}>>`
+      const [counts] = await this.prisma.$queryRaw<Array<{businesses:number;active:number;pending:number;legacy:number;archived:number;expiring:number;expired:number}>>`
         SELECT count(*)::int AS businesses,
           count(*) FILTER(WHERE status='active' AND paid_through>now())::int AS active,
           count(*) FILTER(WHERE status='pending')::int AS pending,
           count(*) FILTER(WHERE status='legacy')::int AS legacy,
+          count(*) FILTER(WHERE status='archived')::int AS archived,
           count(*) FILTER(WHERE status='active' AND paid_through>now() AND paid_through<=now()+interval '7 days')::int AS expiring,
           count(*) FILTER(WHERE status='active' AND paid_through<=now())::int AS expired
         FROM platform_subscriptions`;
@@ -228,6 +229,30 @@ export class PlatformAdministrationController extends PlatformIdentity {
       FROM platform_subscriptions
       WHERE (${needle}='' OR business_name ILIKE '%'||${needle}||'%' OR owner_email ILIKE '%'||${needle}||'%')
       ORDER BY created_at DESC LIMIT ${pageSize(limit)} OFFSET ${pageOffset(offset)}`);
+  }
+
+  /** Latest observed activity across active, pending, suspended and archived accounts.
+   * An IP address can be a proxy egress address; it is not proof of a bypass.
+   * Never exposes session cookies, login secrets, browser fingerprints or ERP rows.
+   */
+  @Get('activity')
+  async activity(@Req() request:FastifyRequest, @Query('limit') limit?:string, @Query('offset') offset?:string) {
+    const actor=await this.admin(request,['super_admin','operations_manager','auditor']);
+    return this.prisma.runWithTenantContext({userId:actor.userId},()=>this.prisma.$queryRaw`
+      SELECT a.tenant_id::text,a.user_id::text,s.business_name,s.status AS subscription_status,
+        CASE WHEN ${actor.role}='super_admin' THEN d.email ELSE NULL END AS email,
+        CASE WHEN ${actor.role}='super_admin' THEN d.display_name ELSE NULL END AS display_name,
+        a.last_seen_at,a.observed_ip::text AS observed_ip,
+        a.previous_ip::text AS previous_ip,a.ip_changed_at,a.client_label,a.request_count,a.last_activity_kind,
+        (a.last_seen_at>now()-interval '5 minutes') AS online_recently,
+        ((s.status IN ('pending','suspended','archived') AND a.last_activity_kind='business_operation'
+            AND a.last_seen_at>s.updated_at)
+         OR (s.status='active' AND s.paid_through IS NOT NULL
+            AND a.last_activity_kind='business_operation' AND a.last_seen_at>s.paid_through)) AS review_restricted_activity
+      FROM platform_account_activity a JOIN platform_subscriptions s ON s.tenant_id=a.tenant_id
+      LEFT JOIN platform_user_directory d ON d.tenant_id=a.tenant_id AND d.user_id=a.user_id
+      ORDER BY a.last_seen_at DESC LIMIT ${pageSize(limit)} OFFSET ${pageOffset(offset)}
+    `);
   }
 
   @Get('businesses/:tenantId')
@@ -288,7 +313,7 @@ export class PlatformAdministrationController extends PlatformIdentity {
             return {alreadyApproved:true,period:done[0]??null};
           }
           if(claim.status!=='submitted')throw new ConflictException('This submission has already been reviewed.');
-          if(claim.subscription_status==='suspended')throw new ConflictException('This account is suspended. Review its access restrictions before approving payment.');
+          if(claim.subscription_status==='suspended'||claim.subscription_status==='archived')throw new ConflictException('This account is suspended or archived. Review its access restrictions before approving payment.');
           if(claim.subscription_status==='legacy')throw new ConflictException('Legacy access cannot be shortened by payment approval. Explicitly transition this account before billing.');
           if(claim.amount_ugx!==SUBSCRIPTION_PRICE_UGX)throw new ConflictException('The claimed payment amount does not match the official subscription price.');
           const now=new Date();const period=nextPaidPeriod(now,claim.paid_through);
@@ -323,6 +348,101 @@ export class PlatformAdministrationController extends PlatformIdentity {
       await tx.$executeRaw`INSERT INTO platform_administration_audit(id,actor_user_id,tenant_id,action,details)
         VALUES(${randomUUID()}::uuid,${actor.userId}::uuid,${rows[0].tenant_id}::uuid,'subscription.payment.rejected',${JSON.stringify({paymentClaimId:claimId})}::jsonb)`;
       return {rejected:true};
+    }));
+  }
+
+  /** Offline/WhatsApp payments can be recorded directly by a billing administrator.
+   * The receipt must have been independently verified in the receiving account.
+   * Both the payment claim and the 30-day entitlement are committed atomically.
+   */
+  @Post('businesses/:tenantId/activate') @UseGuards(CsrfGuard)
+  async activateWithVerifiedPayment(@Req() request:FastifyRequest,@Param('tenantId') tenantId:string,@Body() input:unknown){
+    const actor=await this.admin(request,['super_admin','billing_manager']);key(tenantId);
+    const b=bodyObject(input);
+    if(b.confirmation!=='I_VERIFIED_RECEIPT')throw new BadRequestException('Confirm independent receipt verification.');
+    let method:string;
+    try{method=safePaymentMethod(b.method);}catch{throw new BadRequestException('Select the verified payment method.');}
+    const verifiedReference=normalizedTransactionReference(field(b.verifiedReference,'Verified provider reference',120));
+    const reason=field(b.reason,'Verification note',500);
+    try {
+      return await this.prisma.runWithTenantContext({userId:actor.userId},()=>this.prisma.$transaction(async(tx:SqlTx)=>{
+        const rows=await tx.$queryRaw<Array<{status:string;paid_through:Date|null}>>`
+          SELECT status,paid_through FROM platform_subscriptions WHERE tenant_id=${tenantId}::uuid FOR UPDATE`;
+        if(!rows[0])throw new NotFoundException('Business not found.');
+        if(rows[0].status==='legacy')throw new ConflictException('Existing protected businesses require an explicit billing transition first.');
+        if(rows[0].status==='suspended'||rows[0].status==='archived')throw new ConflictException('Reactivate or restore the account before recording payment.');
+        const used=await tx.$queryRaw<Array<{id:string}>>`
+          SELECT id::text FROM platform_payment_claims
+          WHERE method=${method} AND upper(btrim(verified_reference))=${verifiedReference} AND status='approved' LIMIT 1`;
+        if(used[0])throw new ConflictException('This verified provider reference has already been used.');
+        const now=new Date(),period=nextPaidPeriod(now,rows[0].paid_through);
+        const claimId=randomUUID(),paymentReference=`LXA-${randomUUID().replace(/-/g,'').slice(0,16).toUpperCase()}`;
+        await tx.$executeRaw`INSERT INTO platform_payment_claims
+          (id,tenant_id,payment_reference,method,transaction_reference,verified_reference,claim_message,submitted_by,
+           status,reviewed_by,reviewed_at,review_note)
+          VALUES(${claimId}::uuid,${tenantId}::uuid,${paymentReference},${method},${verifiedReference},${verifiedReference},
+            ${reason},${actor.userId}::uuid,'approved',${actor.userId}::uuid,${now},${reason})`;
+        await tx.$executeRaw`UPDATE platform_subscriptions SET status='active',
+          activated_at=COALESCE(activated_at,${now}),paid_through=${period.endsAt},updated_at=${now}
+          WHERE tenant_id=${tenantId}::uuid`;
+        await tx.$executeRaw`INSERT INTO platform_subscription_periods
+          (id,tenant_id,payment_claim_id,starts_at,ends_at,amount_ugx,approved_by)
+          VALUES(${randomUUID()}::uuid,${tenantId}::uuid,${claimId}::uuid,${period.startsAt},${period.endsAt},
+           ${SUBSCRIPTION_PRICE_UGX},${actor.userId}::uuid)`;
+        await tx.$executeRaw`INSERT INTO platform_administration_audit
+          (id,actor_user_id,tenant_id,action,details)
+          VALUES(${randomUUID()}::uuid,${actor.userId}::uuid,${tenantId}::uuid,'subscription.offline_payment_verified',
+            ${JSON.stringify({claimId,method,endsAt:period.endsAt,reason})}::jsonb)`;
+        return {activated:true,claimId,period,expiresAt:period.endsAt};
+      },{isolationLevel:'Serializable'}));
+    }catch(error){
+      if(error instanceof ConflictException||error instanceof NotFoundException)throw error;
+      if(/23505|unique|P2034/.test(String(error)))throw new ConflictException('The payment reference is already used or another review is in progress.');
+      throw error;
+    }
+  }
+
+  /** "Delete account" means reversible archive: never destroy production ERP records. */
+  @Post('businesses/:tenantId/archive') @UseGuards(CsrfGuard)
+  async archiveBusiness(@Req() request:FastifyRequest,@Param('tenantId') tenantId:string,@Body() input:unknown){
+    const actor=await this.admin(request,['super_admin']);key(tenantId);
+    const b=bodyObject(input),reason=field(b.reason,'Archive reason',500);
+    if(b.confirmation!=='ARCHIVE_BUSINESS')throw new BadRequestException('Confirm account archive.');
+    return this.prisma.runWithTenantContext({userId:actor.userId},()=>this.prisma.$transaction(async(tx:SqlTx)=>{
+      const rows=await tx.$queryRaw<Array<{status:string;business_name:string}>>`
+        SELECT status,business_name FROM platform_subscriptions WHERE tenant_id=${tenantId}::uuid FOR UPDATE`;
+      if(!rows[0])throw new NotFoundException('Business not found.');
+      if(rows[0].status==='archived')throw new ConflictException('Business is already archived.');
+      if(b.businessName!==rows[0].business_name)throw new BadRequestException('Type the exact business name to confirm archive.');
+      await tx.$executeRaw`UPDATE platform_subscriptions SET status='archived',
+        archived_at=now(),archived_previous_status=${rows[0].status},updated_at=now()
+        WHERE tenant_id=${tenantId}::uuid`;
+      await tx.$executeRaw`INSERT INTO platform_administration_audit(id,actor_user_id,tenant_id,action,details)
+        VALUES(${randomUUID()}::uuid,${actor.userId}::uuid,${tenantId}::uuid,'subscription.account.archived',
+          ${JSON.stringify({reason,previousStatus:rows[0].status})}::jsonb)`;
+      return {status:'archived',dataPreserved:true};
+    }));
+  }
+
+  @Post('businesses/:tenantId/restore') @UseGuards(CsrfGuard)
+  async restoreBusiness(@Req() request:FastifyRequest,@Param('tenantId') tenantId:string,@Body() input:unknown){
+    const actor=await this.admin(request,['super_admin']);key(tenantId);
+    const b=bodyObject(input),reason=field(b.reason,'Restoration reason',500);
+    if(b.confirmation!=='RESTORE_BUSINESS')throw new BadRequestException('Confirm account restoration.');
+    return this.prisma.runWithTenantContext({userId:actor.userId},()=>this.prisma.$transaction(async(tx:SqlTx)=>{
+      const rows=await tx.$queryRaw<Array<{status:string;archived_previous_status:string|null;paid_through:Date|null}>>`
+        SELECT status,archived_previous_status,paid_through FROM platform_subscriptions WHERE tenant_id=${tenantId}::uuid FOR UPDATE`;
+      if(!rows[0]||rows[0].status!=='archived')throw new ConflictException('The business is not archived.');
+      // Restore suspension if present. Paid subscriptions cannot skip the expiry check.
+      const previous=rows[0].archived_previous_status;
+      const next=previous==='legacy'?'legacy':previous==='suspended'?'suspended':
+        rows[0].paid_through&&rows[0].paid_through>new Date()?'active':'pending';
+      await tx.$executeRaw`UPDATE platform_subscriptions SET status=${next},archived_at=NULL,
+        archived_previous_status=NULL,updated_at=now() WHERE tenant_id=${tenantId}::uuid`;
+      await tx.$executeRaw`INSERT INTO platform_administration_audit(id,actor_user_id,tenant_id,action,details)
+        VALUES(${randomUUID()}::uuid,${actor.userId}::uuid,${tenantId}::uuid,'subscription.account.restored',
+          ${JSON.stringify({reason,status:next})}::jsonb)`;
+      return {status:next,dataPreserved:true};
     }));
   }
 
@@ -401,7 +521,19 @@ export class PlatformAdministrationController extends PlatformIdentity {
         worker:{status:!workerEnabled?'disabled':raw&&Date.now()-new Date(raw.last_seen_at).getTime()<120000?raw.status:'stale',lastSeenAt:raw?.last_seen_at??null},
         observability:{sentryConfigured:Boolean(process.env.SENTRY_DSN),otelConfigured:Boolean(process.env.OTEL_EXPORTER_OTLP_ENDPOINT)},
         billing:subscriptions};
+      const [securitySignals]=await this.prisma.$queryRaw<Array<{restricted_activity:number}>>`
+        SELECT count(*)::int AS restricted_activity FROM platform_account_activity a
+        JOIN platform_subscriptions s ON s.tenant_id=a.tenant_id
+        WHERE (s.status IN ('pending','suspended','archived') AND a.last_activity_kind='business_operation'
+               AND a.last_seen_at>s.updated_at)
+           OR (s.status='active' AND s.paid_through IS NOT NULL
+               AND a.last_activity_kind='business_operation' AND a.last_seen_at>s.paid_through)`;
       const recommendations:Array<{severity:'high'|'medium'|'info';title:string;description:string;action:string}>=[];
+      if((securitySignals?.restricted_activity??0)>0)recommendations.push({
+        severity:'high',title:'Restricted workspace activity needs investigation',
+        description:`${securitySignals.restricted_activity} recent activity snapshot(s) are inconsistent with their current subscription restrictions. This is a review signal, not proof of a bypass.`,
+        action:'Review the platform activity register, subscription timestamps and backend authorization logs. Never suspend on IP evidence alone.'
+      });
       if((subscriptions.oldest_payment_hours??0)>=24)recommendations.push({severity:'high',title:'Payment approval backlog',description:'An unreviewed payment is older than 24 hours.',action:'Review and independently verify submitted payments.'});
       if(subscriptions.expiring>0)recommendations.push({severity:'medium',title:'Subscription renewals due',description:`${subscriptions.expiring} business(es) expire within seven days.`,action:'Contact affected owners about renewal.'});
       if(!health.observability.sentryConfigured)recommendations.push({severity:'info',title:'Error monitoring not configured',description:'Sentry errors are unavailable.',action:'Configure a Sentry DSN when the existing account supports it.'});

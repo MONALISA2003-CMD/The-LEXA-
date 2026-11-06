@@ -1,7 +1,7 @@
 import { apiClient } from './apiClient';
 
 export type PlatformRole = 'super_admin'|'billing_manager'|'support_agent'|'operations_manager'|'auditor';
-export type SubscriptionStatus = 'pending'|'active'|'suspended'|'legacy';
+export type SubscriptionStatus = 'pending'|'active'|'suspended'|'legacy'|'archived';
 export interface SubscriptionStatusResponse {
   workspaceId: string; businessName: string; status: SubscriptionStatus;
   operational: boolean; canManageBilling:boolean; expiresAt: string|null; remainingDays: number;
@@ -11,10 +11,16 @@ export interface SubscriptionStatusResponse {
 export interface PlatformProfile { role:PlatformRole; mfaEnabled:boolean; requiresMfa:boolean; priceUGX:number; periodDays:number }
 export interface PlatformBusiness { tenant_id:string; business_name:string; owner_email:string|null; status:SubscriptionStatus; activated_at:string|null; paid_through:string|null; created_at:string }
 export interface PlatformPayment { id:string; tenant_id:string; business_name:string; owner_email:string|null; payment_reference:string; method:string; transaction_reference:string|null; verified_reference:string|null; claim_message:string|null; amount_ugx:number; status:string; created_at:string; reviewed_at:string|null; review_note:string|null }
+export interface PlatformAccountActivity {
+  tenant_id:string;user_id:string;business_name:string;subscription_status:SubscriptionStatus;
+  email:string|null;display_name:string|null;last_seen_at:string;observed_ip:string|null;
+  previous_ip:string|null;ip_changed_at:string|null;client_label:string|null;
+  request_count:number;online_recently:boolean;last_activity_kind:'registration'|'account_access'|'business_operation';review_restricted_activity:boolean;
+}
 export interface PlatformUser {user_id:string;tenant_id:string;business_name:string;email:string;display_name:string|null;membership_role:string;membership_status:string;joined_at:string;updated_at:string}
 export interface PlatformSummary {
   checkedAt:string;subscriptionPriceUGX:number;
-  businesses:{businesses:number;active:number;pending:number;legacy:number;expiring:number;expired:number};
+  businesses:{businesses:number;active:number;pending:number;legacy:number;archived:number;expiring:number;expired:number};
   payments:{submitted:number;cash_collected:number;last_30_days:number};openSupportCases:number;incidentAlerts:{critical:number;high:number};
 }
 export interface PlatformRevenue { currency:'UGX';priceUGX:number;totals:{total:number;last_30_days:number;payments:number};trend:Array<{day:string;revenue:number;payments:number}> }
@@ -36,11 +42,15 @@ export const apiPlatformAdministration = {
   overview:() => apiClient.get<PlatformSummary>(`${base}/overview`),
   businesses:(q='',offset=0) => apiClient.get<PlatformBusiness[]>(`${base}/businesses`,{q,limit:50,offset}),
   users:(q='',offset=0) => apiClient.get<PlatformUser[]>(`${base}/users`,{q,limit:50,offset}),
+  activity:(limit=100,offset=0) => apiClient.get<PlatformAccountActivity[]>(`${base}/activity`,{limit,offset}),
   business:(id:string)=>apiClient.get<{business:PlatformBusiness;payments:PlatformPayment[];periods:Array<{starts_at:string;ends_at:string;amount_ugx:number;created_at:string}>}>(`${base}/businesses/${encodeURIComponent(id)}`),
   payments:(status='submitted')=>apiClient.get<PlatformPayment[]>(`${base}/payments`,{status}),
   approve:(id:string,verifiedReference:string,note:string)=>apiClient.post(`${base}/payments/${encodeURIComponent(id)}/approve`,{verifiedReference,note,confirmation:'I_VERIFIED_RECEIPT'}),
   reject:(id:string,reason:string)=>apiClient.post(`${base}/payments/${encodeURIComponent(id)}/reject`,{reason}),
   access:(tenantId:string,status:'suspended'|'reinstate',reason:string)=>apiClient.post(`${base}/businesses/${encodeURIComponent(tenantId)}/access`,{status,reason}),
+  activateWithVerifiedPayment:(tenantId:string,method:string,verifiedReference:string,reason:string)=>apiClient.post(`${base}/businesses/${encodeURIComponent(tenantId)}/activate`,{method,verifiedReference,reason,confirmation:'I_VERIFIED_RECEIPT'}),
+  archive:(tenantId:string,businessName:string,reason:string)=>apiClient.post(`${base}/businesses/${encodeURIComponent(tenantId)}/archive`,{confirmation:'ARCHIVE_BUSINESS',businessName,reason}),
+  restore:(tenantId:string,reason:string)=>apiClient.post(`${base}/businesses/${encodeURIComponent(tenantId)}/restore`,{confirmation:'RESTORE_BUSINESS',reason}),
   transitionLegacy:(tenantId:string,reason:string)=>apiClient.post(`${base}/businesses/${encodeURIComponent(tenantId)}/enroll`,{confirmation:'I_APPROVE_BILLING_TRANSITION',reason}),
   revenue:()=>apiClient.get<PlatformRevenue>(`${base}/revenue`),
   health:()=>apiClient.get<PlatformHealth>(`${base}/health`),

@@ -22,6 +22,7 @@ import { invitableRoleCatalog } from '../authorization/employee-role-catalog';
 import { postLedgerJournal, settlementAccountKey } from '../general-ledger/ledger-posting';
 import { assertBranchAccess } from '../authorization/branch-scope';
 import { CsrfGuard } from './csrf.guard';
+import { observedClientIp, safeClientLabel } from '../platform-administration/platform-activity-policy';
 import { meetsNewPasswordPolicy, PASSWORD_POLICY_MESSAGE } from '../auth/new-password-policy';
 import { AccountProtectionService } from '../auth/account-protection.service';
 import { verifyTurnstileChallenge } from '../auth/turnstile-verification';
@@ -644,6 +645,11 @@ export class CoreController {
       await tx.branch.create({ data: { tenantId: created.id, code: 'MAIN', name: branchName, timezone, currency } });
       await tx.$executeRaw`INSERT INTO platform_subscriptions(tenant_id,business_name,owner_email,status)
         VALUES(${tenantId}::uuid,${businessName},${session.user.email},'pending')`;
+      // The platform owner can review initial registration origin before activation.
+      const observedIp = observedClientIp(request.ip);
+      const clientLabel = safeClientLabel(request.headers['user-agent']);
+      await tx.$executeRaw`INSERT INTO platform_account_activity(tenant_id,user_id,observed_ip,client_label)
+        VALUES(${tenantId}::uuid,${session.userId}::uuid,${observedIp}::inet,${clientLabel})`;
       if (initialIndustries.length) await tx.businessProfile.create({data:{tenantId:created.id,industry:initialIndustries[0],industries:initialIndustries}});
       await tx.auditEvent.create({ data: { tenantId: created.id, actorUserId: session.userId, action: 'workspace.created', resourceType: 'workspace', resourceId: created.id, requestId: request.headers['x-request-id'] as string | undefined } });
       return created;

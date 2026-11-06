@@ -11,6 +11,7 @@ import { meetsNewPasswordPolicy, PASSWORD_POLICY_MESSAGE } from './new-password-
 import { verifySignupChallenge } from './turnstile-verification';
 import { sendTransactionalEmail } from '../notifications/email-delivery';
 import { sendLexaWelcomeEmail } from '../notifications/welcome-email';
+import { observedClientIp, safeClientLabel } from '../platform-administration/platform-activity-policy';
 
 const scrypt = promisify(scryptCallback);
 const SIGNUP_EXPIRY_MS = 24 * 60 * 60 * 1000;
@@ -128,7 +129,7 @@ export class PublicRegistrationController {
 
   @Post('signup/verify')
   @UseGuards(CsrfGuard)
-  async verifySignup(@Body() raw: unknown, @Res({ passthrough: true }) reply: FastifyReply) {
+  async verifySignup(@Body() raw: unknown, @Req() request: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
     const tokenHash = sha(token(object(raw).token));
     const userId = randomUUID();
     const tenantId = randomUUID();
@@ -152,6 +153,12 @@ export class PublicRegistrationController {
       // grandfathered in the additive migration; new accounts start pending.
       await tx.$executeRaw`INSERT INTO platform_subscriptions(tenant_id,business_name,owner_email,status)
         VALUES(${tenantId}::uuid,${pending.business_name},${pending.email},'pending')`;
+      // Record registration activity even before the owner opens the billing screen.
+      // This is the server-observed peer IP, never a trusted user-supplied header.
+      const observedIp = observedClientIp(request.ip);
+      const clientLabel = safeClientLabel(request.headers['user-agent']);
+      await tx.$executeRaw`INSERT INTO platform_account_activity(tenant_id,user_id,observed_ip,client_label)
+        VALUES(${tenantId}::uuid,${userId}::uuid,${observedIp}::inet,${clientLabel})`;
       await tx.auditEvent.create({ data: { tenantId, actorUserId: userId, action: 'auth.email_verified.workspace_created', resourceType: 'workspace', resourceId: tenantId } });
       await tx.signupVerification.delete({ where: { email: pending.email } });
       return { user, tenant };

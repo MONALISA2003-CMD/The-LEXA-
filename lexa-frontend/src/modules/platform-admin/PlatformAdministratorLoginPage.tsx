@@ -122,7 +122,7 @@ export default function PlatformAdministratorLoginPage() {
           </form> : <form className="lexa-admin-login-form" onSubmit={event => void submitCredentials(event)}>
             <label htmlFor="lexa-admin-email">Administrator email or username</label>
             <div className="lexa-admin-login-field"><ShieldCheck size={19}/><input id="lexa-admin-email" value={email} onChange={event => setEmail(event.target.value)} placeholder="Authorized LEXA account" autoComplete="username" required maxLength={254}/></div>
-            <div className="lexa-admin-login-form-row"><label htmlFor="lexa-admin-password">Password</label><Link to="/forgot-password">Forgot password?</Link></div>
+            <div className="lexa-admin-login-form-row"><label htmlFor="lexa-admin-password">Password</label><Link to="/platform-admin/recover">Recover password</Link></div>
             <div className="lexa-admin-login-field"><LockKeyhole size={19}/><input id="lexa-admin-password" type={showPassword ? 'text' : 'password'} value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter your password" autoComplete="current-password" required/><button type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} className="lexa-admin-login-eye" onClick={() => setShowPassword(v => !v)}>{showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}</button></div>
             <TurnstileWidget key={turnstileRevision} action="login" onToken={setTurnstileToken}/>
             {error && <div className="lexa-admin-login-error" role="alert">{error}</div>}

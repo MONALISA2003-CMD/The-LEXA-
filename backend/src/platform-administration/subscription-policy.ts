@@ -3,7 +3,7 @@ export const SUBSCRIPTION_PRICE_UGX = 50_000;
 export const SUBSCRIPTION_DAYS = 30;
 export const SUBSCRIPTION_PERIOD_MS = SUBSCRIPTION_DAYS * 24 * 60 * 60 * 1_000;
 
-export type SubscriptionState = 'pending' | 'active' | 'suspended' | 'legacy';
+export type SubscriptionState = 'pending' | 'active' | 'suspended' | 'legacy' | 'archived';
 
 export function nextPaidPeriod(now: Date, previousExpiresAt: Date | null): { startsAt: Date; endsAt: Date } {
   if (!Number.isFinite(now.getTime())) throw new Error('A valid activation time is required.');

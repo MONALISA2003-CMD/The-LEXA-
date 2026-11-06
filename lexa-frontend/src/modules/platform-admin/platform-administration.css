@@ -314,3 +314,28 @@
 .lexa-platform-chart-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
 .lexa-platform-chart-actions select{border:1px solid #e4cb85;background:#fffdf4;color:#554318;border-radius:9px;padding:8px 9px;font:inherit;font-size:12px}
 @media(max-width:600px){.lexa-platform-chart-actions{width:100%}.lexa-platform-chart-actions .lexa-platform-segmented{width:100%;justify-content:center}}
+
+/* LEXA account oversight & recovery: isolated from business workspace styling. */
+.lexa-platform-app .lexa-platform-live-header{display:flex;align-items:center;justify-content:space-between;gap:24px;background:linear-gradient(115deg,rgba(255,227,121,.85),rgba(255,251,233,.92));border:1px solid #e5cd86;border-radius:22px;padding:28px}
+.lexa-platform-app .lexa-platform-live-header h2{font-size:clamp(23px,3vw,33px);letter-spacing:-.04em;margin:10px 0;color:#302509}
+.lexa-platform-app .lexa-platform-live-header p{color:#65502a;max-width:650px;font-size:13px;line-height:1.7;margin:0}
+.lexa-platform-app .lexa-platform-live-count{display:grid;min-width:160px;gap:4px;text-align:center;border:1px solid #e8d7a6;background:rgba(255,255,255,.65);border-radius:16px;padding:15px}
+.lexa-platform-app .lexa-platform-live-count strong{font-size:38px;color:#332508;line-height:1.1}
+.lexa-platform-app .lexa-platform-live-count span{font-size:11px;color:#6b5832}
+.lexa-platform-app .lexa-platform-live-summary{display:flex;align-items:center;gap:15px;flex-wrap:wrap;padding:14px 19px;background:#fff8dc;border:1px solid #e7cd83;border-radius:13px;color:#4f3f1d}
+.lexa-platform-app .lexa-platform-live-summary>div{flex:1;min-width:180px;display:flex;flex-direction:column;gap:3px}
+.lexa-platform-app .lexa-platform-live-summary strong{font-size:13px}
+.lexa-platform-app .lexa-platform-live-summary span{font-size:11px;line-height:1.5}
+.lexa-platform-app .lexa-platform-live-summary button,.lexa-platform-app .lexa-platform-card-header button{display:inline-flex;align-items:center;gap:7px}
+.lexa-platform-app .lexa-platform-ip-value{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;word-break:break-all}
+.lexa-platform-app .lexa-platform-ip-warning{color:#a04d0b!important;font-weight:750}
+.lexa-platform-app .lexa-platform-activation-panel{border:1px solid #e9d28e;background:linear-gradient(130deg,#fff9e6,#fffdf9);border-radius:15px;padding:20px;margin:18px 0}
+.lexa-platform-app .lexa-platform-activation-panel h3{margin:0;color:#3c2d0b}
+.lexa-platform-app .lexa-platform-activation-panel p{color:#5a4b26}
+.lexa-admin-recovery{display:flex;align-items:center;justify-content:center;padding:36px 20px}
+.lexa-admin-recovery .lexa-admin-login-card{position:relative;z-index:1;width:min(100%,520px);padding:clamp(26px,5vw,45px)}
+.lexa-admin-recovery .lexa-admin-login-card h1{font-size:clamp(26px,4vw,34px);line-height:1.2;letter-spacing:-.04em;color:#302508}
+.lexa-admin-recovery .lexa-admin-login-status{display:flex;align-items:flex-start;gap:11px}
+.lexa-admin-recovery .lexa-admin-login-status p{margin:0;line-height:1.7}
+.lexa-admin-recovery-note{color:#655636;font-size:11px;line-height:1.7;margin-top:20px}
+@media(max-width:720px){.lexa-platform-app .lexa-platform-live-header{flex-direction:column;align-items:stretch}.lexa-platform-app .lexa-platform-live-count{min-width:0}.lexa-platform-app .lexa-platform-activation-panel{padding:15px}}

@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import {
   Activity, AlertTriangle, ArrowRight, BarChart3, BellRing, Building2, CalendarClock,
   CheckCircle2, CircleDollarSign, CreditCard, FileClock, HeartPulse, HelpCircle,
-  LayoutDashboard, LockKeyhole, Menu, Search, Shield, ShieldCheck, Sparkles,
+  LayoutDashboard, LockKeyhole, Menu, Search, Shield, ShieldCheck, Sparkles, Wifi, Trash2, RotateCcw,
   TrendingUp, Users, X,
 } from 'lucide-react';
 import {
@@ -18,18 +18,20 @@ import {
   type PlatformRevenue,
   type PlatformSupportCase,
   type PlatformIncident,
+  type PlatformAccountActivity,
   type PlatformAudit,
 } from '../../data/remote/apiPlatformAdministration';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import './platform-administration.css';
 
-type Section = 'overview'|'businesses'|'users'|'payments'|'revenue'|'health'|'support'|'incidents'|'audit';
+type Section = 'overview'|'businesses'|'users'|'activity'|'payments'|'revenue'|'health'|'support'|'incidents'|'audit';
 type RevenueMode = 'revenue'|'payments';
 
 const sections = [
   {id:'overview',label:'Overview',icon:LayoutDashboard,roles:['super_admin','billing_manager','auditor']},
   {id:'businesses',label:'Business accounts',icon:Building2,roles:['super_admin','billing_manager','support_agent','auditor']},
   {id:'users',label:'Users & access',icon:Users,roles:['super_admin','support_agent','auditor']},
+  {id:'activity',label:'Live account activity',icon:Wifi,roles:['super_admin','operations_manager','auditor']},
   {id:'payments',label:'Payment approvals',icon:CreditCard,roles:['super_admin','billing_manager','auditor']},
   {id:'revenue',label:'Revenue reports',icon:BarChart3,roles:['super_admin','billing_manager','auditor']},
   {id:'health',label:'System health',icon:HeartPulse,roles:['super_admin','operations_manager','auditor']},
@@ -82,12 +84,21 @@ export default function PlatformAdministrationPage(){
   const [businessPage,setBusinessPage]=useState(0);
   const [userPage,setUserPage]=useState(0);
   const [users,setUsers]=useState<PlatformUser[]>([]);
+  const [activity,setActivity]=useState<PlatformAccountActivity[]>([]);
+  const [activityPage,setActivityPage]=useState(0);
+  const [activityCheckedAt,setActivityCheckedAt]=useState<string|null>(null);
   const [details,setDetails]=useState<Awaited<ReturnType<typeof api.business>>|null>(null);
   const [paymentFilter,setPaymentFilter]=useState('submitted');
   const [payments,setPayments]=useState<PlatformPayment[]>([]);
   const [review,setReview]=useState<PlatformPayment|null>(null);
   const [verifiedReference,setVerifiedReference]=useState('');
-  const [accessOperation,setAccessOperation]=useState<{tenantId:string;businessName:string;mode:'suspended'|'reinstate'|'enroll'}|null>(null);
+  const [accessOperation,setAccessOperation]=useState<{tenantId:string;businessName:string;mode:'suspended'|'reinstate'|'enroll'|'archive'|'restore'}|null>(null);
+  const [archiveConfirmName,setArchiveConfirmName]=useState('');
+  const [manualActivation,setManualActivation]=useState<{tenantId:string;businessName:string}|null>(null);
+  const [manualMethod,setManualMethod]=useState('mtn_momo');
+  const [manualReceipt,setManualReceipt]=useState('');
+  const [manualNote,setManualNote]=useState('');
+  const [manualConfirmed,setManualConfirmed]=useState(false);
   const [accessReason,setAccessReason]=useState('');
   const [accessConfirmed,setAccessConfirmed]=useState(false);
   const [reviewNote,setReviewNote]=useState('');
@@ -125,9 +136,12 @@ export default function PlatformAdministrationPage(){
 
   useEffect(()=>{
     if(!profile||profile.requiresMfa)return;
+    // Account activity is refreshed every 15 seconds while this browser tab is visible.
+    // This does not promise notifications when the tab is closed or the API is offline.
+    const interval=section==='activity' || (section==='overview' && profile.role==='super_admin') ? 15_000 : 60_000;
     const timer=window.setInterval(()=>{
-      if(document.visibilityState==='visible'&&['overview','health','payments'].includes(section))reload();
-    },60_000);
+      if(document.visibilityState==='visible' && ['overview','health','payments','activity','businesses','incidents'].includes(section))reload();
+    },interval);
     return()=>window.clearInterval(timer);
   },[profile,section,reload]);
 
@@ -141,6 +155,7 @@ export default function PlatformAdministrationPage(){
         if(section==='overview'){const res=await api.overview();if(active)setSummary(res);}
         if(section==='businesses'){const res=await api.businesses(searchTerm,businessPage*50);if(active)setBusinesses(res);}
         if(section==='users'){const res=await api.users(searchTerm,userPage*50);if(active)setUsers(res);}
+        if(section==='activity'||(section==='overview' && profile.role==='super_admin')){const res=await api.activity(100,activityPage*100);if(active){setActivity(res);setActivityCheckedAt(new Date().toISOString());}}
         if(section==='payments'){const res=await api.payments(paymentFilter);if(active)setPayments(res);}
         if(section==='revenue'){const res=await api.revenue();if(active)setRevenue(res);}
         if(section==='health'){const res=await api.health();if(active)setHealth(res);}
@@ -151,7 +166,7 @@ export default function PlatformAdministrationPage(){
       finally{if(active)setLoading(false);}
     })();
     return()=>{active=false;};
-  },[profile,section,refresh,searchTerm,businessPage,userPage,paymentFilter,allowedSections]);
+  },[profile,section,refresh,searchTerm,businessPage,userPage,paymentFilter,activityPage,allowedSections]);
 
   async function takeAction(action:()=>Promise<unknown>,success:string){
     setWorking(true);
@@ -170,13 +185,18 @@ export default function PlatformAdministrationPage(){
     setDetails(null);
     setReview(null);
     setAccessOperation(null);
+    setManualActivation(null);
+    setArchiveConfirmName('');
     setQuery('');
     setSearchTerm('');
     setBusinessPage(0);
     setUserPage(0);
+    setActivityPage(0);
   }
 
   const activeSectionTitle = sections.find(s=>s.id===section)?.label ?? 'LEXA Control Centre';
+  const activeNow=activity.filter(item=>item.online_recently).length;
+  const recentlyChangedIps=activity.filter(item=>item.ip_changed_at && Date.now()-new Date(item.ip_changed_at).getTime()<15*60_000).length;
   const highPriorityAlerts = health?.recommendations.filter(item => item.severity === 'high').length ?? 0;
   const unconnectedMonitoring = health ? [health.render.status, health.vercel.status].filter(status => status === 'not_connected').length : 0;
   const revenueTrend = useMemo(() => {
@@ -302,6 +322,10 @@ export default function PlatformAdministrationPage(){
 
           {(summary.incidentAlerts.critical>0||summary.incidentAlerts.high>0)&&<div className="lexa-platform-incident-banner" role="alert"><AlertTriangle size={22}/><div><strong>{summary.incidentAlerts.critical} critical and {summary.incidentAlerts.high} high-severity unresolved incidents</strong><p>Review platform incidents before routine administrative work.</p></div><button className="lexa-platform-table-action" onClick={()=>switchTo('incidents')}>Open incidents</button></div>}
 
+          {profile.role==='super_admin'&&<div className="lexa-platform-live-summary" role="status">
+            <Wifi size={18}/><div><strong>{activeNow} business users recently active</strong><span>Server-observed activity over the last five minutes. {recentlyChangedIps>0?`${recentlyChangedIps} IP change(s) require a contextual review.`:'No recent IP changes in the returned records.'}</span></div>
+            <button className="lexa-platform-table-action" onClick={()=>switchTo('activity')}>Open activity monitor <ArrowRight size={15}/></button>
+          </div>}
           <div className="lexa-platform-three-col">
             <SectionCard title="Priority action queue">
               <div className="lexa-platform-action-list">
@@ -349,21 +373,59 @@ export default function PlatformAdministrationPage(){
             </div>
             <p>Verified subscription history: {details.periods.length} visible period(s)</p>
             <div className="lexa-platform-history">{details.periods.map((p,i)=><div key={i}>{date(p.starts_at)} to {date(p.ends_at)} · {ugx(p.amount_ugx)}</div>)}</div>
+            {['super_admin','billing_manager'].includes(profile.role) && !['legacy','suspended','archived'].includes(details.business.status)&&<div className="lexa-platform-controls">
+              <button className="lexa-platform-button" disabled={working} onClick={()=>{setManualActivation({tenantId:details.business.tenant_id,businessName:details.business.business_name});setAccessOperation(null);setManualReceipt('');setManualNote('');setManualConfirmed(false);}}>Record verified payment & activate / renew</button>
+            </div>}
+            {manualActivation?.tenantId===details.business.tenant_id&&<div className="lexa-platform-review lexa-platform-activation-panel" role="group" aria-label="Record verified subscription payment">
+              <h3>Verify actual receipt for {manualActivation.businessName}</h3>
+              <p>LEXA Standard is UGX 50,000 for 30 days. This action records a confirmed offline payment and activates or renews the account in one audited transaction.</p>
+              <label>Verified payment method<select value={manualMethod} onChange={e=>setManualMethod(e.target.value)}><option value="mtn_momo">MTN Mobile Money</option><option value="airtel_money">Airtel Money</option><option value="bank_transfer">Bank transfer</option><option value="other">Other verified method</option></select></label>
+              <label>Provider transaction reference<input value={manualReceipt} onChange={e=>setManualReceipt(e.target.value)} maxLength={120} required placeholder="Reference independently confirmed in the receiving account"/></label>
+              <label>Verification note<textarea rows={2} maxLength={500} value={manualNote} onChange={e=>setManualNote(e.target.value)} placeholder="Which official account and payment information were checked?"/></label>
+              <label className="lexa-platform-checkbox"><input type="checkbox" checked={manualConfirmed} onChange={e=>setManualConfirmed(e.target.checked)}/> I independently confirmed UGX 50,000 arrived in the official receiving account.</label>
+              <div className="lexa-platform-controls"><button type="button" className="lexa-platform-button" disabled={working||!manualConfirmed||manualReceipt.trim().length<4||manualNote.trim().length<5} onClick={()=>void takeAction(async()=>{await api.activateWithVerifiedPayment(manualActivation.tenantId,manualMethod,manualReceipt,manualNote);setManualActivation(null);setDetails(null);},'Verified payment recorded. Account activated or renewed for 30 days.')}>Confirm & activate for 30 days</button><button className="lexa-platform-text-button" onClick={()=>setManualActivation(null)}>Cancel</button></div>
+            </div>}
             {profile.role==='super_admin'&&<div className="lexa-platform-controls">
               {details.business.status==='legacy'&&<button className="lexa-platform-danger" disabled={working} onClick={()=>{setAccessOperation({tenantId:details.business.tenant_id,businessName:details.business.business_name,mode:'enroll'});setAccessReason('');setAccessConfirmed(false);}}>Enrol in paid billing</button>}
-              <button className="lexa-platform-danger" disabled={working||details.business.status==='suspended'} onClick={()=>{setAccessOperation({tenantId:details.business.tenant_id,businessName:details.business.business_name,mode:'suspended'});setAccessReason('');setAccessConfirmed(false);}}>Suspend access</button>
+              <button className="lexa-platform-danger" disabled={working||['suspended','archived'].includes(details.business.status)} onClick={()=>{setAccessOperation({tenantId:details.business.tenant_id,businessName:details.business.business_name,mode:'suspended'});setAccessReason('');setAccessConfirmed(false);}}>Suspend access</button>
               <button className="lexa-platform-table-action" disabled={working||details.business.status!=='suspended'} onClick={()=>{setAccessOperation({tenantId:details.business.tenant_id,businessName:details.business.business_name,mode:'reinstate'});setAccessReason('');setAccessConfirmed(false);}}>Reinstate access</button>
+              {details.business.status==='archived'?<button className="lexa-platform-table-action" onClick={()=>{setAccessOperation({tenantId:details.business.tenant_id,businessName:details.business.business_name,mode:'restore'});setAccessReason('');setAccessConfirmed(false);}}>Restore archived account</button>:
+              <button className="lexa-platform-danger" disabled={working} onClick={()=>{setAccessOperation({tenantId:details.business.tenant_id,businessName:details.business.business_name,mode:'archive'});setAccessReason('');setAccessConfirmed(false);setArchiveConfirmName('');}}>Delete / archive account <Trash2 size={14}/></button>}
             </div>}
             {accessOperation&&accessOperation.tenantId===details.business.tenant_id&&<div className="lexa-platform-review" role="group" aria-label="Confirm account access change">
-              <h3>{accessOperation.mode==='enroll'?'Review transition to manual billing':accessOperation.mode==='suspended'?'Review account suspension':'Review account reinstatement'}</h3>
-              <p><strong>{accessOperation.businessName}</strong> · {accessOperation.mode==='enroll'?'This existing business will become payment-pending until a verified payment is approved. Their records are preserved.':accessOperation.mode==='suspended'?'Business operations will be paused, without deleting data or changing its paid-through date.':'Access is restored only if the prior legacy entitlement or valid paid period permits it.'}</p>
+              <h3>{accessOperation.mode==='enroll'?'Review transition to manual billing':accessOperation.mode==='suspended'?'Review account suspension':accessOperation.mode==='archive'?'Archive account (reversible)':accessOperation.mode==='restore'?'Restore account':'Review account reinstatement'}</h3>
+              <p><strong>{accessOperation.businessName}</strong> · {accessOperation.mode==='enroll'?'This existing business will become payment-pending until a verified payment is approved. Its records remain stored.':accessOperation.mode==='suspended'?'Operational access pauses; no business records or paid time are removed.':accessOperation.mode==='archive'?'The account will immediately lose operational access, but its stock, sales, audit, payment and user records will be preserved. This is not permanent erasure.':accessOperation.mode==='restore'?'Restore the archived account without granting unpaid time or bypassing its previous suspension.':'Access is restored only if the legacy entitlement or valid paid period permits it.'}</p>
+              {accessOperation.mode==='archive'&&<label>Type the exact business name to confirm archival<input aria-label="Type business name to confirm archive" value={archiveConfirmName} onChange={e=>setArchiveConfirmName(e.target.value)} maxLength={300} placeholder={accessOperation.businessName}/></label>}
               <label>Reason for the audit trail<textarea required value={accessReason} maxLength={400} rows={2} onChange={e=>setAccessReason(e.target.value)}/></label>
               <label className="lexa-platform-checkbox"><input type="checkbox" checked={accessConfirmed} onChange={e=>setAccessConfirmed(e.target.checked)}/> I have reviewed the effect on this business and authorized this change.</label>
-              <div className="lexa-platform-controls"><button className="lexa-platform-danger" disabled={working||accessReason.trim().length<5||!accessConfirmed} onClick={()=>void takeAction(async()=>{if(accessOperation.mode==='enroll')await api.transitionLegacy(accessOperation.tenantId,accessReason);else await api.access(accessOperation.tenantId,accessOperation.mode,accessReason);setAccessOperation(null);setDetails(null);},'Account change saved and audited.')}>Confirm account change</button><button className="lexa-platform-text-button" onClick={()=>setAccessOperation(null)}>Cancel</button></div>
+              <div className="lexa-platform-controls"><button className="lexa-platform-danger" disabled={working||accessReason.trim().length<5||!accessConfirmed||(accessOperation.mode==='archive'&&archiveConfirmName!==accessOperation.businessName)} onClick={()=>void takeAction(async()=>{
+                if(accessOperation.mode==='enroll')await api.transitionLegacy(accessOperation.tenantId,accessReason);
+                else if(accessOperation.mode==='archive')await api.archive(accessOperation.tenantId,archiveConfirmName,accessReason);
+                else if(accessOperation.mode==='restore')await api.restore(accessOperation.tenantId,accessReason);
+                else await api.access(accessOperation.tenantId,accessOperation.mode,accessReason);
+                setAccessOperation(null);setDetails(null);
+              },'Account change saved and audited.')}>Confirm account change</button><button className="lexa-platform-text-button" onClick={()=>setAccessOperation(null)}>Cancel</button></div>
             </div>}
           </SectionCard>}
         </>}
 
+        {section==='activity'&&<>
+          <section className="lexa-platform-live-header">
+            <div><div className="lexa-platform-kicker"><Wifi size={16}/> PLATFORM ACCOUNT ACTIVITY</div><h2>Live account oversight</h2><p>Server-observed business activity refreshes every 15 seconds while this console is open. IP changes are signals for investigation, not automatic proof of fraud.</p></div>
+            <div className="lexa-platform-live-count"><strong>{activeNow}</strong><span>Recently active in this page</span></div>
+          </section>
+          <div className="lexa-platform-metrics">
+            <div><Wifi/><span>Recently active users</span><strong>{activeNow}</strong><small>Successful API requests · this page</small></div>
+            <div><Activity/><span>Observed accounts</span><strong>{new Set(activity.map(a=>a.tenant_id)).size}</strong><small>Business accounts on this page</small></div>
+            <div><AlertTriangle/><span>IP changes in 15 minutes</span><strong>{recentlyChangedIps}</strong><small>Check context before taking action</small></div>
+            <div><ShieldCheck/><span>Polling interval</span><strong>15s</strong><small>Page {activityPage+1} · Checked {date(activityCheckedAt)}</small></div>
+          </div>
+          <SectionCard title="Recent user activity" action={<button className="lexa-platform-table-action" onClick={reload}><RotateCcw size={15}/> Refresh now</button>}>
+            <p className="lexa-platform-muted">IP values come from the API's observed network peer. A hosting proxy may appear here unless validated proxy trust has been configured. Never treat IP matching as authorization.</p>
+            <div className="lexa-platform-table-wrap"><table><thead><tr><th>Business / user</th><th>Subscription</th><th>Observed IP</th><th>Last request</th><th>Activity</th></tr></thead><tbody>{activity.map(a=><tr key={`${a.tenant_id}-${a.user_id}`}><td><strong>{a.business_name}</strong><small>{a.display_name||a.email||'Business user'}</small></td><td>{state(a.subscription_status)}</td><td><strong className="lexa-platform-ip-value">{a.observed_ip||'Unavailable'}</strong>{a.previous_ip&&<small>Previous: {a.previous_ip}</small>}{a.ip_changed_at&&Date.now()-new Date(a.ip_changed_at).getTime()<15*60_000&&<small className="lexa-platform-ip-warning">Recent IP change · review</small>}</td><td>{date(a.last_seen_at)}</td><td>{a.online_recently?state('active'):state('inactive')}<small>{a.request_count} observed updates · {a.last_activity_kind.replaceAll('_',' ')}</small>{a.review_restricted_activity&&<small className="lexa-platform-ip-warning">Restricted-operation signal — investigate immediately</small>}</td></tr>)}</tbody></table>{!activity.length&&<div className="lexa-platform-empty">No authenticated business activity has been recorded since the activity register was enabled.</div>}</div>
+            <div className="lexa-platform-controls"><button className="lexa-platform-table-action" disabled={activityPage===0} onClick={()=>setActivityPage(page=>page-1)}>Previous activity page</button><span className="lexa-platform-muted">Page {activityPage+1} · 100 records per page</span><button className="lexa-platform-table-action" disabled={activity.length<100} onClick={()=>setActivityPage(page=>page+1)}>Next activity page</button></div>
+          </SectionCard>
+        </>}
         {section==='users'&&<SectionCard title="Account user directory">
           <p className="lexa-platform-muted">Limited membership metadata only. Passwords, private business transactions and security secrets are not exposed. Employee roles remain controlled by each business owner.</p>
           <div className="lexa-platform-controls"><label className="lexa-platform-search"><Search size={16}/><input aria-label="Search users" placeholder="Search by user, email, or business" value={query} maxLength={120} onChange={e=>{setQuery(e.target.value);setBusinessPage(0);setUserPage(0);}}/></label></div>
@@ -434,7 +496,7 @@ export default function PlatformAdministrationPage(){
           <div className="lexa-platform-table-wrap"><table><thead><tr><th>Incident</th><th>Priority</th><th>Opened</th><th>Status</th></tr></thead><tbody>{incidents.map(i=><tr key={i.id}><td><strong>{i.title}</strong><small>{i.description}</small></td><td>{state(i.severity)}</td><td>{date(i.created_at)}</td><td>{['super_admin','operations_manager'].includes(profile.role)?<select aria-label={`Change status of ${i.title}`} disabled={working} value={i.status} onChange={e=>void takeAction(()=>api.incidentStatus(i.id,e.target.value),'Incident updated.')}><option value="open">Open</option><option value="acknowledged">Acknowledged</option><option value="resolved">Resolved</option></select>:state(i.status)}</td></tr>)}</tbody></table>{!incidents.length&&<div className="lexa-platform-empty">No platform incidents have been recorded.</div>}</div></SectionCard></>}
 
         {section==='audit'&&<SectionCard title="Immutable platform activity trail"><p className="lexa-platform-muted">Administrative payment and account actions. Changes cannot be erased through the runtime application.</p><div className="lexa-platform-table-wrap"><table><thead><tr><th>Time</th><th>Action</th><th>Business ID</th><th>Administrator</th></tr></thead><tbody>{audits.map(a=><tr key={a.id}><td>{date(a.created_at)}</td><td><strong>{a.action.replaceAll('.',' · ')}</strong></td><td>{a.tenant_id?.slice(0,12)||'Platform'}</td><td>{a.actor_user_id.slice(0,12)}</td></tr>)}</tbody></table>{!audits.length&&<div className="lexa-platform-empty">No platform administrative actions recorded yet.</div>}</div></SectionCard>}
-        <footer className="lexa-platform-main-footer"><ShieldCheck size={15}/> LEXA Control Centre · Business account data remains tenant-isolated · UGX 50,000 per 30 days</footer>
+        <footer className="lexa-platform-main-footer"><ShieldCheck size={15}/> LEXA Control Centre · Tenant-isolated business data · UGX 50,000 per 30 days · Activity refreshes while open</footer>
       </div>
     </main>
   </div>;
