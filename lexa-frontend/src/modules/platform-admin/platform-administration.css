@@ -348,3 +348,7 @@
 .lexa-admin-founder-start button{border:1px solid #ca9d21;border-radius:10px;background:#f7cf5a;color:#302005;padding:10px 14px;font-weight:800;cursor:pointer}
 .lexa-admin-founder-start button:disabled{opacity:.6;cursor:wait}
 @media(max-width:900px){.lexa-platform-app .lexa-admin-team-invite{grid-template-columns:1fr}}
+
+.lexa-admin-login .lexa-turnstile-retry{color:#695012}.lexa-admin-login .lexa-turnstile-retry button{background:rgba(255,255,255,.84);border-color:#cda644;color:#5a430d}
+
+.lexa-admin-login-error .lexa-login-support-reference{display:block;font-size:11px;line-height:1.5;margin-top:7px;overflow-wrap:anywhere;opacity:.85;font-family:ui-monospace,SFMono-Regular,monospace}

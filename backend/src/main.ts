@@ -23,6 +23,17 @@ async function bootstrap(): Promise<void> {
     new FastifyAdapter({ logger: true, bodyLimit: apiBodyLimitBytes,
       trustProxy: trustedProxyCidrs.length ? trustedProxyCidrs : false }),
   );
+  // Operations diagnostics: disclose configuration presence only, never secrets.
+  const loginVerificationRequired = process.env.TURNSTILE_ENFORCE_LOGIN === 'true'
+    || (process.env.NODE_ENV === 'production' && process.env.TURNSTILE_ENFORCE_LOGIN !== 'false');
+  if (loginVerificationRequired && !process.env.TURNSTILE_SECRET_KEY) {
+    app.getHttpAdapter().getInstance().log.error('LEXA_AUTH_CONFIG: Turnstile login verification is enabled without a Siteverify secret.');
+  }
+  const browserVerificationRequired = process.env.LEXA_ENFORCE_NEW_BROWSER_VERIFICATION === 'true'
+    || (process.env.NODE_ENV === 'production' && process.env.LEXA_ENFORCE_NEW_BROWSER_VERIFICATION !== 'false');
+  if (browserVerificationRequired && (!process.env.AUTH_OTP_PEPPER || !process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL)) {
+    app.getHttpAdapter().getInstance().log.warn('LEXA_AUTH_CONFIG: Browser verification requires AUTH_OTP_PEPPER and the two Resend email settings.');
+  }
   const activityDb = app.get(PrismaService);
   // Only completed, successful, authenticated workspace requests count as activity.
   // Upsert at most once per 15 seconds per user/business, or when their IP changes.
@@ -83,7 +94,7 @@ async function bootstrap(): Promise<void> {
       : webhookBodyLimitBytes;
   });
   await app.register(helmet);
-  const allowedOrigins = (process.env.FRONTEND_ORIGINS ?? 'http://localhost:5173,https://lexareview.vercel.app')
+  const allowedOrigins = (process.env.FRONTEND_ORIGINS ?? 'http://localhost:5173,https://lexaaamaal.com,https://www.lexaaamaal.com,https://lexareview.vercel.app')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);

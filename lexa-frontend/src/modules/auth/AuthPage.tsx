@@ -89,6 +89,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   const [complete, setComplete] = useState(false);
   const [bootstrapAvailable, setBootstrapAvailable] = useState(false);
   const [formError, setFormError] = useState('');
+  const [supportReference, setSupportReference] = useState('');
   const [turnstileToken,setTurnstileToken] = useState<string | null>(null);
   const [turnstileRevision,setTurnstileRevision] = useState(0);
   const [pendingSignIn,setPendingSignIn] = useState<PendingSignIn|null>(null);
@@ -116,7 +117,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setFormError('');
+    setFormError('');setSupportReference('');
     if (!apiReady) {
       setFormError('Account access is not configured. Please contact your LEXA administrator.');
       return;
@@ -157,6 +158,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
       navigate('/sign-in?password-updated=1', { replace: true });
     } catch (error) {
       setFormError(errorMessage(error));
+      setSupportReference(error && typeof error === 'object' && 'requestId' in error && typeof error.requestId === 'string' ? error.requestId : '');
       if(mode==='sign-in'){setTurnstileToken(null);setTurnstileRevision(value=>value+1);}
     } finally {
       setSubmitting(false);
@@ -169,7 +171,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
     try{
       const account=await apiAuth.verifySignIn(pendingSignIn.challengeToken,verificationCode.trim());
       navigate(account.requiresPasswordChange?'/change-password':returnTo,{replace:true});
-    }catch(error){setFormError(errorMessage(error));}
+    }catch(error){setFormError(errorMessage(error));setSupportReference(error && typeof error === 'object' && 'requestId' in error && typeof error.requestId === 'string' ? error.requestId : '');}
     finally{setSubmitting(false);}
   }
   return (
@@ -195,7 +197,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
             <div className="auth-field"><label htmlFor="browser-verification-code">Verification code</label>
               <input id="browser-verification-code" autoComplete="one-time-code" inputMode={pendingSignIn.method==='email'?'numeric':'text'}
                 value={verificationCode} onChange={event=>setVerificationCode(event.target.value)} maxLength={20} required autoFocus /></div>
-            {formError && <div className="auth-error" role="alert">{formError}</div>}
+            {formError && <div className="auth-error" role="alert">{formError}{supportReference&&<small className="lexa-login-support-reference">Support reference: {supportReference}</small>}</div>}
             <button className="auth-submit" type="submit" disabled={submitting||!verificationCode.trim()}>{submitting?'Verifying…':'Verify and sign in'}</button>
             <button className="button button-secondary" type="button" onClick={()=>{setPendingSignIn(null);setVerificationCode('');setFormError('');setTurnstileRevision(v=>v+1);}}>Start sign-in again</button>
           </form>}
@@ -216,8 +218,11 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               <PasswordLengthGuide value={password} />
               <PasswordField id="confirm-password" label="Confirm new password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" placeholder="Enter the new password again" />
             </>}
+
+{mode==='sign-in' && email.trim().toLowerCase()==='kabuusumohammed182@gmail.com' &&
+  <div className="auth-notice" role="status">This address is designated for the private LEXA Control Centre. <Link to="/platform-admin/login">Open administrator sign-in</Link>. Existing business-owner access remains available only while ownership of the previous workspaces is being transferred safely.</div>}
             {mode==='sign-in'&&<TurnstileWidget key={turnstileRevision} action="login" onToken={setTurnstileToken}/>}
-            {formError && <div className="auth-error" role="alert">{formError}</div>}
+            {formError && <div className="auth-error" role="alert">{formError}{supportReference&&<small className="lexa-login-support-reference">Support reference: {supportReference}</small>}</div>}
             <button className="auth-submit" type="submit" disabled={submitting || !apiReady || (mode==='sign-in'&&Boolean(publicTurnstileSiteKey)&&!turnstileToken)}>
               <span>{submitting ? 'Please wait…' : text.submit}</span><ArrowRight size={17} />
             </button>

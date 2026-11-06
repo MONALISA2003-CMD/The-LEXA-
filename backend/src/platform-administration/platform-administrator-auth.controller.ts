@@ -1,7 +1,7 @@
 /** LEXA standalone platform identities. No tenant signup, shared customer password,
  * business membership or Neon-console action is required for administrator setup. */
 import {
-  BadRequestException, ConflictException, Controller, ForbiddenException, Get, HttpCode,
+  BadRequestException, ConflictException, Controller, ForbiddenException, Get, HttpCode, Logger, ServiceUnavailableException,
   Post, Body, Req, Res, Param, UnauthorizedException, UseGuards,
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -10,7 +10,7 @@ import { promisify } from 'node:util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CsrfGuard } from '../core/csrf.guard';
 import { sendTransactionalEmail } from '../notifications/email-delivery';
-import { verifyTurnstileChallenge } from '../auth/turnstile-verification';
+import { lexaTurnstileHostnames, verifyTurnstileChallenge } from '../auth/turnstile-verification';
 import { AccountProtectionService } from '../auth/account-protection.service';
 import { observedClientIp } from './platform-activity-policy';
 
@@ -71,6 +71,7 @@ interface AdminIdentity {admin_user_id:string;admin_role:string;admin_email:stri
 
 @Controller('platform-admin/auth')
 export class PlatformAdministratorAuthController{
+  private readonly logger = new Logger(PlatformAdministratorAuthController.name);
   constructor(private readonly prisma:PrismaService, private readonly accountProtection:AccountProtectionService){}
   private async active(request:FastifyRequest):Promise<AdminIdentity>{
     const token=cookie(request,'lexa_admin_session');
@@ -133,11 +134,23 @@ export class PlatformAdministratorAuthController{
       await verifyTurnstileChallenge(data.turnstileToken,{
         secret:process.env.TURNSTILE_SECRET_KEY,
         enforced:this.accountProtection.loginTurnstileEnforced(),
-        allowedHosts:(process.env.TURNSTILE_ALLOWED_HOSTNAMES??'lexaaamaal.com,www.lexaaamaal.com,lexareview.vercel.app').split(',').map(s=>s.trim()).filter(Boolean),
+        allowedHosts:lexaTurnstileHostnames(process.env.TURNSTILE_ALLOWED_HOSTNAMES),
         action:'login',
       });
-    }catch{
-      throw new ForbiddenException('Complete the human-verification challenge before signing in.');
+    }catch(error){
+      const reason = error instanceof Error ? error.message : 'TURNSTILE_TOKEN_INVALID';
+      // No identity, IP, token or Siteverify secret is written to the logs.
+      this.logger.warn(`LEXA_ADMIN_LOGIN_VERIFICATION: ${reason}`);
+      if(reason==='TURNSTILE_CONFIGURATION_MISSING'||reason==='TURNSTILE_VERIFICATION_UNAVAILABLE') {
+        throw new ServiceUnavailableException({
+          code:'HUMAN_VERIFICATION_UNAVAILABLE',
+          message:'The LEXA administrator security check is temporarily unavailable. Please retry shortly.',
+        });
+      }
+      throw new ForbiddenException({
+        code:'HUMAN_VERIFICATION_REQUIRED',
+        message:'The administrator security challenge did not complete. Refresh the challenge and try again.',
+      });
     }
     const limitKey=sha(`${address}:${observedClientIp(request.ip)??'unknown'}`);
     const emailLimit=sha(`admin-email:${address}`);

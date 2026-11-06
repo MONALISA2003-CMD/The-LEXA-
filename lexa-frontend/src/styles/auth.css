@@ -222,3 +222,11 @@
   .auth-spin { animation: none; }
   .auth-submit, .auth-create-account-link { transition: none; }
 }
+
+/* Reliable human-verification recovery on mobile and restrictive WebViews. */
+.lexa-turnstile-retry{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:#775915;font-size:12px;margin:7px 0 11px}
+.lexa-turnstile-retry button{border:1px solid #d5ad4b;border-radius:8px;background:#fff9e8;color:#604811;font:inherit;font-weight:750;cursor:pointer;padding:7px 11px;min-height:34px}
+.lexa-turnstile-retry button:focus-visible{outline:3px solid #a87811;outline-offset:3px}
+
+/* Diagnostic correlation only: never expose login tokens or passwords. */
+.lexa-login-support-reference{display:block;font-size:11px;line-height:1.5;margin-top:7px;overflow-wrap:anywhere;opacity:.85;font-family:ui-monospace,SFMono-Regular,monospace}

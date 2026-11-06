@@ -8,6 +8,20 @@ export interface TurnstileVerifyResponse {
   action?: string;
   'error-codes'?: string[];
 }
+
+/** Public hostname allowlist shared by customer and admin sign-in.
+ * The production host must remain valid even when an optional environment
+ * variable is absent. Tokens still require successful Cloudflare Siteverify.
+ */
+export function lexaTurnstileHostnames(configured: string | undefined): string[] {
+  const allow = new Set(['lexaaamaal.com', 'www.lexaaamaal.com']);
+  for (const value of (configured ?? '').split(',')) {
+    const host = value.trim().toLowerCase();
+    if (/^[a-z0-9][a-z0-9.-]{0,252}$/.test(host) && !host.includes('..')) allow.add(host);
+  }
+  return [...allow];
+}
+
 export async function verifyTurnstileChallenge(
   token: unknown,
   config: { secret?: string; enforced: boolean; allowedHosts: string[]; action: string; fetchImpl?: typeof fetch },

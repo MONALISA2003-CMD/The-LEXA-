@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it, vi } from 'vitest';
-import { ApiConfigurationError, ApiRequestError, buildQueryString, createApiClient } from './apiClient';
+import { ApiConfigurationError, ApiRequestError, buildQueryString, createApiClient, resolveLexaApiBase } from './apiClient';
 
 const csrfResponse = () => new Response(JSON.stringify({ data: { token: 'test-csrf-token-that-is-long-enough' } }), {
   status: 200,
@@ -9,6 +9,15 @@ const csrfResponse = () => new Response(JSON.stringify({ data: { token: 'test-cs
 });
 
 describe('LEXA API client', () => {
+  it('uses first-party Vercel rewrite for live and preview LEXA sessions', () => {
+    expect(resolveLexaApiBase('https://lexaaamaal.com')).toBe('/api/v1');
+    expect(resolveLexaApiBase('https://lexaaamaal.com/api/v1')).toBe('/api/v1');
+    expect(resolveLexaApiBase('https://www.lexaaamaal.com')).toBe('/api/v1');
+    expect(resolveLexaApiBase('/api/v1')).toBe('/api/v1');
+    expect(resolveLexaApiBase('https://other-api.example')).toBe('https://other-api.example/api/v1');
+    expect(resolveLexaApiBase('')).toBe('');
+  });
+
   it('omits empty query values and encodes the rest', () => {
     expect(buildQueryString({ search: 'milk & bread', page: 2, inactive: false, empty: '', absent: undefined })).toBe('?search=milk+%26+bread&page=2&inactive=false');
   });
@@ -58,6 +67,18 @@ describe('LEXA API client', () => {
       expect(error).toBeInstanceOf(ApiRequestError);
       expect(error).toMatchObject({ status: 422, code: 'VALIDATION_FAILED', requestId: 'req-abc', message: 'Quantity must be positive' });
     }
+  });
+
+  it('decodes Nest nested security codes rather than labelling verification as a business permission error', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      statusCode: 403,
+      message: { code: 'HUMAN_VERIFICATION_REQUIRED', message: 'Complete a fresh Cloudflare verification.' },
+    }), { status: 403, headers: { 'content-type': 'application/json' } }));
+    const client = createApiClient({ baseUrl: '/api/v1', fetchImpl, csrfProtection: false });
+    await expect(client.get('/platform-admin/auth/session')).rejects.toMatchObject({
+      status: 403, code: 'HUMAN_VERIFICATION_REQUIRED',
+      message: expect.stringMatching(/security check/i),
+    });
   });
 
   it('shows a professional message instead of a raw internal server error', async () => {

@@ -54,12 +54,23 @@ function requestId(): string {
 function errorPayload(payload: unknown): { message?: string; code?: string; requestId?: string; details?: unknown } {
   if (!payload || typeof payload !== 'object') return {};
   const root = payload as Record<string, unknown>;
-  const nested = root.error && typeof root.error === 'object' ? root.error as Record<string, unknown> : root;
+  const nested = root.error && typeof root.error === 'object' && !Array.isArray(root.error)
+    ? root.error as Record<string, unknown> : root;
+  // Nest exceptions may return { message: { code, message } }, whereas other
+  // endpoints return { error: { code, message } }. Preserve the security code
+  // instead of rendering all 403s as business-role permission errors.
+  const detail = nested.message && typeof nested.message === 'object' && !Array.isArray(nested.message)
+    ? nested.message as Record<string, unknown> : nested;
+  const message = typeof detail.message === 'string' ? detail.message
+    : typeof nested.message === 'string' ? nested.message : undefined;
+  const code = typeof detail.code === 'string' ? detail.code
+    : typeof nested.code === 'string' ? nested.code
+      : typeof root.code === 'string' ? root.code : undefined;
   return {
-    ...(typeof nested.message === 'string' ? { message: nested.message } : {}),
-    ...(typeof nested.code === 'string' ? { code: nested.code } : {}),
+    ...(message ? { message } : {}),
+    ...(code ? { code } : {}),
     ...(typeof root.requestId === 'string' ? { requestId: root.requestId } : typeof nested.requestId === 'string' ? { requestId: nested.requestId } : {}),
-    ...(nested.details !== undefined ? { details: nested.details } : {}),
+    ...(detail.details !== undefined ? { details: detail.details } : nested.details !== undefined ? { details: nested.details } : {}),
   };
 }
 
@@ -191,9 +202,20 @@ export function createApiClient(options: ApiClientOptions) {
   };
 }
 
-const normalizedBase = apiBaseUrl
-  ? (apiBaseUrl.endsWith('/api/v1') ? apiBaseUrl : `${apiBaseUrl}/api/v1`)
-  : '';
+
+/** LEXA's Vercel build already proxies /api/v1 to the live Render API.
+ * Using a fixed absolute production origin on preview/staging creates a
+ * cross-site cookie request, which breaks CSRF and administrator sessions on
+ * mobile browsers. Prefer the first-party rewrite for the canonical domain.
+ */
+export function resolveLexaApiBase(configured: string): string {
+  const clean = configured.trim().replace(/\/+$/, '');
+  if (!clean) return '';
+  if (/^https:\/\/(?:www\.)?lexaaamaal\.com(?:\/api\/v1)?$/i.test(clean)) return '/api/v1';
+  return clean.endsWith('/api/v1') ? clean : `${clean}/api/v1`;
+}
+
+const normalizedBase = resolveLexaApiBase(apiBaseUrl);
 
 export const apiClient = createApiClient({
   baseUrl: normalizedBase,

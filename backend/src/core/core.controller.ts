@@ -10,7 +10,7 @@ import { validateProductType,cleanProductAttributes,cleanCategoryAttributeSchema
 import { selectIndustries, SetupValidationError } from '../business-setup/business-setup.rules';
 import {
   BadRequestException, ConflictException, Controller, ForbiddenException, Get, HttpCode,
-  NotFoundException, Post, Put, Patch, Delete, Body, Param, Query, Req, Res, UseGuards,
+  NotFoundException, Post, Put, Patch, Delete, Body, Param, Query, Req, Res, UseGuards, Logger,
   UnauthorizedException, ServiceUnavailableException, Headers,
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -25,7 +25,7 @@ import { CsrfGuard } from './csrf.guard';
 import { observedClientIp, safeClientLabel } from '../platform-administration/platform-activity-policy';
 import { meetsNewPasswordPolicy, PASSWORD_POLICY_MESSAGE } from '../auth/new-password-policy';
 import { AccountProtectionService } from '../auth/account-protection.service';
-import { verifyTurnstileChallenge } from '../auth/turnstile-verification';
+import { lexaTurnstileHostnames, verifyTurnstileChallenge } from '../auth/turnstile-verification';
 import { sendTransactionalEmail } from '../notifications/email-delivery';
 import { PeopleProjectsService } from '../people-projects/people-projects.service';
 import { outstandingSaleMinor, paymentCategoryFromMethod } from '../commerce/increment1-rules';
@@ -303,6 +303,7 @@ function toModuleRecord(row: any) {
 
 @Controller()
 export class CoreController {
+  private readonly loginDiagnostics = new Logger(CoreController.name);
   constructor(private readonly prisma: PrismaService, private readonly peopleProjects: PeopleProjectsService, private readonly accountProtection: AccountProtectionService) {}
 
   private setCsrfCookie(reply: FastifyReply, token: string): void {
@@ -478,11 +479,12 @@ export class CoreController {
       await verifyTurnstileChallenge(body.turnstileToken,{
         secret:process.env.TURNSTILE_SECRET_KEY,
         enforced:this.accountProtection.loginTurnstileEnforced(),
-        allowedHosts:(process.env.TURNSTILE_ALLOWED_HOSTNAMES??'').split(',').map(x=>x.trim()).filter(Boolean),
+        allowedHosts:lexaTurnstileHostnames(process.env.TURNSTILE_ALLOWED_HOSTNAMES),
         action:'login',
       });
     } catch(error){
       const code=(error as Error).message;
+      this.loginDiagnostics.warn(`LEXA_BUSINESS_LOGIN_VERIFICATION: ${code}`);
       if(code==='TURNSTILE_CONFIGURATION_MISSING'||code==='TURNSTILE_VERIFICATION_UNAVAILABLE')
         throw new ServiceUnavailableException({code:'HUMAN_VERIFICATION_UNAVAILABLE',message:'Sign-in verification is temporarily unavailable.'});
       throw new ForbiddenException({code:'HUMAN_VERIFICATION_REQUIRED',message:'Complete the human verification check and try again.'});
@@ -493,7 +495,22 @@ export class CoreController {
       await this.accountProtection.limitLogin(email,true);
       throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect.' });
     }
+
     await this.accountProtection.limitLogin(email,false);
+    // Developer identity is reserved for the separate yellow administrator portal.
+    // The existing customer record currently owns business workspaces. We must
+    // not silently orphan them: retain legacy sign-in until each owner role has
+    // been intentionally transferred and the old owner memberships removed.
+    if (user.email.toLowerCase() === 'kabuusumohammed182@gmail.com') {
+      const remainingOwners = await this.prisma.runWithTenantContext({userId:user.id}, () =>
+        this.prisma.membership.count({where:{userId:user.id,status:'ACTIVE',role:{in:['owner','owner_administrator']}}}));
+      if (remainingOwners === 0) {
+        throw new ForbiddenException({
+          code:'ADMIN_ONLY_IDENTITY',
+          message:'This email is now reserved for LEXA Control Centre. Sign in at /platform-admin/login.',
+        });
+      }
+    }
     const result=await this.accountProtection.beginSignIn(user,request,reply);
     if(result.kind==='challenge'){
       return {verificationRequired:true,challengeToken:result.challengeToken,method:result.method,expiresInSeconds:result.expiresInSeconds};
