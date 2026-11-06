@@ -74,15 +74,15 @@ test('real activity is scoped, rate-limited and polls every 15 seconds while vis
   assert.equal(recentActivity(new Date(0),new Date()),false);
 });
 
-test('yellow administrator recovery uses existing expiring reset, not a backdoor password',()=>{
+test('yellow administrator recovery uses dedicated one-time tokens without a backdoor password',()=>{
   const router=source('../../lexa-frontend/src/app/router.tsx');
   const login=source('../../lexa-frontend/src/modules/platform-admin/PlatformAdministratorLoginPage.tsx');
-  const original=source('../src/core/core.controller.ts');
+  const auth=source('../src/platform-administration/platform-administrator-auth.controller.ts');
   assert.match(router, /path: '\/platform-admin\/recover'/);
   assert.match(login, /to="\/platform-admin\/recover"/);
-  assert.match(recovery,/apiAuth\.requestPasswordReset\(email\.trim\(\)\)/);
-  assert.match(original,/RESET_SECONDS = 60 \* 30/);
-  assert.match(original,/tx\.session\.deleteMany\(/);
+  assert.match(recovery,/auth\.recover\(email\.trim\(\)\)/);
+  assert.match(auth,/platform_admin_recovery_request/);
+  assert.match(auth,/platform_admin_recovery_finish/);
   assert.doesNotMatch(recovery,/ADMIN_PASSWORD|bootstrapSecret|localStorage|recoveryBypass/);
 });
 

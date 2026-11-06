@@ -1,3 +1,5 @@
+**New: Private five-seat administrator setup (no Neon SQL, no customer account):** [Simple setup runbook](docs/operations/runbooks/private-platform-administrators-five-seat-setup.md).
+
 # LEXA
 
 LEXA is a multi-tenant business management platform for sales, inventory, finance, procurement, people operations, reporting and administration.

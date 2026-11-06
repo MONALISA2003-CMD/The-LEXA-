@@ -1,3 +1,7 @@
+/** LEGACY: Database-console bootstrap is deprecated for the new private-admin login.
+ * Use /platform-admin/login and the email-confirmed founder setup instead.
+ * This file is retained only for historical rollback compatibility.
+ */
 /**
  * Explicit manual, audited administrative enrollment. Never exposed by an HTTP route.
  * Usage (secure operations shell):

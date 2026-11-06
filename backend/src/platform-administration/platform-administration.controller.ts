@@ -57,16 +57,25 @@ class PlatformIdentity {
     if (s.user.mustChangePassword) throw new ForbiddenException('Change your temporary password before proceeding.');
     return { userId: s.userId };
   }
-  protected async admin(request: FastifyRequest, roles: PlatformRole[] = ['super_admin','billing_manager','support_agent','operations_manager','auditor'], requireMfa = true): Promise<Actor> {
-    const session = await this.session(request);
+  protected async adminSession(request: FastifyRequest): Promise<{ userId: string }> {
+    const raw = cookie(request, 'lexa_admin_session');
+    if (!raw || raw.length > 256) throw new UnauthorizedException('Sign in to LEXA Control Centre.');
+    const hash = createHash('sha256').update(raw).digest('hex');
+    const rows = await this.prisma.$queryRaw<Array<{admin_user_id:string}>>`
+      SELECT admin_user_id FROM platform_admin_active_session(${hash})`;
+    if (!rows[0]) throw new UnauthorizedException('Administrator session expired.');
+    return {userId:rows[0].admin_user_id};
+  }
+  protected async admin(request: FastifyRequest, roles: PlatformRole[] = ['super_admin','billing_manager','support_agent','operations_manager','auditor']): Promise<Actor> {
+    const session = await this.adminSession(request);
     return this.prisma.runWithTenantContext({ userId: session.userId }, async () => {
       const rows = await this.prisma.$queryRaw<Array<{ role: PlatformRole }>>`
         SELECT role FROM platform_admin_members WHERE user_id=${session.userId}::uuid AND enabled=true LIMIT 1`;
       if (!rows[0] || !roles.includes(rows[0].role)) throw new ForbiddenException('Platform administration is restricted to authorized LEXA staff.');
-      const mfa = await this.prisma.authenticatorCredential.findUnique({ where: { userId: session.userId }, select: { enabledAt: true } });
-      const mfaEnabled = Boolean(mfa?.enabledAt);
-      if (requireMfa && !mfaEnabled) throw new ForbiddenException({ code: 'PLATFORM_MFA_REQUIRED', message: 'Enable authenticator MFA in your LEXA account security settings before using the platform console.' });
-      return { userId: session.userId, role: rows[0].role, mfaEnabled };
+      // MFA is opt-in during initial five-seat setup. All administrator accounts
+      // still require a private email invitation, an independent password and a
+      // short-lived admin session; a customer session never grants admin rights.
+      return { userId: session.userId, role: rows[0].role, mfaEnabled: false };
     });
   }
   protected async workspaceOwner(request: FastifyRequest, workspaceId: string): Promise<SessionActor> {
@@ -106,14 +115,15 @@ export class BusinessPlatformBillingController extends PlatformIdentity {
       const latest = canManageBilling ? await this.prisma.$queryRaw<Array<{ id: string; payment_reference: string; status: string; created_at: Date; review_note: string|null }>>`
         SELECT id::text,payment_reference,status,created_at,review_note FROM platform_payment_claims WHERE tenant_id=${workspaceId}::uuid ORDER BY created_at DESC LIMIT 1` : [];
       const now = new Date();
-      const number = (process.env.LEXA_BILLING_WHATSAPP_NUMBER || '').replace(/[^0-9]/g, '');
+      const numbers = (process.env.LEXA_BILLING_WHATSAPP_NUMBERS || '256749064282,256703953711')
+        .split(',').map(n => n.replace(/[^0-9]/g, '')).filter(n => n.length >= 8 && n.length <= 15).slice(0, 2);
       return {
         workspaceId, businessName: account.business_name, status: account.status, canManageBilling,
         operational: hasOperationalAccess(account.status, account.paid_through, now),
         expiresAt: account.paid_through, remainingDays: daysRemaining(account.paid_through,now),
         priceUGX: SUBSCRIPTION_PRICE_UGX, periodDays: SUBSCRIPTION_DAYS,
         paymentInstructions: process.env.LEXA_BILLING_INSTRUCTIONS || 'Contact LEXA administration for official payment details before sending money.',
-        whatsappNumber: number.length >= 8 && number.length <= 15 ? number : null,
+        whatsappNumber: numbers[0] ?? null, whatsappNumbers: numbers,
         supportPhone: process.env.LEXA_BILLING_SUPPORT_PHONE || '',
         latestPayment: latest[0] ?? null,
       };
@@ -189,8 +199,8 @@ export class PlatformAdministrationController extends PlatformIdentity {
 
   @Get('profile')
   async profile(@Req() request: FastifyRequest) {
-    const actor = await this.admin(request,undefined,false);
-    return { role: actor.role, mfaEnabled: actor.mfaEnabled, requiresMfa: !actor.mfaEnabled, priceUGX: SUBSCRIPTION_PRICE_UGX, periodDays: SUBSCRIPTION_DAYS };
+    const actor = await this.admin(request);
+    return { adminUserId: actor.userId, role: actor.role, mfaEnabled: actor.mfaEnabled, requiresMfa: false, priceUGX: SUBSCRIPTION_PRICE_UGX, periodDays: SUBSCRIPTION_DAYS };
   }
 
   @Get('overview')

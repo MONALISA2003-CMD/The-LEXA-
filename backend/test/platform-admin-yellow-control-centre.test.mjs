@@ -9,14 +9,13 @@ const css = source('../../lexa-frontend/src/modules/platform-admin/platform-admi
 const router = source('../../lexa-frontend/src/app/router.tsx');
 const backend = source('../src/platform-administration/platform-administration.controller.ts');
 
-test('yellow platform login has a dedicated route and reuses the real LEXA sign-in challenge', () => {
+test('yellow administrator login has independent credentials, an emailed founder setup and no customer session dependency', () => {
   assert.match(router, /path: '\/platform-admin\/login'/);
-  assert.match(login, /apiAuth\.signIn\(/);
-  assert.match(login, /apiAuth\.verifySignIn\(/);
-  assert.match(login, /apiPlatformAdministration\.profile\(/);
+  assert.match(router, /path: '\/platform-admin\/setup'/);
+  assert.match(login, /auth.login\(/);
+  assert.match(login, /auth.requestFounder\(/);
   assert.match(login, /<TurnstileWidget.*action="login"/);
-  assert.match(login, /'verificationRequired' in result/);
-  assert.doesNotMatch(login, /localStorage|sessionStorage|bootstrapSecret|demoPassword|ADMIN_PASSWORD/);
+  assert.doesNotMatch(login, /apiAuth\.signIn\(|apiAuth\.verifySignIn\(|localStorage|sessionStorage|bootstrapSecret|demoPassword|ADMIN_PASSWORD/);
 });
 
 test('yellow admin design is isolated from the client workspace, with accessible fallbacks', () => {

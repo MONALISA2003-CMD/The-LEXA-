@@ -5,10 +5,12 @@ import {
   Activity, AlertTriangle, ArrowRight, BarChart3, BellRing, Building2, CalendarClock,
   CheckCircle2, CircleDollarSign, CreditCard, FileClock, HeartPulse, HelpCircle,
   LayoutDashboard, LockKeyhole, Menu, Search, Shield, ShieldCheck, Sparkles, Wifi, Trash2, RotateCcw,
-  TrendingUp, Users, X,
+  TrendingUp, Users, UserPlus, LogOut, X,
 } from 'lucide-react';
 import {
   apiPlatformAdministration as api,
+  apiPlatformAdministratorAuth as adminAuth,
+  type PlatformAdminTeamMember, type PlatformRole,
   type PlatformProfile,
   type PlatformSummary,
   type PlatformBusiness,
@@ -24,7 +26,7 @@ import {
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import './platform-administration.css';
 
-type Section = 'overview'|'businesses'|'users'|'activity'|'payments'|'revenue'|'health'|'support'|'incidents'|'audit';
+type Section = 'overview'|'businesses'|'users'|'activity'|'payments'|'revenue'|'health'|'support'|'incidents'|'audit'|'team';
 type RevenueMode = 'revenue'|'payments';
 
 const sections = [
@@ -38,6 +40,7 @@ const sections = [
   {id:'support',label:'Support cases',icon:HelpCircle,roles:['super_admin','support_agent','billing_manager','auditor']},
   {id:'incidents',label:'Incidents',icon:AlertTriangle,roles:['super_admin','operations_manager','auditor']},
   {id:'audit',label:'Audit trail',icon:FileClock,roles:['super_admin','auditor']},
+  {id:'team',label:'Admin team & invitations',icon:UserPlus,roles:['super_admin']},
 ] as const;
 
 const ugx=(n:number|undefined)=>`UGX ${Number(n??0).toLocaleString('en-UG')}`;
@@ -84,6 +87,9 @@ export default function PlatformAdministrationPage(){
   const [businessPage,setBusinessPage]=useState(0);
   const [userPage,setUserPage]=useState(0);
   const [users,setUsers]=useState<PlatformUser[]>([]);
+  const [adminTeam,setAdminTeam]=useState<PlatformAdminTeamMember[]>([]);
+  const [inviteEmail,setInviteEmail]=useState('');
+  const [inviteRole,setInviteRole]=useState<PlatformRole>('super_admin');
   const [activity,setActivity]=useState<PlatformAccountActivity[]>([]);
   const [activityPage,setActivityPage]=useState(0);
   const [activityCheckedAt,setActivityCheckedAt]=useState<string|null>(null);
@@ -162,6 +168,7 @@ export default function PlatformAdministrationPage(){
         if(section==='support'){const res=await api.support();if(active)setCases(res);}
         if(section==='incidents'){const res=await api.incidents();if(active)setIncidents(res);}
         if(section==='audit'){const res=await api.audit();if(active)setAudits(res);}
+        if(section==='team'){const res=await adminAuth.team();if(active)setAdminTeam(res);}
       }catch(err){if(active)setError(businessErrorMessage(err));}
       finally{if(active)setLoading(false);}
     })();
@@ -177,6 +184,11 @@ export default function PlatformAdministrationPage(){
 
   async function openDetails(b:PlatformBusiness){
     try{const value=await api.business(b.tenant_id);setDetails(value);}catch(err){toast.error(businessErrorMessage(err));}
+  }
+
+  async function logoutAdmin(){
+    try{await adminAuth.logout();window.location.assign('/platform-admin/login');}
+    catch(err){toast.error(businessErrorMessage(err));}
   }
 
   function switchTo(next:Section){
@@ -261,7 +273,7 @@ export default function PlatformAdministrationPage(){
       <nav>
         {allowedSections.map(s=><button key={s.id} type="button" className={`lexa-platform-nav-item ${section===s.id?'active':''}`} onClick={()=>switchTo(s.id as Section)}><s.icon size={19}/>{s.label}</button>)}
       </nav>
-      <div className="lexa-platform-sidebar-footer"><ShieldCheck size={18}/><div><strong>{profile.role.replaceAll('_',' ')}</strong><span>Restricted admin access</span></div></div>
+      <div className="lexa-platform-sidebar-footer"><ShieldCheck size={18}/><div><strong>{profile.role.replaceAll('_',' ')}</strong><span>Private admin account</span></div></div>
     </aside>
     <main className="lexa-platform-main">
       <header className="lexa-platform-toolbar">
@@ -276,7 +288,7 @@ export default function PlatformAdministrationPage(){
         </div>
         <div className="lexa-platform-toolbar-actions">
           <button title="Refresh current section" onClick={reload} className="lexa-platform-round-button"><Activity size={18}/></button>
-          <Link to="/" className="lexa-platform-return">Business workspace</Link>
+          <button type="button" className="lexa-platform-return lexa-admin-logout" onClick={()=>void logoutAdmin()}><LogOut size={16}/> Sign out</button>
         </div>
       </header>
       <div className="lexa-platform-content">
@@ -495,6 +507,21 @@ export default function PlatformAdministrationPage(){
         {section==='incidents'&&<><SectionCard title="Platform incident register" action={['super_admin','operations_manager'].includes(profile.role)?<button className="lexa-platform-button" onClick={()=>setNewIncidentOpen(x=>!x)}>Record incident</button>:undefined}><p className="lexa-platform-muted">Track investigations, urgent outages, administrator notes, and resolution history.</p>{newIncidentOpen&&<form className="lexa-platform-form" onSubmit={(e:FormEvent)=>{e.preventDefault();void (async()=>{setWorking(true);try{await api.createIncident({title:incidentTitle,description:incidentDescription,category:'operations',severity:incidentSeverity});toast.success('Incident created.');setNewIncidentOpen(false);setIncidentTitle('');setIncidentDescription('');reload();}catch(err){toast.error(businessErrorMessage(err));}finally{setWorking(false);}})();}}><label>Title<input value={incidentTitle} maxLength={140} required onChange={e=>setIncidentTitle(e.target.value)}/></label><label>Description<textarea value={incidentDescription} required maxLength={1500} onChange={e=>setIncidentDescription(e.target.value)}/></label><label>Severity<select value={incidentSeverity} onChange={e=>setIncidentSeverity(e.target.value)}><option>critical</option><option>high</option><option>medium</option><option>info</option></select></label><button className="lexa-platform-button" disabled={working}>Save incident</button></form>}
           <div className="lexa-platform-table-wrap"><table><thead><tr><th>Incident</th><th>Priority</th><th>Opened</th><th>Status</th></tr></thead><tbody>{incidents.map(i=><tr key={i.id}><td><strong>{i.title}</strong><small>{i.description}</small></td><td>{state(i.severity)}</td><td>{date(i.created_at)}</td><td>{['super_admin','operations_manager'].includes(profile.role)?<select aria-label={`Change status of ${i.title}`} disabled={working} value={i.status} onChange={e=>void takeAction(()=>api.incidentStatus(i.id,e.target.value),'Incident updated.')}><option value="open">Open</option><option value="acknowledged">Acknowledged</option><option value="resolved">Resolved</option></select>:state(i.status)}</td></tr>)}</tbody></table>{!incidents.length&&<div className="lexa-platform-empty">No platform incidents have been recorded.</div>}</div></SectionCard></>}
 
+        {section==='team'&&<>
+          <div className="lexa-platform-intro"><div><h2>Administrator team</h2><p>Only an existing Super Admin may invite another administrator. Each person receives a private, one-time link and creates a separate password.</p></div><span>{adminTeam.filter(a=>a.enabled).length} of 5 active seats</span></div>
+          <SectionCard title="Invite an administrator" action={<span className="lexa-platform-muted">Maximum five active administrators</span>}>
+            <form className="lexa-platform-form lexa-admin-team-invite" onSubmit={event=>{event.preventDefault();void takeAction(async()=>{await adminAuth.invite(inviteEmail,inviteRole);setInviteEmail('');},'Invitation email sent. The link expires after 24 hours.');}}>
+              <label>Recipient email address<input type="email" required maxLength={254} autoComplete="off" placeholder="finance@example.com" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)}/></label>
+              <label>Platform role<select value={inviteRole} onChange={e=>setInviteRole(e.target.value as PlatformRole)}><option value="super_admin">Super Administrator</option><option value="billing_manager">Billing Manager</option><option value="operations_manager">Operations Manager</option><option value="support_agent">Support Agent</option><option value="auditor">Auditor (read-only)</option></select></label>
+              <button className="lexa-platform-button" disabled={working||!inviteEmail.includes('@')||adminTeam.filter(a=>a.enabled).length>=5}><UserPlus size={17}/> Send private invitation</button>
+            </form>
+            <p className="lexa-platform-muted">The financier can be invited as a second Super Administrator. Never share your own password or an invitation intended for a different email.</p>
+          </SectionCard>
+          <SectionCard title="Authorized administrators">
+            <div className="lexa-platform-table-wrap"><table><thead><tr><th>Administrator</th><th>Role</th><th>Access</th><th>Joined</th><th>Manage</th></tr></thead><tbody>{adminTeam.map(member=><tr key={member.admin_user_id}><td><strong>{member.display_name}</strong><small>{member.email}</small></td><td>{member.role.replaceAll('_',' ')}</td><td>{state(member.enabled?'active':'suspended')}</td><td>{date(member.created_at)}</td><td><button type="button" className={member.enabled?'lexa-platform-danger':'lexa-platform-table-action'} disabled={working||member.admin_user_id===profile.adminUserId} onClick={()=>void takeAction(()=>adminAuth.memberAccess(member.admin_user_id,!member.enabled),member.enabled?'Administrator access disabled and sessions revoked.':'Administrator access restored.')}>{member.admin_user_id===profile.adminUserId?'Your account':member.enabled?'Disable access':'Restore access'}</button></td></tr>)}</tbody></table>{adminTeam.length===0&&<div className="lexa-platform-empty">No administrator team records loaded yet.</div>}</div>
+            <p className="lexa-platform-muted">You cannot disable your own current Super Admin session. Revoking another administrator removes their active sessions immediately.</p>
+          </SectionCard>
+        </>}
         {section==='audit'&&<SectionCard title="Immutable platform activity trail"><p className="lexa-platform-muted">Administrative payment and account actions. Changes cannot be erased through the runtime application.</p><div className="lexa-platform-table-wrap"><table><thead><tr><th>Time</th><th>Action</th><th>Business ID</th><th>Administrator</th></tr></thead><tbody>{audits.map(a=><tr key={a.id}><td>{date(a.created_at)}</td><td><strong>{a.action.replaceAll('.',' · ')}</strong></td><td>{a.tenant_id?.slice(0,12)||'Platform'}</td><td>{a.actor_user_id.slice(0,12)}</td></tr>)}</tbody></table>{!audits.length&&<div className="lexa-platform-empty">No platform administrative actions recorded yet.</div>}</div></SectionCard>}
         <footer className="lexa-platform-main-footer"><ShieldCheck size={15}/> LEXA Control Centre · Tenant-isolated business data · UGX 50,000 per 30 days · Activity refreshes while open</footer>
       </div>

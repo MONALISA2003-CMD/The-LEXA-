@@ -798,10 +798,40 @@
     "rationale": "Platform-only recent user activity and observed IP metadata. Never include in a tenant business restore; retain only in protected platform recovery snapshots."
   },
   {
+    "table": "platform_admin_accounts",
+    "disposition": "excluded",
+    "domain": "security",
+    "rationale": "Credential identities for administrator-only accounts; recover only with secured platform identity backup, never tenant exports."
+  },
+  {
+    "table": "platform_admin_enrolment_links",
+    "disposition": "excluded",
+    "domain": "security",
+    "rationale": "One-time invitations and founder tokens must never be included in tenant backups."
+  },
+  {
+    "table": "platform_admin_login_limits",
+    "disposition": "excluded",
+    "domain": "security",
+    "rationale": "Transient authentication throttle state; reconstructed after restore."
+  },
+  {
     "table": "platform_admin_members",
     "disposition": "excluded",
     "domain": "security",
     "rationale": "Platform-only admin grants; never import through a tenant backup. Recover only via controlled database restore."
+  },
+  {
+    "table": "platform_admin_recovery_tokens",
+    "disposition": "excluded",
+    "domain": "security",
+    "rationale": "Recovery tokens are excluded from backups to prevent replay."
+  },
+  {
+    "table": "platform_admin_sessions",
+    "disposition": "excluded",
+    "domain": "security",
+    "rationale": "Short-lived administrator sessions are deliberately excluded from restores."
   },
   {
     "table": "platform_administration_audit",

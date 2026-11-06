@@ -157,7 +157,7 @@ export function createApiClient(options: ApiClientOptions) {
         if (response.status === 401) {
           // A rejected session can invalidate the cached CSRF token too; force a fresh token on the next unsafe request.
           cachedCsrfToken = null;
-          if (!path.startsWith('/auth/login') && !path.startsWith('/auth/password/')) options.onUnauthorized?.();
+          if (!path.startsWith('/auth/login') && !path.startsWith('/auth/password/') && !path.startsWith('/platform-admin/')) options.onUnauthorized?.();
         }
         const message = httpBusinessMessage(response.status, parsed.message ?? (typeof payload === 'string' ? payload : ''), parsed.code);
         throw new ApiRequestError(message, { status: response.status, code: parsed.code, requestId: parsed.requestId ?? id, details: parsed.details });
@@ -200,7 +200,7 @@ export const apiClient = createApiClient({
   onUnauthorized: () => {
     if (typeof window === 'undefined') return;
     const publicAuthRoutes = ['/sign-in', '/forgot-password', '/reset-password', '/onboarding', '/create-account', '/verify-email', '/accept-invitation', '/first-admin-setup'];
-    if (!publicAuthRoutes.includes(window.location.pathname)) window.dispatchEvent(new CustomEvent('lexa:auth-required'));
+    if (!publicAuthRoutes.includes(window.location.pathname) && !window.location.pathname.startsWith('/platform-admin')) window.dispatchEvent(new CustomEvent('lexa:auth-required'));
   },
 });
 

@@ -339,3 +339,12 @@
 .lexa-admin-recovery .lexa-admin-login-status p{margin:0;line-height:1.7}
 .lexa-admin-recovery-note{color:#655636;font-size:11px;line-height:1.7;margin-top:20px}
 @media(max-width:720px){.lexa-platform-app .lexa-platform-live-header{flex-direction:column;align-items:stretch}.lexa-platform-app .lexa-platform-live-count{min-width:0}.lexa-platform-app .lexa-platform-activation-panel{padding:15px}}
+/* Private administrator invitation controls — only the yellow Control Centre. */
+.lexa-platform-app .lexa-admin-team-invite{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,1fr) auto;align-items:end;max-width:none;gap:14px}
+.lexa-platform-app .lexa-admin-team-invite .lexa-platform-button{white-space:nowrap}
+.lexa-platform-app .lexa-admin-logout{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.lexa-admin-founder-start{border:1px solid rgba(181,137,30,.35);background:rgba(255,242,174,.45);padding:16px;border-radius:16px;margin-top:17px;color:#503806}
+.lexa-admin-founder-start strong{font-size:14px}.lexa-admin-founder-start p{font-size:12px;line-height:1.6;margin:8px 0}
+.lexa-admin-founder-start button{border:1px solid #ca9d21;border-radius:10px;background:#f7cf5a;color:#302005;padding:10px 14px;font-weight:800;cursor:pointer}
+.lexa-admin-founder-start button:disabled{opacity:.6;cursor:wait}
+@media(max-width:900px){.lexa-platform-app .lexa-admin-team-invite{grid-template-columns:1fr}}

@@ -5,10 +5,10 @@ export type SubscriptionStatus = 'pending'|'active'|'suspended'|'legacy'|'archiv
 export interface SubscriptionStatusResponse {
   workspaceId: string; businessName: string; status: SubscriptionStatus;
   operational: boolean; canManageBilling:boolean; expiresAt: string|null; remainingDays: number;
-  priceUGX: number; periodDays: number; paymentInstructions: string; whatsappNumber: string|null; supportPhone:string;
+  priceUGX: number; periodDays: number; paymentInstructions: string; whatsappNumber: string|null; whatsappNumbers:string[]; supportPhone:string;
   latestPayment: { id:string; payment_reference:string; status:string; created_at:string; review_note:string|null }|null;
 }
-export interface PlatformProfile { role:PlatformRole; mfaEnabled:boolean; requiresMfa:boolean; priceUGX:number; periodDays:number }
+export interface PlatformProfile { adminUserId:string; role:PlatformRole; mfaEnabled:boolean; requiresMfa:boolean; priceUGX:number; periodDays:number }
 export interface PlatformBusiness { tenant_id:string; business_name:string; owner_email:string|null; status:SubscriptionStatus; activated_at:string|null; paid_through:string|null; created_at:string }
 export interface PlatformPayment { id:string; tenant_id:string; business_name:string; owner_email:string|null; payment_reference:string; method:string; transaction_reference:string|null; verified_reference:string|null; claim_message:string|null; amount_ugx:number; status:string; created_at:string; reviewed_at:string|null; review_note:string|null }
 export interface PlatformAccountActivity {
@@ -67,4 +67,22 @@ export const apiPlatformBilling = {
   submit:(workspaceId:string,method:string,transactionReference:string,message:string)=>apiClient.post(`${business(workspaceId)}/payments`,{method,transactionReference,message}),
   support:(workspaceId:string)=>apiClient.get<Array<{id:string;subject:string;description:string;status:string;created_at:string}>>(`${business(workspaceId)}/support`),
   openSupport:(workspaceId:string,subject:string,description:string)=>apiClient.post(`${business(workspaceId)}/support`,{subject,description}),
+};
+
+/** Standalone administrator authentication. Never uses customer workspace sessions. */
+export interface PlatformAdminTeamMember {
+  admin_user_id:string; email:string;display_name:string;role:PlatformRole;enabled:boolean;created_at:string;
+}
+export const apiPlatformAdministratorAuth = {
+  bootstrap:()=>apiClient.get<{firstAdministratorSetupAvailable:boolean;maxAdministrators:number}>('/platform-admin/auth/bootstrap'),
+  requestFounder:()=>apiClient.post<{accepted:boolean}>('/platform-admin/auth/founder-invite',{}),
+  register:(token:string,email:string,displayName:string,password:string)=>apiClient.post<{registered:boolean;role:PlatformRole}>('/platform-admin/auth/register',{token,email,displayName,password}),
+  login:(email:string,password:string,turnstileToken?:string)=>apiClient.post<{signedIn:boolean;role:PlatformRole;displayName:string}>('/platform-admin/auth/login',{email,password,turnstileToken}),
+  session:()=>apiClient.get<{role:PlatformRole;email:string;displayName:string}>('/platform-admin/auth/session'),
+  logout:()=>apiClient.post('/platform-admin/auth/logout',{}),
+  team:()=>apiClient.get<PlatformAdminTeamMember[]>('/platform-admin/auth/team'),
+  invite:(email:string,role:PlatformRole)=>apiClient.post<{invited:boolean;email:string;role:PlatformRole}>('/platform-admin/auth/invite',{email,role}),
+  memberAccess:(id:string,enabled:boolean)=>apiClient.post('/platform-admin/auth/team/'+encodeURIComponent(id)+'/access',{enabled}),
+  recover:(email:string)=>apiClient.post<{accepted:boolean}>('/platform-admin/auth/recovery/request',{email}),
+  reset:(token:string,password:string)=>apiClient.post<{reset:boolean}>('/platform-admin/auth/recovery/finish',{token,password}),
 };
