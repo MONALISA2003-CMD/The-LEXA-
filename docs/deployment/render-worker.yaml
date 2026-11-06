@@ -1,0 +1,54 @@
+# Standalone Render Blueprint: LEXA background worker, never the existing public API.
+# Do not approve this plan until the private dependency checklist is complete.
+# Using a separate Blueprint prevents accidental adoption/recreation of lexa-backend-api-live.
+services:
+  - type: worker
+    name: lexa-platform-worker
+    runtime: docker
+    plan: 0.5c-512mb
+    region: frankfurt
+    repo: https://github.com/MONALISA2003-CMD/The-LEXA-
+    branch: main
+    autoDeployTrigger: "off"
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    # Explicit override: do NOT execute the API Dockerfile CMD, which runs migrations and starts HTTP.
+    dockerCommand: node dist/src/platform/worker.js
+    numInstances: 1
+    maxShutdownDelaySeconds: 120
+    envVars:
+      # Keep disabled until Redis persistence, scanner, object storage and DB role checks pass.
+      - key: LEXA_WORKER_ENABLED
+        value: "false"
+      - key: LEXA_WORKER_DURABLE_REDIS_CONFIRMED
+        value: "false"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_RUNTIME_ROLE
+        value: lexa_app_runtime
+      - key: DATABASE_URL
+        sync: false
+      - key: WORKER_DATABASE_URL
+        sync: false
+      - key: WORKER_TENANT_DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: CLAMAV_HOST
+        sync: false
+      - key: CLAMAV_PORT
+        value: "3310"
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: BACKUP_ENCRYPTION_KEY
+        sync: false

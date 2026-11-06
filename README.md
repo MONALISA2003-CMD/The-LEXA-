@@ -189,3 +189,26 @@ only once the database migration, backend and frontend have been deployed.
 The account-protection source now includes Cloudflare Turnstile verification for sign-in and public registration, server-issued new-browser verification, authenticator TOTP and recovery codes, account-owned trusted browsers, session revocation, append-only account security history, and user privacy preferences. Public Cookie and Privacy Policy pages are available, along with self-service account security and privacy screens for owners and employees.
 
 **Do not deploy the backend ahead of its additive account-security Prisma migration.** Production sign-in enforcement requires matching Cloudflare keys, exact hostnames, OTP/TOTP secret configuration, and working email delivery. All keys remain server-side. See `docs/operations/runbooks/account-security-and-privacy.md` and `docs/quality/account-security-and-privacy-implementation.md` for test gates, operational recovery, limitations and evidence. This source package has not been deployed or fully authenticated in production.
+
+## Background worker and release hardening (6 November 2026)
+
+The platform worker is a separate, opt-in, **paid Render background service**. It
+is not started by the existing API Dockerfile. Its guarded configuration and
+multi-tenant worker regression tests are in:
+
+- `backend/src/platform/worker-config.ts`
+- `backend/test/worker-release-hardening.test.mjs`
+- `docs/deployment/render-worker.yaml` (standalone Blueprint, **not** the API Blueprint)
+- `docs/deployment/WORKER_RELEASE_CHECKLIST.md`
+- `docs/operations/runbooks/LEXA_RELEASE_SQL_AUDIT.sql`
+
+**Do not enable the worker or upgrade the existing Free Redis instance until the
+maintenance plan and private scanner, durable Redis, storage and credentials are
+verified.** The worker requires both `LEXA_WORKER_ENABLED=true` and
+`LEXA_WORKER_DURABLE_REDIS_CONFIRMED=true`, and refuses startup with incomplete
+configuration. It never silently marks unscanned uploads safe.
+
+The local-only Playwright navigation smoke test is updated for the approved
+Simple/Advanced navigation (the legacy `/modules` directory remains redirected).
+GitHub workflow changes are deliberately **not** inside this source ZIP; the
+repository-import workflow preserves `.github` independently.

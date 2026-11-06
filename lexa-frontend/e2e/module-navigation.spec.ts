@@ -13,10 +13,15 @@ test('the directory and every registered module render without uncaught browser 
   await page.getByRole('button', { name: 'Create and open my business' }).click();
   await expect(page.getByRole('heading', { name: /Your business, in focus/i })).toBeVisible();
 
-  await page.getByRole('link', { name: 'All modules' }).click();
-  await expect(page).toHaveURL(/\/modules$/);
-  await expect(page.getByRole('heading', { name: 'All business modules' })).toBeVisible();
-  await expect(page.locator('.module-directory-card')).toHaveCount(EXISTING_MODULE_LINKS.length + PHASE_TWO_LINKS.length);
+  // The production Simple/Advanced sidebar intentionally replaced the legacy /modules directory.
+  // Verify expanded navigation instead of requiring a retired, permission-bypassing directory.
+  const browse = page.getByRole('button', { name: /Browse \d+ additional modules/ });
+  if (await browse.isVisible().catch(() => false)) {
+    await browse.click();
+    await expect(page.getByRole('button', { name: 'Show my business modules' })).toHaveAttribute('aria-expanded', 'true');
+  }
+  await expect(page.locator('a[href="/products"]').first()).toHaveCount(1);
+  await expect(page.locator('a[href="/checkout"]').first()).toHaveCount(1);
 
   // Visiting the routes exercises each lazy module chunk, component rendering,
   // workspace context and error boundary in a clean local-only business.
