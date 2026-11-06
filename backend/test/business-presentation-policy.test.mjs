@@ -7,6 +7,8 @@ const core=readFileSync(new URL('../src/core/core.controller.ts',import.meta.url
 const settings=readFileSync(new URL('../../lexa-frontend/src/modules/settings/SettingsPage.tsx',import.meta.url),'utf8');
 const appShell=readFileSync(new URL('../../lexa-frontend/src/app/layouts/AppShell.tsx',import.meta.url),'utf8');
 const setup=readFileSync(new URL('../../lexa-frontend/src/modules/business-setup/BusinessSetupPage.tsx',import.meta.url),'utf8');
+const unifiedSettings=readFileSync(new URL('../../lexa-frontend/src/modules/settings/AccountAndBusinessSettingsPage.tsx',import.meta.url),'utf8');
+const router=readFileSync(new URL('../../lexa-frontend/src/app/router.tsx',import.meta.url),'utf8');
 
 test('boutique does not start with production and unrelated specialist workflows',()=>{
  const groups=recommendedNavigationSections(['fashion_beauty']);
@@ -28,13 +30,27 @@ test('server publishes industry-specific navigation and current policy hash',()=
 });
 test('business setup owns industry selection and refreshes all client projections',()=>{
  assert.match(setup,/queryClient\.invalidateQueries\(\{queryKey:\['industry-catalogue',workspace\.id\]/);
- assert.match(settings,/Add or change a business/);
+ assert.match(settings,/Edit business activities/);
+ assert.match(settings,/to="\/business-setup"/); // Industry selection remains in Business Setup.
  assert.doesNotMatch(settings,/Business type<select/);
 });
-test('navigation is presentation only: role visibility first and more modules remain accessible',()=>{
+test('navigation preserves role restrictions without hiding permitted modules',()=>{
  assert.match(appShell,/const visibleNavSections = navSections/);
  assert.match(appShell,/isEmployeeNavigationAllowed/);
- assert.match(appShell,/Browse \$\{hiddenModuleCount\} additional modules/);
+ assert.match(appShell,/filteredNav\.map\(\(section\)/);
+ assert.match(appShell,/Find a module/);
+ assert.doesNotMatch(appShell,/Browse \$\{hiddenModuleCount\} additional modules|hiddenModuleCount|showMoreModules/);
+});
+
+test('one final sidebar module unifies account, privacy, security and business tools',()=>{
+ assert.match(appShell,/<div className="sidebar-bottom">[\s\S]*?<NavLink to="\/settings"[\s\S]*?Account & business settings/);
+ assert.doesNotMatch(appShell,/\{ to: '\/(?:settings\/security|settings\/privacy|business-tools)'/);
+ for(const section of ["'business'","'security'","'privacy'","'tools'"])
+   assert.ok(unifiedSettings.includes(`id: ${section}`),`missing unified settings section ${section}`);
+ assert.match(unifiedSettings,/const isOwner = !isApiProvider \|\| access\.data\?\.isOwner === true/);
+ assert.match(unifiedSettings,/tabDefinitions\.filter\(tab => !tab\.ownerOnly \|\| isOwner\)/);
+ assert.match(router,/path: 'business-tools', element: <Navigate to="\/settings\?section=tools" replace \/>/);
+ assert.match(router,/path: 'settings', lazy:/);
 });
 
 test('default assortment is the union of selected businesses; historical search is explicit',async()=>{

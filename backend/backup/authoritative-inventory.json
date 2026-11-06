@@ -792,6 +792,18 @@
     "rationale": "Reset tokens are never restored"
   },
   {
+    "table": "platform_admin_members",
+    "disposition": "excluded",
+    "domain": "security",
+    "rationale": "Platform-only admin grants; never import through a tenant backup. Recover only via controlled database restore."
+  },
+  {
+    "table": "platform_administration_audit",
+    "disposition": "excluded",
+    "domain": "audit",
+    "rationale": "Immutable platform operator history; never overwrite from a tenant backup. Retain in full Neon recovery snapshots."
+  },
+  {
     "table": "platform_alert_incidents",
     "disposition": "authoritative",
     "domain": "operations",
@@ -846,6 +858,12 @@
     "rationale": "Versioned templates ship with application"
   },
   {
+    "table": "platform_incidents",
+    "disposition": "excluded",
+    "domain": "operations",
+    "rationale": "Platform-global monitoring events; separate from tenant workspace backups; retained in full recovery snapshots."
+  },
+  {
     "table": "platform_job_attempts",
     "disposition": "authoritative",
     "domain": "platform",
@@ -862,6 +880,12 @@
     "disposition": "authoritative",
     "domain": "platform",
     "rationale": "Durable job and recovery metadata; reset active leases"
+  },
+  {
+    "table": "platform_payment_claims",
+    "disposition": "excluded",
+    "domain": "saas",
+    "rationale": "LEXA platform billing evidence; a tenant restore must never forge or overwrite payment verification."
   },
   {
     "table": "platform_provider_connections",
@@ -886,6 +910,30 @@
     "disposition": "authoritative",
     "domain": "platform",
     "rationale": "Recovery pause/release state is durable business control state and must be restored paused."
+  },
+  {
+    "table": "platform_subscription_periods",
+    "disposition": "excluded",
+    "domain": "saas",
+    "rationale": "LEXA-verified subscription receipts; must not be modified by a tenant-owned restore."
+  },
+  {
+    "table": "platform_subscriptions",
+    "disposition": "excluded",
+    "domain": "saas",
+    "rationale": "Platform-managed entitlements; workspace restore must not grant/free/revoke paid access."
+  },
+  {
+    "table": "platform_support_cases",
+    "disposition": "excluded",
+    "domain": "support",
+    "rationale": "Platform-level support investigations; not owned by the tenant restoration process."
+  },
+  {
+    "table": "platform_user_directory",
+    "disposition": "excluded",
+    "domain": "identity",
+    "rationale": "Derived account-support directory; reconstructed from users and memberships on full recovery."
   },
   {
     "table": "platform_webhook_events",

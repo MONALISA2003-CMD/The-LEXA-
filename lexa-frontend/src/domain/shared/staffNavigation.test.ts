@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { isEmployeeNavigationAllowed } from './staffNavigation';
 describe('CEO-assigned employee navigation privacy',()=>{
- it('keeps ordinary employees on only their own profile and business overview',()=>{
+ it('keeps ordinary employees in their permitted modules and personal account settings',()=>{
   expect(isEmployeeNavigationAllowed('employee','/')).toBe(true);
   expect(isEmployeeNavigationAllowed('employee','/my-employment')).toBe(true);
-  for(const route of ['/team','/settings','/modules/employees','/modules/payroll','/modules/accounting','/checkout']) expect(isEmployeeNavigationAllowed('employee',route)).toBe(false);
+  // All users must be able to manage their own security and privacy choices.
+  // The unified page hides owner-only business tools and business profile controls.
+  expect(isEmployeeNavigationAllowed('employee','/settings')).toBe(true);
+  for(const route of ['/team','/business-tools','/modules/employees','/modules/payroll','/modules/accounting','/checkout']) expect(isEmployeeNavigationAllowed('employee',route)).toBe(false);
  });
  it('gives cashiers POS and receipts but no payroll or bank accounts',()=>{
   expect(isEmployeeNavigationAllowed('cashier','/checkout')).toBe(true);

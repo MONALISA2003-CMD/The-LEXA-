@@ -10,11 +10,12 @@ import { WorkspaceContext } from '../WorkspaceContext';
 import type { Branch, Workspace } from '../../domain/shared/types';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import GlobalSearch from '../../components/GlobalSearch';
-import { BusinessAssortmentSelector, useBusinessAssortment } from '../../components/business/BusinessAssortmentSelector';
+import { BusinessAssortmentSelector } from '../../components/business/BusinessAssortmentSelector';
 import LexaLogo from '../../components/LexaLogo';
 import { navigationIcons } from '../../components/icons/EnterpriseNavIcons';
 import { isEmployeeNavigationAllowed } from '../../domain/shared/staffNavigation';
 import { apiAuth } from '../../data/remote/apiAuth';
+import { apiPlatformBilling } from '../../data/remote/apiPlatformAdministration';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import { resolveBusinessSelection } from '../resolveBusinessSelection';
 import { Link } from 'react-router';
@@ -35,8 +36,6 @@ const navSections = [
     { to: '/team', label: 'Team & permissions', icon: navigationIcons.Users },
     { to: '/my-employment', label: 'My employment', icon: navigationIcons.Users },
     { to: '/business-setup', label: 'Business profile setup', icon: navigationIcons.Sparkles },
-    { to: '/settings/security', label: 'Account security', icon: navigationIcons.ShieldCheck },
-    { to: '/settings/privacy', label: 'Privacy preferences', icon: navigationIcons.Settings },
   ] },
   { title: 'BUSINESS REPORTS & ADVICE', items: [
     { to: '/reports', label: 'Business reports', icon: navigationIcons.BarChart3 },
@@ -118,10 +117,6 @@ const navSections = [
     { to: '/modules/tasks', label: 'Tasks', icon: navigationIcons.ClipboardList },
     { to: '/modules/support', label: 'Customer support', icon: navigationIcons.Users },
   ] },
-  { title: 'ADMINISTRATION', items: [
-
-    { to: '/business-tools', label: 'Business tools', icon: navigationIcons.Settings },
-  ] },
 ];
 
 function routeTitle(pathname: string): string {
@@ -132,7 +127,7 @@ function routeTitle(pathname: string): string {
     .sort((a, b) => b.to.length - a.to.length)
     .find((item) => pathname === item.to || pathname.startsWith(item.to + '/'));
   if (found) return found.label;
-  if (pathname === '/settings') return 'Settings';
+  if (pathname === '/settings') return 'Account & business settings';
   return 'Workspace';
 }
 
@@ -155,8 +150,6 @@ export default function AppShell() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<string[]>(['WORKSPACE']);
   const [moduleSearch, setModuleSearch] = useState('');
-  const [showAllModules,setShowAllModules]=useState(false);
-  const assortment = useBusinessAssortment(workspace?.id ?? '');
   const [pinnedPaths, setPinnedPaths] = useState<string[]>([]);
   useEffect(() => {
     const active = navSections.find(section => section.items.some(item => location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to + '/'))));
@@ -172,6 +165,12 @@ export default function AppShell() {
     document.documentElement.dataset.theme = theme;
     try { window.localStorage.setItem('lexa.ui.theme', theme); } catch { /* Theme still works for this session. */ }
   }, [theme]);
+  const subscriptionQuery = useQuery({
+    queryKey: ['lexa-subscription-entitlement', workspace?.id],
+    queryFn: () => apiPlatformBilling.status(workspace!.id),
+    enabled: Boolean(workspace && isApiProvider),
+    staleTime: 15_000, retry: 1,
+  });
   const accessQuery = useQuery({
     queryKey: ['business-access', workspace?.id],
     queryFn: () => apiTeamAccess.access(workspace!.id),
@@ -188,14 +187,13 @@ export default function AppShell() {
     'BUSINESS REPORTS & ADVICE':'reports.read', 'CUSTOMERS & GROWTH':'crm.read',
     'SELLING':'sales.read','INVENTORY':'inventory.read','LOGISTICS':'fulfilment.read',
     'PURCHASING':'procurement.read','FINANCE':'finance.read','TEAM & PAYROLL':'people.read',
-    'PRODUCTION & QUALITY':'manufacturing.read', 'PROJECTS & SERVICE':'projects.read', 'ADMINISTRATION':'workspace.read',
+    'PRODUCTION & QUALITY':'manufacturing.read', 'PROJECTS & SERVICE':'projects.read',
   };
   const visibleNavSections = navSections.map(section => ({...section,items:section.items.filter(item => {
     if (isApiProvider && !isOwner && !isEmployeeNavigationAllowed(accessQuery.data?.role ?? '', item.to)) return false;
     if(item.to==='/team'||item.to==='/business-setup') return isOwner;
     if(item.to==='/my-employment') return !isOwner;
-    if(item.to==='/workspace'||item.to==='/'||item.to==='/settings/security'||item.to==='/settings/privacy') return true;
-    if(item.to==='/business-tools')return isOwner;
+    if(item.to==='/workspace'||item.to==='/') return true;
     if(item.to==='/intelligence')return isOwner;
     if(item.to==='/reports')return allowed.has('reports.read');
     if(item.to==='/modules/employees'||item.to==='/modules/attendance')return allowed.has('people.read');
@@ -210,20 +208,14 @@ export default function AppShell() {
     return allowed.has(sectionPermission[section.title]??'workspace.read');
   })})).filter(section=>section.items.length>0);
   // Navigation preferences never contain record data and reset when switching businesses.
-  useEffect(() => { setPinnedPaths([]); setModuleSearch('');setShowAllModules(false); }, [workspace?.id]);
-  const featuredSections=new Set(!assortment.config.data || !assortment.config.data.industries.length
-    ?navSections.map(section=>section.title)
-    :assortment.focus
-      ?assortment.config.data.presentation?.navigationSectionsByIndustry?.[assortment.focus.industryCode] ?? navSections.map(section=>section.title)
-      :assortment.config.data.presentation?.recommendedNavigationSections ?? navSections.map(section=>section.title));
-  const relevantNavSections=visibleNavSections.filter(section=>featuredSections.has(section.title)||
-    section.items.some(item=>location.pathname===item.to||(item.to!=='/'&&location.pathname.startsWith(item.to+'/'))));
-  const hiddenModuleCount=visibleNavSections.reduce((sum,section)=>sum+(relevantNavSections.includes(section)?0:section.items.length),0);
+  useEffect(() => { setPinnedPaths([]); setModuleSearch(''); }, [workspace?.id]);
+  // Every authorized module remains accessible within its existing navigation group.
+  // Search narrows the visible groups but never replaces a real module with a placeholder.
   const filteredNav = moduleSearch.trim()
     ? visibleNavSections.map(section => ({...section,items:section.items.filter(item =>
         `${section.title} ${item.label}`.toLowerCase().includes(moduleSearch.trim().toLowerCase()))}))
         .filter(section => section.items.length > 0)
-    : showAllModules ? visibleNavSections : relevantNavSections;
+    : visibleNavSections;
   const favorites = visibleNavSections.flatMap(section => section.items).filter(item => pinnedPaths.includes(item.to));
   const togglePin = (path: string) => setPinnedPaths(current => current.includes(path) ? current.filter(value => value !== path) : [...current, path]);
   const toggleNavSection = (title:string) => setExpandedSections(current=>current.includes(title)?current.filter(item=>item!==title):[...current,title]);
@@ -359,6 +351,10 @@ export default function AppShell() {
     <div className="business-entry-error-actions"><button type="button" className="button button-primary" onClick={() => window.location.reload()}>Try again</button><Link to="/onboarding" className="button button-secondary">Choose my business</Link></div>
   </main>;
   if (!workspace) return <Navigate to="/onboarding" replace />;
+  if (isApiProvider && subscriptionQuery.isLoading) return <div className="boot-screen" role="status">Checking your LEXA subscription…</div>;
+  if (isApiProvider && subscriptionQuery.isError) return <main className="error-screen" role="alert"><h1>Could not verify your subscription</h1><p>Your business data has not been changed. Please retry or contact LEXA support.</p><button className="button button-primary" onClick={()=>window.location.reload()}>Try again</button></main>;
+  if (isApiProvider && subscriptionQuery.data && !subscriptionQuery.data.operational)
+    return <Navigate to={`/subscription?workspaceId=${encodeURIComponent(workspace.id)}`} replace />;
   if (!branch) return <main className="error-screen" role="alert">
     <div className="eyebrow eyebrow-blue">BUSINESS SETUP</div>
     <h1>Your business is saved.</h1>
@@ -383,8 +379,7 @@ export default function AppShell() {
           <nav className="nav-groups">
             <label className="lexa-sidebar-filter"><Search size={15} aria-hidden="true"/><span className="sr-only">Find a module</span><input value={moduleSearch} onChange={event => setModuleSearch(event.target.value)} placeholder="Find a module" aria-label="Find a module" autoComplete="off"/></label>
             {favorites.length > 0 && !moduleSearch && <div className="lexa-nav-pinned" aria-label="Pinned modules"><div className="lexa-nav-pinned-heading"><Pin size={14}/> Pinned</div>{favorites.map(item => { const Icon = item.icon;return <NavLink key={item.to} to={item.to} data-module-accent={moduleAccentForPath(item.to)} onClick={() => setMobileNavOpen(false)} className={({isActive})=>`nav-link ${isActive?'nav-link-active':''}`}><Icon size={17}/><span>{item.label}</span></NavLink>; })}</div>}
-            <p className="lexa-nav-hint">Your business modules</p>
-            {!moduleSearch.trim()&&hiddenModuleCount>0&&<button type="button" className="lexa-nav-module-toggle" aria-expanded={showAllModules} onClick={()=>setShowAllModules(value=>!value)}>{showAllModules?'Show my business modules':`Browse ${hiddenModuleCount} additional modules`}</button>}
+            <p className="lexa-nav-hint">Workspace navigation</p>
             {filteredNav.map((section) => (
               <div className="nav-section" key={section.title} data-module-accent={moduleAccentForGroup(section.title)}>
                 <button type="button" className="nav-section-title lexa-nav-group-toggle" aria-expanded={Boolean(moduleSearch) || expandedSections.includes(section.title)} onClick={() => toggleNavSection(section.title)}><span>{section.title}</span><ChevronDown size={14} className={moduleSearch || expandedSections.includes(section.title) ? 'lexa-nav-arrow-open' : ''} /></button>
@@ -399,9 +394,9 @@ export default function AppShell() {
             ))}
           </nav>
           <div className="sidebar-bottom">
-            <div className="local-note"><span className="status-dot" /><div><strong>Business status</strong><span>Secure shared business records</span></div></div>
-            {isOwner && <NavLink to="/settings" data-module-accent={moduleAccentForPath('/settings')} className={({ isActive }) => `nav-link settings-link ${isActive ? 'nav-link-active' : ''}`}><Settings size={18} /><span>Settings</span></NavLink>}
-            <button className="help-link" onClick={() => toast.info('LEXA workspace help', { description: 'Use the navigation to manage sales, stock, purchasing, finance, reports and your team. Visit Settings to manage business preferences.' })}><CircleHelp size={16} /><span>Help & guidance</span></button>
+            <div className="local-note"><span className="status-dot" /><div><strong>Workspace storage</strong><span>{isApiProvider ? 'Secure business account' : 'Records stored on this device'}</span></div></div>
+            <button className="help-link" onClick={() => toast.info('LEXA workspace guidance', { description: 'Select a module group to access business records. Account protection, privacy controls and operational tools are available in Account & business settings.' })}><CircleHelp size={16} /><span>Help & guidance</span></button>
+            <NavLink to="/settings" data-module-accent={moduleAccentForPath('/settings')} className={({ isActive }) => `nav-link settings-link ${isActive ? 'nav-link-active' : ''}`}><Settings size={18} /><span>Account & business settings</span></NavLink>
           </div>
         </aside>
 
@@ -420,7 +415,7 @@ export default function AppShell() {
           {!(['/products','/inventory','/checkout','/modules/finance-overview'].includes(location.pathname)||
             /^\/modules\/(purchases|purchase-requests|purchase-returns|purchase-invoices|rfqs|supplier-quotes|suppliers)$/.test(location.pathname))&&
             <div className="lexa-workspace-activity-selector"><BusinessAssortmentSelector workspaceId={workspace.id} context="workspace"/>
-              {isOwner&&<Link to="/business-setup" className="lexa-activity-settings-link">Add or change businesses</Link>}</div>}
+              {isOwner&&<Link to="/business-setup" className="lexa-activity-settings-link">Manage business activities</Link>}</div>}
           <div className="page-content"><Outlet /></div>
           <footer className="app-footer"><span>© {new Date().getFullYear()} LEXA</span><span>LEXA is a subsidiary of AMAAL GROUP.</span></footer>
         </main>

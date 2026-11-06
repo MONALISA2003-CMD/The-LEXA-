@@ -21,7 +21,13 @@ test('owner actions require review and use authoritative business APIs', async()
 test('no backend service diagnostics in business settings', async()=>{
   const settings=await src('../../lexa-frontend/src/modules/settings/SettingsPage.tsx');
   for(const phrase of ['LEXA availability','Background jobs, encrypted backups','Data & privacy','<SecurityPanel'])assert.equal(settings.includes(phrase),false,phrase);
-  assert.match(settings,/to="\/settings\/security"/); // User-facing security settings are allowed; internal diagnostics are not.
+  const combined=await src('../../lexa-frontend/src/modules/settings/AccountAndBusinessSettingsPage.tsx');
+  assert.match(combined,/Account security/);
+  assert.match(combined,/Privacy preferences/);
+  assert.match(combined,/Business tools/);
+  assert.match(combined,/AccountSecurity/);
+  assert.match(combined,/PrivacyPreferences/);
+  assert.doesNotMatch(settings,/LEXA availability|Background jobs, encrypted backups/); // No service diagnostics in business settings.
 });
 test('consistent delivery summary and AMAAL GROUP footers', async()=>{
   const delivery=await src('../../lexa-frontend/src/modules/operations/commerce-workflows.css');

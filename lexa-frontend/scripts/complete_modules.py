@@ -617,8 +617,15 @@ def main() -> None:
     if "path: 'business-tools'" not in router:
         router = replace_once(router, route_marker, route_entry + route_marker, "business tools route")
 
-    if "to: '/business-tools'" not in app_shell:
-        fail("Business Tools navigation entry is missing from AppShell")
+    # Business Tools now lives inside the unified Account & Business Settings centre.
+    # Older repositories can still use its standalone navigation link.
+    unified_settings = (
+        "AccountAndBusinessSettingsPage" in router
+        and "Account & business settings" in app_shell
+        and "path: 'business-tools'" in router
+    )
+    if "to: '/business-tools'" not in app_shell and not unified_settings:
+        fail("Business Tools must be accessible via the unified settings centre or its legacy navigation entry")
 
     # Keep the default menu simple and mobile-focused, with an event-driven switch to Advanced navigation.
     mobile_state = "  const [mobileNavOpen, setMobileNavOpen] = useState(false);"
@@ -707,8 +714,8 @@ def main() -> None:
         fail("workflow graph import/delegation/core shortcuts/duplicate protection are missing")
     if "function genericRelatedValues(" not in page or "sourceReference };" not in page:
         fail("generic mapping or source reference metadata is missing")
-    if "path: 'business-tools'" not in router or "to: '/business-tools'" not in app_shell or not (modern_nav or legacy_visible_nav or "{visibleNavSections.map((section) => (" in app_shell):
-        fail("Business Tools route or active sidebar navigation is missing")
+    if "path: 'business-tools'" not in router or not (unified_settings or "to: '/business-tools'" in app_shell) or not (modern_nav or legacy_visible_nav or "{visibleNavSections.map((section) => (" in app_shell):
+        fail("Business Tools route or unified settings navigation is missing")
     if "const [paymentLines, setPaymentLines]" not in checkout or "Add split-payment line" not in checkout or "REQUIRED FOR CREDIT" not in checkout:
         fail("core checkout split-tender / credit requirements are missing")
     if "async receivePayment(input: ReceivePaymentInput)" not in sales_workflow or "Record instalment" not in sale_detail:
@@ -742,8 +749,8 @@ def main() -> None:
     print(" - protected one-to-one hand-offs from duplicate target drafts")
     print(" - retired legacy activity-note workflows")
     print(" - kept protected business records within their existing permissions")
-    print(" - added Business Tools: local cash-up, compliance guidance, backups, CSV imports/exports and device capture")
-    print(" - enabled Simple / Advanced navigation modes")
+    print(" - retained cash reconciliation, compliance, data management and capture under unified business settings")
+    print(" - preserved searchable, permission-aware navigation with all authorized modules accessible")
     print(" - added split-tender payments, customer-required credit, promised dates and later instalments")
     print(" - derived paid / part-paid / overdue status from sales, returns and payment records")
     print(" - corrected receivable calculation so refunds are not treated as amounts still owed")

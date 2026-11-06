@@ -19,9 +19,9 @@ export default function VerifyEmailPage() {
     if (status !== 'ready' || !token) return;
     setStatus('checking');
     try {
-      await apiAuth.verifyPublicSignup(token);
+      const outcome = await apiAuth.verifyPublicSignup(token);
       setStatus('complete');
-      navigate('/workspace', { replace: true });
+      navigate(`/subscription?workspaceId=${encodeURIComponent(outcome.workspaceId)}`, { replace: true });
     } catch (cause) {
       setError(businessErrorMessage(cause));
       setStatus('error');
@@ -32,7 +32,7 @@ export default function VerifyEmailPage() {
     <div className="auth-result-icon">{status==='checking'?<LoaderCircle className="auth-spin" size={30}/>:status==='complete'?<CheckCircle2 size={30}/>:<MailCheck size={30}/>}</div>
     <div className="auth-eyebrow">SECURE EMAIL VERIFICATION</div>
     <h1>{status==='ready'?'Your business starts here.':status==='checking'?'Creating your workspace…':status==='complete'?'Welcome to LEXA.':'This link needs attention.'}</h1>
-    <p>{status==='ready'?'Confirm that this is your email address to activate your account and open your own private business.':status==='checking'?'Verifying your email and creating your business workspace.':status==='complete'?'Your account and business are ready. Opening LEXA…':error}</p>
+    <p>{status==='ready'?'Confirm your email to create your private business identity. Subscription payment is required before operational access.':status==='checking'?'Verifying your email and creating your business workspace.':status==='complete'?'Your business is saved. Opening subscription setup…':error}</p>
     {status==='ready'&&<button type="button" className="auth-submit auth-return-button" onClick={()=>void verify()}>Verify my email and create account <ArrowRight size={17}/></button>}
     {status==='error'&&<Link to="/create-account" className="auth-submit auth-return-button">Create account <ArrowRight size={17}/></Link>}
     <div className="auth-simple-security"><ShieldCheck size={16}/> Verified identities. Private business data.</div>

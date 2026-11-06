@@ -105,6 +105,12 @@ export function permissionForRequest(method: string, pathname: string, params: R
   const moduleId = typeof params.moduleId === 'string' ? params.moduleId : undefined;
   const choose = (read: Permission, mutation: Permission): Permission => write ? mutation : read;
 
+  // Customer subscription status and support remain available while unpaid.
+  // Controllers additionally authorize exact tenant membership and business ownership.
+  if (/\/workspaces\/[^/]+\/platform-billing(?:\/|$)/.test(path)) {
+    if (/\/payments(?:\/|$)/.test(path)) return write ? 'workspace.manage' : 'workspace.read';
+    return 'workspace.read';
+  }
   // Industry workflows retain the same authoritative stock/finance permissions as
   // established inventory controllers. The branch scope is checked again by the controller.
   if (/\/branches\/[^/]+\/industry-operations(?:\/|$)/.test(path)) {

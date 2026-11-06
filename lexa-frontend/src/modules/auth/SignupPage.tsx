@@ -42,7 +42,7 @@ export default function SignupPage() {
           <p>Bring sales, inventory, finance and your team together in one beautifully simple business workspace.</p>
           <div className="auth-feature-list">
             <div><span className="auth-feature-icon"><ShieldCheck size={18}/></span><div><strong>Your business, your data</strong><small>Separate workspaces and role-based access for every business.</small></div></div>
-            <div><span className="auth-feature-icon"><Building2 size={18}/></span><div><strong>Ready from day one</strong><small>Your private business workspace and main branch are created automatically.</small></div></div>
+            <div><span className="auth-feature-icon"><Building2 size={18}/></span><div><strong>Ready from day one</strong><small>Your private business and main branch are saved until payment approval.</small></div></div>
             <div><span className="auth-feature-icon"><LockKeyhole size={18}/></span><div><strong>Verified, secure access</strong><small>Confirm your email before your account is activated.</small></div></div>
           </div>
         </div>
@@ -56,13 +56,13 @@ export default function SignupPage() {
             <div className="auth-result-icon"><Mail size={30}/></div>
             <div className="auth-eyebrow">ONE STEP AWAY</div>
             <h1>Check your inbox.</h1>
-            <p className="auth-intro">We've accepted your request. If this email is eligible, you'll receive a secure verification link. Follow it to activate your account and create your private business workspace.</p>
+            <p className="auth-intro">We've accepted your request. If this email is eligible, you'll receive a secure verification link. Follow it to confirm your identity, then submit subscription payment details for approval.</p>
             <div className="auth-complete-panel"><CheckCircle2 size={22}/><div><strong>Verification requested</strong><span>Check your spam folder too. Links expire after 24 hours.</span></div></div>
             <Link className="auth-submit auth-return-button" to="/sign-in">Back to sign in <ArrowRight size={17}/></Link>
           </> : <>
             <div className="auth-eyebrow">JOIN THE NEXT GENERATION OF BUSINESS</div>
             <h1>Create your LEXA account.</h1>
-            <p className="auth-intro">A beautifully organized business starts here. Verify your email to open your workspace.</p>
+            <p className="auth-intro">A beautifully organized business starts here. Verify your email, then arrange your UGX 50,000 subscription for 30 days. Operational access opens after payment confirmation.</p>
             <form className="auth-form" onSubmit={submit}>
               <div className="auth-field"><label htmlFor="signup-name">Full name <span>*</span></label><div className="auth-input-wrap"><UserRound size={17}/><input id="signup-name" required autoComplete="name" maxLength={100} value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Your full name" /></div></div>
               <div className="auth-field"><label htmlFor="signup-business">Business name <span>*</span></label><div className="auth-input-wrap"><Building2 size={17}/><input id="signup-business" required maxLength={100} value={businessName} onChange={e=>setBusinessName(e.target.value)} placeholder="Your company or business" /></div></div>

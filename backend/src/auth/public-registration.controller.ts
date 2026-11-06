@@ -148,6 +148,10 @@ export class PublicRegistrationController {
       } });
       await tx.membership.create({ data: { tenantId, userId, role: 'owner', status: 'ACTIVE', branchScopeMode: 'all' } });
       await tx.branch.create({ data: { tenantId, code: 'MAIN', name: 'Main branch', currency: 'UGX', timezone: 'Africa/Kampala' } });
+      // Identity verification is NOT a paid entitlement. Existing accounts were
+      // grandfathered in the additive migration; new accounts start pending.
+      await tx.$executeRaw`INSERT INTO platform_subscriptions(tenant_id,business_name,owner_email,status)
+        VALUES(${tenantId}::uuid,${pending.business_name},${pending.email},'pending')`;
       await tx.auditEvent.create({ data: { tenantId, actorUserId: userId, action: 'auth.email_verified.workspace_created', resourceType: 'workspace', resourceId: tenantId } });
       await tx.signupVerification.delete({ where: { email: pending.email } });
       return { user, tenant };
@@ -159,7 +163,7 @@ export class PublicRegistrationController {
       await sendLexaWelcomeEmail({
         userId, recipientEmail: created.user.email,
         displayName: created.user.displayName ?? 'LEXA member',
-        businessName: created.tenant.name, owner: true,
+        businessName: created.tenant.name, owner: true, subscriptionPending: true, workspaceId: created.tenant.id,
       });
     } catch {
       this.logger.warn('LEXA_WELCOME_EMAIL_DELIVERY_FAILED: verified owner account remains active.');

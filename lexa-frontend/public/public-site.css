@@ -12,3 +12,15 @@ footer{background:#06132f;color:#becbe0;padding:28px 22px}footer .inner{max-widt
 nav .brand{display:inline-flex;min-width:0;min-height:48px;align-items:center;flex:none;letter-spacing:normal}
 nav .brand img{display:block;width:clamp(140px,17vw,194px);max-width:100%;height:auto;max-height:54px;object-fit:contain;object-position:left center}
 @media(max-width:480px){nav .brand img{width:156px;max-height:47px}}
+
+/* LEXA transparent manual-subscription pricing */
+.lexa-plan-heading{max-width:740px;margin-bottom:28px}.lexa-plan-heading .eyebrow{color:#2359a0}
+.lexa-plan-card{display:grid;grid-template-columns:1fr 1.2fr;border:1px solid #d2e1f2;border-radius:22px;overflow:hidden;background:#fff;box-shadow:0 15px 50px #0b285217}
+.lexa-plan-intro{background:linear-gradient(155deg,#0b2147,#174f97);color:#fff;padding:42px 35px;display:flex;flex-direction:column;gap:18px;justify-content:center}
+.lexa-plan-badge{font-size:12px;letter-spacing:.13em;color:#bbddff;font-weight:800}
+.lexa-plan-price{font-size:clamp(28px,4vw,42px);letter-spacing:-.045em;line-height:1.2;font-weight:850}
+.lexa-plan-price small{display:block;font-size:15px;letter-spacing:0;color:#cbdffa;margin-top:9px}
+.lexa-plan-intro p{color:#e1edff;font-size:14px;line-height:1.8;margin:0}
+.lexa-plan-details{padding:38px 35px}.lexa-plan-details h3{margin-top:0}.lexa-plan-details ol{padding-left:20px;line-height:1.9}
+.lexa-plan-details p{color:#51657e;font-size:13px}.lexa-plan-details .button{margin-top:13px;display:inline-block}
+@media(max-width:740px){.lexa-plan-card{grid-template-columns:1fr}.lexa-plan-intro,.lexa-plan-details{padding:29px 23px}}

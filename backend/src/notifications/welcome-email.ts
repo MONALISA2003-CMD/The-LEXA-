@@ -21,12 +21,17 @@ export function buildLexaWelcomeEmail(input: {
   displayName: string;
   businessName: string;
   owner: boolean;
+  subscriptionPending?: boolean;
+  workspaceId?: string;
   baseUrl: string;
 }): { text: string; html: string; actionUrl: string } {
   const baseUrl = input.baseUrl.replace(/\/+$/, '');
   if (!/^https:\/\/[^/]+$/.test(baseUrl)) throw new Error('LEXA public URL must be a secure origin.');
-  const actionUrl = `${baseUrl}/workspace`;
-  const accessMessage = input.owner
+  const actionUrl = input.subscriptionPending && input.workspaceId
+    ? `${baseUrl}/subscription?workspaceId=${encodeURIComponent(input.workspaceId)}` : `${baseUrl}/workspace`;
+  const accessMessage = input.subscriptionPending
+    ? `Your email is verified and your private business identity is saved. Operational access begins after LEXA confirms your UGX 50,000 subscription payment. Sign in to view official payment instructions and submit your transaction reference.`
+    : input.owner
     ? `As the owner of ${input.businessName}, you have full administrative access to your own business and its branches. Your information is separated from other LEXA businesses.`
     : `You are joining ${input.businessName}. Your business administrator controls which tools, records and branches you can access.`;
   const introduction = `Hello ${input.displayName},\n\nWelcome to LEXA! Your account is ready.\n\n${accessMessage}`;
@@ -44,6 +49,8 @@ export async function sendLexaWelcomeEmail(input: {
   displayName: string;
   businessName: string;
   owner: boolean;
+  subscriptionPending?: boolean;
+  workspaceId?: string;
 }): Promise<void> {
   const baseUrl = process.env.FRONTEND_PUBLIC_URL || 'https://lexaaamaal.com';
   const content = buildLexaWelcomeEmail({ ...input, baseUrl });
@@ -53,7 +60,7 @@ export async function sendLexaWelcomeEmail(input: {
     text: content.text,
     html: content.html,
     actionUrl: content.actionUrl,
-    actionLabel: 'Open my LEXA workspace',
+    actionLabel: input.subscriptionPending ? 'Review subscription payment' : 'Open my LEXA workspace',
     idempotencyKey: `lexa-welcome-${input.userId}`,
   });
 }

@@ -31,8 +31,8 @@ export const apiAuth = {
   async requestPublicSignup(input: { email: string; displayName: string; businessName: string; password: string; turnstileToken?: string }): Promise<void> {
     await apiClient.post('/auth/signup', { ...input, email: input.email.trim().toLowerCase(), displayName: input.displayName.trim(), businessName: input.businessName.trim() });
   },
-  async verifyPublicSignup(token: string): Promise<void> {
-    await apiClient.post('/auth/signup/verify', { token });
+  async verifyPublicSignup(token: string): Promise<{ workspaceId: string; verified: boolean }> {
+    return apiClient.post('/auth/signup/verify', { token });
   },
   async previewInvitation(input: InvitationLink): Promise<InvitationPreview> {
     return objectResponse<InvitationPreview>(await apiClient.post('/auth/invitations/preview', input), 'invitation details');

@@ -642,6 +642,8 @@ export class CoreController {
       const created = await tx.tenant.create({ data: { id: tenantId, name: businessName, slug: `${slugify(businessName)}-${randomBytes(3).toString('hex')}`, businessType, currency, timezone } });
       await tx.membership.create({ data: { tenantId: created.id, userId: session.userId, role: 'owner', status: 'ACTIVE' } });
       await tx.branch.create({ data: { tenantId: created.id, code: 'MAIN', name: branchName, timezone, currency } });
+      await tx.$executeRaw`INSERT INTO platform_subscriptions(tenant_id,business_name,owner_email,status)
+        VALUES(${tenantId}::uuid,${businessName},${session.user.email},'pending')`;
       if (initialIndustries.length) await tx.businessProfile.create({data:{tenantId:created.id,industry:initialIndustries[0],industries:initialIndustries}});
       await tx.auditEvent.create({ data: { tenantId: created.id, actorUserId: session.userId, action: 'workspace.created', resourceType: 'workspace', resourceId: created.id, requestId: request.headers['x-request-id'] as string | undefined } });
       return created;

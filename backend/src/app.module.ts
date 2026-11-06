@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { HealthController } from './health/health.controller';
+import { PlatformAdministrationController, BusinessPlatformBillingController } from './platform-administration/platform-administration.controller';
+import { SubscriptionAccessGuard } from './platform-administration/subscription-access.guard';
 import { PrismaModule } from './prisma/prisma.module';
 import { CoreController } from './core/core.controller';
 import { CustomerGrowthController } from './customer-growth/customer-growth.controller';
@@ -47,7 +49,7 @@ import { AiRouterService } from './workstream8/ai-router.service';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [CustomerGrowthController, HealthController, CoreController, BusinessSetupController, StaffProvisioningController, PublicRegistrationController, AccountSecurityController, ModuleGraphController, CommerceController, DeliveryWorkflowController, LogisticsPackagesController, InventoryIntelligenceController, ReceivablesController, RecurringInvoicesController, NotificationCentreController, ResendWebhookController, OperationsController, OperationalAdviceController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, ElectronicsInventoryOperationsController, EquipmentServiceController, IndustryOperationsController, ElectronicsV2Controller, FinanceOperationsController, FinanceIntelligenceController, SupplyChainController, PeopleProjectsController, PlatformController, TaxReferenceController, Workstream8Controller],
-  providers: [ReportInsightsService, AccountProtectionService, CsrfGuard, PeopleProjectsService, AiRouterService, { provide: APP_INTERCEPTOR, useClass: TenantRequestContextInterceptor }, { provide: APP_INTERCEPTOR, useClass: CorrelationInterceptor }, { provide: APP_INTERCEPTOR, useClass: SentryExceptionInterceptor }, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
+  controllers: [PlatformAdministrationController, BusinessPlatformBillingController, CustomerGrowthController, HealthController, CoreController, BusinessSetupController, StaffProvisioningController, PublicRegistrationController, AccountSecurityController, ModuleGraphController, CommerceController, DeliveryWorkflowController, LogisticsPackagesController, InventoryIntelligenceController, ReceivablesController, RecurringInvoicesController, NotificationCentreController, ResendWebhookController, OperationsController, OperationalAdviceController, PayablesController, GeneralLedgerController, InvitationsController, CatalogInventoryController, ElectronicsInventoryOperationsController, EquipmentServiceController, IndustryOperationsController, ElectronicsV2Controller, FinanceOperationsController, FinanceIntelligenceController, SupplyChainController, PeopleProjectsController, PlatformController, TaxReferenceController, Workstream8Controller],
+  providers: [ReportInsightsService, AccountProtectionService, CsrfGuard, PeopleProjectsService, AiRouterService, { provide: APP_INTERCEPTOR, useClass: TenantRequestContextInterceptor }, { provide: APP_INTERCEPTOR, useClass: CorrelationInterceptor }, { provide: APP_INTERCEPTOR, useClass: SentryExceptionInterceptor }, { provide: APP_GUARD, useClass: SubscriptionAccessGuard }, { provide: APP_GUARD, useClass: TenantAuthorizationGuard }, { provide: APP_GUARD, useClass: TypedModuleWriteGuard }],
 })
 export class AppModule {}

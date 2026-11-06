@@ -28,7 +28,7 @@ export const STAFF_NAV_ROUTES: Readonly<Record<string, readonly string[]>> = Obj
  manager:['/reports','/sales','/checkout','/products','/inventory','/modules/sales-orders','/modules/sales-returns','/modules/customers','/modules/contacts','/modules/leads','/modules/purchase-requests','/modules/purchases','/modules/suppliers','/modules/receiving','/modules/stock-counts','/modules/deliveries','/modules/packages','/modules/projects','/modules/tasks'],
 });
 export function isEmployeeNavigationAllowed(role:string,path:string):boolean{
- if(['/','/workspace','/my-employment','/settings/security','/settings/privacy'].includes(path))return true;
+ if(['/','/workspace','/my-employment','/settings','/settings/security','/settings/privacy'].includes(path))return true;
  return (STAFF_NAV_ROUTES[role.trim().toLowerCase()]??[]).includes(path);
 }
 

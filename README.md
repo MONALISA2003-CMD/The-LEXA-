@@ -212,3 +212,9 @@ The local-only Playwright navigation smoke test is updated for the approved
 Simple/Advanced navigation (the legacy `/modules` directory remains redirected).
 GitHub workflow changes are deliberately **not** inside this source ZIP; the
 repository-import workflow preserves `.github` independently.
+
+## LEXA Control Centre — manual UGX 50,000 subscriptions (November 2026)
+
+The proposed `/platform-admin` console manages new account approvals, subscription periods, payment claims, business/user directory, subscription revenue, support and evidence-based service health. New verified users enter a payment-pending state; original businesses retain `legacy` operational access until separately authorized transition. The existing `/lexa` marketing page displays UGX 50,000 for 30 days. No demo account or paid infrastructure is created.
+
+**Do not deploy this source without its additive migration, security/RLS review, admin enrollment and GitHub CI.** See `docs/operations/runbooks/platform-control-centre-manual-subscriptions.md` and `docs/quality/platform-control-centre-implementation-audit-2026-11-06.md`. Real payment verification remains an explicit authorized administrative decision; screenshots or customer messages never self-approve.

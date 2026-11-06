@@ -2167,3 +2167,107 @@ model MeasuredStockCut {
  @@index([tenantId,branchId,status])
  @@map("measured_stock_cuts")
 }
+
+// LEXA Control Centre data is separate from each tenant's own ERP accounting.
+// The migration enforces explicit RLS policies; controllers use scoped raw SQL.
+model PlatformAdminMember {
+  userId String @id @map("user_id") @db.Uuid
+  role String
+  enabled Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@map("platform_admin_members")
+}
+
+model PlatformSubscription {
+  tenantId String @id @map("tenant_id") @db.Uuid
+  businessName String @map("business_name")
+  ownerEmail String? @map("owner_email")
+  status String @default("pending")
+  activatedAt DateTime? @map("activated_at") @db.Timestamptz(3)
+  suspensionPreviousStatus String? @map("suspension_previous_status")
+  paidThrough DateTime? @map("paid_through") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  @@map("platform_subscriptions")
+}
+
+model PlatformPaymentClaim {
+  id String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  paymentReference String @unique @map("payment_reference")
+  method String
+  transactionReference String? @map("transaction_reference")
+  verifiedReference String? @map("verified_reference")
+  claimMessage String? @map("claim_message")
+  amountUgx Int @default(50000) @map("amount_ugx")
+  status String @default("submitted")
+  submittedBy String @map("submitted_by") @db.Uuid
+  reviewedBy String? @map("reviewed_by") @db.Uuid
+  reviewNote String? @map("review_note")
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@map("platform_payment_claims")
+}
+
+model PlatformSubscriptionPeriod {
+  id String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  paymentClaimId String @unique @map("payment_claim_id") @db.Uuid
+  startsAt DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt DateTime @map("ends_at") @db.Timestamptz(3)
+  amountUgx Int @map("amount_ugx")
+  approvedBy String @map("approved_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@map("platform_subscription_periods")
+}
+
+model PlatformAdministrationAudit {
+  id String @id @db.Uuid
+  actorUserId String @map("actor_user_id") @db.Uuid
+  tenantId String? @map("tenant_id") @db.Uuid
+  action String
+  details Json @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@map("platform_administration_audit")
+}
+
+model PlatformSupportCase {
+  id String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+  openedBy String @map("opened_by") @db.Uuid
+  subject String
+  description String
+  status String @default("open")
+  priority String @default("normal")
+  assignedTo String? @map("assigned_to") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  @@map("platform_support_cases")
+}
+
+model PlatformIncident {
+  id String @id @db.Uuid
+  category String
+  title String
+  description String
+  severity String
+  status String @default("open")
+  acknowledgedBy String? @map("acknowledged_by") @db.Uuid
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  @@map("platform_incidents")
+}
+
+model PlatformUserDirectory {
+  tenantId String @map("tenant_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  email String
+  displayName String? @map("display_name")
+  membershipRole String @map("membership_role")
+  membershipStatus String @map("membership_status")
+  joinedAt DateTime @map("joined_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  @@id([tenantId, userId])
+  @@map("platform_user_directory")
+}

@@ -505,7 +505,7 @@ export default function BusinessToolsPage() {
   return (
     <div className="page-stack business-tools-page" data-module-accent={moduleAccentForPath("/business-tools")}>
       <div className="page-heading-row">
-        <div><div className="eyebrow">WORKSPACE TOOLS</div><h2>Business tools</h2><p style={{ margin: '6px 0 0', color: '#64748b', maxWidth: 720 }}>Cash-up, compliance notes, data recovery and mobile capture for {workspace.businessName} · {branch.name}.</p></div>
+        <div><div className="eyebrow">WORKSPACE TOOLS</div><h2>Business tools</h2><p style={{ margin: '6px 0 0', color: '#64748b', maxWidth: 720 }}>Cash reconciliation, compliance records, controlled data management and document capture for {workspace.businessName} · {branch.name}.</p></div>
       </div>
 
       <div role="tablist" aria-label="Business tools sections" style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
@@ -519,7 +519,7 @@ export default function BusinessToolsPage() {
           <div className="section-card" style={{ padding: 18 }}><div style={{ color: '#64748b', fontSize: 12 }}>Cash-up status · {cashDate}</div><strong style={{ display: 'block', fontSize: 20, marginTop: 8 }}>{currentCashUp ? (currentCashUp.varianceMinor === 0 ? 'Reconciled' : 'Variance noted') : 'Not yet saved'}</strong><span style={{ color: '#64748b', fontSize: 11 }}>{isApiProvider ? 'Saved to your business account' : 'Device-local till comparison'}</span></div>
           <div className="section-card" style={{ padding: 18 }}><div style={{ color: '#64748b', fontSize: 12 }}>EFRIS review signal</div><strong style={{ display: 'block', fontSize: 20, marginTop: 8 }}>{efrisPossible ? 'Review applicability' : 'Profile review'}</strong><span style={{ color: '#64748b', fontSize: 11 }}>Not a compliance determination</span></div>
         </div>
-        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Activity size={18} /></div><div><h3>Quick actions</h3><p>Pick the task you need now.</p></div></div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(215px,1fr))', gap: 12, padding: '0 20px 20px' }}>
+        <section className="section-card"><div className="section-card-heading"><div className="heading-icon green-icon"><Activity size={18} /></div><div><h3>Common business operations</h3><p>Choose an activity to review or complete.</p></div></div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(215px,1fr))', gap: 12, padding: '0 20px 20px' }}>
           <button className="button button-secondary" onClick={() => setTab('cash-up')} style={{ minHeight: 64, justifyContent: 'flex-start' }}><Wallet size={18} /> Record end-of-day cash-up <ArrowRight size={15} /></button>
           <button className="button button-secondary" onClick={() => setTab('tax')} style={{ minHeight: 64, justifyContent: 'flex-start' }}><ShieldCheck size={18} /> Review tax guidance <ArrowRight size={15} /></button>
           <button className="button button-secondary" onClick={() => setTab('data')} style={{ minHeight: 64, justifyContent: 'flex-start' }}><DatabaseBackup size={18} /> Back up or restore data <ArrowRight size={15} /></button>
