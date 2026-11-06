@@ -195,7 +195,7 @@ export class PlatformAdministrationController extends PlatformIdentity {
 
   @Get('overview')
   async overview(@Req() request: FastifyRequest) {
-    const actor = await this.admin(request);
+    const actor = await this.admin(request,['super_admin','billing_manager','auditor']);
     return this.prisma.runWithTenantContext({ userId: actor.userId }, async () => {
       const [counts] = await this.prisma.$queryRaw<Array<{businesses:number;active:number;pending:number;legacy:number;expiring:number;expired:number}>>`
         SELECT count(*)::int AS businesses,

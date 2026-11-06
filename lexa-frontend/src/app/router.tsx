@@ -12,6 +12,7 @@ export const router = createBrowserRouter([
   { path: '/legal/privacy', lazy: async () => ({ Component: (await import('../modules/account/LegalPolicies')).PrivacyPolicyPage }), errorElement: <RouteErrorBoundary /> },
   { path: '/create-account', lazy: async () => ({ Component: (await import('../modules/auth/SignupPage')).default }), errorElement: <RouteErrorBoundary /> },
   { path: '/subscription', lazy: async () => ({ Component: (await import('../modules/platform-admin/SubscriptionAccessPage')).default }), errorElement: <RouteErrorBoundary /> },
+  { path: '/platform-admin/login', lazy: async () => ({ Component: (await import('../modules/platform-admin/PlatformAdministratorLoginPage')).default }), errorElement: <RouteErrorBoundary /> },
   { path: '/platform-admin', lazy: async () => ({ Component: (await import('../modules/platform-admin/PlatformAdministrationPage')).default }), errorElement: <RouteErrorBoundary /> },
   { path: '/verify-email', lazy: async () => ({ Component: (await import('../modules/auth/VerifyEmailPage')).default }), errorElement: <RouteErrorBoundary /> },
   { path: '/accept-invitation', lazy: async () => ({ Component: (await import('../modules/auth/AcceptInvitationPage')).default }), errorElement: <RouteErrorBoundary /> },

@@ -6,6 +6,7 @@
 
 - **Public site:** `https://lexaaamaal.com/lexa` (existing marketing route; not a replacement for existing `/` workspace bookmarks).
 - **Business payment/renewal:** `/subscription`, server-authorized via `/api/v1/workspaces/:workspaceId/platform-billing/*`.
+- **Yellow glass administrator sign-in:** `/platform-admin/login`; existing LEXA session and verification challenge only. No separate admin password store, hard-coded access, or public enrolment.
 - **Platform administrator:** `/platform-admin`, backed by `/api/v1/platform-admin/*`, separate from business owner roles.
 - **One standard plan:** UGX **50,000 per exact 30 days**. Time source is the backend; no browser or scheduled task determines whether an entitlement is valid.
 - **New signup:** email verified -> account and business created -> paid entitlement pending -> customer submits payment details -> independently verified admin confirmation -> atomic 30-day activation.
@@ -28,7 +29,7 @@
 
 The application **does not** auto-promote the first signed-up customer, business owner or email address. The table `platform_admin_members` is protected by forced RLS, self-read only, and no runtime INSERT/UPDATE grant. The database owner has a narrow enrollment/revocation policy; the application runtime role cannot create platform admins.
 
-1. Register or use a trusted **existing, verified** LEXA user. In `/settings/security`, enroll a working TOTP authenticator and securely retain recovery codes. Never share that user's password or recovery code in chat.
+1. Register or use a trusted **existing, verified** LEXA user. In `/account/security`, enroll a working TOTP authenticator and securely retain recovery codes. Never share that user's password or recovery code in chat.
 2. Using an authorized Neon **database-owner SQL console** (not the restricted `lexa_app_runtime` login), identify the exact verified user's UUID. Confirm its authenticator credential has `enabled_at IS NOT NULL`, and explicitly review the intended account.
 3. In a properly authorized and audited database-owner session, enroll only that UUID by an additive INSERT, replacing the placeholder **in your own SQL console**:
 
@@ -43,7 +44,7 @@ WHERE u.id = 'REPLACE_WITH_REVIEWED_USER_UUID'::uuid
 ON CONFLICT (user_id) DO NOTHING;
 ```
 
-4. Verify the row and sign in to `/platform-admin`. Verify a normal business owner gets HTTP 403 at every platform-admin API. For emergencies, revoke the admin role from the privileged owner console; **do not** revoke an ordinary user's business membership to remove platform permissions.
+4. Verify the row and sign in through `/platform-admin/login` to `/platform-admin`. Verify a normal business owner gets HTTP 403 at every platform-admin API. For emergencies, revoke the admin role from the privileged owner console; **do not** revoke an ordinary user's business membership to remove platform permissions.
 5. **Security limitation:** this source requires an *enrolled* authenticator to access platform administration. It does **not** implement a fresh TOTP step-up challenge before every payment approval; plan that hardening before delegating billing to multiple administrators.
 
 ## Operational payment verification
@@ -69,3 +70,22 @@ External offline monitoring, direct WhatsApp inbox ingestion, uploaded screensho
 - Expired customer: users can sign in to billing and support; renew without rewriting customer invoices, stock or ledgers.
 - Revenue reporting counts *verified subscription periods* only, not customer POS sales. Refund adjustments are not yet modeled and must be handled with a separate audited process.
 - Workspace backups deliberately exclude platform subscription and platform-admin tables; only reviewed, full-database recovery snapshots may restore these platform-owned records.
+
+## Yellow command centre UX / reporting (November 2026)
+
+- Dedicated yellow and champagne glassmorphism surfaces are scoped to **platform administrator** routes. They do not change the business workspace or `/subscription` customer design.
+- Login uses `apiAuth.signIn` and `apiAuth.verifySignIn`, including the existing Cloudflare Turnstile login challenge if configured. It then checks `/platform-admin/profile`; only authorized platform roles proceed. A successful normal business sign-in does not confer platform privileges.
+- Roles without financial permissions see only their authorized sections. A platform operations manager opens Health, not the financial Overview. Revenue, cash collection, and payments are not disclosed through the Overview API to operations-only or support-only accounts.
+- Revenue is a server-sourced collection record. The chart supports 7/30/60 Kampala calendar-day filters, collections/payment-count switching, and on-demand sanitized CSV export. Projected amounts are **illustrative**, not recognized cash or invoiced revenue.
+- Health indicators display the supported checks and high-priority recommendations. External Render/Vercel metrics remain `not_connected` until verified connections exist. No fabricated 100% health score, worker heartbeats, or fake monitoring statuses.
+- Supports reduced-motion and transparent-glass fallbacks, responsive layout, keyboard focus states, and readable dark-on-yellow text. The goal is WCAG 2.2 AA-level contrast for ordinary text; production accessibility tests must still be completed.
+
+### Release checks for the admin redesign
+
+1. Existing GitHub source-refresh, backend/frontend builds, and full local-provider browser suite remain required. Verify `/platform-admin/login` renders without a session; it must not expose an account list.
+2. Sign in with a normal business-owner identity. Its `/platform-admin/profile`, `/overview`, `/businesses`, `/payments`, `/revenue` and `/health` requests must return unauthorized/forbidden, even if the frontend is bypassed.
+3. Sign in with a correctly enrolled platform admin and complete any required email/TOTP challenge; verify the admin console loads and the new UI reflects actual data only.
+4. Verify `operations_manager` cannot fetch financial Overview, payment details, or revenue; `billing_manager` cannot grant super-admin roles or read privileged system settings; `support_agent` cannot approve a payment.
+5. Test critical incident states, unconnected provider indicators, payment idempotency, renewal dates and 7/30/60-day revenue charts. Verify exported CSV does not contain confidential tenant ERP transactions.
+6. Test keyboard operation, narrow/mobile widths, dark text contrast against glass backgrounds, and reduced-motion display.
+7. No Neon production reset/restore/branch switch, paid worker, paid scanner, Redis upgrade, extra hosting plan, or external API integration is authorized by this frontend-only change and authorization tightening.
