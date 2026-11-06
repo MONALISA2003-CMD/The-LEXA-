@@ -1,0 +1,66 @@
+
+name: LEXA isolated browser workflow tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'lexa-frontend/**'
+      - '.github/workflows/lexa-staging-e2e.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lexa-frontend/**'
+      - '.github/workflows/lexa-staging-e2e.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lexa-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-smoke:
+    name: Local-only Playwright module + core workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+
+    defaults:
+      run:
+        working-directory: lexa-frontend
+
+    env:
+      CI: 'true'
+      VITE_DATA_PROVIDER: local
+      VITE_API_BASE_URL: ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install frontend dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run LEXA browser and workflow tests
+        run: npm run test:e2e -- --reporter=line
+
+      - name: Save test failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lexa-playwright-evidence
+          path: |
+            lexa-frontend/test-results
+            lexa-frontend/playwright-report
+          retention-days: 7
+          
