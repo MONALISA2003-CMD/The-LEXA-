@@ -7,13 +7,28 @@ test('workspace → product → opening stock → paid sale → refunded return'
   await createLocalProduct(page, { name: 'Rice 5kg', sku: 'RICE-5-E2E', cost: '9000', price: '12000' });
 
   await page.goto('/inventory');
-  await page.getByRole('button', { name: 'Opening stock', exact: true }).click();
+  // Inventory's visible action is 'Record opening stock'. The legacy
+  // 'Opening stock' button is hidden by the current Stock & movements design.
+  // Scope to the hero action, which is unique even when the empty movement
+  // history also offers a 'Record opening stock' button.
+  await expect(page.locator('.solar-inventory .solar-hero h1')).toHaveText('Stock & movements');
+  const openingStock = page.locator('.solar-inventory .solar-hero-actions')
+    .getByRole('button', { name: 'Record opening stock', exact: true });
+  await expect(openingStock).toBeEnabled();
+  await openingStock.click();
   const stock = page.getByRole('dialog', { name: 'Record opening stock' });
-  await expect(stock.getByLabel(/^Product/)).toContainText('Rice 5kg');
+  // Assert the selected product, not merely the presence of an option.
+  await expect(stock.getByRole('combobox', { name: /^Product/ }).locator('option:checked'))
+    .toContainText('Rice 5kg');
   await stock.getByLabel(/Opening quantity/).fill('10');
   await stock.getByLabel(/^Reason/).fill('Opening stock for E2E');
   await stock.getByRole('button', { name: 'Save movement' }).click();
+  await expect(stock).toHaveCount(0);
   await expect(page.getByText('Opening stock recorded')).toBeVisible();
+  // Verify that inventory really persisted the opening movement before selling.
+  const balanceRow = page.locator('.inventory-balance-card').getByRole('row')
+    .filter({ hasText: 'Rice 5kg' });
+  await expect(balanceRow).toContainText(/\b10\b/);
 
   await page.goto('/checkout');
   await page.getByRole('button', { name: /Rice 5kg/ }).click();
@@ -30,10 +45,11 @@ test('workspace → product → opening stock → paid sale → refunded return'
   await reversal.getByLabel(/^Return reason/).fill('Customer returned an unopened item');
   await reversal.getByLabel('Record a refund').check();
   await reversal.getByRole('button', { name: 'Save return' }).click();
+  await expect(reversal).toHaveCount(0);
   await expect(page.getByText(/RET-/).first()).toBeVisible();
 
   await page.goto('/inventory');
-  await expect(page.getByRole('heading', { name: 'Inventory' }).first()).toBeVisible();
+  await expect(page.locator('.solar-inventory .solar-hero h1')).toHaveText('Stock & movements');
   await expect(page.getByText('Rice 5kg').first()).toBeVisible();
   // One item sold and then restocked: original opening quantity must be restored.
   await expect(page.locator('.inventory-balance-card').getByRole('row').filter({ hasText: 'Rice 5kg' })).toContainText(/\b10\b/);
