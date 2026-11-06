@@ -151,6 +151,12 @@ model User {
   memberships        Membership[]
   auditEvents        AuditEvent[]        @relation("AuditActor")
   sessions           Session[]
+  trustedDevices     TrustedDevice[]
+  loginChallenges    LoginChallenge[]
+  accountSecurityEvents AccountSecurityEvent[]
+  privacyPreference  UserPrivacyPreference?
+  privacyConsentEvents PrivacyConsentEvent[]
+  authenticatorCredential AuthenticatorCredential?
   passwordResetTokens PasswordResetToken[]
   businessActivityChanges BusinessActivityRevision[] @relation("BusinessActivityChangeActor")
   branchGrantsCreated BranchMembership[] @relation("BranchGrantCreator")
@@ -352,6 +358,8 @@ model Session {
   userId    String   @map("user_id") @db.Uuid
   tenantId  String?  @map("tenant_id") @db.Uuid
   tokenHash String   @unique @map("token_hash")
+  trustedDeviceId String? @map("trusted_device_id") @db.Uuid
+  trustedDevice TrustedDevice? @relation(fields: [trustedDeviceId], references: [id], onDelete: SetNull)
   expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -363,6 +371,84 @@ model Session {
 }
 
 /** Email possession is established before any user, tenant, or owner membership exists. */
+
+/** Browser recognition never replaces the user's password or an enrolled second factor. */
+model TrustedDevice {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  credentialHash String @unique @map("credential_hash")
+  label String @db.VarChar(160)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions Session[]
+  @@index([userId, revokedAt, expiresAt])
+  @@map("trusted_devices")
+}
+
+/** Token is never returned from a lookup; email/TOTP code is verified separately. */
+model LoginChallenge {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  tokenHash String @unique @map("token_hash")
+  codeHash String? @map("code_hash")
+  method String @db.VarChar(16)
+  attempts Int @default(0)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("login_challenges")
+}
+
+model AuthenticatorCredential {
+  userId String @id @map("user_id") @db.Uuid
+  encryptedSecret String @map("encrypted_secret")
+  enabledAt DateTime? @map("enabled_at") @db.Timestamptz(3)
+  setupExpiresAt DateTime? @map("setup_expires_at") @db.Timestamptz(3)
+  lastUsedStep Int @default(-1) @map("last_used_step")
+  recoveryHashes String[] @default([]) @map("recovery_hashes")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("authenticator_credentials")
+}
+
+/** Security events do not store passwords, challenge tokens, OTPs, or raw IPs. */
+model AccountSecurityEvent {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  eventType String @map("event_type") @db.VarChar(64)
+  deviceLabel String? @map("device_label") @db.VarChar(160)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@map("account_security_events")
+}
+
+model UserPrivacyPreference {
+  userId String @id @map("user_id") @db.Uuid
+  optionalAnalytics Boolean @default(false) @map("optional_analytics")
+  policyVersion String @default("2026-11-05") @map("policy_version") @db.VarChar(32)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("user_privacy_preferences")
+}
+
+model PrivacyConsentEvent {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  optionalAnalytics Boolean @map("optional_analytics")
+  policyVersion String @map("policy_version") @db.VarChar(32)
+  changedAt DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, changedAt])
+  @@map("privacy_consent_events")
+}
+
 model SignupVerification {
   id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique

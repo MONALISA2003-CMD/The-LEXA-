@@ -6,6 +6,12 @@
     "rationale": "Tenant-owned manufacturer model, verified compatibility or serialized unit inspection history; mandatory backup/restore"
   },
   {
+    "table": "account_security_events",
+    "disposition": "authoritative",
+    "domain": "audit",
+    "rationale": "Append-only login and account security evidence"
+  },
+  {
     "table": "accounting_periods",
     "disposition": "authoritative",
     "domain": "ledger",
@@ -76,6 +82,12 @@
     "disposition": "excluded",
     "domain": "security",
     "rationale": "Ephemeral security counters reinitialize"
+  },
+  {
+    "table": "authenticator_credentials",
+    "disposition": "authoritative",
+    "domain": "identity",
+    "rationale": "Encrypted second factor only with reviewed recovery and encryption key"
   },
   {
     "table": "bank_accounts",
@@ -660,6 +672,12 @@
     "rationale": "Journal headers"
   },
   {
+    "table": "login_challenges",
+    "disposition": "excluded",
+    "domain": "identity",
+    "rationale": "Do not restore one-time pending authentication"
+  },
+  {
     "table": "manufacturing_bom_lines",
     "disposition": "authoritative",
     "domain": "manufacturing",
@@ -892,6 +910,12 @@
     "disposition": "authoritative",
     "domain": "catalog",
     "rationale": "Pricing rules"
+  },
+  {
+    "table": "privacy_consent_events",
+    "disposition": "authoritative",
+    "domain": "privacy",
+    "rationale": "Append-only privacy consent choices"
   },
   {
     "table": "procurement_approval_rules",
@@ -1212,10 +1236,22 @@
     "rationale": "Workspace root and business settings"
   },
   {
+    "table": "trusted_devices",
+    "disposition": "excluded",
+    "domain": "identity",
+    "rationale": "Revoke trusted devices during restore"
+  },
+  {
     "table": "unit_of_measures",
     "disposition": "authoritative",
     "domain": "catalog",
     "rationale": "Unit definitions"
+  },
+  {
+    "table": "user_privacy_preferences",
+    "disposition": "authoritative",
+    "domain": "privacy",
+    "rationale": "Explicit optional analytics choices"
   },
   {
     "table": "users",

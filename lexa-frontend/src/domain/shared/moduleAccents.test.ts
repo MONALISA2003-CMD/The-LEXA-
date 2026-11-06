@@ -4,6 +4,7 @@ import { MODULE_ACCENTS_BY_PATH, moduleAccentForGroup, moduleAccentForPath, type
 const allowed: ModuleAccentKey[] = ['navy','blue','cyan','emerald','gold','orange','coral','violet','volt','bronze','indigo','teal','sapphire','mulberry','industrial'];
 describe('LEXA module accents', () => {
   it('covers every business navigation link', () => { for (const link of [...EXISTING_MODULE_LINKS, ...PHASE_TWO_LINKS]) expect(MODULE_ACCENTS_BY_PATH[link.to], link.to).toBeDefined(); });
+  it('covers account protection routes explicitly', () => { for (const route of ['/settings/security', '/settings/privacy']) { expect(MODULE_ACCENTS_BY_PATH[route], route).toBe('navy'); expect(moduleAccentForPath(route)).toBe('navy'); } });
   it('covers every operational catalogue module', () => { for (const module of MODULE_CATALOG) expect(MODULE_ACCENTS_BY_PATH['/modules/' + module.id], module.id).toBeDefined(); });
   it('ships operational modules without preloaded demo records', () => { for (const module of MODULE_CATALOG) expect(module.initial, module.id).toEqual([]); });
   it('uses only approved accents', () => { for (const [path, accent] of Object.entries(MODULE_ACCENTS_BY_PATH)) expect(allowed, path).toContain(accent); });

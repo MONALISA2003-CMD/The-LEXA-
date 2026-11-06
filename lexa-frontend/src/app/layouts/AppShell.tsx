@@ -35,6 +35,8 @@ const navSections = [
     { to: '/team', label: 'Team & permissions', icon: navigationIcons.Users },
     { to: '/my-employment', label: 'My employment', icon: navigationIcons.Users },
     { to: '/business-setup', label: 'Business profile setup', icon: navigationIcons.Sparkles },
+    { to: '/settings/security', label: 'Account security', icon: navigationIcons.ShieldCheck },
+    { to: '/settings/privacy', label: 'Privacy preferences', icon: navigationIcons.Settings },
   ] },
   { title: 'BUSINESS REPORTS & ADVICE', items: [
     { to: '/reports', label: 'Business reports', icon: navigationIcons.BarChart3 },
@@ -192,7 +194,7 @@ export default function AppShell() {
     if (isApiProvider && !isOwner && !isEmployeeNavigationAllowed(accessQuery.data?.role ?? '', item.to)) return false;
     if(item.to==='/team'||item.to==='/business-setup') return isOwner;
     if(item.to==='/my-employment') return !isOwner;
-    if(item.to==='/workspace'||item.to==='/') return true;
+    if(item.to==='/workspace'||item.to==='/'||item.to==='/settings/security'||item.to==='/settings/privacy') return true;
     if(item.to==='/business-tools')return isOwner;
     if(item.to==='/intelligence')return isOwner;
     if(item.to==='/reports')return allowed.has('reports.read');

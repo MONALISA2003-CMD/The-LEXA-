@@ -183,3 +183,9 @@ python3 scripts/plan_electronics_v2_import.py --codes ELEC.MOB.FEATURE.GSM
 
 New owner-authorized changes are visible under Products > Electronics V2 directory
 only once the database migration, backend and frontend have been deployed.
+
+## Account security and privacy (November 2026)
+
+The account-protection source now includes Cloudflare Turnstile verification for sign-in and public registration, server-issued new-browser verification, authenticator TOTP and recovery codes, account-owned trusted browsers, session revocation, append-only account security history, and user privacy preferences. Public Cookie and Privacy Policy pages are available, along with self-service account security and privacy screens for owners and employees.
+
+**Do not deploy the backend ahead of its additive account-security Prisma migration.** Production sign-in enforcement requires matching Cloudflare keys, exact hostnames, OTP/TOTP secret configuration, and working email delivery. All keys remain server-side. See `docs/operations/runbooks/account-security-and-privacy.md` and `docs/quality/account-security-and-privacy-implementation.md` for test gates, operational recovery, limitations and evidence. This source package has not been deployed or fully authenticated in production.

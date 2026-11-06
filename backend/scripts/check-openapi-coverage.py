@@ -20,6 +20,7 @@ CONTROLLERS = [
     ROOT / 'backend/src/general-ledger/general-ledger.controller.ts',
     ROOT / 'backend/src/invitations/invitations.controller.ts',
     ROOT / 'backend/src/auth/public-registration.controller.ts',
+    ROOT / 'backend/src/auth/account-security.controller.ts',
     ROOT / 'backend/src/commerce/catalog-inventory.controller.ts',
     ROOT / 'backend/src/commerce/electronics-inventory-operations.controller.ts',
     ROOT / 'backend/src/commerce/equipment-service.controller.ts',

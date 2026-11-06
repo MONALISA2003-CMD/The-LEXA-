@@ -1281,6 +1281,95 @@ paths:
         '200': {description: Current session, content: {application/json: {
                 schema: {$ref: '#/components/schemas/Session'}}}}
         '401': {$ref: '#/components/responses/Unauthorized'}
+  /auth/login/verify:
+    post:
+      operationId: verifyNewBrowserSignIn
+      security: []
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      description: Verify a single-use, ten-minute email or authenticator challenge before issuing a session and device cookie.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [challengeToken, code], properties: {challengeToken: {type: string, minLength: 40, maxLength: 120}, code: {type: string}}}}}}
+      responses:
+        '200': {description: Verified browser; authenticated session established}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '429': {description: Challenge attempt limit reached}
+  /auth/security:
+    get:
+      operationId: readAccountSecurity
+      description: List only the signed-in user's own trusted devices, sessions, authenticator status and security events.
+      responses:
+        '200': {description: Current account security summary}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /auth/security/sessions/other/revoke:
+    post:
+      operationId: revokeOtherAccountSessions
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [password], properties: {password: {type: string}}}}}}
+      responses:
+        '200': {description: Other sessions invalidated}
+        '429': {description: Security reauthentication rate limit}
+  /auth/security/sessions/{sessionId}/revoke:
+    post:
+      operationId: revokeAccountSession
+      parameters:
+        - $ref: '#/components/parameters/csrfToken'
+        - {name: sessionId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [password], properties: {password: {type: string}}}}}}
+      responses:
+        '200': {description: Session invalidated; current session cookie cleared when applicable}
+        '403': {description: Password verification failed}
+  /auth/security/devices/{deviceId}/revoke:
+    post:
+      operationId: revokeTrustedBrowser
+      parameters:
+        - $ref: '#/components/parameters/csrfToken'
+        - {name: deviceId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [password], properties: {password: {type: string}}}}}}
+      responses:
+        '200': {description: Device credential revoked and associated sessions invalidated}
+        '403': {description: Password verification failed}
+  /auth/security/authenticator/begin:
+    post:
+      operationId: beginAccountAuthenticatorEnrollment
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [password], properties: {password: {type: string}}}}}}
+      responses:
+        '200': {description: One-time authenticator enrollment URI and secret, never cache or log}
+        '403': {description: Password verification failed}
+  /auth/security/authenticator/confirm:
+    post:
+      operationId: confirmAccountAuthenticatorEnrollment
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [code], properties: {code: {type: string}}}}}}
+      responses:
+        '200': {description: Authenticator enabled and initial recovery codes displayed once}
+  /auth/security/authenticator/disable:
+    post:
+      operationId: disableAccountAuthenticator
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [password, code], properties: {password: {type: string}, code: {type: string}}}}}}
+      responses:
+        '200': {description: Authenticator disabled after password and code verification}
+        '403': {description: Verification failed}
+  /auth/security/authenticator/recovery/replace:
+    post:
+      operationId: replaceAccountAuthenticatorRecoveryCodes
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [password, code], properties: {password: {type: string}, code: {type: string}}}}}}
+      responses:
+        '200': {description: Existing recovery codes revoked and new codes displayed once}
+        '403': {description: Verification failed}
+  /auth/privacy/preferences:
+    get:
+      operationId: readAccountPrivacyPreferences
+      responses:
+        '200': {description: Current optional analytics choice and active policy version}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+    put:
+      operationId: updateAccountPrivacyPreferences
+      parameters: [$ref: '#/components/parameters/csrfToken']
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [optionalAnalytics], additionalProperties: false, properties: {optionalAnalytics: {type: boolean}}}}}}
+      responses:
+        '200': {description: Preference saved and append-only consent event recorded}
   /auth/login:
     post:
       operationId: signIn

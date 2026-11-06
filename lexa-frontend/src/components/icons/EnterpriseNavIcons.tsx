@@ -1,5 +1,5 @@
 /** Restrained original LEXA navigation glyphs. One 24px grid, consistent stroke and visual weight. */
-const names = ['Activity','ArrowDownUp','Banknote','BarChart3','BookOpen','Boxes','Building2','ClipboardList','CreditCard','FileText','Landmark','LayoutDashboard','Package','PackageCheck','ReceiptText','Settings','ShoppingCart','Sparkles','Tag','Target','Truck','Users','Wallet'] as const;
+const names = ['Activity','ArrowDownUp','Banknote','BarChart3','BookOpen','Boxes','Building2','ClipboardList','CreditCard','FileText','Landmark','LayoutDashboard','Package','PackageCheck','ReceiptText','Settings','ShieldCheck','ShoppingCart','Sparkles','Tag','Target','Truck','Users','Wallet'] as const;
 type Name = typeof names[number];
 type Props = {size?:number;strokeWidth?:number};
 function Shape({name}:{name:Name}) {
@@ -20,6 +20,7 @@ function Shape({name}:{name:Name}) {
   case 'PackageCheck':return <><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Zm-9 5 9 5 9-5M12 12v10m1 4 2 2 4-4"/></>;
   case 'ReceiptText':return <><path d="M5 2h14v20l-3-2-4 2-4-2-3 2V2Zm3 6h8M8 12h8M8 16h5"/></>;
   case 'Settings':return <><circle cx="12" cy="12" r="4"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.8 4.8l2.2 2.2m10 10 2.2 2.2m0-14.4L17 7m-10 10-2.2 2.2"/></>;
+  case 'ShieldCheck':return <><path d="M12 2 20 5v6c0 5-3.3 8.8-8 11-4.7-2.2-8-6-8-11V5l8-3Z"/><path d="m8.5 12 2.4 2.4 4.8-5"/></>;
   case 'ShoppingCart':return <><path d="M2 4h3l3 13h12l2-9H6M9 21h.01M19 21h.01"/></>;
   case 'Sparkles':return <><path d="m12 2 2.3 7.7L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3L12 2Z"/></>;
   case 'Tag':return <><path d="M3 3h10l8 8-10 10-8-8V3Zm4 5h.01"/></>;

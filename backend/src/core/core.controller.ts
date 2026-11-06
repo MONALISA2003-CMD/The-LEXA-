@@ -23,6 +23,8 @@ import { postLedgerJournal, settlementAccountKey } from '../general-ledger/ledge
 import { assertBranchAccess } from '../authorization/branch-scope';
 import { CsrfGuard } from './csrf.guard';
 import { meetsNewPasswordPolicy, PASSWORD_POLICY_MESSAGE } from '../auth/new-password-policy';
+import { AccountProtectionService } from '../auth/account-protection.service';
+import { verifyTurnstileChallenge } from '../auth/turnstile-verification';
 import { sendTransactionalEmail } from '../notifications/email-delivery';
 import { PeopleProjectsService } from '../people-projects/people-projects.service';
 import { outstandingSaleMinor, paymentCategoryFromMethod } from '../commerce/increment1-rules';
@@ -300,7 +302,7 @@ function toModuleRecord(row: any) {
 
 @Controller()
 export class CoreController {
-  constructor(private readonly prisma: PrismaService, private readonly peopleProjects: PeopleProjectsService) {}
+  constructor(private readonly prisma: PrismaService, private readonly peopleProjects: PeopleProjectsService, private readonly accountProtection: AccountProtectionService) {}
 
   private setCsrfCookie(reply: FastifyReply, token: string): void {
     reply.header('Set-Cookie', `lexa_csrf=${encodeURIComponent(token)}; Path=/; Secure; SameSite=None; Max-Age=3600`);
@@ -467,18 +469,37 @@ export class CoreController {
 
   @Post('auth/login')
   @UseGuards(CsrfGuard)
-  async login(@Body() raw: unknown, @Res({ passthrough: true }) reply: FastifyReply) {
+  async login(@Body() raw: unknown, @Req() request:FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
     const body = asObject(raw);
     const email = requiredString(body.email, 'Email or employee username', 254).toLowerCase();
     const password = requiredString(body.password, 'Password', 1024);
+    try {
+      await verifyTurnstileChallenge(body.turnstileToken,{
+        secret:process.env.TURNSTILE_SECRET_KEY,
+        enforced:this.accountProtection.loginTurnstileEnforced(),
+        allowedHosts:(process.env.TURNSTILE_ALLOWED_HOSTNAMES??'').split(',').map(x=>x.trim()).filter(Boolean),
+        action:'login',
+      });
+    } catch(error){
+      const code=(error as Error).message;
+      if(code==='TURNSTILE_CONFIGURATION_MISSING'||code==='TURNSTILE_VERIFICATION_UNAVAILABLE')
+        throw new ServiceUnavailableException({code:'HUMAN_VERIFICATION_UNAVAILABLE',message:'Sign-in verification is temporarily unavailable.'});
+      throw new ForbiddenException({code:'HUMAN_VERIFICATION_REQUIRED',message:'Complete the human verification check and try again.'});
+    }
+    await this.accountProtection.limitLogin(email,null);
     const user = await this.prisma.user.findFirst({ where: { OR: [{ email }, { username: email }] } });
     if (!user || !(await this.passwordMatches(password, user.passwordHash))) {
+      await this.accountProtection.limitLogin(email,true);
       throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect.' });
     }
-    await this.createSession(user.id, reply);
-    this.prisma.enterTenantContext(undefined, user.id);
-    const memberships = await this.prisma.membership.findMany({ where: { userId: user.id, status: 'ACTIVE' } });
-    return { user: { id: user.id, email: user.email, displayName: user.displayName ?? undefined }, roles: [...new Set(memberships.map((m) => m.role))], requiresPasswordChange: user.mustChangePassword };
+    await this.accountProtection.limitLogin(email,false);
+    const result=await this.accountProtection.beginSignIn(user,request,reply);
+    if(result.kind==='challenge'){
+      return {verificationRequired:true,challengeToken:result.challengeToken,method:result.method,expiresInSeconds:result.expiresInSeconds};
+    }
+    await this.accountProtection.createPasswordSession(user.id,result.deviceId,reply);
+    const memberships=await this.prisma.runWithTenantContext({userId:user.id},()=>this.prisma.membership.findMany({where:{userId:user.id,status:'ACTIVE'}}));
+    return {user:{id:user.id,email:user.email,displayName:user.displayName??undefined},roles:[...new Set(memberships.map(m=>m.role))],requiresPasswordChange:user.mustChangePassword};
   }
 
   @Get('auth/session')
@@ -569,6 +590,9 @@ export class CoreController {
       if (updated.count !== 1) throw new BadRequestException('This recovery link has already been used.');
       await tx.user.update({ where: { id: row.userId }, data: { passwordHash } });
       await tx.session.deleteMany({ where: { userId: row.userId } });
+      await tx.trustedDevice.updateMany({where:{userId:row.userId,revokedAt:null},data:{revokedAt:new Date()}});
+      await tx.loginChallenge.deleteMany({where:{userId:row.userId}});
+      await tx.accountSecurityEvent.create({data:{userId:row.userId,eventType:'password_reset_all_sessions_revoked'}});
     });
   }
 

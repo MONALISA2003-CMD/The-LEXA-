@@ -9,6 +9,8 @@ import { apiAuth } from '../../data/remote/apiAuth';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import { apiBaseUrl, dataProviderMode } from '../../data/remote/runtimeConfig';
 import { PasswordField, PasswordLengthGuide } from './AuthFields';
+import TurnstileWidget, { publicTurnstileSiteKey } from './TurnstileWidget';
+import type { PendingSignIn } from '../../data/remote/apiAuth';
 
 type AuthMode = 'sign-in' | 'forgot-password' | 'reset-password';
 type AuthLocationState = {
@@ -87,6 +89,10 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   const [complete, setComplete] = useState(false);
   const [bootstrapAvailable, setBootstrapAvailable] = useState(false);
   const [formError, setFormError] = useState('');
+  const [turnstileToken,setTurnstileToken] = useState<string | null>(null);
+  const [turnstileRevision,setTurnstileRevision] = useState(0);
+  const [pendingSignIn,setPendingSignIn] = useState<PendingSignIn|null>(null);
+  const [verificationCode,setVerificationCode] = useState('');
   const [token] = useState(() => new URLSearchParams(window.location.search).get('token') ?? '');
   const text = copy[mode];
   const apiReady = dataProviderMode === 'api' && Boolean(apiBaseUrl);
@@ -131,7 +137,13 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
     setSubmitting(true);
     try {
       if (mode === 'sign-in') {
-        const account = await apiAuth.signIn(email, password);
+        const account = await apiAuth.signIn(email, password, turnstileToken??undefined);
+        // apiAuth.signIn only returns a challenge when verificationRequired is true.
+        // The other branch is therefore a validated authenticated session.
+        if ('verificationRequired' in account) {
+          setPendingSignIn(account);
+          setPassword('');setTurnstileToken(null);return;
+        }
         // The business shell opens the saved business or guides first-time users to setup.
         navigate(account.requiresPasswordChange ? '/change-password' : returnTo, { replace: true });
         return;
@@ -145,11 +157,21 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
       navigate('/sign-in?password-updated=1', { replace: true });
     } catch (error) {
       setFormError(errorMessage(error));
+      if(mode==='sign-in'){setTurnstileToken(null);setTurnstileRevision(value=>value+1);}
     } finally {
       setSubmitting(false);
     }
   }
 
+  async function verifyBrowser(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();if(!pendingSignIn)return;
+    setFormError('');setSubmitting(true);
+    try{
+      const account=await apiAuth.verifySignIn(pendingSignIn.challengeToken,verificationCode.trim());
+      navigate(account.requiresPasswordChange?'/change-password':returnTo,{replace:true});
+    }catch(error){setFormError(errorMessage(error));}
+    finally{setSubmitting(false);}
+  }
   return (
     <main className="auth-page">
       <BrandPanel />
@@ -158,10 +180,10 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
         <div className="auth-card">
           <div className="auth-mobile-brand"><img src="/lexa-master-lockup.png" alt="LEXA" /></div>
           <div className="auth-eyebrow">{complete ? 'REQUEST RECEIVED' : text.eyebrow}</div>
-          <h1>{complete ? 'Check your inbox.' : text.title}</h1>
-          <p className="auth-intro">{complete
-            ? 'If an account matches that email address, a recovery link will be sent. Check your inbox and spam folder.'
-            : text.description}</p>
+          <h1>{pendingSignIn ? 'Verify this browser.' : complete ? 'Check your inbox.' : text.title}</h1>
+          <p className="auth-intro">{pendingSignIn
+            ? pendingSignIn.method==='email'?'Enter the eight-digit code sent to your account email. It expires in 10 minutes.':'Enter the six-digit code from your authenticator app, or a saved recovery code.'
+            : complete ? 'If an account matches that email address, a recovery link will be sent. Check your inbox and spam folder.' : text.description}</p>
 
           {passwordUpdated && <div className="auth-complete-panel auth-password-updated" role="status"><CheckCircle2 size={20} /><div><strong>Password updated successfully</strong><span>Sign in with your new password. Your previous sessions have been closed.</span></div></div>}
           {mode === 'sign-in' && connectionIssue === 'session' && <div className="auth-notice" role="status">Your sign-in session has expired. Sign in again to continue to your business workspace.</div>}
@@ -169,7 +191,15 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
           {!apiReady && <div className="auth-notice" role="status">Your business account is temporarily unavailable. Please contact your administrator.</div>}
 
           {mode === 'reset-password' && !token && <div className="auth-notice" role="alert">This page needs the private link from your recovery email. Open your latest LEXA password-reset email and tap <strong>Reset password</strong>, or request a fresh link below.</div>}
-          {!complete && (mode !== 'reset-password' || Boolean(token)) && <form className="auth-form" onSubmit={submit}>
+          {pendingSignIn && <form className="auth-form" onSubmit={verifyBrowser}>
+            <div className="auth-field"><label htmlFor="browser-verification-code">Verification code</label>
+              <input id="browser-verification-code" autoComplete="one-time-code" inputMode={pendingSignIn.method==='email'?'numeric':'text'}
+                value={verificationCode} onChange={event=>setVerificationCode(event.target.value)} maxLength={20} required autoFocus /></div>
+            {formError && <div className="auth-error" role="alert">{formError}</div>}
+            <button className="auth-submit" type="submit" disabled={submitting||!verificationCode.trim()}>{submitting?'Verifying…':'Verify and sign in'}</button>
+            <button className="button button-secondary" type="button" onClick={()=>{setPendingSignIn(null);setVerificationCode('');setFormError('');setTurnstileRevision(v=>v+1);}}>Start sign-in again</button>
+          </form>}
+          {!pendingSignIn && !complete && (mode !== 'reset-password' || Boolean(token)) && <form className="auth-form" onSubmit={submit}>
             {mode !== 'reset-password' && <div className="auth-field">
               <label htmlFor="account-email">{mode === 'sign-in' ? 'Business email or employee username' : 'Business email address'} <span aria-hidden="true">*</span></label>
               <div className="auth-input-wrap"><Mail size={17} aria-hidden="true" /><input id="account-email" name="email" type={mode === 'sign-in' ? 'text' : 'email'} inputMode={mode === 'sign-in' ? 'text' : 'email'} autoComplete="username" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@business.com" /></div>
@@ -186,15 +216,16 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               <PasswordLengthGuide value={password} />
               <PasswordField id="confirm-password" label="Confirm new password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" placeholder="Enter the new password again" />
             </>}
+            {mode==='sign-in'&&<TurnstileWidget key={turnstileRevision} action="login" onToken={setTurnstileToken}/>}
             {formError && <div className="auth-error" role="alert">{formError}</div>}
-            <button className="auth-submit" type="submit" disabled={submitting || !apiReady}>
+            <button className="auth-submit" type="submit" disabled={submitting || !apiReady || (mode==='sign-in'&&Boolean(publicTurnstileSiteKey)&&!turnstileToken)}>
               <span>{submitting ? 'Please wait…' : text.submit}</span><ArrowRight size={17} />
             </button>
           </form>}
 
           {complete && <div className="auth-complete-panel"><CheckCircle2 size={22} /><div><strong>Recovery request submitted</strong><span>For security, this page does not reveal whether an account exists.</span></div></div>}
 
-          {mode === 'sign-in' && !complete && <>
+          {mode === 'sign-in' && !complete && !pendingSignIn && <>
             <div className="auth-support-row"><Link to="/forgot-password">Forgot password?</Link><span>Protected by secure sign-in</span></div>
             <Link className="auth-create-account-link" to="/create-account">Create your LEXA account <ArrowRight size={17}/></Link>
             <p className="auth-invite-hint">Joining a team? Use the private invitation link sent to your email.</p>
@@ -205,6 +236,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
           {complete && <Link className="auth-submit auth-return-button" to="/sign-in">Return to sign in <ArrowRight size={17} /></Link>}
 
           <div className="auth-security-footnote"><ShieldCheck size={16} /><span>Your account and business information are protected. Keep your password private.</span></div>
+          <p className="auth-invite-hint"><Link to="/legal/cookies">Cookie policy</Link> · <Link to="/legal/privacy">Privacy policy</Link></p>
         </div>
         <div className="auth-main-footer"><span>© {new Date().getFullYear()} LEXA</span><span>LEXA is a subsidiary of AMAAL GROUP.</span></div>
       </section>

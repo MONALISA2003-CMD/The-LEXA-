@@ -8,9 +8,9 @@ export interface TurnstileVerifyResponse {
   action?: string;
   'error-codes'?: string[];
 }
-export async function verifySignupChallenge(
+export async function verifyTurnstileChallenge(
   token: unknown,
-  config: { secret?: string; enforced: boolean; allowedHosts: string[]; fetchImpl?: typeof fetch },
+  config: { secret?: string; enforced: boolean; allowedHosts: string[]; action: string; fetchImpl?: typeof fetch },
 ): Promise<'disabled' | 'verified'> {
   if (!config.enforced) return 'disabled';
   if (!config.secret) throw new Error('TURNSTILE_CONFIGURATION_MISSING');
@@ -26,8 +26,13 @@ export async function verifySignupChallenge(
   let result: TurnstileVerifyResponse;
   try { result = await response.json() as TurnstileVerifyResponse; }
   catch { throw new Error('TURNSTILE_VERIFICATION_UNAVAILABLE'); }
-  if (result.success !== true || result.action !== 'signup' || !result.hostname || !config.allowedHosts.includes(result.hostname)) {
+  if (result.success !== true || result.action !== config.action || !result.hostname || !config.allowedHosts.includes(result.hostname)) {
     throw new Error('TURNSTILE_TOKEN_INVALID');
   }
   return 'verified';
 }
+
+/** Keep the existing signup contract and move both login and signup to the same verifier. */
+export function verifySignupChallenge(
+  token:unknown,config:{secret?:string;enforced:boolean;allowedHosts:string[];fetchImpl?:typeof fetch},
+):Promise<'disabled'|'verified'>{return verifyTurnstileChallenge(token,{...config,action:'signup'});}

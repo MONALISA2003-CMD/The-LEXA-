@@ -4,11 +4,11 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { currentCorrelationId } from '../request-correlation';
 
-type TenantDbContext = { tenantId?: string; userId?: string; sessionTokenHash?: string; resetTokenHash?: string; signupEmail?: string; signupTokenHash?: string };
+type TenantDbContext = { tenantId?: string; userId?: string; sessionTokenHash?: string; resetTokenHash?: string; signupEmail?: string; signupTokenHash?: string; loginChallengeHash?: string };
 const tenantDbContext = new AsyncLocalStorage<TenantDbContext>();
 const MODEL_DELEGATES = new Set([
   'tenant','businessProfile','businessActivityRevision','businessPaymentMethod','user','membership','branch','branchMembership','ledgerAccount','accountingPeriod','ledgerJournal','ledgerJournalLine',
-  'auditEvent','idempotencyRecord','session','passwordResetToken','signupVerification','category','product','moduleRecord','stockMovement','sale','saleLine',
+  'auditEvent','idempotencyRecord','session','passwordResetToken','trustedDevice','loginChallenge','authenticatorCredential','accountSecurityEvent','userPrivacyPreference','privacyConsentEvent','signupVerification','category','product','moduleRecord','stockMovement','sale','saleLine',
   'salePayment','saleReturn','saleReturnLine','workspaceInvitation','unitOfMeasure','productVariant','taxCode','priceList','priceListItem',
   'warehouse','storageBin','inventoryLot','inventorySerial','stockReservation','creditNote','creditNoteLine','cashSession','cashMovement',
   // Every tenant-owned electronics and inventory delegate MUST run through the
@@ -61,6 +61,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         set_config('app.reset_token_hash', ${current.resetTokenHash ?? ''}, true),
         set_config('app.signup_email', ${current.signupEmail ?? ''}, true),
         set_config('app.signup_token_hash', ${current.signupTokenHash ?? ''}, true),
+        set_config('app.login_challenge_hash', ${current.loginChallengeHash ?? ''}, true),
         set_config('app.correlation_id', ${currentCorrelationId() ?? ''}, true)`;
     };
     const runInTenantTransaction = async (operation: (tx: any) => Promise<any>) => {

@@ -69,7 +69,7 @@ export class PublicRegistrationController {
     await this.prisma.runWithTenantContext({ userId }, () => this.prisma.session.create({
       data: { userId, tokenHash: sha(raw), expiresAt: new Date(Date.now() + SESSION_SECONDS * 1000) },
     }));
-    reply.header('Set-Cookie', `lexa_session=${encodeURIComponent(raw)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_SECONDS}`);
+    reply.header('Set-Cookie', `lexa_session=${encodeURIComponent(raw)}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${SESSION_SECONDS}`);
   }
 
   /** Anti-enumeration response: identical for already registered emails and new requests. */
@@ -81,8 +81,8 @@ export class PublicRegistrationController {
     try {
       await verifySignupChallenge(data.turnstileToken, {
         secret:process.env.TURNSTILE_SECRET_KEY,
-        enforced:process.env.TURNSTILE_ENFORCE_SIGNUP==='true',
-        allowedHosts:['lexaaamaal.com','www.lexaaamaal.com','lexareview.vercel.app'],
+        enforced:process.env.TURNSTILE_ENFORCE_SIGNUP==='true' || (process.env.NODE_ENV==='production' && process.env.TURNSTILE_ENFORCE_SIGNUP!=='false'),
+        allowedHosts:(process.env.TURNSTILE_ALLOWED_HOSTNAMES??'lexaaamaal.com,www.lexaaamaal.com,lexareview.vercel.app').split(',').map(value=>value.trim()).filter(Boolean),
       });
     } catch (error) {
       if ((error as Error).message==='TURNSTILE_VERIFICATION_UNAVAILABLE' || (error as Error).message==='TURNSTILE_CONFIGURATION_MISSING') {

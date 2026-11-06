@@ -6,6 +6,8 @@ import OnboardingPage from '../modules/onboarding/OnboardingPage';
 export const router = createBrowserRouter([
   { path: '/change-password', lazy: async () => ({ Component: (await import('../modules/auth/ChangeInitialPasswordPage')).default }), errorElement: <RouteErrorBoundary /> },
   { path: '/sign-in', lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).SignInPage }), errorElement: <RouteErrorBoundary /> },
+  { path: '/legal/cookies', lazy: async () => ({ Component: (await import('../modules/account/LegalPolicies')).CookiePolicyPage }), errorElement: <RouteErrorBoundary /> },
+  { path: '/legal/privacy', lazy: async () => ({ Component: (await import('../modules/account/LegalPolicies')).PrivacyPolicyPage }), errorElement: <RouteErrorBoundary /> },
   { path: '/create-account', lazy: async () => ({ Component: (await import('../modules/auth/SignupPage')).default }), errorElement: <RouteErrorBoundary /> },
   { path: '/verify-email', lazy: async () => ({ Component: (await import('../modules/auth/VerifyEmailPage')).default }), errorElement: <RouteErrorBoundary /> },
   { path: '/accept-invitation', lazy: async () => ({ Component: (await import('../modules/auth/AcceptInvitationPage')).default }), errorElement: <RouteErrorBoundary /> },
@@ -74,6 +76,8 @@ export const router = createBrowserRouter([
       { path: 'business-tools', lazy: async () => ({ Component: (await import('../modules/tools/BusinessToolsPage')).default }) },
       { path: 'business-setup', lazy: async () => ({ Component: (await import('../modules/business-setup/BusinessSetupPage')).default }) },
       { path: 'settings', lazy: async () => ({ Component: (await import('../modules/settings/SettingsPage')).default }) },
+      { path: 'settings/security', lazy: async () => ({ Component: (await import('../modules/account/AccountSecurityPage')).default }) },
+      { path: 'settings/privacy', lazy: async () => ({ Component: (await import('../modules/account/PrivacyPreferencesPage')).default }) },
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
