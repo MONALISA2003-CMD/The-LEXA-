@@ -3,17 +3,17 @@ export type ModuleAccentKey = 'navy' | 'blue' | 'cyan' | 'emerald' | 'gold' | 'o
 const forPaths = (accent: ModuleAccentKey, paths: string[]) => Object.fromEntries(paths.map((path) => [path, accent])) as Record<string, ModuleAccentKey>;
 export const MODULE_ACCENTS_BY_PATH: Readonly<Record<string, ModuleAccentKey>> = Object.freeze({
   ...forPaths('navy', ['/', '/workspace', '/my-employment', '/business-setup', '/modules', '/modules/', '/team', '/settings', '/settings/security', '/settings/privacy', '/modules/team', '/operations']),
-  ...forPaths('blue', ['/intelligence']),
+  ...forPaths('gold', ['/intelligence']),
   ...forPaths('gold', ['/reports', '/modules/reports']),
-  ...forPaths('cyan', ['/business-tools']),
+  ...forPaths('navy', ['/business-tools']),
   ...forPaths('coral', ['/checkout', '/sales', '/modules/sales-orders', '/modules/sales-invoices', '/modules/quotations', '/modules/price-lists', '/modules/sales-returns']),
   ...forPaths('emerald', ['/modules/leads', '/modules/opportunities', '/modules/contacts', '/modules/campaigns', '/modules/sales-teams', '/modules/customers', ]),
   ...forPaths('volt', ['/products', '/inventory', '/modules/receiving', '/modules/stock-counts', '/modules/stock-transfers', '/modules/warehouses', '/modules/picklists', '/modules/item-bundles', '/modules/batches', '/modules/replenishment']),
   ...forPaths('industrial', ['/modules/work-orders', '/modules/boms', '/modules/job-cards', '/modules/quality']),
-  ...forPaths('mulberry', ['/modules/employees', '/modules/attendance', '/modules/payroll', '/modules/leave', '/modules/timesheets']),
+  ...forPaths('mulberry', ['/modules/employees', '/modules/attendance', '/modules/shifts', '/modules/payroll', '/modules/leave', '/modules/timesheets']),
   ...forPaths('violet', ['/modules/deliveries', '/modules/packages']),
   ...forPaths('indigo', ['/modules/projects', '/modules/tasks']),
-  ...forPaths('teal', ['/modules/support']),
+  ...forPaths('indigo', ['/modules/support']),
   ...forPaths('bronze', ['/modules/purchase-requests', '/modules/rfqs', '/modules/supplier-quotes', '/modules/suppliers', '/modules/purchases', '/modules/purchase-invoices', '/modules/purchase-returns']),
   ...forPaths('sapphire', ['/modules/finance-overview', '/modules/finance-operations', '/modules/cash-sessions', '/modules/expenses', '/modules/money-accounts', '/modules/payments', '/modules/accounting', '/modules/chart-of-accounts', '/modules/tax-codes', '/modules/bank-reconciliation', '/modules/assets', '/modules/cost-centers', '/modules/budgets', '/modules/tax-documents', '/modules/recurring-invoices']),
 });

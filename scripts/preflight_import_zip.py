@@ -7,6 +7,7 @@ Keep the allowlists synchronized with that workflow. ZIP is read-only.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import stat
@@ -129,6 +130,38 @@ def problems(archive: Path) -> tuple[list[str], int]:
                 ):
                     if required_demo not in files:
                         errors.append(f"Missing demo release prerequisite: {required_demo}")
+            # The frontend generator used to silently put retired department
+            # colours back after CI had already validated the checked-in map.
+            # Inspect ZIP bytes without executing untrusted generator code.
+            generator_file = "lexa-frontend/scripts/apply_lexa_palette.py"
+            accent_file = "lexa-frontend/src/domain/shared/moduleAccents.ts"
+            manifest_file = "lexa-frontend/package.json"
+            if {generator_file, accent_file, manifest_file}.issubset(files):
+                try:
+                    generator = z.read(generator_file).decode("utf-8")
+                    published = z.read(accent_file).decode("utf-8")
+                    tree = ast.parse(generator, filename=generator_file)
+                    definitions = [n.value for n in tree.body
+                                   if isinstance(n, ast.Assign) and any(
+                                       isinstance(t, ast.Name) and t.id == "ACCENT_SOURCE"
+                                       for t in n.targets)]
+                    if len(definitions) != 1:
+                        errors.append("Missing single authoritative ACCENT_SOURCE in palette generator")
+                    else:
+                        expected = ast.literal_eval(definitions[0])
+                        if expected.strip() != published.strip():
+                            errors.append("Frontend palette generator would rewrite approved module colors during build")
+                    if "write(SRC / 'domain/shared/moduleAccents.test.ts'" in generator:
+                        errors.append("Frontend generator would erase maintained module color tests")
+                    prebuild = json.loads(z.read(manifest_file))["scripts"]["prebuild"]
+                    generate_command = "python3 scripts/apply_lexa_palette.py"
+                    palette_command = "python3 scripts/check_module_group_palette.py"
+                    if (generate_command not in prebuild or
+                            prebuild.count(palette_command) < 2 or
+                            prebuild.rfind(palette_command) <= prebuild.index(generate_command)):
+                        errors.append("Frontend prebuild must recheck module colors after generator runs")
+                except (ValueError, SyntaxError, KeyError, TypeError, UnicodeDecodeError) as err:
+                    errors.append(f"Frontend palette generator preflight failed: {err}")
             # Run CRC and decompression check only after checking paths, so this also
             # handles Python's supported LZMA/Zlib ZIP compression methods.
             bad = z.testzip()
