@@ -15,7 +15,9 @@ export async function openLocalBusiness(page: Page, businessName: string): Promi
   if (await essentialOnly.isVisible()) await essentialOnly.click();
   await page.getByRole('button', { name: /Create and open my business/i }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: /Your business\s+at a glance/i })).toBeVisible();
+  // The Overview headline is allowed to change; assert the opened business is
+  // present in the actual dashboard rather than matching retired marketing copy.
+  await expect(page.locator('.overview-hero').getByRole('heading')).toContainText(businessName);
   await expect(page.locator('.overview-context strong')).toHaveText(businessName);
 }
 

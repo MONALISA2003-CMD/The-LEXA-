@@ -7,7 +7,16 @@ services:
     plan: 1c-2g
     region: frankfurt
     branch: main
-    autoDeployTrigger: commit
+    # A root ZIP upload is not validated application source. Wait for GitHub CI
+    # on the imported source commit before deploying the production backend.
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - backend/**
+        - render.yaml
+        - .dockerignore
+      ignoredPaths:
+        - "*.zip"
     # HTTP readiness probes fail new deploys before they receive production traffic.
     # HealthController.ready verifies the database, not merely an open TCP port.
     healthCheckPath: /health/ready

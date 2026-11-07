@@ -5,7 +5,9 @@ const { Client } = pg;
 const recoverableMigrations = [
   '20261030320000_platform_catalog_finance_rls',
   '20261105170000_inventory_receipts_identifiers_fitment_bundles',
+  '20261111100000_isolated_demo_sessions',
 ];
+const demoMigration = '20261111100000_isolated_demo_sessions';
 const receiptsMigration = '20261105170000_inventory_receipts_identifiers_fitment_bundles';
 const connectionString = process.env.DATABASE_URL_UNPOOLED;
 
@@ -63,6 +65,49 @@ async function assertInventoryMigrationRolledBack(client) {
   console.log('[migration] Inventory migration recovery preflight confirmed no partial schema changes.');
 }
 
+/**
+ * Production deployment recovery for the 7 Nov 2026 SQLSTATE 42601 incident.
+ * The recorded migration failed while parsing a CREATE POLICY, and the live
+ * production schema was verified to contain NONE of this migration's objects.
+ * Prisma v7 then reports P3009 on every subsequent deployment until that
+ * failed history entry is marked rolled-back. This check never discards data.
+ *
+ * Fail closed if any table, index, policy, function or other database state
+ * suggests the migration applied partially, or if the failure was NOT the
+ * exact reviewed syntax error. A human must investigate other failures.
+ */
+async function assertDemoMigrationRolledBack(client) {
+  const failure = await client.query(`
+    SELECT logs FROM public._prisma_migrations
+    WHERE migration_name = $1
+      AND started_at IS NOT NULL AND finished_at IS NULL AND rolled_back_at IS NULL
+    ORDER BY started_at DESC LIMIT 2
+  `, [demoMigration]);
+  const log = failure.rows[0]?.logs;
+  if (failure.rows.length !== 1 || typeof log !== 'string' ||
+      !log.includes('Database error code: 42601') ||
+      !log.includes('syntax error at or near')) {
+    throw new Error('Demo migration recovery refused: failed history is not the reviewed SQLSTATE 42601 incident.');
+  }
+  const state = await client.query(`
+    SELECT
+      to_regclass('public.demo_sessions') AS demo_sessions_table,
+      to_regprocedure('public.lexa_demo_assert_start_limit(text,integer)') AS start_limit_function,
+      to_regprocedure('public.lexa_demo_purge_expired(integer)') AS purge_function,
+      EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public' AND tablename = 'platform_subscriptions'
+          AND policyname = 'demo_subscription_temporary_activation'
+      ) AS subscription_policy
+  `);
+  const actual = state.rows[0] ?? {};
+  if (actual.demo_sessions_table || actual.start_limit_function ||
+      actual.purge_function || actual.subscription_policy) {
+    throw new Error('Demo migration recovery refused: partial schema changes detected; manual review required.');
+  }
+  console.log('[migration] Reviewed demo SQLSTATE 42601 history and confirmed no demo migration objects exist.');
+}
+
 const client = new Client({ connectionString, connectionTimeoutMillis: 10_000, statement_timeout: 15_000 });
 let failedNames = [];
 
@@ -78,6 +123,7 @@ try {
     `, [recoverableMigrations]);
     failedNames = failed.rows.map(row => row.migration_name);
     if (failedNames.includes(receiptsMigration)) await assertInventoryMigrationRolledBack(client);
+    if (failedNames.includes(demoMigration)) await assertDemoMigrationRolledBack(client);
   }
 } catch (error) {
   console.error(`Migration recovery preflight failed (${error?.code ?? 'database_error'}).`);

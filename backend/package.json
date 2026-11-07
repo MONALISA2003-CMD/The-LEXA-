@@ -7,7 +7,7 @@
     "node": ">=22 <23"
   },
   "scripts": {
-    "build": "node scripts/check-route-uniqueness.mjs && npm run backup:inventory-check && nest build",
+    "build": "node scripts/check-migration-sql-structure.mjs && node scripts/check-route-uniqueness.mjs && npm run backup:inventory-check && nest build",
     "start": "node dist/src/main.js",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/src/main.js",

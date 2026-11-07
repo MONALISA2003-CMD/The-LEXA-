@@ -48,7 +48,7 @@ CREATE POLICY demo_subscription_temporary_activation ON platform_subscriptions F
     AND tenant_id::text=NULLIF(current_setting('app.tenant_id',true),'')
     AND EXISTS(SELECT 1 FROM demo_sessions d
       WHERE d.tenant_id=platform_subscriptions.tenant_id
-        AND d.user_id::text=NULLIF(current_setting('app.user_id',true),''))));
+        AND d.user_id::text=NULLIF(current_setting('app.user_id',true),'')));
 
 -- Enforced by database even if two API instances race to create new demos.
 -- Advisory transaction lock serializes starts from the same anonymized address.

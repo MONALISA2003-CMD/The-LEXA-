@@ -1,3 +1,5 @@
+**Production migration recovery (7 Nov 2026):** See [`docs/release/LEXA_RENDER_P3009_AND_PIPELINE_RECOVERY_2026-11-07.md`](docs/release/LEXA_RENDER_P3009_AND_PIPELINE_RECOVERY_2026-11-07.md) for the verified Prisma P3009 incident, guarded retry, and Render CI deploy filters.
+
 **New: public LEXA landing website and isolated interactive demo (source release):** [Demo release notes](docs/quality/lexa-demo-release-notes-2026-11-07.md) and [separate-deployment runbook](docs/deployment/public-landing-demo-release.md). These are not yet deployed; the demo must use a new empty database, never the production customer database.
 
 **New: Private five-seat administrator setup (no Neon SQL, no customer account):** [Simple setup runbook](docs/operations/runbooks/private-platform-administrators-five-seat-setup.md).
