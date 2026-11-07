@@ -53,15 +53,18 @@ export default function ExpenseApprovalPanel() {
     if(saved)form.reset();
   }
   return <section className="ws-finance-card" aria-label="Expense accounting and payment approvals">
-    <div className="ws-finance-card-head"><div><h3>Expenses · approval and settlement</h3><p>A draft does not affect accounting. Approval records the expense and amount owed; only confirmed settlement reduces bank or cash.</p></div></div>
+    <div className="ws-finance-card-head"><div><h3>Expense register</h3><p>Check expenses, approve drafts and record payments once they have actually been made.</p></div></div>
     {(expenses.isError||categories.isError||accounts.isError)&&<p role="alert">Expenses or accounting categories could not be loaded. Check your finance permissions and retry.</p>}
+    <details className="fin-form-reveal fin-expense-form"><summary>Add an expense category</summary>
     <form className="ws-finance-inline-form" onSubmit={e=>void addCategory(e)}>
       <label>Category code<input name="code" maxLength={30} placeholder="OFFICE" required/></label>
       <label>Category name<input name="name" maxLength={100} placeholder="Office costs" required/></label>
       <label>Expense ledger account<select name="ledgerAccountId" required defaultValue=""><option value="">Choose an expense account</option>{expenseAccounts.map(a=><option key={a.id} value={a.id}>{a.accountCode} · {a.accountName}</option>)}</select></label>
       <button disabled={busy||!expenseAccounts.length} type="submit">Add category</button>
     </form>
+    </details>
     {!expenseAccounts.length&&<p>Set up an expense account in <Link to="/modules/accounting">Accounting</Link> before creating categories.</p>}
+    <details className="fin-form-reveal fin-expense-form"><summary>Record an expense</summary>
     <form className="ws-finance-inline-form" onSubmit={e=>void addExpense(e)}>
       <label>Expense date<input name="expenseDate" type="date" defaultValue={dateToday()} required/></label>
       <label>Category<select name="categoryId" required defaultValue=""><option value="">Choose category</option>{(categories.data??[]).map(c=><option key={String(c.id)} value={String(c.id)}>{String(c.name)}</option>)}</select></label>
@@ -70,6 +73,7 @@ export default function ExpenseApprovalPanel() {
       <label>Tax ({currency})<input name="tax" type="number" min="0" step={fractionDigitsForCurrency(currency)===0?'1':'0.01'} defaultValue="0" required/></label>
       <button disabled={busy||!categories.data?.length} type="submit">Save draft expense</button>
     </form>
+    </details>
     <div className="ws-finance-list"><h4>Expense register and accounting actions</h4>
       {(expenses.data??[]).map(row=>{
         const id=String(row.id),status=String(row.status),detail=paymentDetails[id]??{method:'bank_transfer',reference:''};

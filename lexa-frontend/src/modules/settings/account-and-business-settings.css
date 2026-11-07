@@ -1,17 +1,65 @@
-/* Unified client account centre. Reuses the existing workspace and form components. */
-.account-business-settings { width: 100%; min-width: 0; }
-.account-business-settings-header { padding: 4px 2px 0; }
-.account-business-settings-header h2 { margin: 5px 0 6px; font-size: clamp(1.35rem, 2vw, 1.85rem); }
-.account-business-settings-header p { max-width: 780px; color: var(--text-muted, #64748b); margin: 0; line-height: 1.55; }
-.account-business-settings-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
-.account-business-settings-tab { display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 16px 14px; text-align: left; background: var(--surface, #fff); border: 1px solid var(--border, #dce5f0); border-radius: 12px; color: inherit; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
-.account-business-settings-tab:hover { border-color: var(--accent, #174a9c); }
-.account-business-settings-tab:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
-.account-business-settings-tab.is-active { border-color: var(--accent, #174a9c); box-shadow: inset 0 0 0 1px var(--accent, #174a9c); }
-.account-business-settings-tab svg { flex-shrink: 0; margin-top: 2px; }
-.account-business-settings-tab span { display: grid; gap: 4px; min-width: 0; }
-.account-business-settings-tab strong { font-size: 13px; line-height: 1.3; }
-.account-business-settings-tab small { color: var(--text-muted, #64748b); font-size: 11px; line-height: 1.45; }
-.account-business-settings-loading { padding: 22px; color: var(--text-muted, #64748b); }
-@media(max-width:700px) { .account-business-settings-tabs { grid-template-columns: repeat(2, minmax(0,1fr)); } .account-business-settings-tab { padding: 12px; } .account-business-settings-tab small { display: none; } }
-@media(max-width:400px) { .account-business-settings-tabs { grid-template-columns: 1fr; } }
+/* Four existing settings groups preserved. Each has a deliberate, recognizable color. */
+.account-business-settings{width:100%;min-width:0;display:grid;gap:17px}
+.account-business-settings-header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:23px 26px;border-radius:19px;background:linear-gradient(115deg,#102c64,#225fc1 68%,#358ce9);color:#fff}
+.account-business-settings-header .eyebrow{color:#bfeaff;font-weight:800;letter-spacing:.12em;font-size:11px}
+.account-business-settings-header h2{font-size:clamp(24px,3vw,33px);letter-spacing:-.035em;margin:7px 0 6px;color:#fff}
+.account-business-settings-header p{margin:0;color:#e3edff;font-size:14px;max-width:660px;line-height:1.5}
+.account-settings-logout{flex:0 0 auto;background:#fff;border:1px solid rgba(255,255,255,.4);color:#123a77;border-radius:11px;padding:11px 17px;min-height:44px;font-weight:760;cursor:pointer}
+.account-settings-logout:focus-visible{outline:3px solid #f9c846;outline-offset:3px}
+.account-business-settings-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.account-business-settings-tab{--settings-accent:#1d4ed8;--settings-wash:#e9f1ff;display:flex;align-items:flex-start;gap:11px;min-width:0;min-height:107px;padding:18px 15px 15px;text-align:left;background:var(--color-surface,#fff);border:1px solid var(--color-border,#dce5f0);border-top:5px solid var(--settings-accent);border-radius:15px;color:var(--color-text-primary,#182b4c);cursor:pointer;box-shadow:0 4px 15px rgba(15,30,60,.04);transition:transform .15s,border .15s,background .15s}
+.account-business-settings-tab[data-settings-section=security]{--settings-accent:#7c3aed;--settings-wash:#f2eaff}
+.account-business-settings-tab[data-settings-section=privacy]{--settings-accent:#0f766e;--settings-wash:#e4faf6}
+.account-business-settings-tab[data-settings-section=tools]{--settings-accent:#ea580c;--settings-wash:#fff1e6}
+.account-business-settings-tab svg{flex-shrink:0;margin-top:2px;color:var(--settings-accent)}
+.account-business-settings-tab span{display:grid;gap:7px;min-width:0}.account-business-settings-tab strong{font-size:14px;line-height:1.24}.account-business-settings-tab small{font-size:12px;line-height:1.43;color:var(--color-text-secondary,#62738c)}
+.account-business-settings-tab:hover{transform:translateY(-2px);border-color:var(--settings-accent)}
+.account-business-settings-tab.is-active{background:var(--settings-wash);border-color:var(--settings-accent);box-shadow:0 4px 18px rgba(8,20,55,.08)}
+.account-business-settings-tab:focus-visible{outline:3px solid #f59e0b;outline-offset:3px}
+.account-business-settings>section[aria-label]{min-width:0}.account-business-settings-loading{padding:24px;color:var(--color-text-secondary,#64748b)}
+.account-business-settings .section-card{border:1px solid var(--color-border,#dce4ee);box-shadow:0 5px 19px rgba(20,38,75,.045)}
+.account-business-settings .section-card-heading h3{font-size:17px}
+.account-business-settings .account-security-page{width:100%;min-width:0}
+/* Deletion controls show the consequences before the user sees the confirmation form. */
+.account-closure-panel{border:1px solid #ecc1c3;border-radius:17px;padding:22px 24px;background:var(--color-surface,#fff);margin-top:15px}
+.account-closure-heading{display:flex;justify-content:space-between;gap:17px;align-items:start}.account-closure-heading h3{margin:5px 0 7px;color:var(--color-text-primary,#1b263d);font-size:19px}.account-closure-heading p{margin:0;font-size:13px;line-height:1.6;color:var(--color-text-secondary,#64748b);max-width:710px}.account-closure-tag{font-size:10px;font-weight:800;letter-spacing:.1em;color:#a11b2d}
+.account-closure-body{display:grid;gap:15px;border-top:1px solid #f0d4d4;margin-top:18px;padding-top:17px}.account-closure-disclosure{border-radius:11px;background:#fff4ee;border:1px solid #fed9bf;color:#6b3a1d;line-height:1.6;padding:13px 15px;margin:0;font-size:13px}
+.account-closure-warning{border:1px solid #e6b65c;border-radius:10px;padding:14px;background:#fff8dc;color:#633b05}.account-closure-warning p{margin:6px 0 0}
+.account-closure-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;max-width:900px}
+.account-closure-form>label{display:grid;gap:6px;font-size:13px;font-weight:720;color:var(--color-text-primary,#1c2a43)}.account-closure-form label:has(textarea),.account-closure-checkbox,.account-closure-submit{grid-column:1/-1}
+.account-closure-form input:not([type=checkbox]),.account-closure-form textarea{width:100%;min-height:44px;padding:11px;border:1px solid #bcc8d9;background:var(--color-surface,#fff);color:var(--color-text-primary,#14243a);border-radius:9px;font:inherit;font-weight:400}
+.account-closure-form textarea{resize:vertical}.account-closure-form small{font-size:11px;color:var(--color-text-secondary,#64748b)}
+.account-closure-form :is(input,textarea):focus-visible{outline:3px solid #fdba74;outline-offset:1px}
+.account-closure-form .account-closure-checkbox{display:flex;align-items:flex-start;gap:11px;font-weight:500;line-height:1.5}.account-closure-checkbox input{margin:4px 0 0;min-width:17px;min-height:17px}
+.account-closure-submit{justify-self:start;min-height:44px;border:0;border-radius:10px;background:#b91c1c;color:#fff;padding:12px 18px;font-weight:800;cursor:pointer}.account-closure-submit:disabled{opacity:.55;cursor:not-allowed}.account-closure-submit:not(:disabled):hover{background:#991b1b}
+:root[data-theme=dark] .account-business-settings-tab.is-active{background:color-mix(in srgb,var(--settings-accent) 26%,#17243c);color:#f0f6ff}:root[data-theme=dark] .account-closure-disclosure{background:#43291d;color:#fbd9c2;border-color:#7e4b2d}:root[data-theme=dark] .account-closure-warning{background:#432c13;color:#fde68a;border-color:#795921}
+@media(max-width:1100px){.account-business-settings-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.account-business-settings-header{padding:19px 17px;align-items:flex-start;flex-wrap:wrap}.account-business-settings-tabs{gap:8px}.account-business-settings-tab{min-height:84px;padding:13px 11px;gap:7px}.account-business-settings-tab strong{font-size:12px}.account-business-settings-tab small{display:none}.account-closure-heading{flex-direction:column}.account-closure-panel{padding:17px 14px}.account-closure-form{grid-template-columns:minmax(0,1fr)}.account-closure-form>*{grid-column:1/-1}}
+@media(max-width:385px){.account-business-settings-tabs{grid-template-columns:1fr}.account-business-settings-tab{min-height:64px}}
+
+/* The selected settings section carries its own visual identity, without moving any controls. */
+.account-business-settings>section[data-settings-section=business]{--section-color:#1d4ed8;--section-tint:#e9f1ff}
+.account-business-settings>section[data-settings-section=security]{--section-color:#6d28d9;--section-tint:#f2eaff}
+.account-business-settings>section[data-settings-section=privacy]{--section-color:#0f766e;--section-tint:#e4faf6}
+.account-business-settings>section[data-settings-section=tools]{--section-color:#c2410c;--section-tint:#fff1e6}
+.account-business-settings>section[data-settings-section] .section-card{border-top:3px solid var(--section-color);border-radius:15px;overflow:visible}
+.account-business-settings>section[data-settings-section] .section-card-heading .heading-icon{background:var(--section-tint);color:var(--section-color);border-radius:11px}
+.account-business-settings>section[data-settings-section] .page-heading-row .eyebrow,
+.account-business-settings>section[data-settings-section] .account-security-eyebrow{color:var(--section-color)}
+.account-business-settings>section[data-settings-section] .button-primary{background:var(--section-color);border-color:var(--section-color);color:#fff}
+.account-business-settings>section[data-settings-section] .button-primary:focus-visible,
+.account-business-settings>section[data-settings-section] button:focus-visible{outline:3px solid #f59e0b;outline-offset:3px}
+.account-business-settings>section[data-settings-section] :is(input,select,textarea){max-width:100%}
+.account-business-settings>section[data-settings-section] :is(input,select,textarea):focus-visible{outline:3px solid var(--section-color);outline-offset:2px}
+.account-business-settings>section[data-settings-section] .account-security-section{gap:13px}
+.account-business-settings>section[data-settings-section] .account-security-heading{padding:4px 0 8px}
+.account-business-settings>section[data-settings-section] .account-security-page{padding-top:0}
+.account-business-settings>section[data-settings-section=tools] .business-tools-page .page-heading-row{padding:15px 20px;background:var(--section-tint);border-radius:14px}
+.account-business-settings>section[data-settings-section=tools] .business-tools-page [role=tab][aria-selected=true]{background:#c2410c;border-color:#c2410c;color:white}
+:root[data-theme=dark] .account-business-settings>section[data-settings-section]{--section-tint:#1c2b43}
+:root[data-theme=dark] .account-business-settings>section[data-settings-section=business]{--section-color:#93c5fd}
+:root[data-theme=dark] .account-business-settings>section[data-settings-section=security]{--section-color:#c4b5fd}
+:root[data-theme=dark] .account-business-settings>section[data-settings-section=privacy]{--section-color:#5eead4}
+:root[data-theme=dark] .account-business-settings>section[data-settings-section=tools]{--section-color:#fdba74}
+:root[data-theme=dark] .account-business-settings>section[data-settings-section] .button-primary{background:#174b8b;border-color:#60a5fa;color:#fff}
+:root[data-theme=dark] .account-business-settings>section[data-settings-section=tools] .business-tools-page [role=tab][aria-selected=true]{background:#9a3412;border-color:#fdba74}

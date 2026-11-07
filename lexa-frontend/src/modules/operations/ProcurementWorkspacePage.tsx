@@ -1,5 +1,5 @@
 import OperationalWorkQueue from './OperationalWorkQueue';
-import { BusinessAssortmentSelector, useBusinessAssortment } from '../../components/business/BusinessAssortmentSelector';
+import { useBusinessAssortment } from '../../components/business/useBusinessAssortment';
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -88,7 +88,7 @@ export default function ProcurementWorkspacePage({moduleId}:{moduleId:string}) {
  function submitReturn(e:FormEvent<HTMLFormElement>){e.preventDefault();const f=readForm(e);const line=activeOrder?.lines.find(l=>l.id===returnLineId);if(!line||!activeOrder?.supplier_id||!f.warehouseId){toast.error('Select a supplier order, received item and warehouse.');return}void action(()=>apiProcurement.createReturn(scope,{supplierId:activeOrder.supplier_id,purchaseOrderId:activeOrder.id,reason:f.reason,lines:[{productId:line.productId,warehouseId:f.warehouseId,quantity:Number(f.quantity),unitCostMinor:Number(line.unitCostMinor),reason:f.reason}]}),'Supplier return request created',true)}
  const submitMap:Partial<Record<Section,(e:FormEvent<HTMLFormElement>)=>void>>={'suppliers':submitSupplier,'purchase-requests':submitRequest,'rfqs':submitRfq,'supplier-quotes':submitQuote,'purchase-returns':submitReturn};
  return <div className="page-stack proc-page" data-module-accent="bronze">
-   <BusinessAssortmentSelector workspaceId={workspace.id} context="purchasing"/>
+
     <OperationalWorkQueue areas={['purchasing']} compact maxItems={5}/>
    <header className="proc-hero"><div><span className="proc-eyebrow">LEXA / PURCHASING / {branch.name}</span><h2>{active.label}</h2><p>{active.description}</p></div><div className="proc-hero-actions"><span className="proc-branch"><ShieldCheck size={15}/> {workspace.businessName} · {branch.name}</span><button className="proc-refresh" type="button" onClick={()=>void refresh()} disabled={busy}><RefreshCw size={15}/> Refresh</button></div></header>
    <nav className="proc-nav" aria-label="Purchasing modules">{sections.map(s=><Link key={s.id} to={`/modules/${s.id}`} className={s.id===selected?'active':''}><s.icon size={16}/><span>{s.label}</span></Link>)}</nav>

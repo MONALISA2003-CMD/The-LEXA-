@@ -1,0 +1,446 @@
+/* LEXA department palette – one source of truth across the shell and all business modules.
+   The key names are existing route identifiers; their presentation colors are the
+   eleven approved department colors. Status colours (danger/warning/success)
+   remain semantic and are intentionally not overridden. */
+:root [data-module-accent="navy"] {
+  --module-accent:#2563eb;--module-accent-rgb:37,99,235;--module-accent-strong:#1d4ed8;
+  --module-action-bg:#133c99;--module-accent-soft:#eaf2ff;
+  --module-accent-border:#bfd6ff;--module-nav-accent:#93bafa;
+  --module-nav-wash:color-mix(in srgb,#2563eb 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#2563eb 8%,transparent);
+  --module-chart-primary:#2563eb;--module-chart-secondary:#93bafa;
+  --module-focus-ring:color-mix(in srgb,#2563eb 26%,transparent);
+}
+:root[data-theme="dark"] [data-module-accent="navy"] {
+  --module-accent:#93bcff;--module-accent-strong:#d7e5ff;
+  --module-accent-soft:#132b4b;--module-accent-border:#365b85;
+  --module-nav-accent:#93bcff;--module-nav-wash:color-mix(in srgb,#93bcff 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#93bcff 10%,transparent);
+  --module-chart-primary:#93bcff;--module-chart-secondary:#d7e5ff;
+  --module-focus-ring:color-mix(in srgb,#93bcff 32%,transparent);
+}
+:root [data-module-accent="gold"] {
+  --module-accent:#7c3aed;--module-accent-rgb:124,58,237;--module-accent-strong:#6d28d9;
+  --module-action-bg:#5521a6;--module-accent-soft:#f3edff;
+  --module-accent-border:#d9c5ff;--module-nav-accent:#bca1ff;
+  --module-nav-wash:color-mix(in srgb,#7c3aed 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#7c3aed 8%,transparent);
+  --module-chart-primary:#7c3aed;--module-chart-secondary:#bca1ff;
+  --module-focus-ring:color-mix(in srgb,#7c3aed 26%,transparent);
+}
+:root[data-theme="dark"] [data-module-accent="gold"] {
+  --module-accent:#c4a8ff;--module-accent-strong:#ebdcff;
+  --module-accent-soft:#2d1e48;--module-accent-border:#66508e;
+  --module-nav-accent:#c4a8ff;--module-nav-wash:color-mix(in srgb,#c4a8ff 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#c4a8ff 10%,transparent);
+  --module-chart-primary:#c4a8ff;--module-chart-secondary:#ebdcff;
+  --module-focus-ring:color-mix(in srgb,#c4a8ff 32%,transparent);
+}
+:root [data-module-accent="emerald"] {
+  --module-accent:#c026d3;--module-accent-rgb:192,38,211;--module-accent-strong:#a21caf;
+  --module-action-bg:#861b8f;--module-accent-soft:#fcedff;
+  --module-accent-border:#f0c1f4;--module-nav-accent:#ed9cf2;
+  --module-nav-wash:color-mix(in srgb,#c026d3 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#c026d3 8%,transparent);
+  --module-chart-primary:#c026d3;--module-chart-secondary:#ed9cf2;
+  --module-focus-ring:color-mix(in srgb,#c026d3 26%,transparent);
+}
+:root[data-theme="dark"] [data-module-accent="emerald"] {
+  --module-accent:#f0a0ff;--module-accent-strong:#f8d2ff;
+  --module-accent-soft:#401d43;--module-accent-border:#80558a;
+  --module-nav-accent:#f0a0ff;--module-nav-wash:color-mix(in srgb,#f0a0ff 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#f0a0ff 10%,transparent);
+  --module-chart-primary:#f0a0ff;--module-chart-secondary:#f8d2ff;
+  --module-focus-ring:color-mix(in srgb,#f0a0ff 32%,transparent);
+}
+:root [data-module-accent="coral"] {
+  --module-accent:#f97316;--module-accent-rgb:249,115,22;--module-accent-strong:#c2410c;
+  --module-action-bg:#9a3412;--module-accent-soft:#fff1e4;
+  --module-accent-border:#ffd1b0;--module-nav-accent:#ffb886;
+  --module-nav-wash:color-mix(in srgb,#f97316 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#f97316 8%,transparent);
+  --module-chart-primary:#f97316;--module-chart-secondary:#ffb886;
+  --module-focus-ring:color-mix(in srgb,#f97316 26%,transparent);
+}
+:root[data-theme="dark"] [data-module-accent="coral"] {
+  --module-accent:#ffb585;--module-accent-strong:#ffdfbf;
+  --module-accent-soft:#412718;--module-accent-border:#8b5832;
+  --module-nav-accent:#ffb585;--module-nav-wash:color-mix(in srgb,#ffb585 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#ffb585 10%,transparent);
+  --module-chart-primary:#ffb585;--module-chart-secondary:#ffdfbf;
+  --module-focus-ring:color-mix(in srgb,#ffb585 32%,transparent);
+}
+:root [data-module-accent="volt"] {
+  --module-accent:#16a34a;--module-accent-rgb:22,163,74;--module-accent-strong:#166534;
+  --module-action-bg:#14532d;--module-accent-soft:#e8f9ee;
+  --module-accent-border:#b8e7c7;--module-nav-accent:#87dcaa;
+  --module-nav-wash:color-mix(in srgb,#16a34a 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#16a34a 8%,transparent);
+  --module-chart-primary:#16a34a;--module-chart-secondary:#87dcaa;
+  --module-focus-ring:color-mix(in srgb,#16a34a 26%,transparent);
+}
+:root[data-theme="dark"] [data-module-accent="volt"] {
+  --module-accent:#83e6a8;--module-accent-strong:#c9f5d9;
+  --module-accent-soft:#173b2a;--module-accent-border:#3c7257;
+  --module-nav-accent:#83e6a8;--module-nav-wash:color-mix(in srgb,#83e6a8 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#83e6a8 10%,transparent);
+  --module-chart-primary:#83e6a8;--module-chart-secondary:#c9f5d9;
+  --module-focus-ring:color-mix(in srgb,#83e6a8 32%,transparent);
+}
+:root [data-module-accent="violet"] {
+  --module-accent:#0d9488;--module-accent-rgb:13,148,136;--module-accent-strong:#115e59;
+  --module-action-bg:#0f514b;--module-accent-soft:#e4f8f5;
+  --module-accent-border:#a7e3db;--module-nav-accent:#6bd6ca;
+  --module-nav-wash:color-mix(in srgb,#0d9488 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#0d9488 8%,transparent);
+  --module-chart-primary:#0d9488;--module-chart-secondary:#6bd6ca;
+  --module-focus-ring:color-mix(in srgb,#0d9488 26%,transparent);
+}
+:root[data-theme="dark"] [data-module-accent="violet"] {
+  --module-accent:#69dfd2;--module-accent-strong:#c8f5ed;
+  --module-accent-soft:#143832;--module-accent-border:#377a70;
+  --module-nav-accent:#69dfd2;--module-nav-wash:color-mix(in srgb,#69dfd2 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#69dfd2 10%,transparent);
+  --module-chart-primary:#69dfd2;--module-chart-secondary:#c8f5ed;
+  --module-focus-ring:color-mix(in srgb,#69dfd2 32%,transparent);
+}
+:root [data-module-accent="bronze"] {
+  --module-accent:#eab308;--module-accent-rgb:234,179,8;--module-accent-strong:#854d0e;
+  --module-action-bg:#713f12;--module-accent-soft:#fff8dd;
+  --module-accent-border:#f4df9b;--module-nav-accent:#f2cf59;
+  --module-nav-wash:color-mix(in srgb,#eab308 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#eab308 8%,transparent);
+  --module-chart-primary:#eab308;--module-chart-secondary:#f2cf59;
+  --module-focus-ring:color-mix(in srgb,#eab308 26%,transparent);
+}
+:root[data-theme="dark"] [data-module-accent="bronze"] {
+  --module-accent:#fbd34c;--module-accent-strong:#fff0a5;
+  --module-accent-soft:#413519;--module-accent-border:#8b7136;
+  --module-nav-accent:#fbd34c;--module-nav-wash:color-mix(in srgb,#fbd34c 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#fbd34c 10%,transparent);
+  --module-chart-primary:#fbd34c;--module-chart-secondary:#fff0a5;
+  --module-focus-ring:color-mix(in srgb,#fbd34c 32%,transparent);
+}
+:root [data-module-accent="sapphire"] {
+  --module-accent:#0284c7;--module-accent-rgb:2,132,199;--module-accent-strong:#0369a1;
+  --module-action-bg:#075985;--module-accent-soft:#e8f6ff;
+  --module-accent-border:#b3dff6;--module-nav-accent:#78caff;
+  --module-nav-wash:color-mix(in srgb,#0284c7 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#0284c7 8%,transparent);
+  --module-chart-primary:#0284c7;--module-chart-secondary:#78caff;
+  --module-focus-ring:color-mix(in srgb,#0284c7 26%,transparent);
+}
+:root[data-theme="dark"] [data-module-accent="sapphire"] {
+  --module-accent:#7fd0ff;--module-accent-strong:#c4ecff;
+  --module-accent-soft:#15334a;--module-accent-border:#407497;
+  --module-nav-accent:#7fd0ff;--module-nav-wash:color-mix(in srgb,#7fd0ff 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#7fd0ff 10%,transparent);
+  --module-chart-primary:#7fd0ff;--module-chart-secondary:#c4ecff;
+  --module-focus-ring:color-mix(in srgb,#7fd0ff 32%,transparent);
+}
+:root [data-module-accent="mulberry"] {
+  --module-accent:#db2777;--module-accent-rgb:219,39,119;--module-accent-strong:#be185d;
+  --module-action-bg:#9d174d;--module-accent-soft:#fff0f6;
+  --module-accent-border:#f8bdda;--module-nav-accent:#f59ac4;
+  --module-nav-wash:color-mix(in srgb,#db2777 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#db2777 8%,transparent);
+  --module-chart-primary:#db2777;--module-chart-secondary:#f59ac4;
+  --module-focus-ring:color-mix(in srgb,#db2777 26%,transparent);
+}
+:root[data-theme="dark"] [data-module-accent="mulberry"] {
+  --module-accent:#f99cc9;--module-accent-strong:#fcd6e8;
+  --module-accent-soft:#432136;--module-accent-border:#864a70;
+  --module-nav-accent:#f99cc9;--module-nav-wash:color-mix(in srgb,#f99cc9 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#f99cc9 10%,transparent);
+  --module-chart-primary:#f99cc9;--module-chart-secondary:#fcd6e8;
+  --module-focus-ring:color-mix(in srgb,#f99cc9 32%,transparent);
+}
+:root [data-module-accent="industrial"] {
+  --module-accent:#ef4444;--module-accent-rgb:239,68,68;--module-accent-strong:#b91c1c;
+  --module-action-bg:#991b1b;--module-accent-soft:#fff0ef;
+  --module-accent-border:#f9c3be;--module-nav-accent:#f7a29c;
+  --module-nav-wash:color-mix(in srgb,#ef4444 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#ef4444 8%,transparent);
+  --module-chart-primary:#ef4444;--module-chart-secondary:#f7a29c;
+  --module-focus-ring:color-mix(in srgb,#ef4444 26%,transparent);
+}
+:root[data-theme="dark"] [data-module-accent="industrial"] {
+  --module-accent:#ffa5a0;--module-accent-strong:#ffd1cc;
+  --module-accent-soft:#421f25;--module-accent-border:#845257;
+  --module-nav-accent:#ffa5a0;--module-nav-wash:color-mix(in srgb,#ffa5a0 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#ffa5a0 10%,transparent);
+  --module-chart-primary:#ffa5a0;--module-chart-secondary:#ffd1cc;
+  --module-focus-ring:color-mix(in srgb,#ffa5a0 32%,transparent);
+}
+:root [data-module-accent="indigo"] {
+  --module-accent:#6366f1;--module-accent-rgb:99,102,241;--module-accent-strong:#4338ca;
+  --module-action-bg:#3730a3;--module-accent-soft:#efefff;
+  --module-accent-border:#c7c5ff;--module-nav-accent:#a9abff;
+  --module-nav-wash:color-mix(in srgb,#6366f1 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#6366f1 8%,transparent);
+  --module-chart-primary:#6366f1;--module-chart-secondary:#a9abff;
+  --module-focus-ring:color-mix(in srgb,#6366f1 26%,transparent);
+}
+:root[data-theme="dark"] [data-module-accent="indigo"] {
+  --module-accent:#b5b7ff;--module-accent-strong:#e0dcff;
+  --module-accent-soft:#24264e;--module-accent-border:#5b6090;
+  --module-nav-accent:#b5b7ff;--module-nav-wash:color-mix(in srgb,#b5b7ff 18%,transparent);
+  --module-card-wash:color-mix(in srgb,#b5b7ff 10%,transparent);
+  --module-chart-primary:#b5b7ff;--module-chart-secondary:#e0dcff;
+  --module-focus-ring:color-mix(in srgb,#b5b7ff 32%,transparent);
+}
+
+/* Route identity is also the active page context: local components inherit it. */
+.main-panel[data-module-accent] {
+  --module-current:var(--module-accent);
+  --module-current-soft:var(--module-accent-soft);
+  --module-current-border:var(--module-accent-border);
+  --module-current-strong:var(--module-accent-strong);
+  --module-current-action:var(--module-action-bg);
+  accent-color:var(--module-accent);
+}
+.main-panel[data-module-accent] > .topbar {
+  border-bottom:3px solid var(--module-accent);
+  box-shadow:inset 0 -1px 0 var(--module-accent-border);
+}
+.main-panel[data-module-accent] .page-content {
+  accent-color:var(--module-accent);
+}
+/* Shared views: visually connected headers, actionable controls, and record tables. */
+.main-panel[data-module-accent] .page-content :is(
+  .page-heading-row,.phase-two-heading,.module-heading,.section-card-heading,
+  .table-toolbar,.phase-two-table-card,.fin-module-header,.fin-hero,
+  .proc-hero,.pq-hero,.ps-hero,.lexa-growth-hero,.logistics-hero,
+  .solar-hero,.selling-group-banner) {
+  border-top-color:var(--module-accent-border);
+}
+.main-panel[data-module-accent] .page-content :is(
+  .section-card,.operational-panel,.fin-panel,.fin-metric,.proc-panel,.pq-panel,
+  .w6-panel,.w6-form-card,.lexa-growth-stats article,.lexa-growth-record,
+  .ps-panel,.solar-panel,.logistics-panel,.phase-two-launch-card,
+  .phase-two-table-card,.metric-card,.mini-metric) {
+  border-color:var(--module-accent-border);
+}
+.main-panel[data-module-accent] .page-content :is(
+  .section-card,.fin-panel,.proc-panel,.pq-panel,.w6-panel,
+  .ps-panel,.lexa-growth-record,.solar-panel,.logistics-panel) > :is(h2,h3,header) {
+  border-top-color:var(--module-accent);
+}
+.main-panel[data-module-accent] .page-content :is(
+  .page-heading-row,.phase-two-heading,.fin-module-header,.proc-hero,
+  .pq-hero,.solar-hero,.logistics-hero) :is(.eyebrow-blue,.eyebrow,.fin-overline,.proc-eyebrow,.pq-eyebrow,.solar-kicker,.logistics-eyebrow) {
+  color:var(--module-accent-strong);
+}
+.main-panel[data-module-accent] .page-content :is(
+  .button-primary,.fin-btn-primary,.proc-button,.pq-primary,
+  .ps-primary,.lexa-growth-primary,.logistics-primary
+):not(:disabled) {
+  background:var(--module-action-bg);
+  border-color:var(--module-action-bg);
+  color:#fff;
+}
+.main-panel[data-module-accent] .page-content :is(
+  .button-primary,.fin-btn-primary,.proc-button,.pq-primary,
+  .ps-primary,.lexa-growth-primary,.logistics-primary
+):hover:not(:disabled) {filter:brightness(.94)}
+.main-panel[data-module-accent] .page-content :is(
+  .button-primary,.fin-btn-primary,.proc-button,.pq-primary,
+  .ps-primary,.lexa-growth-primary,.logistics-primary,
+  .fin-section-nav-link,.proc-nav a,.ps-nav a,.w6-tabs a,
+  .selling-group-links a,.lexa-growth-tabs a,.solar-module-nav a,
+  .logistics-links a
+):focus-visible {
+  outline:3px solid var(--module-accent);
+  outline-offset:3px;
+}
+.main-panel[data-module-accent] .page-content :is(
+  input:not([type=checkbox]):not([type=radio]),select,textarea
+):focus-visible {
+  outline:3px solid var(--module-focus-ring);
+  outline-offset:1px;
+  border-color:var(--module-accent);
+}
+.main-panel[data-module-accent] .page-content :is(
+  .data-table,.phase-two-table,.fin-table,.proc-table,.pq-table,.ps-table
+) thead th {
+  background:var(--module-accent-soft);
+  border-bottom-color:var(--module-accent-border);
+  color:var(--module-accent-strong);
+}
+.main-panel[data-module-accent] .page-content :is(
+  .data-table,.phase-two-table,.fin-table,.proc-table,.pq-table,.ps-table
+) tbody tr:hover {background:var(--module-card-wash)}
+.main-panel[data-module-accent] .page-content :is(
+  .fin-metric,.proc-metrics>div,.pq-metrics>div,.w6-kpis>div,
+  .overview-kpi-card,.metric-card,.mini-metric
+) {border-top:3px solid var(--module-accent)}
+.main-panel[data-module-accent] .page-content .lexa-chart-line-current {stroke:var(--module-chart-primary)}
+.main-panel[data-module-accent] .page-content .lexa-chart-line-compare {stroke:var(--module-chart-secondary)}
+.main-panel[data-module-accent] .page-content .lexa-chart-point {fill:var(--module-chart-primary)}
+.main-panel[data-module-accent] .page-content .lexa-legend-dot.current {background:var(--module-chart-primary)}
+.main-panel[data-module-accent] .page-content .lexa-legend-dot.compare {background:var(--module-chart-secondary)}
+.main-panel[data-module-accent] .page-content .lexa-bar-track > span {background:var(--module-chart-primary)}
+.main-panel[data-module-accent] .page-content .lexa-chart-frame {border-color:var(--module-accent-border)}
+/* Some legacy modules declare their own accent directly on their root element.
+   The current route takes precedence, but independently coloured directory cards
+   deeper in the tree keep their own accents. */
+:root .main-panel[data-module-accent] .page-content > [data-module-accent] {
+ --module-accent:inherit;--module-accent-strong:inherit;
+ --module-action-bg:inherit;--module-accent-soft:inherit;
+ --module-accent-border:inherit;--module-nav-accent:inherit;
+ --module-nav-wash:inherit;--module-card-wash:inherit;
+ --module-chart-primary:inherit;--module-chart-secondary:inherit;
+ --module-focus-ring:inherit;
+}
+/* Cross-department navigation never erases which group the current route belongs to. */
+.nav-section[data-module-accent] > .nav-section-title::before,
+.nav-link[data-module-accent].nav-link-active::before {background:var(--module-nav-accent)}
+.nav-section[data-module-accent] > .nav-section-title {
+  border-left:3px solid var(--module-nav-accent);
+}
+.nav-link.nav-link-active[data-module-accent] {
+  background:var(--module-nav-wash);
+  border-color:var(--module-accent-border);
+  box-shadow:inset 3px 0 var(--module-nav-accent);
+}
+.nav-link.nav-link-active[data-module-accent] svg {color:var(--module-nav-accent)}
+
+
+/* Finance: same azure in the overview, expenses, bank, accounts, tax and reports. */
+.main-panel[data-module-accent="sapphire"] .fin-page {
+ --fin-primary:var(--module-action-bg);--fin-strong:var(--module-accent-strong);
+ --fin-light:var(--module-accent-soft);--fin-line:var(--module-accent-border);
+}
+.main-panel[data-module-accent="sapphire"] .fin-section-nav-link.is-active {
+ background:var(--module-action-bg);border-color:var(--module-action-bg);color:#fff;
+}
+.main-panel[data-module-accent="sapphire"] .fin-page .lexa-chart-line-current {stroke:var(--module-chart-primary)}
+/* Customers: all CRM tabs, leads, opportunities and the customer list share fuchsia. */
+.main-panel[data-module-accent="emerald"] .lexa-growth-page {
+ --growth:var(--module-accent);--growth-dark:var(--module-accent-strong);
+ --growth-deep:var(--module-accent-strong);--growth-soft:var(--module-accent-soft);
+ --growth-border:var(--module-accent-border);
+}
+.main-panel[data-module-accent="emerald"] .lexa-growth-hero {
+ background:linear-gradient(112deg,var(--module-accent-soft),var(--color-surface,#fff) 85%);
+ border-color:var(--module-accent-border);
+}
+.main-panel[data-module-accent="emerald"] .lexa-growth-primary {
+ background:var(--module-action-bg);border-color:var(--module-action-bg);color:#fff;
+}
+.main-panel[data-module-accent="emerald"] .lexa-growth-tabs a.active {
+ border-color:var(--module-accent-border);background:var(--module-accent-soft);
+ color:var(--module-accent-strong);
+}
+/* Inventory: replace the legacy lime accent across every stock module. */
+.main-panel[data-module-accent="volt"] .solar-inventory {
+ --solar-lime:var(--module-accent);--solar-accent:var(--module-accent-strong);
+ --solar-bg:var(--module-accent-soft);--solar-line:var(--module-accent-border);
+}
+.main-panel[data-module-accent="volt"] .solar-hero {
+ background:linear-gradient(110deg,var(--module-accent-soft),var(--color-surface,#fff) 90%);
+ border-color:var(--module-accent-border);
+}
+.main-panel[data-module-accent="volt"] .solar-hero-icon {
+ background:var(--module-accent-soft);color:var(--module-accent-strong);
+ border:1px solid var(--module-accent-border);
+}
+.main-panel[data-module-accent="volt"] .solar-kicker {color:var(--module-accent-strong)}
+/* Logistics: teal for packages and delivery screens. */
+.main-panel[data-module-accent="violet"] .logistics-hero {
+ background:linear-gradient(113deg,var(--module-accent-soft),var(--color-surface,#fff) 90%);
+ border-color:var(--module-accent-border);
+ box-shadow:0 12px 30px var(--module-card-wash);
+}
+.main-panel[data-module-accent="violet"] .logistics-eyebrow,
+.main-panel[data-module-accent="violet"] .logistics-hero h1,
+.main-panel[data-module-accent="violet"] .logistics-hero-emblem {color:var(--module-accent-strong)}
+.main-panel[data-module-accent="violet"] .logistics-hero-emblem,
+.main-panel[data-module-accent="violet"] .logistics-primary {
+ border-color:var(--module-accent-border);
+}
+/* Purchasing: visible golden identity across orders, suppliers and payable entries. */
+.main-panel[data-module-accent="bronze"] .proc-page {
+ --proc:var(--module-action-bg);--proc-deep:var(--module-accent-strong);
+ --proc-wash:var(--module-accent-soft);--proc-line:var(--module-accent-border);
+}
+.main-panel[data-module-accent="bronze"] .proc-nav a.active {
+ background:var(--module-action-bg);border-color:var(--module-action-bg);color:#fff;
+}
+.main-panel[data-module-accent="bronze"] .proc-metrics>div {border-top-color:var(--module-accent)}
+/* Production and quality: shared coral, not the old tangerine. */
+.main-panel[data-module-accent="industrial"] .pq-page {
+ --pq:var(--module-accent);--pq-deep:var(--module-accent-strong);
+ --pq-light:var(--module-accent-soft);--pq-border:var(--module-accent-border);
+}
+.main-panel[data-module-accent="industrial"] .pq-primary {
+ background:var(--module-action-bg);border-color:var(--module-action-bg);color:#fff;
+}
+/* Projects and customer service must not split into two colors. */
+.main-panel[data-module-accent="indigo"] .ps-page {
+ --ps-accent:var(--module-accent-strong);--ps-pale:var(--module-accent-soft);
+ --ps-ring:var(--module-accent-border);
+}
+.main-panel[data-module-accent="indigo"] .ps-hero,
+.main-panel[data-module-accent="indigo"] .ps-support .ps-hero {
+ background:linear-gradient(120deg,#26236a,var(--module-action-bg));
+}
+.main-panel[data-module-accent="indigo"] .ps-eyebrow,
+.main-panel[data-module-accent="indigo"] .ps-support .ps-eyebrow {color:#e4e0ff}
+/* Selling: bright tangerine through checkout, invoices, price lists and returns. */
+.main-panel[data-module-accent="coral"] .selling-group-nav,
+.main-panel[data-module-accent="coral"] .selling-performance {
+ --selling-coral:var(--module-accent);--selling-ink:var(--module-accent-strong);
+ --selling-soft:var(--module-accent-soft);
+}
+.main-panel[data-module-accent="coral"] .selling-group-banner {
+ background:linear-gradient(115deg,var(--module-accent-soft),var(--color-surface,#fff) 89%);
+ border-color:var(--module-accent-border);
+}
+.main-panel[data-module-accent="coral"] .selling-group-links a.active {
+ background:var(--module-action-bg);border-color:var(--module-action-bg);color:#fff;
+}
+.main-panel[data-module-accent="coral"] .selling-group-icon {
+ color:var(--module-accent-strong);border-color:var(--module-accent-border);
+}
+/* People & payroll: the same pink active tabs, forms and totals. */
+.main-panel[data-module-accent="mulberry"] .w6-tabs a.is-active {
+ background:var(--module-accent-soft);border:1px solid var(--module-accent-border);
+ color:var(--module-accent-strong);
+}
+.main-panel[data-module-accent="mulberry"] .w6-kpis>div,
+.main-panel[data-module-accent="mulberry"] .w6-form-card,
+.main-panel[data-module-accent="mulberry"] .w6-panel {border-color:var(--module-accent-border)}
+/* Workspace KPI cards use the workspace blue, not unrelated department accents. */
+.main-panel[data-module-accent="navy"] .modern-overview .overview-kpi-card {
+ --kpi-color:var(--module-accent);
+ border-top-color:var(--module-accent);
+}
+/* Finance's full-bleed overview header stays within the same azure family. */
+.main-panel[data-module-accent="sapphire"] .fin-hero {
+ background:linear-gradient(120deg,#075985,#0284c7);
+ border-color:var(--module-accent-border);
+}
+/* Reports & advice: one purple, including graphs and answer cards. */
+.main-panel[data-module-accent="gold"] .page-content .lexa-chart-line-current {stroke:var(--module-chart-primary)}
+.main-panel[data-module-accent="gold"] .page-content .phase-report-chart {border-top:3px solid var(--module-accent)}
+/* Protect semantic statuses and destructive actions. */
+.main-panel[data-module-accent] .page-content :is(
+ .status-good,.status-warning,.status-danger,.status-error,
+ .status-info,.status-muted,.proc-status,.fin-alert,.account-closure-submit
+) {filter:none}
+@media (max-width:760px) {
+ .main-panel[data-module-accent] .page-content :is(.fin-hero,.proc-hero,.pq-hero,.ps-hero,.lexa-growth-hero) {
+  padding:16px;gap:12px;
+ }
+ .main-panel[data-module-accent] .page-content :is(.fin-panel,.proc-panel,.pq-panel,.ps-panel,.w6-panel) {
+  padding:14px;min-width:0;
+ }
+ .main-panel[data-module-accent] .page-content :is(.fin-section-nav,.proc-nav,.ps-nav,.w6-tabs,.selling-group-links) {
+  max-width:100%;overflow-x:auto;scrollbar-width:thin;
+ }
+}
+@media (prefers-reduced-motion:reduce) {
+ .main-panel[data-module-accent] .page-content :is(button,a) {transition:none}
+}
+

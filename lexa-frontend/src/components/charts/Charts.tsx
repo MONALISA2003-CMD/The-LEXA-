@@ -92,7 +92,7 @@ export function DonutBreakdownChart({ title, description, points, centerLabel = 
   const total = safe.reduce((sum, point) => sum + point.value, 0);
   if (!safe.length || total <= 0) return chartFrame(title, description, <div className="lexa-chart-empty"><span>No composition data available yet.</span></div>);
   const plotted = safe.length > 8 ? [...safe.slice(0, 7), { label: 'Other', value: safe.slice(7).reduce((sum, point) => sum + point.value, 0) }] : safe;
-  const palette = ['#075CF5', '#08BDEB', '#00BD83', '#F5C84B', '#FF9B18', '#7C8DA8', '#F52235', '#6C63C7'];
+  const palette = ['var(--module-chart-primary, #075CF5)', 'var(--module-chart-secondary, #08BDEB)', '#00BD83', '#F5C84B', '#FF9B18', '#7C8DA8', '#F52235', '#6C63C7'];
   let offset = 0;
   const segments = plotted.map((point, index) => {
     const start = offset;

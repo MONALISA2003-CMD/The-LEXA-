@@ -1,4 +1,4 @@
-import { BusinessAssortmentSelector, useBusinessAssortment } from '../../components/business/BusinessAssortmentSelector';
+import { useBusinessAssortment } from '../../components/business/useBusinessAssortment';
 import { apiCatalogInventory } from '../../data/remote/apiWorkstream03';
 import { dataProviderMode } from '../../data/remote/runtimeConfig';
 import AdaptiveProductFields, { CategoryManager, ProductVariantsManager, ProductPackagingManager } from './AdaptiveProductFields';
@@ -139,7 +139,7 @@ export default function ProductsPage() {
 
   return (
     <InventoryFrame title="Your products" subtitle="The shared catalogue for sales, purchasing, storage, packing and reports." action={<button className="solar-button" onClick={openNew}><Plus size={16}/> Add product</button>}><InventoryIntelligencePanel compact/>
-      <BusinessAssortmentSelector workspaceId={workspace.id} context="products"/>
+
       <ProductDivisionsPanel products={visibleAllProducts}/>
       <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">PRODUCT CATALOGUE</div><h2>Products</h2><p>Manage the items your team sells and the rules used at checkout.</p></div><button className="button button-primary" onClick={openNew}><Plus size={17} /> Add product</button></div>
       <div className="metric-strip three-metrics"><div className="mini-metric"><span>Products in this view</span><strong>{visibleAllProducts.length}</strong><small>{productQuery.data?.length ?? 0} across the full business</small></div><div className="mini-metric"><span>Stock tracked</span><strong>{visibleAllProducts.filter((item) => item.trackStock && item.active).length}</strong><small>Inventory-managed items</small></div><div className="mini-metric"><span>Low-stock alerts</span><strong className={visibleAllProducts.filter((item) => item.trackStock && (balanceQuery.data?.get(item.id) ?? 0) <= item.lowStockThreshold).length ? 'warning-value' : ''}>{visibleAllProducts.filter((item) => item.trackStock && (balanceQuery.data?.get(item.id) ?? 0) <= item.lowStockThreshold).length}</strong><small>At {branch.name}</small></div></div>

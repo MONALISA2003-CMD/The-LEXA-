@@ -147,7 +147,7 @@ export default function CustomerGrowthPage(){
  const mayConvert=(moduleId==='leads'&&['Contacted','Qualified'].includes(current?.status??''))||
   (moduleId==='opportunities'&&current?.status==='Won')||(moduleId==='contacts'&&current?.partyType!=='Employee');
  if(!module)return <Navigate to="/modules" replace/>;
- return <main className="page-stack lexa-growth-page" data-module-accent="rose">
+ return <main className="page-stack lexa-growth-page" data-module-accent="emerald">
   <header className="lexa-growth-hero">
    <div className="lexa-growth-hero-copy"><span className="lexa-growth-eyebrow"><HeartHandshake size={16}/> CUSTOMERS & GROWTH</span>
     <h1>{config.headline}</h1><p>{config.subtitle}</p>

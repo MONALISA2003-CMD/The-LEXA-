@@ -1,5 +1,4 @@
 import OperationalWorkQueue from './OperationalWorkQueue';
-import { BusinessAssortmentSelector } from '../../components/business/BusinessAssortmentSelector';
 import DivisionSalesSummary from './DivisionSalesSummary';
 import { useMemo } from 'react';
 import { Link } from 'react-router';
@@ -11,6 +10,7 @@ import { apiPayables } from '../../data/remote/apiPayables';
 import { apiReceivables } from '../../data/remote/apiReceivables';
 import { BarBreakdownChart, LineTrendChart } from '../../components/charts/Charts';
 import { formatMinorAmount, fractionDigitsForCurrency } from '../../domain/money/money';
+import FinanceSectionNav from './FinanceSectionNav';
 import './finance-sapphire.css';
 
 function money(value: string | number | null | undefined, currency: string): string {
@@ -45,10 +45,11 @@ export default function FinanceOverviewPage() {
   return <main className="fin-page" data-module-accent="sapphire">
     <header className="fin-hero">
       <div className="fin-hero-copy"><div className="fin-overline"><Landmark size={16}/> LEXA FINANCE</div><h1>Financial overview</h1>
-        <p>{workspace.businessName} · {branch.name} · {currency}</p><span className="fin-hero-sub">Posted entries and verified balances only. No estimated or demonstration transactions.</span></div>
+        <p>{workspace.businessName} · {branch.name} · {currency}</p><span className="fin-hero-sub">Posted entries and verified balances only. Figures are calculated from posted records.</span></div>
       <div className="fin-hero-actions"><span className="fin-secure"><ShieldCheck size={15}/> Scoped to this business and branch</span><button className="fin-btn fin-btn-light" onClick={refresh} type="button"><RefreshCw size={15}/> Refresh</button></div>
     </header>
-    <BusinessAssortmentSelector workspaceId={workspace.id} context="finance"/>
+
+    <FinanceSectionNav/>
     <OperationalWorkQueue areas={['finance']} compact maxItems={5}/>
     {hasError&&<section className="fin-alert" role="alert"><strong>Some financial reports could not be loaded.</strong><p>Unavailable figures are not treated as zero. Check your access or connection and retry.</p><button type="button" onClick={refresh} className="fin-btn">Retry reports</button></section>}
     {overview.isPending&&<div className="fin-loader" role="status">Loading posted accounting totals…</div>}
@@ -65,7 +66,7 @@ export default function FinanceOverviewPage() {
       <div className="fin-panel"><h2>Cash movement</h2><p>Posted cash and bank account entries</p>
         {overview.isError?<FinanceEmpty text="Cash movement unavailable."/>:hasCash?<BarBreakdownChart title="Cash received by month" points={months.map(x=>({label:x.month,value:major(x.inflowMinor,currency)}))} formatValue={n=>money(Math.round(n*10**fractionDigitsForCurrency(currency)),currency)}/>:<FinanceEmpty text="Cash movement will appear when payments are posted."/>}</div>
     </section>
-    <section className="fin-panel"><div className="fin-heading-row"><div><h2>Financial controls</h2><p>Move from source documents to approved, auditable accounting entries.</p></div></div>
+    <section className="fin-panel"><div className="fin-heading-row"><div><h2>Financial controls</h2><p>Post an expense, record a payment or reconcile a bank statement.</p></div></div>
       <div className="fin-action-grid">
         <Link to="/modules/accounting"><BookOpen size={20}/><strong>General ledger</strong><small>Journals, trial balance and period controls</small><ArrowRight size={16}/></Link>
         <Link to="/modules/bank-reconciliation"><Landmark size={20}/><strong>Bank reconciliation</strong><small>Import and match verified bank statement lines</small><ArrowRight size={16}/></Link>

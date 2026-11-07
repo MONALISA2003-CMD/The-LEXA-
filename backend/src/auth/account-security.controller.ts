@@ -14,6 +14,8 @@ export class AccountSecurityController {
   verify(@Body() raw:unknown,@Req() req:FastifyRequest,@Res({passthrough:true}) reply:FastifyReply) {
     return this.protection.finishSignIn(raw,req,reply);
   }
+  @Post('account/close') @UseGuards(CsrfGuard)
+  closePersonalAccount(@Req() req:FastifyRequest,@Body() raw:unknown,@Res({passthrough:true}) reply:FastifyReply){return this.protection.closePersonalAccount(req,raw,reply);}
   @Get('security')
   security(@Req() req:FastifyRequest){return this.protection.listSecurity(req);}
   @Post('security/sessions/other/revoke') @UseGuards(CsrfGuard)

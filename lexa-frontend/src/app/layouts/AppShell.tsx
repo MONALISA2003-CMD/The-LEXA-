@@ -1,4 +1,4 @@
-import { isDemoDeployment } from '../../data/remote/apiDemo';
+import { apiDemo, isDemoDeployment } from '../../data/remote/apiDemo';
 import DemoBanner from '../../modules/demo/DemoBanner';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
@@ -12,7 +12,6 @@ import { WorkspaceContext } from '../WorkspaceContext';
 import type { Branch, Workspace } from '../../domain/shared/types';
 import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import GlobalSearch from '../../components/GlobalSearch';
-import { BusinessAssortmentSelector } from '../../components/business/BusinessAssortmentSelector';
 import LexaLogo from '../../components/LexaLogo';
 import { navigationIcons } from '../../components/icons/EnterpriseNavIcons';
 import { isEmployeeNavigationAllowed } from '../../domain/shared/staffNavigation';
@@ -153,9 +152,11 @@ export default function AppShell() {
   const [expandedSections, setExpandedSections] = useState<string[]>(['WORKSPACE']);
   const [moduleSearch, setModuleSearch] = useState('');
   const [pinnedPaths, setPinnedPaths] = useState<string[]>([]);
+  const [recentPaths, setRecentPaths] = useState<string[]>([]);
+  const [signingOut, setSigningOut] = useState(false);
   useEffect(() => {
     const active = navSections.find(section => section.items.some(item => location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to + '/'))));
-    if (active) setExpandedSections(current => current.includes(active.title) ? current : [...current, active.title]);
+    if (active) setExpandedSections([active.title]);
     setMobileNavOpen(false);
   }, [location.pathname]);
 
@@ -210,7 +211,26 @@ export default function AppShell() {
     return allowed.has(sectionPermission[section.title]??'workspace.read');
   })})).filter(section=>section.items.length>0);
   // Navigation preferences never contain record data and reset when switching businesses.
-  useEffect(() => { setPinnedPaths([]); setModuleSearch(''); }, [workspace?.id]);
+  useEffect(() => {
+    setModuleSearch('');
+    if (!workspace) { setPinnedPaths([]); setRecentPaths([]); return; }
+    try {
+      const pins = JSON.parse(readPreference(`lexa.ui.pins.${workspace.id}`) || '[]');
+      const recent = JSON.parse(readPreference(`lexa.ui.recent.${workspace.id}`) || '[]');
+      setPinnedPaths(Array.isArray(pins) ? pins.filter((p): p is string => typeof p === 'string').slice(0, 12) : []);
+      setRecentPaths(Array.isArray(recent) ? recent.filter((p): p is string => typeof p === 'string').slice(0, 6) : []);
+    } catch { setPinnedPaths([]); setRecentPaths([]); }
+  }, [workspace?.id]);
+  useEffect(() => {
+    if (!workspace) return;
+    const path = location.pathname;
+    if (!navSections.some(section => section.items.some(item => item.to === path))) return;
+    setRecentPaths(current => {
+      const next = [path, ...current.filter(item => item !== path)].slice(0, 6);
+      writePreference(`lexa.ui.recent.${workspace.id}`, JSON.stringify(next));
+      return next;
+    });
+  }, [location.pathname, workspace?.id]);
   // Every authorized module remains accessible within its existing navigation group.
   // Search narrows the visible groups but never replaces a real module with a placeholder.
   const filteredNav = moduleSearch.trim()
@@ -219,8 +239,19 @@ export default function AppShell() {
         .filter(section => section.items.length > 0)
     : visibleNavSections;
   const favorites = visibleNavSections.flatMap(section => section.items).filter(item => pinnedPaths.includes(item.to));
-  const togglePin = (path: string) => setPinnedPaths(current => current.includes(path) ? current.filter(value => value !== path) : [...current, path]);
-  const toggleNavSection = (title:string) => setExpandedSections(current=>current.includes(title)?current.filter(item=>item!==title):[...current,title]);
+  const recentModules = recentPaths.map(path => visibleNavSections.flatMap(section => section.items).find(item => item.to === path)).filter((item): item is (typeof visibleNavSections)[number]['items'][number] => Boolean(item)).filter(item => !pinnedPaths.includes(item.to)).slice(0, 4);
+  async function signOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    try { if (isDemoDeployment) await apiDemo.end(); else if (isApiProvider) await apiAuth.signOut(); window.location.assign(isDemoDeployment ? '/demo' : '/sign-in'); }
+    catch (error) { toast.error('Sign out failed', { description: businessErrorMessage(error) }); setSigningOut(false); }
+  }
+  const togglePin = (path: string) => setPinnedPaths(current => {
+    const next = current.includes(path) ? current.filter(value => value !== path) : [...current, path].slice(0, 12);
+    if (workspace) writePreference(`lexa.ui.pins.${workspace.id}`, JSON.stringify(next));
+    return next;
+  });
+  const toggleNavSection = (title:string) => setExpandedSections(current=>current.includes(title)?[]:[title]);
   const refreshWorkspaces = useCallback(async () => {
     try {
     const items = await workspaceRepository.list();
@@ -381,14 +412,14 @@ export default function AppShell() {
           <nav className="nav-groups">
             <label className="lexa-sidebar-filter"><Search size={15} aria-hidden="true"/><span className="sr-only">Find a module</span><input value={moduleSearch} onChange={event => setModuleSearch(event.target.value)} placeholder="Find a module" aria-label="Find a module" autoComplete="off"/></label>
             {favorites.length > 0 && !moduleSearch && <div className="lexa-nav-pinned" aria-label="Pinned modules"><div className="lexa-nav-pinned-heading"><Pin size={14}/> Pinned</div>{favorites.map(item => { const Icon = item.icon;return <NavLink key={item.to} to={item.to} data-module-accent={moduleAccentForPath(item.to)} onClick={() => setMobileNavOpen(false)} className={({isActive})=>`nav-link ${isActive?'nav-link-active':''}`}><Icon size={17}/><span>{item.label}</span></NavLink>; })}</div>}
-            <p className="lexa-nav-hint">Workspace navigation</p>
+            {recentModules.length > 0 && !moduleSearch && <div className="lexa-nav-pinned lexa-nav-recent" aria-label="Recently opened modules"><div className="lexa-nav-pinned-heading">Recently opened</div>{recentModules.map(item => { const Icon = item.icon; return <NavLink key={item.to} to={item.to} data-module-accent={moduleAccentForPath(item.to)} onClick={() => setMobileNavOpen(false)} className={({isActive})=>`nav-link ${isActive?'nav-link-active':''}`}><Icon size={17}/><span>{item.label}</span></NavLink>; })}</div>}
+            <p className="lexa-nav-hint">Browse by department</p>
             {filteredNav.map((section) => (
               <div className="nav-section" key={section.title} data-module-accent={moduleAccentForGroup(section.title)}>
                 <button type="button" className="nav-section-title lexa-nav-group-toggle" aria-expanded={Boolean(moduleSearch) || expandedSections.includes(section.title)} onClick={() => toggleNavSection(section.title)}><span>{section.title}</span><ChevronDown size={14} className={moduleSearch || expandedSections.includes(section.title) ? 'lexa-nav-arrow-open' : ''} /></button>
                 {(moduleSearch || expandedSections.includes(section.title)) && section.items.map((item) => {
                   const Icon = item.icon;
-                  const financeSubsection = section.title === 'FINANCE' ? ({'/modules/finance-overview':'OVERVIEW','/modules/expenses':'TRANSACTIONS','/modules/accounting':'ACCOUNTING & LEDGER','/modules/bank-reconciliation':'BANKING & PLANNING','/modules/tax-codes':'TAX & COMPLIANCE'} as Record<string,string>)[item.to] : undefined;
-                  return <div className="lexa-nav-module-row" key={item.to}>{financeSubsection && <div className="lexa-nav-subheading">{financeSubsection}</div>}<div className="lexa-nav-module-link"><NavLink to={item.to} end={'end' in item ? item.end : false} data-module-accent={moduleAccentForPath(item.to)} onClick={() => setMobileNavOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
+                  return <div className="lexa-nav-module-row" key={item.to}><div className="lexa-nav-module-link"><NavLink to={item.to} end={'end' in item ? item.end : false} data-module-accent={moduleAccentForPath(item.to)} onClick={() => setMobileNavOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
                     <Icon size={18} strokeWidth={1.8} /><span>{item.label}</span>
                   </NavLink><button type="button" className={`lexa-nav-pin ${pinnedPaths.includes(item.to)?'is-pinned':''}`} onClick={() => togglePin(item.to)} aria-label={`${pinnedPaths.includes(item.to)?'Unpin':'Pin'} ${item.label}`} title={`${pinnedPaths.includes(item.to)?'Unpin':'Pin'} ${item.label}`}><Pin size={14} fill={pinnedPaths.includes(item.to)?'currentColor':'none'}/></button></div></div>;
                 })}
@@ -399,6 +430,7 @@ export default function AppShell() {
             <div className="local-note"><span className="status-dot" /><div><strong>Workspace storage</strong><span>{isApiProvider ? 'Secure business account' : 'Records stored on this device'}</span></div></div>
             <button className="help-link" onClick={() => toast.info('LEXA workspace guidance', { description: 'Select a module group to access business records. Account protection, privacy controls and operational tools are available in Account & business settings.' })}><CircleHelp size={16} /><span>Help & guidance</span></button>
             <NavLink to="/settings" data-module-accent={moduleAccentForPath('/settings')} className={({ isActive }) => `nav-link settings-link ${isActive ? 'nav-link-active' : ''}`}><Settings size={18} /><span>Account & business settings</span></NavLink>
+            <button type="button" className="nav-link lexa-sidebar-signout" disabled={signingOut} onClick={() => void signOut()}>{signingOut ? 'Signing out…' : 'Sign out'}</button>
           </div>
         </aside>
 
@@ -412,13 +444,9 @@ export default function AppShell() {
               <span className="lexa-current-business"><Building2 size={15}/>{workspace.businessName}</span>
               <div className="topbar-divider" />
               <button className="icon-button theme-toggle" type="button" aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
-              <div className="user-avatar" aria-label={isOwner ? "CEO account" : "Team member account"}>{isOwner ? "CEO" : "TM"}</div>
+              <details className="lexa-account-menu"><summary aria-label="Account options"><span className="user-avatar" aria-hidden="true">{isOwner ? 'CEO' : 'TM'}</span><ChevronDown size={14}/></summary><div className="lexa-account-popover"><strong>{workspace.businessName}</strong><span>{isOwner ? 'Business owner' : (accessQuery.data?.role || 'Team member').replaceAll('_',' ')}</span><Link to="/settings?section=security">Sign-in & security</Link><Link to="/settings?section=privacy">Privacy preferences</Link><button type="button" disabled={signingOut} onClick={() => void signOut()}>{signingOut?'Signing out…':'Sign out'}</button></div></details>
             </div>
           </header>
-          {!(['/products','/inventory','/checkout','/modules/finance-overview'].includes(location.pathname)||
-            /^\/modules\/(purchases|purchase-requests|purchase-returns|purchase-invoices|rfqs|supplier-quotes|suppliers)$/.test(location.pathname))&&
-            <div className="lexa-workspace-activity-selector"><BusinessAssortmentSelector workspaceId={workspace.id} context="workspace"/>
-              {isOwner&&<Link to="/business-setup" className="lexa-activity-settings-link">Manage business activities</Link>}</div>}
           <div className="page-content"><Outlet /></div>
           <footer className="app-footer"><span>© {new Date().getFullYear()} LEXA</span><span>LEXA is a subsidiary of AMAAL GROUP.</span></footer>
         </main>

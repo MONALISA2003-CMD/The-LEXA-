@@ -20,6 +20,16 @@ servers:
 security:
 - sessionCookie: []
 paths:
+  /auth/account/close:
+    post:
+      operationId: closePersonalAccount
+      summary: Close a personal login after password and authenticator verification; retain business records.
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Login closed and active sessions revoked.
+        '409':
+          description: Business ownership must be transferred before closure.
   /workspaces/{workspaceId}/branches/{branchId}/operational-advice:
     parameters:
       - {name: workspaceId, in: path, required: true, schema: {type: string, format: uuid}}

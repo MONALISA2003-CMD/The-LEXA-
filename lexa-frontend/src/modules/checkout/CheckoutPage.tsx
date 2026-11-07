@@ -1,4 +1,4 @@
-import { BusinessAssortmentSelector, useBusinessAssortment } from '../../components/business/BusinessAssortmentSelector';
+import { useBusinessAssortment } from '../../components/business/useBusinessAssortment';
 import { apiCatalogInventory } from '../../data/remote/apiWorkstream03';
 import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
@@ -260,7 +260,7 @@ export default function CheckoutPage() {
   return (
     <div className="page-stack checkout-page" data-module-accent={moduleAccentForPath("/checkout")}>
       <SellingNav compact/>
-      <BusinessAssortmentSelector workspaceId={workspace.id} context="checkout"/>
+
       <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">POINT OF SALE</div><h2>Checkout</h2><p>Build a cart, record payment received, and save a traceable receipt.</p></div><div className="soft-badge"><span className="status-dot" /> {branch.name}</div></div>
       <div className="checkout-layout">
         <section className="section-card product-picker-card"><div className="checkout-section-heading"><div><h3>Choose products</h3><p>Only products with stock are shown when inventory is tracked.</p></div><span className="round-icon"><ShoppingBag size={17} /></span></div><label className="search-field product-search"><Search size={17} /><input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search product or scan SKU" aria-label="Search products for checkout" /><Barcode size={16} className="search-trailing-icon" /></label>

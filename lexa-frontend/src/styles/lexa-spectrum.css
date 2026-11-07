@@ -1,0 +1,62 @@
+/* LEXA departments: color is a wayfinding cue, never the only status signal. */
+[data-module-accent=navy]{--module-accent:#2563eb;--module-accent-strong:#1d4ed8;--module-accent-soft:#e9f1ff;--module-accent-border:#b9d3fe;--module-nav-accent:#8bb8ff;--module-nav-wash:rgba(59,130,246,.22)}
+[data-module-accent=gold]{--module-accent:#7c3aed;--module-accent-strong:#6d28d9;--module-accent-soft:#f2eaff;--module-accent-border:#d7c0fd;--module-nav-accent:#cbb0ff;--module-nav-wash:rgba(147,90,243,.22)}
+[data-module-accent=emerald]{--module-accent:#c026d3;--module-accent-strong:#a21caf;--module-accent-soft:#fceaff;--module-accent-border:#f0b7f5;--module-nav-accent:#f4afff;--module-nav-wash:rgba(217,70,239,.2)}
+[data-module-accent=coral]{--module-accent:#ea580c;--module-accent-strong:#c2410c;--module-accent-soft:#fff0e6;--module-accent-border:#faccaa;--module-nav-accent:#ffb788;--module-nav-wash:rgba(249,115,22,.22)}
+[data-module-accent=volt]{--module-accent:#15803d;--module-accent-strong:#166534;--module-accent-soft:#e9faed;--module-accent-border:#b0e6c0;--module-nav-accent:#83e7ac;--module-nav-wash:rgba(34,197,94,.18)}
+[data-module-accent=violet]{--module-accent:#0f766e;--module-accent-strong:#115e59;--module-accent-soft:#e4faf6;--module-accent-border:#a2e8dd;--module-nav-accent:#69dacc;--module-nav-wash:rgba(20,184,166,.18)}
+[data-module-accent=bronze]{--module-accent:#a16207;--module-accent-strong:#854d0e;--module-accent-soft:#fff8de;--module-accent-border:#f3de98;--module-nav-accent:#f9d76e;--module-nav-wash:rgba(234,179,8,.17)}
+[data-module-accent=sapphire]{--module-accent:#0284c7;--module-accent-strong:#0369a1;--module-accent-soft:#e7f6ff;--module-accent-border:#acddf7;--module-nav-accent:#7ccaff;--module-nav-wash:rgba(14,165,233,.2)}
+[data-module-accent=mulberry]{--module-accent:#db2777;--module-accent-strong:#be185d;--module-accent-soft:#fff0f6;--module-accent-border:#fbb6d3;--module-nav-accent:#fca3ca;--module-nav-wash:rgba(236,72,153,.18)}
+[data-module-accent=industrial]{--module-accent:#dc2626;--module-accent-strong:#b91c1c;--module-accent-soft:#fff0ed;--module-accent-border:#fac5be;--module-nav-accent:#ffa99e;--module-nav-wash:rgba(239,68,68,.19)}
+[data-module-accent=indigo]{--module-accent:#4f46e5;--module-accent-strong:#4338ca;--module-accent-soft:#eeecff;--module-accent-border:#cbc6fc;--module-nav-accent:#b2acff;--module-nav-wash:rgba(99,102,241,.22)}
+[data-module-accent=teal]{--module-accent:#0f766e;--module-accent-strong:#115e59;--module-accent-soft:#e4faf6;--module-accent-border:#a2e8dd;--module-nav-accent:#69dacc;--module-nav-wash:rgba(20,184,166,.18)}
+:root[data-theme=dark] [data-module-accent]{--module-accent-soft:#192c47;--module-accent-border:#40566e;--module-accent-strong:#eff7ff}
+/* Sidebar: one clear departmental hierarchy, predictable search, saved shortcuts. */
+.sidebar{width:272px;flex-basis:272px;padding:16px 11px 12px;background:linear-gradient(180deg,#08182d,#0a1934 62%,#091b35)}
+.sidebar .brand-lockup{margin-bottom:8px}.sidebar-workspace{margin:6px 4px 12px!important;border-radius:16px}
+.nav-groups{min-height:0;overscroll-behavior:contain}
+.lexa-sidebar-filter{border-radius:12px!important;margin:4px 7px 12px!important}
+.lexa-nav-hint{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#b8ccea!important;font-weight:750;margin:12px 12px 6px}
+.nav-section[data-module-accent]{border-left:0!important;margin:3px 3px 5px!important;padding:0 3px!important;border:1px solid rgba(169,191,225,.09);border-radius:13px!important;overflow:visible}
+.nav-section[data-module-accent]>.nav-section-title{min-height:43px;padding:10px 12px!important;margin:0!important;width:100%;border:0;border-radius:12px;background:color-mix(in srgb,var(--module-nav-wash) 55%,transparent);color:#f1f7ff!important;font-weight:790;font-size:11px!important;letter-spacing:.035em!important;display:flex;justify-content:space-between;text-align:left}
+.nav-section[data-module-accent]>.nav-section-title::before{width:6px;height:6px;background:var(--module-nav-accent);margin-right:8px;flex:0 0 auto}
+.nav-section[data-module-accent] .lexa-nav-module-row{margin:2px 4px}.nav-section[data-module-accent] .nav-link{min-height:39px;padding:9px 10px;font-size:12px}
+.nav-section[data-module-accent] .nav-link svg{color:var(--module-nav-accent)!important}
+.sidebar .nav-link-active{border-radius:9px!important;background:var(--module-nav-wash)!important;box-shadow:inset 3px 0 var(--module-nav-accent)!important}
+.lexa-nav-pinned,.lexa-nav-recent{padding:9px 7px;border:1px solid rgba(173,190,220,.15);border-radius:13px;margin:7px 5px}
+.lexa-nav-pinned-heading{color:#d7e6fa!important}.lexa-nav-recent .nav-link{opacity:.9}
+.sidebar .lexa-sidebar-signout{width:100%;color:#e6f0ff;background:none;border:0;text-align:left;padding:10px 14px;cursor:pointer;font-size:13px}
+.sidebar .lexa-sidebar-signout:hover{background:rgba(255,255,255,.08)}
+/* Module identity is visible without sacrificing readable text. */
+.main-panel[data-module-accent]>.topbar{border-bottom:3px solid var(--module-accent);min-height:68px}
+.main-panel[data-module-accent] .page-content{min-width:0}
+.main-panel[data-module-accent] .page-heading-row .eyebrow-blue{color:var(--module-accent)}
+.main-panel[data-module-accent] .page-content .section-card{border-radius:16px}
+.main-panel[data-module-accent] .page-content .button-primary{background:var(--module-accent);border-color:var(--module-accent);color:white}
+.main-panel[data-module-accent] .page-content .button-primary:hover:not(:disabled){filter:brightness(.92)}
+.main-panel[data-module-accent] .page-content .button-secondary{border-color:var(--module-accent-border)}
+.main-panel[data-module-accent] .page-content :is(input,select,textarea):focus-visible{outline:3px solid var(--module-accent-border);outline-offset:1px}
+/* Sign-out and account actions; summary is keyboard accessible by default. */
+.lexa-account-menu{position:relative;z-index:30}.lexa-account-menu>summary{display:flex;align-items:center;gap:5px;cursor:pointer;list-style:none;min-height:40px}
+.lexa-account-menu>summary::-webkit-details-marker{display:none}.lexa-account-menu>summary:focus-visible{outline:3px solid #f59e0b;border-radius:10px}
+.lexa-account-popover{position:absolute;right:0;top:calc(100% + 10px);min-width:225px;max-width:min(330px,85vw);padding:14px;background:var(--color-surface,#fff);color:var(--color-text-primary,#183052);border:1px solid var(--color-border,#dce4ef);box-shadow:0 16px 38px rgba(7,21,49,.17);border-radius:15px;display:grid;gap:4px}
+.lexa-account-popover>strong{font-size:14px;line-height:1.4}.lexa-account-popover>span{font-size:12px;color:var(--color-text-secondary,#64748b);margin-bottom:8px}.lexa-account-popover>a,.lexa-account-popover>button{display:block;width:100%;text-align:left;border:0;border-radius:8px;color:inherit;background:transparent;font-size:13px;padding:10px 8px;cursor:pointer;text-decoration:none}.lexa-account-popover>button{color:#b91c1c;border-top:1px solid var(--color-border,#e0e8f2);border-radius:0}.lexa-account-popover>:is(button,a):hover{background:var(--color-surface-muted,#f4f7fd)}
+/* Overview removes big ornamental art in favor of verified records and direct actions. */
+.modern-overview{gap:15px}.modern-overview .overview-hero{min-height:0;display:block;padding:25px 28px;border-radius:18px;background:linear-gradient(115deg,#103875,#1649a1 50%,#2d6ef4)}
+.modern-overview .overview-hero h2{font-size:clamp(25px,3.2vw,36px);letter-spacing:-.03em}.modern-overview .overview-hero h2 span{color:#c9e6ff}
+.modern-overview .overview-hero-copy{max-width:850px}.modern-overview .overview-hero p{max-width:700px}
+.modern-overview .overview-kpi-grid{grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:10px}
+.modern-overview .overview-kpi-card{border:1px solid #d9e6f6;border-top:4px solid var(--kpi-color,#2563eb);box-shadow:0 6px 18px rgba(12,31,64,.055);border-radius:14px;min-height:145px}
+.modern-overview .overview-kpi-card:nth-child(5n+1){--kpi-color:#2563eb}.modern-overview .overview-kpi-card:nth-child(5n+2){--kpi-color:#0284c7}.modern-overview .overview-kpi-card:nth-child(5n+3){--kpi-color:#c026d3}.modern-overview .overview-kpi-card:nth-child(5n+4){--kpi-color:#15803d}.modern-overview .overview-kpi-card:nth-child(5n+5){--kpi-color:#ea580c}
+.modern-overview .overview-section-heading{margin-bottom:12px}.modern-overview .overview-section{gap:12px}.modern-overview .overview-chart-grid{gap:12px}
+.modern-overview .overview-controls{padding:12px 15px;border-radius:12px}.modern-overview .overview-workflow-card{border-radius:13px}
+@media(max-width:780px){.sidebar{width:min(285px,85vw);flex-basis:unset}.main-panel[data-module-accent]>.topbar{min-height:60px}.lexa-current-business{display:none}.modern-overview .overview-hero{padding:19px 17px}.modern-overview .overview-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.modern-overview .overview-kpi-card{min-width:0;padding:12px}.topbar .lexa-account-popover{right:0}}
+@media(max-width:375px){.modern-overview .overview-kpi-grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.lexa-account-popover,.nav-section{scroll-behavior:auto}}
+
+/* Action colors stay bright while meeting white-label contrast in all themes. */
+.main-panel[data-module-accent=coral]{--module-action-bg:#c2410c}
+.main-panel[data-module-accent=sapphire]{--module-action-bg:#0369a1}
+.main-panel[data-module-accent] .page-content .button-primary{background:var(--module-action-bg,var(--module-accent));border-color:var(--module-action-bg,var(--module-accent));color:#fff}
+.main-panel[data-module-accent] .page-content .button-primary:focus-visible{outline:3px solid #facc15;outline-offset:2px}

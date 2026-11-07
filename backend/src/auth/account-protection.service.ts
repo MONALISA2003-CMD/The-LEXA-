@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, HttpException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { isDemoRuntime } from '../demo/demo-policy';
 import { scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { PrismaService } from '../prisma/prisma.service';
@@ -75,7 +76,7 @@ export class AccountProtectionService {
     const detail=await this.prisma.runWithTenantContext({userId:session.userId},()=>this.prisma.session.findFirst({
       where:{id:session.id},include:{user:true},
     }));
-    if (!detail) throw new UnauthorizedException({code:'SESSION_EXPIRED',message:'Sign in again.'});
+    if (!detail || detail.user.closedAt) throw new UnauthorizedException({code:'SESSION_EXPIRED',message:'Sign in again.'});
     return detail;
   }
   async requirePassword(request: FastifyRequest, password: unknown) {
@@ -99,6 +100,52 @@ export class AccountProtectionService {
       throw error;
     }
   }
+  /** Operational account closure: no hard deletion of ledger references. */
+  async closePersonalAccount(request: FastifyRequest, raw: unknown, reply: FastifyReply) {
+    if (isDemoRuntime()) throw new ForbiddenException({code:'DEMO_ACCOUNT_CLOSURE_BLOCKED',message:'The temporary demo ends automatically. No permanent account exists to delete.'});
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new BadRequestException('Complete the account closure form.');
+    const input = raw as Record<string, unknown>;
+    const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
+    const reason = typeof input.reason === 'string' ? input.reason.trim() : '';
+    if (reason.length < 10 || reason.length > 500) throw new BadRequestException('Give a reason between 10 and 500 characters.');
+    if (input.confirmation !== 'DELETE MY ACCOUNT' || input.acknowledgeRetention !== true) throw new BadRequestException('Confirm the account closure and record-retention notice.');
+    const session = await this.requirePassword(request, input.password);
+    if (email !== session.user.email.toLowerCase()) throw new BadRequestException('Enter the exact email address used for this account.');
+    if (session.user.closedAt) throw new ConflictException('This account is already closed.');
+    // The owner must first reassign responsibility for each workspace, even if
+    // another business on this login is already inactive.
+    const owners = await this.prisma.runWithTenantContext({userId:session.userId}, () => this.prisma.membership.count({where:{userId:session.userId,role:{in:['owner','owner_administrator']}}}));
+    if (owners > 0) throw new ConflictException({code:'OWNERSHIP_TRANSFER_REQUIRED',message:'Transfer ownership of every business you own before closing your personal account. Business records cannot be left without an owner.'});
+    const mfa = await this.prisma.runWithTenantContext({userId:session.userId},()=>this.prisma.authenticatorCredential.findUnique({where:{userId:session.userId}}));
+    if (mfa?.enabledAt) {
+      const code = requireCode(input.code);
+      await this.limitSecurityCodes(session.userId, () => this.prisma.runWithTenantContext({userId:session.userId}, () => this.prisma.$transaction(async tx => {
+        const current = await tx.authenticatorCredential.findUnique({where:{userId:session.userId}});
+        if (!current?.enabledAt) throw new ForbiddenException('Authenticator verification is required.');
+        const step = validTotpStep(decryptAuthenticatorSecret(current.encryptedSecret, this.totpKey()),code,Date.now(),current.lastUsedStep);
+        if (step !== null) await tx.authenticatorCredential.update({where:{userId:session.userId},data:{lastUsedStep:step}});
+        else if (current.recoveryHashes.includes(tokenDigest(code))) await tx.authenticatorCredential.update({where:{userId:session.userId},data:{recoveryHashes:current.recoveryHashes.filter(hash=>hash!==tokenDigest(code))}});
+        else throw new ForbiddenException({code:'VERIFICATION_REQUIRED',message:'Enter a fresh authenticator code or unused recovery code.'});
+        return true;
+      })));
+    }
+    await this.prisma.runWithTenantContext({userId:session.userId},()=>this.prisma.$transaction(async tx => {
+      // Check again inside the closing transaction to avoid racing another owner assignment.
+      const activeOwner = await tx.membership.count({where:{userId:session.userId,role:{in:['owner','owner_administrator']}}});
+      if (activeOwner) throw new ConflictException({code:'OWNERSHIP_TRANSFER_REQUIRED',message:'Transfer business ownership first.'});
+      const now = new Date();
+      const result = await tx.user.updateMany({where:{id:session.userId,closedAt:null},data:{closedAt:now,closureReason:reason,passwordHash:null}});
+      if(result.count!==1) throw new ConflictException('This account was already closed.');
+      await tx.session.deleteMany({where:{userId:session.userId}});
+      await tx.loginChallenge.deleteMany({where:{userId:session.userId}});
+      await tx.passwordResetToken.deleteMany({where:{userId:session.userId}});
+      await tx.trustedDevice.updateMany({where:{userId:session.userId,revokedAt:null},data:{revokedAt:now}});
+      await tx.accountSecurityEvent.create({data:{userId:session.userId,eventType:'personal_account_closed'}});
+    }));
+    reply.header('Set-Cookie', [clearCookie('lexa_session'),'lexa_csrf=; Path=/; Secure; SameSite=None; Max-Age=0',clearCookie('lexa_device')]);
+    return {closed:true,recordsRetained:true};
+  }
+
   async trustedBrowser(userId: string, header: string | undefined) {
     const raw=cookieFromHeader(header,'lexa_device');
     if (!raw || !/^[\w-]{32,100}$/.test(raw)) return null;
@@ -201,6 +248,8 @@ export class AccountProtectionService {
         }
       }
       if(!accepted){await tx.loginChallenge.update({where:{id:record.id},data:{attempts:{increment:1}}});return {ok:false as const};}
+      const signInUser=await tx.user.findUnique({where:{id:challenge.userId},select:{closedAt:true}});
+      if(!signInUser || signInUser.closedAt) return {ok:false as const};
       const oldCookie=cookieFromHeader(request.headers.cookie,'lexa_device');
       const existing=oldCookie?await tx.trustedDevice.findFirst({where:{userId:challenge.userId,credentialHash:tokenDigest(oldCookie),revokedAt:null,expiresAt:{gt:new Date()}}}):null;
       let deviceId=existing?.id;

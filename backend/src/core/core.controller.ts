@@ -356,7 +356,7 @@ export class CoreController {
       where: { id: sessionIdentity.id },
       include: { user: { include: { memberships: { where: { status: 'ACTIVE' }, include: { tenant: true } } } } },
     });
-    if (!session) throw new UnauthorizedException({ code: 'SESSION_EXPIRED', message: 'Your session has expired. Sign in again.' });
+    if (!session || session.user.closedAt) throw new UnauthorizedException({ code: 'SESSION_EXPIRED', message: 'Your session has expired. Sign in again.' });
     return session;
   }
 
@@ -491,7 +491,7 @@ export class CoreController {
     }
     await this.accountProtection.limitLogin(email,null);
     const user = await this.prisma.user.findFirst({ where: { OR: [{ email }, { username: email }] } });
-    if (!user || !(await this.passwordMatches(password, user.passwordHash))) {
+    if (!user || user.closedAt || !(await this.passwordMatches(password, user.passwordHash))) {
       await this.accountProtection.limitLogin(email,true);
       throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect.' });
     }
@@ -571,7 +571,7 @@ export class CoreController {
     const frontendUrl = process.env.FRONTEND_PUBLIC_URL ?? 'https://app.lexaaamaal.com';
     if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) throw new ServiceUnavailableException({ code: 'PASSWORD_RESET_DELIVERY_NOT_CONFIGURED', message: 'Configure RESEND_API_KEY and RESEND_FROM_EMAIL before enabling password recovery.' });
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (user) {
+    if (user && !user.closedAt) {
       this.prisma.enterTenantContext(undefined, user.id);
       const rawToken = randomBytes(32).toString('base64url');
       const tokenHash = sha256(rawToken);
@@ -602,11 +602,14 @@ export class CoreController {
     const passwordHash = await this.passwordHash(requiredString(body.password, 'Password', 1024));
     const row = await this.prisma.passwordResetToken.findFirst({ where: { tokenHash: sha256(token), consumedAt: null, expiresAt: { gt: new Date() } } });
     if (!row) throw new BadRequestException({ code: 'RESET_TOKEN_INVALID', message: 'This recovery link is expired or invalid. Request a new one.' });
+    const resetUser = await this.prisma.runWithTenantContext({ userId: row.userId }, () => this.prisma.user.findUnique({ where: { id: row.userId }, select: { closedAt: true } }));
+    if (!resetUser || resetUser.closedAt) throw new BadRequestException({ code: 'RESET_TOKEN_INVALID', message: 'This recovery link is expired or invalid.' });
     this.prisma.enterTenantContext(undefined, row.userId);
     await this.prisma.$transaction(async (tx) => {
       const updated = await tx.passwordResetToken.updateMany({ where: { id: row.id, consumedAt: null, expiresAt: { gt: new Date() } }, data: { consumedAt: new Date() } });
       if (updated.count !== 1) throw new BadRequestException('This recovery link has already been used.');
-      await tx.user.update({ where: { id: row.userId }, data: { passwordHash } });
+      const updatedUser = await tx.user.updateMany({ where: { id: row.userId, closedAt: null }, data: { passwordHash } });
+      if (updatedUser.count !== 1) throw new BadRequestException({ code: 'RESET_TOKEN_INVALID', message: 'This recovery link is expired or invalid.' });
       await tx.session.deleteMany({ where: { userId: row.userId } });
       await tx.trustedDevice.updateMany({where:{userId:row.userId,revokedAt:null},data:{revokedAt:new Date()}});
       await tx.loginChallenge.deleteMany({where:{userId:row.userId}});

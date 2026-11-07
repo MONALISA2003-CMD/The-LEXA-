@@ -1,5 +1,5 @@
 import OperationalWorkQueue from '../operations/OperationalWorkQueue';
-import { BusinessAssortmentSelector, useBusinessAssortment } from '../../components/business/BusinessAssortmentSelector';
+import { useBusinessAssortment } from '../../components/business/useBusinessAssortment';
 import { apiCatalogInventory } from '../../data/remote/apiWorkstream03';
 import { dataProviderMode } from '../../data/remote/runtimeConfig';
 import { useMemo, useState, type FormEvent } from 'react';
@@ -119,7 +119,7 @@ export default function InventoryPage() {
       action={<><Link to="/modules/stock-counts" className="solar-button-secondary"><ClipboardCheck size={16}/> Count and correct stock</Link>
         <button className="solar-button" onClick={()=>openForm('opening')} disabled={!trackedProducts.length}><Plus size={16}/> Record opening stock</button></>}>
       <InventoryIntelligencePanel/>
-      <BusinessAssortmentSelector workspaceId={workspace.id} context="inventory"/>
+
       <OperationalWorkQueue areas={['inventory']} compact maxItems={5}/>
       <div className="page-heading-row"><div><div className="eyebrow eyebrow-blue">STOCK CONTROL</div><h2>Inventory</h2><p>Stock on hand is calculated from recorded movements for {branch.name}.</p></div><div className="action-group"><button className="button button-secondary" onClick={() => openForm('adjustment')} disabled={!trackedProducts.length}><ClipboardCheck size={16} /> Adjust stock</button><button className="button button-primary" onClick={() => openForm('opening')} disabled={!trackedProducts.length}><Plus size={17} /> Opening stock</button></div></div>
       <div className="metric-strip three-metrics"><div className="mini-metric"><span>Units on hand</span><strong>{totalUnits.toLocaleString()}</strong><small>In the selected business view</small></div><div className="mini-metric"><span>Tracked products</span><strong>{visibleTrackedProducts.length}</strong><small>Active products in this view</small></div><div className="mini-metric"><span>Low-stock items</span><strong className={lowStockProducts.length ? 'warning-value' : ''}>{lowStockProducts.length}</strong><small>At or below minimum threshold</small></div></div>

@@ -14,6 +14,7 @@ import { formatMinorAmount, parseMajorAmount, fractionDigitsForCurrency } from '
 import { LineTrendChart, BarBreakdownChart } from '../../components/charts/Charts';
 import BankReconciliationPanel from './BankReconciliationPanel';
 import ExpenseApprovalPanel from './ExpenseApprovalPanel';
+import FinanceSectionNav from './FinanceSectionNav';
 import './finance-sapphire.css';
 
 type FinanceModule = 'expenses'|'cash-sessions'|'money-accounts'|'payments'|'chart-of-accounts'|'tax-codes'|'bank-reconciliation'|'assets'|'cost-centers'|'budgets';
@@ -161,6 +162,7 @@ function Budgets(){
 export default function FinanceWorkspacePage({moduleId}:{moduleId:FinanceModule}){
   const {branch}=useWorkspace();const m=meta[moduleId];
   return <main className="fin-page" data-module-accent="sapphire"><header className="fin-module-header"><div><Link to="/modules/finance-overview" className="fin-back"><Landmark size={15}/> Finance overview <ArrowRight size={13}/></Link><h1>{m.title}</h1><p>{m.subtitle} · {branch.name}</p></div><span className="fin-module-security"><ShieldCheck size={15}/> Business data only</span></header>
+    <FinanceSectionNav/>
     {moduleId==='expenses'&&<ExpenseApprovalPanel/>}
     {moduleId==='cash-sessions'&&<CashSessions/>}
     {moduleId==='money-accounts'&&<MoneyAccounts/>}

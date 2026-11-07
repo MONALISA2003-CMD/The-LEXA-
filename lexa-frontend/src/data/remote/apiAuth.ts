@@ -96,6 +96,9 @@ export const apiAuth = {
   async changeInitialPassword(currentPassword:string,newPassword:string): Promise<void> {
     await apiClient.post('/auth/change-initial-password',{currentPassword,newPassword});
   },
+  async closePersonalAccount(input: {email:string;password:string;reason:string;code?:string;confirmation:string;acknowledgeRetention:boolean}):Promise<{closed:boolean;recordsRetained:boolean}>{
+    return objectResponse(await apiClient.post('/auth/account/close',input),'account closure');
+  },
   async signOut(): Promise<void> {
     await apiClient.post('/auth/logout', {});
   },
