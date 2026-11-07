@@ -11,8 +11,8 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "prebuild": "node scripts/verify_catalogue_sources.mjs && python3 scripts/check_module_group_palette.py && node scripts/apply_auth_security_ui.mjs && python3 scripts/complete_modules.py && python3 scripts/apply_lexa_palette.py && python3 scripts/test_palette_generator.py && python3 scripts/check_module_group_palette.py && python3 scripts/test_sidebar_navigation.py && npm test",
-    "build": "tsc -b && vite build",
+    "prebuild": "node scripts/verify_catalogue_sources.mjs && python3 scripts/check_module_group_palette.py && node scripts/apply_auth_security_ui.mjs && python3 scripts/complete_modules.py && python3 scripts/apply_lexa_palette.py && python3 scripts/test_palette_generator.py && python3 scripts/check_module_group_palette.py && python3 scripts/test_sidebar_navigation.py && python3 scripts/check_public_demo_release.py && npm test",
+    "build": "tsc -b && vite build && node scripts/build-browser-demo.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -b --pretty",
     "test": "vitest run",

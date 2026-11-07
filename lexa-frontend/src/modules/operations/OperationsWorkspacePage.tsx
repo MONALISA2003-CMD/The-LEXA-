@@ -349,7 +349,7 @@ function relatedValues(sourceModuleId: string, source: PreviewRecord, targetId: 
   return genericRelatedValues(sourceModuleId, source, targetId);
 }
 
-function ModuleManager({ module }: { module: ModuleDefinition }) {
+export function ModuleManager({ module }: { module: ModuleDefinition }) {
   const { workspace, branch } = useWorkspace();
   const navigate = useNavigate();
   const moduleRecordService = useModuleRecordService();

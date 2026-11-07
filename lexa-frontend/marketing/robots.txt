@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /demo/
+Disallow: /app.html
 Disallow: /api/
 
 Sitemap: https://lexaaamaal.com/sitemap.xml

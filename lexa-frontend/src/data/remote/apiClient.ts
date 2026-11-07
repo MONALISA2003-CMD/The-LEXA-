@@ -1,5 +1,5 @@
 import { httpBusinessMessage } from './businessMessages';
-import { apiBaseUrl } from './runtimeConfig';
+import { apiBaseUrl, isBrowserDemoBuild } from './runtimeConfig';
 
 export type ApiMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type ApiQueryValue = string | number | boolean | null | undefined;
@@ -117,6 +117,8 @@ export function createApiClient(options: ApiClientOptions) {
   }
 
   async function request<T>(path: string, requestOptions: ApiRequestOptions = {}, csrfRetried = false): Promise<T> {
+    // Hard fail closed for every direct API call in the browser-only demonstration.
+    if (isBrowserDemoBuild) throw new ApiConfigurationError('The sample business cannot contact customer services.');
     if (!baseUrl) throw new ApiConfigurationError();
     if (!path.startsWith('/') || path.startsWith('//')) throw new Error('API paths must be absolute paths within the configured API base.');
     const method = requestOptions.method ?? 'GET';

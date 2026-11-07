@@ -1,5 +1,7 @@
 # LEXA Public Landing + Interactive Demo (phases 1–5)
 
+> **Historical topology proposal; superseded 7 November 2026.** The active public site and account routes now run under `https://lexaaamaal.com`, and the browser demo runs under `/demo/`. Do not follow the separate-host cutover instructions below for the current deployment. See `docs/release/LEXA_ACTIONS_165_PAYMENT_EMAIL_ADMIN_AND_SIGNIN_2026-11-07.md` for current links and release gates.
+
 ## Deployment boundary — do not combine applications
 
 | Component | Source/build | Domain | Data |

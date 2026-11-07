@@ -56,5 +56,5 @@ test('public signup and employee invite UI are routed; bootstrap remains separat
   assert.match(inviteUi, /previewInvitation/);
   assert.match(inviteUi, /acceptExistingInvitation/);
   assert.match(inviteUi, /joinInvitation/);
-  assert.match(config, /FRONTEND_PUBLIC_URL\n        value: https:\/\/app\.lexaaamaal\.com/);
+  assert.match(config, /FRONTEND_PUBLIC_URL\n        value: https:\/\/lexaaamaal\.com/);
 });

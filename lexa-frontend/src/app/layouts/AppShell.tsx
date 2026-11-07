@@ -1,6 +1,7 @@
 import { apiDemo, isDemoDeployment } from '../../data/remote/apiDemo';
+import { isBrowserDemoBuild } from '../../data/remote/runtimeConfig';
 import DemoBanner from '../../modules/demo/DemoBanner';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { Building2, ChevronDown, CircleHelp, Menu, Settings, Store, X, Moon, Sun, Pin, Search } from '../../components/LexaIcon';
 import { toast } from 'sonner';
@@ -21,8 +22,10 @@ import { businessErrorMessage } from '../../data/remote/businessMessages';
 import { resolveBusinessSelection } from '../resolveBusinessSelection';
 import { Link } from 'react-router';
 
-const ACTIVE_WORKSPACE_KEY = 'lexa.ui.activeWorkspaceId';
-const ACTIVE_BRANCH_KEY = 'lexa.ui.activeBranchId';
+const BrowserDemoAreaPage = lazy(() => import('../../modules/demo/BrowserDemoAreaPage'));
+
+const ACTIVE_WORKSPACE_KEY = isBrowserDemoBuild ? 'lexa.demo.ui.activeWorkspaceId' : 'lexa.ui.activeWorkspaceId';
+const ACTIVE_BRANCH_KEY = isBrowserDemoBuild ? 'lexa.demo.ui.activeBranchId' : 'lexa.ui.activeBranchId';
 
 function readPreference(key: string): string | null { try { return window.localStorage.getItem(key); } catch { return null; } }
 function writePreference(key: string, value: string): void { try { window.localStorage.setItem(key, value); } catch { /* Server-backed data must not depend on preferences being writable. */ } }
@@ -317,7 +320,7 @@ export default function AppShell() {
   async function signOut() {
     if (signingOut) return;
     setSigningOut(true);
-    try { if (isDemoDeployment) await apiDemo.end(); else if (isApiProvider) await apiAuth.signOut(); window.location.assign(isDemoDeployment ? '/demo' : '/sign-in'); }
+    try { if (isDemoDeployment) await apiDemo.end(); else if (isApiProvider) await apiAuth.signOut(); window.location.assign(isBrowserDemoBuild ? 'https://lexaaamaal.com/' : isDemoDeployment ? '/demo' : '/sign-in'); }
     catch (error) { toast.error('Sign out failed', { description: businessErrorMessage(error) }); setSigningOut(false); }
   }
   const togglePin = (path: string) => setPinnedPaths(current => {
@@ -406,7 +409,7 @@ export default function AppShell() {
 
   useEffect(() => { if (isApiProvider) { void apiAuth.getSession().then(s => { if(s.requiresPasswordChange) navigate('/change-password',{replace:true}); }).catch(() => {}); } }, [navigate]);
   useEffect(() => {
-    const handleAuthRequired = () => navigate(isDemoDeployment?'/demo':'/sign-in', { replace: true, state: { returnTo: location.pathname, connectionIssue: 'session' } });
+    const handleAuthRequired = () => navigate(isDemoDeployment || isBrowserDemoBuild ? '/demo' : '/sign-in', { replace: true, state: { returnTo: location.pathname, connectionIssue: 'session' } });
     window.addEventListener('lexa:auth-required', handleAuthRequired);
     return () => window.removeEventListener('lexa:auth-required', handleAuthRequired);
   }, [navigate, location.pathname]);
@@ -441,7 +444,7 @@ export default function AppShell() {
   }, [workspaces, workspace, branches, branch, setActiveWorkspace, setActiveBranch, refreshWorkspaces]);
 
   if (loadError && loadErrorStatus === 401) return (
-    <Navigate to={isDemoDeployment ? "/demo" : "/sign-in"} replace state={{ returnTo: `${location.pathname}${location.search}${location.hash}`, connectionIssue: 'session' }} />
+    <Navigate to={isDemoDeployment || isBrowserDemoBuild ? "/demo" : "/sign-in"} replace state={{ returnTo: `${location.pathname}${location.search}${location.hash}`, connectionIssue: 'session' }} />
   );
   if (loadError) return <main className="error-screen" role="alert">
     <div className="eyebrow eyebrow-blue">BUSINESS ACCESS</div>
@@ -456,7 +459,7 @@ export default function AppShell() {
     <p>Your details are safely saved. Please try again, or return to your business list. You don't need to create another business.</p>
     <div className="business-entry-error-actions"><button type="button" className="button button-primary" onClick={() => window.location.reload()}>Try again</button><Link to="/onboarding" className="button button-secondary">Choose my business</Link></div>
   </main>;
-  if (!workspace) return <Navigate to="/onboarding" replace />;
+  if (!workspace) return <Navigate to={isBrowserDemoBuild ? '/demo' : '/onboarding'} replace />;
   if (isApiProvider && subscriptionQuery.isLoading) return <div className="boot-screen" role="status">Checking your LEXA subscription…</div>;
   if (isApiProvider && subscriptionQuery.isError) return <main className="error-screen" role="alert"><h1>Could not verify your subscription</h1><p>Your business data has not been changed. Please retry or contact LEXA support.</p><button className="button button-primary" onClick={()=>window.location.reload()}>Try again</button></main>;
   if (isApiProvider && subscriptionQuery.data && !subscriptionQuery.data.operational)
@@ -517,7 +520,7 @@ export default function AppShell() {
         </aside>
 
         <main className="main-panel" inert={mobileNavOpen} data-module-accent={moduleAccentForPath(location.pathname)}>
-          {isDemoDeployment && <DemoBanner />}
+          {(isDemoDeployment || isBrowserDemoBuild) && <DemoBanner />}
           <header className="topbar">
             <div className="topbar-title"><LexaLogo compact accent={moduleAccentForPath(location.pathname)} className="lexa-topbar-mark" /><button ref={sidebarOpenRef} type="button" className="icon-button mobile-menu-button" aria-label="Open navigation" aria-expanded={mobileNavOpen} onClick={openMobileNavigation}><Menu size={20} /></button><div><div className="eyebrow">BUSINESS WORKSPACE</div><h1 ref={pageHeadingRef} tabIndex={-1}>{routeTitle(location.pathname)}</h1></div></div>
             <GlobalSearch />
@@ -529,7 +532,9 @@ export default function AppShell() {
               <details className="lexa-account-menu"><summary aria-label="Account options"><span className="user-avatar" aria-hidden="true">{isOwner ? 'CEO' : 'TM'}</span><ChevronDown size={14}/></summary><div className="lexa-account-popover"><strong>{workspace.businessName}</strong><span>{isOwner ? 'Business owner' : (accessQuery.data?.role || 'Team member').replaceAll('_',' ')}</span><Link to="/settings?section=security">Sign-in & security</Link><Link to="/settings?section=privacy">Privacy preferences</Link><button type="button" disabled={signingOut} onClick={() => void signOut()}>{signingOut?'Signing out…':'Sign out'}</button></div></details>
             </div>
           </header>
-          <div className="page-content"><Outlet /></div>
+          <div className="page-content">{isBrowserDemoBuild && (location.pathname.startsWith('/modules/') || ['/reports','/intelligence','/settings','/business-setup','/team'].includes(location.pathname))
+            ? <Suspense fallback={<div className="loading-state" role="status">Opening sample business records…</div>}><BrowserDemoAreaPage path={location.pathname}/></Suspense>
+            : <Outlet />}</div>
           <footer className="app-footer"><span>© {new Date().getFullYear()} LEXA</span><span>LEXA is a subsidiary of AMAAL GROUP.</span></footer>
         </main>
       </div>

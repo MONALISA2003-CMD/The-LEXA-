@@ -10,7 +10,7 @@ test('every registered business module renders without uncaught browser errors',
   await openLocalBusiness(page, 'LEXA Navigation Smoke Business');
 
   // The retired /modules directory has been replaced by the permission-aware sidebar.
-  const sidebar = page.getByRole('dialog', { name: 'Main navigation' });
+  const sidebar = page.locator('aside.sidebar[aria-label="Main navigation"]');
   await sidebar.getByRole('textbox', { name: 'Find a page' }).fill('Products');
   await expect(sidebar.getByRole('link', { name: 'Products', exact: true })).toHaveCount(1);
   await sidebar.getByRole('textbox', { name: 'Find a page' }).fill('Checkout');

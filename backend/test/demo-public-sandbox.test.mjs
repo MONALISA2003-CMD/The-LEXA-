@@ -79,8 +79,13 @@ test('public marketing pages have indexable homepage while app shell is not inde
   const home=src('lexa-frontend/marketing/index.html');
   assert.match(home,/index,follow/);
   assert.match(home,/<link rel="canonical" href="https:\/\/lexaaamaal\.com\/"/);
-  assert.match(home,/https:\/\/demo\.lexaaamaal\.com\/demo/);
-  assert.match(home,/https:\/\/app\.lexaaamaal\.com\/sign-in/);
+  assert.match(home,/https:\/\/lexaaamaal\.com\/demo\//);
+  assert.match(home,/https:\/\/lexaaamaal\.com\/sign-in/);
+  assert.doesNotMatch(home,/demo\.lexaaamaal\.com/, 'Public demo must not rely on an unconfigured DNS name');
+  const deployment = JSON.parse(src('lexa-frontend/vercel.json'));
+  assert.ok(deployment.rewrites.some(rule=>rule.source==='/demo/'&&rule.destination==='/demo/index.html'));
+  assert.ok(deployment.rewrites.some(rule=>rule.source==='/'&&rule.destination==='/lexa.html'));
+  assert.ok(deployment.headers.some(rule=>rule.source==='/app.html'&&rule.headers.some(h=>h.key==='X-Robots-Tag'&&h.value.includes('noindex'))));
   assert.match(src('lexa-frontend/index.html'),/noindex,nofollow/);
   assert.ok(existsSync(join(root,'lexa-frontend/marketing/sitemap.xml')));
 });

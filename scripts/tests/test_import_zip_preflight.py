@@ -42,6 +42,30 @@ class ImportPreflightTests(unittest.TestCase):
         errors, _ = problems(self.zip_with(['backend/src/demo/demo-session.service.ts']))
         self.assertTrue(any('Missing demo release prerequisite: scripts/build_demo_vercel_bundle.py' in e for e in errors))
 
+    def test_rejects_nullable_email_recipient_regression(self):
+        controller = 'backend/src/platform-administration/platform-administration.controller.ts'
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        archive = Path(temp.name) / 'bad-approval-email.zip'
+        with ZipFile(archive, 'w', compression=ZIP_DEFLATED) as z:
+            for name in sorted(REQUIRED):
+                z.writestr(name, b'test-data')
+            z.writestr(controller, b"return sendApprovalNotice(emailRecipient,emailBusiness,publicDecision.expiresAt,claimId);")
+        issues, _ = problems(archive)
+        self.assertTrue(any('NestJS build TS2345' in issue for issue in issues), issues)
+
+    def test_allows_narrowed_nullable_approval_recipient(self):
+        controller = 'backend/src/platform-administration/platform-administration.controller.ts'
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        archive = Path(temp.name) / 'safe-approval-email.zip'
+        with ZipFile(archive, 'w', compression=ZIP_DEFLATED) as z:
+            for name in sorted(REQUIRED):
+                z.writestr(name, b'test-data')
+            z.writestr(controller, b"return sendApprovalNotice(emailRecipient ?? null,emailBusiness,publicDecision.expiresAt,claimId);")
+        issues, _ = problems(archive)
+        self.assertFalse(any('NestJS build TS2345' in issue for issue in issues), issues)
+
     def test_unexpected_root_release_notes_rejected(self):
         errs, _ = problems(self.zip_with(['LEXA_DEMO_RELEASE_NOTES.md']))
         self.assertTrue(any('Unexpected root-level file' in e for e in errs))

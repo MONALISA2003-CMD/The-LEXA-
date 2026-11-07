@@ -32,8 +32,8 @@ function safeReturnTo(value: unknown): string {
 const copy: Record<AuthMode, { eyebrow: string; title: string; description: string; submit: string }> = {
   'sign-in': {
     eyebrow: 'SECURE BUSINESS ACCESS',
-    title: 'Welcome back to LEXA.',
-    description: 'Your workspace for sales, operations, finance and everything in between.',
+    title: 'Open your LEXA business.',
+    description: 'Sign in to see your sales, stock, purchasing, finance and team records.',
     submit: 'Sign in securely',
   },
   'forgot-password': {
@@ -57,21 +57,21 @@ function BrandPanel() {
     <aside className="auth-brand-panel">
       <div className="auth-brand-top">
         <img src="/lexa-master-lockup-light.png" alt="LEXA" />
-        <span className="auth-brand-badge"><span /> Business workspace</span>
+        <span className="auth-brand-badge"><span /> Your business records</span>
       </div>
       <div className="auth-brand-content">
         <div className="auth-brand-orbit auth-orbit-one" />
         <div className="auth-brand-orbit auth-orbit-two" />
-        <div className="auth-brand-kicker"><Sparkles size={15} /> Clarity for every business decision</div>
-        <h2>Your business.<br /><span>Without limits.</span></h2>
-        <p>Manage your people, customers, finances and daily work in one professional workspace.</p>
+        <div className="auth-brand-kicker"><Sparkles size={15} /> Sales · Stock · Accounts · Team</div>
+        <h2>Know what sold.<br /><span>Know what’s next.</span></h2>
+        <p>Pick up where your team left off. Check sales, receive stock, follow money and close the day's work.</p>
         <div className="auth-feature-list">
-          <div><span className="auth-feature-icon"><Users size={17} /></span><div><strong>Access for your team</strong><small>Each team member sees the information and tasks assigned to their role.</small></div></div>
-          <div><span className="auth-feature-icon"><LockKeyhole size={17} /></span><div><strong>Protected sign-in</strong><small>Your account is protected by secure sign-in.</small></div></div>
-          <div><span className="auth-feature-icon"><ShieldCheck size={17} /></span><div><strong>Secure account recovery</strong><small>Reset links are time-limited and single-use.</small></div></div>
+          <div><span className="auth-feature-icon"><Users size={17} /></span><div><strong>Your team's work, in one place</strong><small>Staff access follows their assigned role and business branch.</small></div></div>
+          <div><span className="auth-feature-icon"><LockKeyhole size={17} /></span><div><strong>Continue securely</strong><small>Use your registered business email or employee username.</small></div></div>
+          <div><span className="auth-feature-icon"><ShieldCheck size={17} /></span><div><strong>Get back into your business</strong><small>Password recovery is available if you cannot sign in.</small></div></div>
         </div>
       </div>
-      <div className="auth-brand-footer"><span>LEXA</span><span>A clearer way to manage your business.</span></div>
+      <div className="auth-brand-footer"><span>LEXA</span><span>From the counter to the books.</span></div>
     </aside>
   );
 }
@@ -98,6 +98,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   const text = copy[mode];
   const apiReady = dataProviderMode === 'api' && Boolean(apiBaseUrl);
   const passwordUpdated = mode === 'sign-in' && new URLSearchParams(window.location.search).get('password-updated') === '1';
+  const subscriptionLink = mode === 'sign-in' && new URLSearchParams(window.location.search).get('subscription') === 'active';
 
   useEffect(() => {
     if (mode !== 'sign-in' || !apiReady) return;
@@ -178,7 +179,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
     <main className="auth-page">
       <BrandPanel />
       <section className="auth-main-panel">
-        <div className="auth-main-top"><Link to="/onboarding" className="auth-back-link"><ArrowLeft size={15} /> Choose your business</Link><span className="auth-top-secure"><ShieldCheck size={15} /> Protected sign-in</span></div>
+        <div className="auth-main-top"><a href="/" className="auth-back-link"><ArrowLeft size={15} /> LEXA website</a><span className="auth-top-secure"><ShieldCheck size={15} /> Protected sign-in</span></div>
         <div className="auth-card">
           <div className="auth-mobile-brand"><img src="/lexa-master-lockup.png" alt="LEXA" /></div>
           <div className="auth-eyebrow">{complete ? 'REQUEST RECEIVED' : text.eyebrow}</div>
@@ -187,6 +188,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
             ? pendingSignIn.method==='email'?'Enter the eight-digit code sent to your account email. It expires in 10 minutes.':'Enter the six-digit code from your authenticator app, or a saved recovery code.'
             : complete ? 'If an account matches that email address, a recovery link will be sent. Check your inbox and spam folder.' : text.description}</p>
 
+          {subscriptionLink && <div className="auth-subscription-confirmation" role="status"><CheckCircle2 size={22}/><div><strong>Payment confirmation received?</strong><span>If LEXA has approved your subscription, sign in with the verified account to open your business. The confirmation link does not bypass sign-in.</span></div></div>}
           {passwordUpdated && <div className="auth-complete-panel auth-password-updated" role="status"><CheckCircle2 size={20} /><div><strong>Password updated successfully</strong><span>Sign in with your new password. Your previous sessions have been closed.</span></div></div>}
           {mode === 'sign-in' && connectionIssue === 'session' && <div className="auth-notice" role="status">Your sign-in session has expired. Sign in again to continue to your business workspace.</div>}
           {mode === 'sign-in' && connectionIssue === 'workspace' && <div className="auth-notice" role="status">We could not reopen your business. Sign in again and choose your business to continue.</div>}
@@ -232,7 +234,8 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
 
           {mode === 'sign-in' && !complete && !pendingSignIn && <>
             <div className="auth-support-row"><Link to="/forgot-password">Forgot password?</Link><span>Protected by secure sign-in</span></div>
-            <Link className="auth-create-account-link" to="/create-account">Create your LEXA account <ArrowRight size={17}/></Link>
+            <Link className="auth-create-account-link" to="/create-account">Create a business account <ArrowRight size={17}/></Link>
+            <a className="auth-demo-link" href="https://lexaaamaal.com/demo/">Explore a sample business without signing in <ArrowRight size={16}/></a>
             <p className="auth-invite-hint">Joining a team? Use the private invitation link sent to your email.</p>
           </>}
           {mode === 'forgot-password' && <div className="auth-support-row"><Link to="/sign-in"><ArrowLeft size={14} /> Back to sign in</Link></div>}

@@ -162,6 +162,18 @@ def problems(archive: Path) -> tuple[list[str], int]:
                         errors.append("Frontend prebuild must recheck module colors after generator runs")
                 except (ValueError, SyntaxError, KeyError, TypeError, UnicodeDecodeError) as err:
                     errors.append(f"Frontend palette generator preflight failed: {err}")
+            # Catch the approval-email optional recipient regression which broke
+            # GitHub Actions run 42359211992 at NestJS compilation (TS2345). The value is
+            # narrowed to string | null before entering the email helper; undefined
+            # must never be passed from a conditional return object.
+            approval_controller = "backend/src/platform-administration/platform-administration.controller.ts"
+            if approval_controller in files:
+                try:
+                    approval_source = z.read(approval_controller).decode("utf-8")
+                    if re.search(r"sendApprovalNotice\(\s*emailRecipient\s*,\s*emailBusiness\s*,\s*publicDecision\.expiresAt\s*,\s*claimId\s*\)", approval_source):
+                        errors.append("Payment approval email recipient is not narrowed: backend NestJS build TS2345")
+                except UnicodeDecodeError as err:
+                    errors.append(f"Cannot validate payment approval email contract: {err}")
             # Run CRC and decompression check only after checking paths, so this also
             # handles Python's supported LZMA/Zlib ZIP compression methods.
             bad = z.testzip()

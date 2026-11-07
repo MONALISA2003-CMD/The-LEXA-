@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
+import { isBrowserDemoBuild } from '../remote/runtimeConfig';
 import type {
   AuditEvent, Branch, Category, PaymentRecord, Product, ReturnLine, Sale, SaleLine, SaleReturn, StockMovement, Workspace,
 } from '../../domain/shared/types';
@@ -32,7 +33,7 @@ export class LexaDatabase extends Dexie {
   auditEvents!: EntityTable<AuditEvent, 'id'>;
 
   constructor() {
-    super('lexa-local');
+    super(isBrowserDemoBuild ? 'lexa-browser-demo-v1' : 'lexa-local');
     this.version(1).stores(LOCAL_DATABASE_SCHEMA_V1);
     // Version 2 adds an index used by the branch-scoped return report. Dexie
     // builds the index for existing rows as part of the normal IndexedDB upgrade.

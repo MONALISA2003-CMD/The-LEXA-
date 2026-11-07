@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { apiDemo } from '../../data/remote/apiDemo';
+import { isBrowserDemoBuild } from '../../data/remote/runtimeConfig';
+import { BROWSER_DEMO_EXPIRY_KEY, resetBrowserDemo } from './browserDemoSeed';
 import './demo.css';
 
 const SITE_URL = 'https://lexaaamaal.com/';
-const SIGNUP_URL = 'https://app.lexaaamaal.com/create-account';
+const SIGNUP_URL = 'https://lexaaamaal.com/create-account';
 
 export default function DemoBanner() {
   const location = useLocation();
@@ -15,20 +17,29 @@ export default function DemoBanner() {
   const [message, setMessage] = useState('');
   useEffect(() => {
     let active = true;
-    void apiDemo.status().then(data => { if (active) setDeadline(new Date(data.expiresAt).getTime()); }).catch(() => {});
+    if (isBrowserDemoBuild) {
+      const expiry = Number(window.localStorage.getItem(BROWSER_DEMO_EXPIRY_KEY));
+      if (active && expiry) setDeadline(expiry);
+    } else void apiDemo.status().then(data => { if (active) setDeadline(new Date(data.expiresAt).getTime()); }).catch(() => {});
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => { active = false; window.clearInterval(timer); };
   }, []);
   const remaining = deadline === null ? null : Math.max(0, Math.ceil((deadline-now)/60_000));
+  useEffect(() => { if (isBrowserDemoBuild && deadline && now >= deadline) { void resetBrowserDemo().then(() => window.location.replace('/demo/demo')); } }, [deadline, now]);
   const reset = async () => {
     if (!window.confirm('Start a new sample business? Your changes in this demo will be lost.')) return;
     setBusy(true); setMessage('');
-    try { await apiDemo.reset(); try { window.sessionStorage.removeItem('lexa.demo.guide.hidden'); } catch { /* Optional browser setting. */ } window.location.replace('/'); }
+    try {
+      if (isBrowserDemoBuild) await resetBrowserDemo();
+      else await apiDemo.reset();
+      try { window.sessionStorage.removeItem('lexa.demo.guide.hidden'); } catch { /* Optional browser setting. */ }
+      window.location.replace(isBrowserDemoBuild ? '/demo/demo' : '/');
+    }
     catch (error) { setMessage(error instanceof Error ? error.message : 'The sample business could not be reset.'); setBusy(false); }
   };
   const exit = async () => {
     setBusy(true);
-    try { await apiDemo.end(); } catch { /* Session may have expired. */ }
+    if (!isBrowserDemoBuild) { try { await apiDemo.end(); } catch { /* Session may have expired. */ } }
     window.location.replace(SITE_URL);
   };
   return <div className="lexa-demo-chrome"><aside className="lexa-demo-banner" aria-label="Sample business controls">

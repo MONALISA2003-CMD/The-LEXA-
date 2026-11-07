@@ -41,8 +41,14 @@ test('Business Tools does not render disallowed notices and uses private attachm
 test('private app remains noindex while public marketing pages use clean canonical URLs',()=>{
   assert.match(source('lexa-frontend/index.html'),/noindex,nofollow/);
   const appConfig=JSON.parse(source('lexa-frontend/vercel.json'));
-  const appHeaders=appConfig.headers.find(item=>item.source==='/(.*)').headers;
-  assert.ok(appHeaders.some(h=>h.key==='X-Robots-Tag'&&h.value.includes('noindex')));
+  const customerHTML=appConfig.headers.find(item=>item.source==='/app.html')?.headers ?? [];
+  assert.ok(customerHTML.some(h=>h.key==='X-Robots-Tag'&&h.value.includes('noindex')));
+  for(const route of ['/sign-in','/demo','/demo/:path*']){
+    const headers=appConfig.headers.find(item=>item.source===route)?.headers ?? [];
+    assert.ok(headers.some(h=>h.key==='X-Robots-Tag'&&h.value.includes('noindex')),route);
+  }
+  assert.ok(appConfig.rewrites.some(r=>r.source==='/'&&r.destination==='/lexa.html'));
+  assert.ok(appConfig.rewrites.some(r=>r.source==='/(.*)'&&r.destination==='/app.html'));
   const publicConfig=JSON.parse(source('lexa-frontend/marketing/vercel.json'));
   assert.equal(publicConfig.cleanUrls,true);
   const robots=source('lexa-frontend/marketing/robots.txt');

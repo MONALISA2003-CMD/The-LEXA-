@@ -30,7 +30,7 @@ services:
       - key: DATABASE_RUNTIME_ROLE
         value: lexa_app_runtime
       - key: FRONTEND_PUBLIC_URL
-        value: https://app.lexaaamaal.com
+        value: https://lexaaamaal.com
       # Set these two secrets in Render dashboard after verifying the sender in Resend.
       - key: RESEND_API_KEY
         sync: false

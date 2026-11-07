@@ -5,6 +5,8 @@ Allow: /security.html
 Allow: /help.html
 Allow: /public-site.css
 Allow: /lexa-favicon.png
+Disallow: /demo/
+Disallow: /app.html
 Disallow: /api/
 Disallow: /modules/
 Disallow: /workspace

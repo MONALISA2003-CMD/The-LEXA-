@@ -369,3 +369,77 @@
   .lexa-platform-account-card .lexa-platform-list-actions{margin-top:13px}
   .lexa-platform-account-card .lexa-platform-list-actions button{flex:1;white-space:normal}
 }
+
+
+/* LEXA Control Centre: deliberate hierarchy on phones, tablets and desktop. */
+.lexa-platform-app {--lp-bg:#f1f5fc;--lp-border:#d8e3f0;--lp-muted:#536984}
+.lexa-platform-app .lexa-platform-card {border:1px solid #d9e4f0;box-shadow:0 8px 24px rgba(10,34,77,.045)}
+.lexa-platform-app .lexa-platform-metrics>div {background:linear-gradient(160deg,#fff 30%,#f7faff 100%);border:1px solid #dce6f2;border-radius:16px;box-shadow:0 6px 24px rgba(15,42,80,.045)}
+.lexa-platform-app .lexa-platform-card-header h2 {letter-spacing:-.025em}
+.lexa-platform-app .lexa-platform-table-wrap th {background:#f2f6fc;color:#364d66;letter-spacing:.035em}
+.lexa-platform-app .lexa-platform-table-wrap tr:hover td {background:#f8fbff}
+.lexa-platform-review.lexa-payment-verification {gap:22px}
+.lexa-payment-review-intro {display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:18px 30px;padding:24px;background:linear-gradient(130deg,#0d2445,#173b70);color:#fff;border-radius:16px}
+.lexa-payment-review-intro h3 {color:#fff!important;line-height:1.17;font-size:clamp(21px,2.3vw,30px);letter-spacing:-.035em;margin:9px 0 12px}
+.lexa-payment-review-intro p {color:#d8e7ff;line-height:1.6;max-width:570px}
+.lexa-payment-review-intro .lexa-platform-kicker {color:#b4d8ff;font-size:11px;font-weight:800;letter-spacing:.11em}
+.lexa-payment-amount {font-weight:850;font-size:clamp(21px,2.4vw,30px);color:#fff;white-space:nowrap;line-height:1.15}
+.lexa-payment-amount small {display:block;color:#bfd0e9;letter-spacing:.04em;font-weight:700;font-size:11px;margin-top:6px}
+.lexa-payment-evidence {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;border:1px solid #dce6f1;border-radius:15px;overflow:hidden;background:#f8fbff}
+.lexa-payment-evidence>div {padding:14px 18px;min-width:0;border-bottom:1px solid #e5edf6}
+.lexa-payment-evidence>div:nth-child(odd) {border-right:1px solid #e5edf6}
+.lexa-payment-evidence dt {font-size:11px;color:#596c86;font-weight:800;margin-bottom:6px}
+.lexa-payment-evidence dd {margin:0;color:#183252;font-size:14px;font-weight:650;overflow-wrap:anywhere;line-height:1.5}
+.lexa-payment-evidence-full {grid-column:1/-1;border-right:0!important}
+.lexa-payment-evidence .lexa-payment-message {font-weight:500;white-space:pre-wrap}
+.lexa-payment-verification-warning {display:flex;align-items:flex-start;gap:15px;border:1px solid #f1d595;background:#fff9e9;color:#654c18;border-left:5px solid #ca9b29;padding:16px 18px;border-radius:13px}
+.lexa-payment-verification-warning svg {flex:none;margin-top:2px}
+.lexa-payment-verification-warning strong {font-size:14px}
+.lexa-payment-verification-warning p {font-size:13px;line-height:1.55;margin:5px 0 0;color:#66562f}
+.lexa-payment-fields {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.lexa-payment-fields>label {display:flex;flex-direction:column;gap:10px;background:#f9fbfe;border:1px solid #dce6f2;border-radius:15px;padding:18px;font-size:14px;line-height:1.45}
+.lexa-payment-fields input:not([type=checkbox]),.lexa-payment-fields textarea {width:100%;font:inherit;font-weight:500;background:#fff;min-height:50px;border:1px solid #bfcfe3;border-radius:11px;padding:13px 14px;color:#152942}
+.lexa-payment-fields small {font-size:12px;color:#586d83;font-weight:500;line-height:1.55}
+.lexa-payment-step {display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:#dbeafe;color:#173a70;border-radius:50%;font-weight:850;margin-right:8px;flex:none}
+.lexa-payment-fields .lexa-payment-attestation {grid-column:1/-1;display:flex;align-items:flex-start;flex-direction:row;background:#effaf4;border-color:#a8ddc0;padding:17px}
+.lexa-payment-attestation input[type=checkbox] {accent-color:#117448;min-width:20px;min-height:20px;margin:2px 0 0;flex:none}
+.lexa-payment-attestation span {display:flex;flex-direction:column;gap:5px;font-size:13px;color:#1a4936}
+.lexa-payment-attestation small {color:#346653}
+.lexa-payment-requirements {background:#eff5ff;border:1px solid #cbdbf3;border-radius:12px;padding:14px 18px;color:#25436b;font-size:13px;line-height:1.55}
+.lexa-payment-requirements strong {font-weight:800}
+.lexa-payment-requirements ul {margin:7px 0 0;padding-left:20px}
+.lexa-payment-actions {display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.lexa-payment-actions .lexa-platform-button {background:#155bbd;color:#fff;min-height:48px;font-size:13px;border-color:#155bbd}
+.lexa-payment-actions .lexa-platform-button:hover:not(:disabled) {background:#0c4699}
+.lexa-payment-actions .lexa-platform-button:disabled {background:#b5bfcd;border-color:#b5bfcd;color:#2f3c4d;opacity:1}
+.lexa-payment-fields input:focus-visible,.lexa-payment-fields textarea:focus-visible {outline:3px solid #60a5fa;outline-offset:2px}
+@media(max-width:740px){.lexa-payment-fields {grid-template-columns:1fr}.lexa-payment-review-intro {padding:19px}.lexa-payment-evidence {grid-template-columns:1fr}.lexa-payment-evidence>div {border-right:0!important}.lexa-payment-actions>button {width:100%;justify-content:center}}
+
+/* Subscription access: payment state and the next action stay visible on mobile. */
+.lexa-platform-public-content {max-width:1060px;gap:20px;padding:36px clamp(15px,3vw,35px) 75px}
+.lexa-platform-public-content>h1 {font-size:clamp(33px,4vw,48px)}
+.lexa-platform-public-content .lexa-platform-lead {max-width:760px;line-height:1.65;color:#5c718b}
+.lexa-platform-public-content .lexa-platform-card {border-radius:19px;border:1px solid #d9e4f0;box-shadow:0 8px 28px rgba(14,36,76,.05)}
+.lexa-platform-public-content .lexa-subscription-summary {background:linear-gradient(120deg,#fff 55%,#eaf3ff 100%);border-color:#c5d9f6}
+.lexa-platform-public-content .lexa-subscription-summary h2 {font-size:clamp(23px,3vw,30px);color:#122b4c}
+.lexa-platform-public-content .lexa-subscription-progress {padding:23px}
+.lexa-subscription-progress-title {display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+.lexa-subscription-progress-title h2 {margin:4px 0 0!important}
+.lexa-subscription-state-pill {background:#e9f1fe;color:#2054a0;padding:7px 10px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.09em}
+.lexa-subscription-steps {padding:0;margin:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;list-style:none}
+.lexa-subscription-steps li {min-width:0;display:flex;align-items:flex-start;gap:10px;border:1px solid #e1e9f4;background:#fafcff;padding:13px 10px;border-radius:13px}
+.lexa-subscription-step-number {display:grid;place-items:center;width:29px;height:29px;min-width:29px;background:#e6edf6;color:#61718a;border-radius:100px;font-size:13px;font-weight:850}
+.lexa-subscription-steps strong {display:block;font-size:12px;color:#293f5d;line-height:1.35}
+.lexa-subscription-steps small {display:block;font-size:11px;line-height:1.4;color:#687991;margin-top:4px}
+.lexa-subscription-steps .is-current {background:#f0f6ff;border-color:#96bae9}
+.lexa-subscription-steps .is-current .lexa-subscription-step-number {background:#2563eb;color:#fff}
+.lexa-subscription-steps .is-complete {background:#f0fbf7;border-color:#b7ddcd}
+.lexa-subscription-steps .is-complete .lexa-subscription-step-number {background:#168158;color:#fff}
+.lexa-subscription-waiting {display:flex;align-items:flex-start;gap:18px;background:#fffdf6!important;border-color:#eadbaa!important}
+.lexa-subscription-waiting-icon {flex:none;display:grid;place-items:center;width:55px;height:55px;background:#fff1c8;color:#8b6516;border-radius:15px}
+.lexa-subscription-waiting h2 {color:#58400f!important;margin:0 0 8px!important}
+.lexa-subscription-waiting p {max-width:800px;line-height:1.65;color:#675e4f}
+.lexa-platform-public-content .lexa-platform-form input,.lexa-platform-public-content .lexa-platform-form select,.lexa-platform-public-content .lexa-platform-form textarea {min-height:50px;border-radius:11px;font-size:14px}
+.lexa-platform-public-content .lexa-platform-button {min-height:49px;font-size:14px}
+@media(max-width:870px){.lexa-subscription-steps {grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.lexa-platform-public-content {padding:24px 13px 55px;gap:16px}.lexa-subscription-steps {grid-template-columns:1fr;gap:7px}.lexa-subscription-steps li{padding:10px 12px}.lexa-subscription-waiting{flex-direction:column}.lexa-platform-public-content .lexa-platform-card {padding:17px}}

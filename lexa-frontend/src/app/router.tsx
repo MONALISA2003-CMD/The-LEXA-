@@ -1,31 +1,32 @@
 import { isDemoDeployment } from '../data/remote/apiDemo';
+import { isBrowserDemoBuild } from '../data/remote/runtimeConfig';
 import { createBrowserRouter, Navigate } from 'react-router';
 import AppShell from './layouts/AppShell';
 import RouteErrorBoundary from './RouteErrorBoundary';
 import OnboardingPage from '../modules/onboarding/OnboardingPage';
 
 export const router = createBrowserRouter([
-  { path: '/change-password', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/ChangeInitialPasswordPage')).default }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/change-password', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/ChangeInitialPasswordPage')).default }), errorElement: <RouteErrorBoundary /> }) },
   { path: '/demo', lazy: async () => ({ Component: (await import('../modules/demo/DemoEntryPage')).default }), errorElement: <RouteErrorBoundary /> },
-  { path: '/sign-in', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).SignInPage }) }), errorElement: <RouteErrorBoundary /> },
+  { path: '/sign-in', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).SignInPage }) }), errorElement: <RouteErrorBoundary /> },
   // Account security is available to platform administrators even when they do not own a tenant.
-  { path: '/account/security', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/account/AccountSecurityPage')).default }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/account/security', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/account/AccountSecurityPage')).default }), errorElement: <RouteErrorBoundary /> }) },
   { path: '/legal/cookies', lazy: async () => ({ Component: (await import('../modules/account/LegalPolicies')).CookiePolicyPage }), errorElement: <RouteErrorBoundary /> },
   { path: '/legal/privacy', lazy: async () => ({ Component: (await import('../modules/account/LegalPolicies')).PrivacyPolicyPage }), errorElement: <RouteErrorBoundary /> },
-  { path: '/create-account', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/SignupPage')).default }), errorElement: <RouteErrorBoundary /> }) },
-  { path: '/subscription', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/platform-admin/SubscriptionAccessPage')).default }), errorElement: <RouteErrorBoundary /> }) },
-  { path: '/platform-admin/setup', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/platform-admin/PlatformAdministratorSetupPage')).default }), errorElement: <RouteErrorBoundary /> }) },
-  { path: '/platform-admin/reset', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/platform-admin/PlatformAdministratorResetPage')).default }), errorElement: <RouteErrorBoundary /> }) },
-  { path: '/platform-admin/recover', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/platform-admin/PlatformAdministratorRecoveryPage')).default }), errorElement: <RouteErrorBoundary /> }) },
-  { path: '/platform-admin/login', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/platform-admin/PlatformAdministratorLoginPage')).default }), errorElement: <RouteErrorBoundary /> }) },
-  { path: '/platform-admin', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/platform-admin/PlatformAdministrationPage')).default }), errorElement: <RouteErrorBoundary /> }) },
-  { path: '/verify-email', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/VerifyEmailPage')).default }), errorElement: <RouteErrorBoundary /> }) },
-  { path: '/accept-invitation', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/AcceptInvitationPage')).default }), errorElement: <RouteErrorBoundary /> }) },
-  { path: '/first-admin-setup', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).FirstAdministratorPage }), errorElement: <RouteErrorBoundary /> }) },
-  { path: '/forgot-password', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).ForgotPasswordPage }), errorElement: <RouteErrorBoundary /> }) },
-  { path: '/reset-password', ...(isDemoDeployment ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).ResetPasswordPage }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/create-account', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/SignupPage')).default }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/subscription', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/platform-admin/SubscriptionAccessPage')).default }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/platform-admin/setup', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/platform-admin/PlatformAdministratorSetupPage')).default }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/platform-admin/reset', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/platform-admin/PlatformAdministratorResetPage')).default }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/platform-admin/recover', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/platform-admin/PlatformAdministratorRecoveryPage')).default }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/platform-admin/login', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/platform-admin/PlatformAdministratorLoginPage')).default }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/platform-admin', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/platform-admin/PlatformAdministrationPage')).default }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/verify-email', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/VerifyEmailPage')).default }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/accept-invitation', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/AcceptInvitationPage')).default }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/first-admin-setup', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).FirstAdministratorPage }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/forgot-password', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).ForgotPasswordPage }), errorElement: <RouteErrorBoundary /> }) },
+  { path: '/reset-password', ...((isDemoDeployment || isBrowserDemoBuild) ? { element: <Navigate to="/demo" replace /> } : { lazy: async () => ({ Component: (await import('../modules/auth/AuthPage')).ResetPasswordPage }), errorElement: <RouteErrorBoundary /> }) },
   { path: '/inbox', element: <Navigate to="/" replace />, errorElement: <RouteErrorBoundary /> },
-  { path: '/onboarding', Component: OnboardingPage, errorElement: <RouteErrorBoundary /> },
+  { path: '/onboarding', ...(isBrowserDemoBuild ? { element: <Navigate to="/demo" replace /> } : { Component: OnboardingPage }), errorElement: <RouteErrorBoundary /> },
   {
     path: '/', Component: AppShell, ErrorBoundary: RouteErrorBoundary,
     children: [
@@ -91,4 +92,4 @@ export const router = createBrowserRouter([
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
-]);
+], { basename: isBrowserDemoBuild ? '/demo' : '/' });

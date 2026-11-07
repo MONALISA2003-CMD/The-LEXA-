@@ -54,7 +54,7 @@ function slug(value: string): string {
   return value.normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 45) || 'business';
 }
 function frontendUrl(): string {
-  const value = (process.env.FRONTEND_PUBLIC_URL || 'https://app.lexaaamaal.com').replace(/\/+$/, '');
+  const value = (process.env.FRONTEND_PUBLIC_URL || 'https://lexaaamaal.com').replace(/\/+$/, '');
   if (!value.startsWith('https://') || !/^https:\/\/[^/]+$/.test(value)) throw new ServiceUnavailableException('The public frontend URL must be configured as an HTTPS origin.');
   return value;
 }

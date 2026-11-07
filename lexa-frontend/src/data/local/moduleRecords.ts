@@ -1,4 +1,5 @@
 import type { DataPersistenceMode, ModuleRecordScope, ModuleRecordService } from '../contracts/previewData';
+import { isBrowserDemoBuild } from '../remote/runtimeConfig';
 import type { PreviewRecord } from '../../modules/operations/moduleCatalog';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
@@ -46,7 +47,7 @@ export function createLocalModuleRecordService(options: LocalModuleRecordOptions
       }
       // One-time forward migration preserves saved user records without reusing catalogue seeds.
       const legacyKey = [LEGACY_PREFIX, scope.workspaceId, scope.branchId, moduleId].join(':');
-      const legacyRaw = storage?.getItem(legacyKey);
+      const legacyRaw = isBrowserDemoBuild ? null : storage?.getItem(legacyKey);
       if (legacyRaw) {
         const legacy: unknown = JSON.parse(legacyRaw);
         if (validRows(legacy)) return persist(key, legacy);
@@ -79,4 +80,4 @@ export function createLocalModuleRecordService(options: LocalModuleRecordOptions
   };
 }
 
-export const localModuleRecordService = createLocalModuleRecordService();
+export const localModuleRecordService = createLocalModuleRecordService(isBrowserDemoBuild ? { prefix: 'lexa.demo.module-records.v1' } : {});

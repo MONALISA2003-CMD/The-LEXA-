@@ -10,6 +10,7 @@ export interface SubscriptionStatusResponse {
 }
 export interface PlatformProfile { adminUserId:string; role:PlatformRole; mfaEnabled:boolean; requiresMfa:boolean; priceUGX:number; periodDays:number }
 export interface PlatformBusiness { tenant_id:string; business_name:string; owner_email:string|null; status:SubscriptionStatus; activated_at:string|null; paid_through:string|null; created_at:string }
+export interface PaymentApprovalResult { approved?:boolean; activated?:boolean; alreadyApproved?:boolean; emailNotification?:'sent'|'failed'|'unavailable'; expiresAt?:string }
 export interface PlatformPayment { id:string; tenant_id:string; business_name:string; owner_email:string|null; payment_reference:string; method:string; transaction_reference:string|null; verified_reference:string|null; claim_message:string|null; amount_ugx:number; status:string; created_at:string; reviewed_at:string|null; review_note:string|null }
 export interface PlatformAccountActivity {
   tenant_id:string;user_id:string;business_name:string;subscription_status:SubscriptionStatus;
@@ -46,10 +47,10 @@ export const apiPlatformAdministration = {
   userAccess:(tenantId:string,userId:string,status:'suspended'|'reinstate',reason:string)=>apiClient.post(`${base}/users/${encodeURIComponent(tenantId)}/${encodeURIComponent(userId)}/access`,{status,reason,confirmation:'I_APPROVE_USER_ACCESS_CHANGE'}),
   business:(id:string)=>apiClient.get<{business:PlatformBusiness;payments:PlatformPayment[];periods:Array<{starts_at:string;ends_at:string;amount_ugx:number;created_at:string}>}>(`${base}/businesses/${encodeURIComponent(id)}`),
   payments:(status='submitted')=>apiClient.get<PlatformPayment[]>(`${base}/payments`,{status}),
-  approve:(id:string,verifiedReference:string,note:string)=>apiClient.post(`${base}/payments/${encodeURIComponent(id)}/approve`,{verifiedReference,note,confirmation:'I_VERIFIED_RECEIPT'}),
+  approve:(id:string,verifiedReference:string,note:string)=>apiClient.post<PaymentApprovalResult>(`${base}/payments/${encodeURIComponent(id)}/approve`,{verifiedReference,note,confirmation:'I_VERIFIED_RECEIPT'}),
   reject:(id:string,reason:string)=>apiClient.post(`${base}/payments/${encodeURIComponent(id)}/reject`,{reason}),
   access:(tenantId:string,status:'suspended'|'reinstate',reason:string)=>apiClient.post(`${base}/businesses/${encodeURIComponent(tenantId)}/access`,{status,reason}),
-  activateWithVerifiedPayment:(tenantId:string,method:string,verifiedReference:string,reason:string)=>apiClient.post(`${base}/businesses/${encodeURIComponent(tenantId)}/activate`,{method,verifiedReference,reason,confirmation:'I_VERIFIED_RECEIPT'}),
+  activateWithVerifiedPayment:(tenantId:string,method:string,verifiedReference:string,reason:string)=>apiClient.post<PaymentApprovalResult>(`${base}/businesses/${encodeURIComponent(tenantId)}/activate`,{method,verifiedReference,reason,confirmation:'I_VERIFIED_RECEIPT'}),
   archive:(tenantId:string,businessName:string,reason:string)=>apiClient.post(`${base}/businesses/${encodeURIComponent(tenantId)}/archive`,{confirmation:'ARCHIVE_BUSINESS',businessName,reason}),
   restore:(tenantId:string,reason:string)=>apiClient.post(`${base}/businesses/${encodeURIComponent(tenantId)}/restore`,{confirmation:'RESTORE_BUSINESS',reason}),
   transitionLegacy:(tenantId:string,reason:string)=>apiClient.post(`${base}/businesses/${encodeURIComponent(tenantId)}/enroll`,{confirmation:'I_APPROVE_BILLING_TRANSITION',reason}),

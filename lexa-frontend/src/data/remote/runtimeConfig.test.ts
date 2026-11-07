@@ -8,6 +8,10 @@ describe('resolveDataProviderMode', () => {
     expect(resolveDataProviderMode(true, 'api')).toBe('api');
   });
 
+  it('allows only the separately compiled isolated demonstration bundle to use browser data in production', () => {
+    expect(resolveDataProviderMode(true, 'api', true)).toBe('local');
+  });
+
   it('allows explicit API mode in development', () => {
     expect(resolveDataProviderMode(false, 'api')).toBe('api');
     expect(resolveDataProviderMode(false, ' API ')).toBe('api');

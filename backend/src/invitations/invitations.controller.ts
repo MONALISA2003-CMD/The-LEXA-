@@ -62,7 +62,7 @@ export class InvitationsController {
    const created=await tx.workspaceInvitation.create({data:{id:invitationId,tenantId:workspaceId,email,role,branchScopeMode:allBranches?'all':'restricted',branchIds:allBranches?[]:branchIds,tokenHash:sha(rawToken),idempotencyKey:key,requestHash,status:'PENDING',expiresAt:new Date(Date.now()+7*86400_000),invitedByUserId:actorId}});
    await tx.auditEvent.create({data:{tenantId:workspaceId,actorUserId:actorId,action:'workspace.invitation.created',resourceType:'workspace_invitation',resourceId:created.id,metadata:{email,role,branchScopeMode:created.branchScopeMode,branchCount:created.branchIds.length}}}); return created;
   },{isolationLevel:'Serializable'});
-  const frontend=(process.env.FRONTEND_PUBLIC_URL??'https://app.lexaaamaal.com').replace(/\/$/,'');
+  const frontend=(process.env.FRONTEND_PUBLIC_URL??'https://lexaaamaal.com').replace(/\/$/,'');
   const actionUrl=`${frontend}/accept-invitation?workspaceId=${encodeURIComponent(workspaceId)}&invitationId=${encodeURIComponent(invite.id)}&token=${encodeURIComponent(rawToken)}`;
   try { await sendTransactionalEmail({to:email,subject:'You have been invited to LEXA',text:`You have been invited to join a LEXA workspace as ${role}. Use this link within seven days. New teammates can create their account; existing users can sign in to accept.`,actionUrl,actionLabel:'Accept invitation'}); }
   catch(error) { await this.prisma.workspaceInvitation.update({where:{id:invite.id},data:{status:'DELIVERY_FAILED'}}); throw error; }

@@ -24,6 +24,7 @@ import {
   type PlatformAudit,
 } from '../../data/remote/apiPlatformAdministration';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
+import {paymentReviewRequirements} from './platformPaymentReview';
 import './platform-administration.css';
 
 type Section = 'overview'|'businesses'|'users'|'activity'|'payments'|'revenue'|'health'|'support'|'incidents'|'audit'|'team';
@@ -180,6 +181,25 @@ export default function PlatformAdministrationPage(){
     })();
     return()=>{active=false;};
   },[profile,section,refresh,searchTerm,businessPage,userPage,paymentFilter,activityPage,allowedSections]);
+
+  const reviewRequirements = review ? paymentReviewRequirements({
+    providerReference: verifiedReference, internalReference: review.payment_reference,
+    verificationNote: reviewNote, independentlyConfirmed: receiptConfirmed,
+    amountUGX: review.amount_ugx,
+  }) : [];
+
+  async function confirmReviewedPayment(){
+    if (!review || reviewRequirements.length || working) return;
+    setWorking(true);
+    try {
+      const result=await api.approve(review.id,verifiedReference.trim(),reviewNote.trim());
+      if(result.alreadyApproved) toast.info('Payment was already approved.');
+      else if(result.emailNotification==='sent') toast.success('Payment verified, account activated and confirmation email sent.');
+      else toast.warning('Payment verified and account activated. The email was not delivered; check the email service before advising the customer.');
+      setReview(null);setReceiptConfirmed(false);setReviewNote('');setVerifiedReference('');reload();
+    }catch(err){toast.error(businessErrorMessage(err));}
+    finally{setWorking(false);}
+  }
 
   async function takeAction(action:()=>Promise<unknown>,success:string){
     setWorking(true);
@@ -449,7 +469,7 @@ export default function PlatformAdministrationPage(){
               <label>Provider transaction reference<input value={manualReceipt} onChange={e=>setManualReceipt(e.target.value)} maxLength={120} required placeholder="Reference independently confirmed in the receiving account"/></label>
               <label>Verification note<textarea rows={2} maxLength={500} value={manualNote} onChange={e=>setManualNote(e.target.value)} placeholder="Which official account and payment information were checked?"/></label>
               <label className="lexa-platform-checkbox"><input type="checkbox" checked={manualConfirmed} onChange={e=>setManualConfirmed(e.target.checked)}/> I independently confirmed UGX 50,000 arrived in the official receiving account.</label>
-              <div className="lexa-platform-controls"><button type="button" className="lexa-platform-button" disabled={working||!manualConfirmed||manualReceipt.trim().length<4||manualNote.trim().length<5} onClick={()=>void takeAction(async()=>{await api.activateWithVerifiedPayment(manualActivation.tenantId,manualMethod,manualReceipt,manualNote);setManualActivation(null);setDetails(null);},'Verified payment recorded. Account activated or renewed for 30 days.')}>Confirm & activate for 30 days</button><button className="lexa-platform-text-button" onClick={()=>setManualActivation(null)}>Cancel</button></div>
+              <div className="lexa-platform-controls"><button type="button" className="lexa-platform-button" disabled={working||!manualConfirmed||manualReceipt.trim().length<6||manualReceipt.trim().toUpperCase().startsWith('LXA-')||manualNote.trim().length<12} onClick={()=>void takeAction(async()=>{const decision=await api.activateWithVerifiedPayment(manualActivation.tenantId,manualMethod,manualReceipt,manualNote);if(decision.emailNotification!=='sent')toast.warning('Access is active, but the account email was not delivered. Check the email service.');setManualActivation(null);setDetails(null);},'Verified payment recorded. Account activated or renewed for 30 days.')}>Confirm & activate for 30 days</button><button className="lexa-platform-text-button" onClick={()=>setManualActivation(null)}>Cancel</button></div>
             </div>}
             {profile.role==='super_admin'&&<div className="lexa-platform-controls">
               {details.business.status==='legacy'&&<button className="lexa-platform-danger" disabled={working} onClick={()=>{setAccessOperation({tenantId:details.business.tenant_id,businessName:details.business.business_name,mode:'enroll'});setAccessReason('');setAccessConfirmed(false);}}>Enrol in paid billing</button>}
@@ -517,11 +537,35 @@ export default function PlatformAdministrationPage(){
         {section==='payments'&&<>
           <SectionCard title="Payment review inbox" action={<select aria-label="Filter payment submissions" value={paymentFilter} onChange={e=>setPaymentFilter(e.target.value)}><option value="submitted">Awaiting verification</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>}>
             <p className="lexa-platform-muted">Only verified money received in the official account may activate or renew a subscription. Screenshots and messages support review but never bypass verification.</p>
-            <div className="lexa-platform-table-wrap"><table><thead><tr><th>Business</th><th>Amount</th><th>Reference</th><th>Submitted</th><th>Decision</th></tr></thead><tbody>{payments.map(p=><tr key={p.id}><td><strong>{p.business_name}</strong><small>{p.owner_email||'—'}</small></td><td>{ugx(p.amount_ugx)}<small>{p.method.replaceAll('_',' ')}</small></td><td>{p.transaction_reference||'Message only'}<small>{p.payment_reference}</small></td><td>{date(p.created_at)}</td><td>{p.status==='submitted'&&['super_admin','billing_manager'].includes(profile.role)?<button className="lexa-platform-table-action" onClick={()=>{setReview(p);setVerifiedReference(p.transaction_reference||'');setReviewNote('');setReceiptConfirmed(false);}}>Review</button>:state(p.status)}</td></tr>)}</tbody></table>{!payments.length&&<div className="lexa-platform-empty">No payment submissions match this filter.</div>}</div>
+            <div className="lexa-platform-table-wrap"><table><thead><tr><th>Business</th><th>Amount</th><th>Reference</th><th>Submitted</th><th>Decision</th></tr></thead><tbody>{payments.map(p=><tr key={p.id}><td><strong>{p.business_name}</strong><small>{p.owner_email||'—'}</small></td><td>{ugx(p.amount_ugx)}<small>{p.method.replaceAll('_',' ')}</small></td><td>{p.transaction_reference||'Message only'}<small>{p.payment_reference}</small></td><td>{date(p.created_at)}</td><td>{p.status==='submitted'&&['super_admin','billing_manager'].includes(profile.role)?<button className="lexa-platform-table-action" onClick={()=>{setReview(p);setVerifiedReference('');setReviewNote('');setReceiptConfirmed(false);}}>Review</button>:state(p.status)}</td></tr>)}</tbody></table>{!payments.length&&<div className="lexa-platform-empty">No payment submissions match this filter.</div>}</div>
           </SectionCard>
-          {review&&<SectionCard title={`Verify payment — ${review.business_name}`}><div className="lexa-platform-review"><p><strong>Claimed amount:</strong> {ugx(review.amount_ugx)} · {review.method.replaceAll('_',' ')}</p><p><strong>Customer transaction reference:</strong> {review.transaction_reference||'None provided'}</p><p><strong>Message:</strong> {review.claim_message||'Not supplied'}</p><p><strong>Internal payment request:</strong> {review.payment_reference}</p><p className="lexa-platform-instructions">Check the actual receiving bank or mobile-money account before authorizing. No screenshot or text may bypass this step.</p>
-            <label>Independently verified provider receipt reference<input value={verifiedReference} required maxLength={120} onChange={e=>setVerifiedReference(e.target.value)} placeholder="Confirmed in recipient's account"/></label><label>Internal review note<textarea value={reviewNote} rows={2} maxLength={500} onChange={e=>setReviewNote(e.target.value)}/></label><label className="lexa-platform-checkbox"><input type="checkbox" checked={receiptConfirmed} onChange={e=>setReceiptConfirmed(e.target.checked)}/> I independently verified that UGX 50,000 arrived in the official receiving account.</label><div className="lexa-platform-controls"><button className="lexa-platform-button" disabled={working||!receiptConfirmed||!verifiedReference.trim()} onClick={()=>void takeAction(()=>api.approve(review.id,verifiedReference,reviewNote),'Payment approved. Subscription activated or renewed for 30 days.')}>Confirm payment & activate</button><button className="lexa-platform-danger" disabled={working||!reviewNote.trim()} onClick={()=>void takeAction(()=>api.reject(review.id,reviewNote),'Payment submission rejected with reason.')}>Reject with reason</button><button className="lexa-platform-text-button" onClick={()=>setReview(null)}>Cancel</button></div>
-          </div></SectionCard>}
+          {review&&<SectionCard title={`Payment approval · ${review.business_name}`}>
+            <section className="lexa-platform-review lexa-payment-verification" aria-label="Independent payment verification">
+              <header className="lexa-payment-review-intro">
+                <div><span className="lexa-platform-kicker">PAYMENT EVIDENCE REVIEW</span><h3>Confirm the transfer before granting access</h3><p>LEXA activates the business for 30 days only after you independently verify money in the official receiving account.</p></div>
+                <span className="lexa-payment-amount">{ugx(review.amount_ugx)}<small>Claimed amount</small></span>
+              </header>
+              <dl className="lexa-payment-evidence">
+                <div><dt>Business</dt><dd>{review.business_name}</dd></div>
+                <div><dt>Payment method</dt><dd>{review.method.replaceAll('_',' ')}</dd></div>
+                <div><dt>Customer's stated transfer reference</dt><dd>{review.transaction_reference||'Not supplied — ask for the actual provider reference'}</dd></div>
+                <div><dt>Internal request number — not a provider receipt</dt><dd>{review.payment_reference}</dd></div>
+                {review.claim_message&&<div className="lexa-payment-evidence-full"><dt>Customer message</dt><dd className="lexa-payment-message">{review.claim_message}</dd></div>}
+              </dl>
+              <div className="lexa-payment-verification-warning" role="note"><ShieldCheck size={21}/><div><strong>Check your official bank or mobile-money statement</strong><p>Match the received amount, payment date and provider reference. The customer's screenshot, SMS or internal LXA number alone cannot prove receipt.</p></div></div>
+              <div className="lexa-payment-fields">
+                <label htmlFor="verified-provider-reference"><span className="lexa-payment-step">1</span> Verified provider receipt reference<input id="verified-provider-reference" value={verifiedReference} required minLength={6} maxLength={120} autoComplete="off" onChange={e=>setVerifiedReference(e.target.value)} placeholder="e.g. 44882509807 — from receiving statement" aria-describedby="verified-provider-help"/><small id="verified-provider-help">Enter the reference shown in the receiving account, not “Confirmed” or the internal LXA request number.</small></label>
+                <label htmlFor="payment-review-note"><span className="lexa-payment-step">2</span> How was the transfer verified?<textarea id="payment-review-note" value={reviewNote} rows={3} minLength={12} maxLength={500} onChange={e=>setReviewNote(e.target.value)} placeholder="Official MTN merchant statement; UGX 50,000 received on 7 Nov, reference …"/><small>Note the account, amount and matching transaction for the audit trail.</small></label>
+                <label className="lexa-platform-checkbox lexa-payment-attestation"><input type="checkbox" checked={receiptConfirmed} onChange={e=>setReceiptConfirmed(e.target.checked)}/><span><strong>3. I independently verified receipt of UGX 50,000</strong><small>I checked the official receiving account and matched this exact transfer.</small></span></label>
+              </div>
+              {reviewRequirements.length>0&&<div className="lexa-payment-requirements" role="status"><strong>Before you can confirm:</strong><ul>{reviewRequirements.map(item=><li key={item}>{item}</li>)}</ul></div>}
+              <div className="lexa-platform-controls lexa-payment-actions">
+                <button type="button" className="lexa-platform-button" disabled={working||reviewRequirements.length>0} onClick={()=>void confirmReviewedPayment()}>{working?'Recording payment…':'Confirm payment, activate & email owner'}</button>
+                <button type="button" className="lexa-platform-danger" disabled={working||reviewNote.trim().length<12} onClick={()=>void takeAction(()=>api.reject(review.id,reviewNote),'Payment submission rejected with reason.')}>Reject with reason</button>
+                <button type="button" className="lexa-platform-text-button" onClick={()=>setReview(null)}>Cancel</button>
+              </div>
+            </section>
+          </SectionCard>}
         </>}
 
         {section==='revenue'&&revenue&&<>

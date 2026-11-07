@@ -11,6 +11,7 @@ import {
   nextPaidPeriod, normalizedTransactionReference, safePaymentMethod,
 } from './subscription-policy';
 import { isPlatformRecordId } from './platform-record-id';
+import { sendSubscriptionAccessEmail } from './subscription-access-email';
 
 type PlatformRole = 'super_admin' | 'billing_manager' | 'support_agent' | 'operations_manager' | 'auditor';
 type Actor = { userId: string; role: PlatformRole; mfaEnabled: boolean };
@@ -44,6 +45,26 @@ const bodyObject = (value: unknown): Record<string, unknown> => {
 const key = (value: string): string => { if (!isPlatformRecordId(value)) throw new BadRequestException('Invalid record identifier.'); return value; };
 const pageSize = (value: unknown): number => { const n = Number(value ?? 25); return Number.isInteger(n) ? Math.max(1, Math.min(n, 100)) : 25; };
 const pageOffset = (value: unknown): number => { const n = Number(value ?? 0); return Number.isInteger(n) ? Math.max(0, Math.min(n, 50_000)) : 0; };
+
+/** Prevent a request code or generic acknowledgement from masquerading as a provider receipt. */
+export function isPlausibleProviderReference(value: string): boolean {
+  const normalized = normalizedTransactionReference(value);
+  return normalized.length >= 6 && /[A-Z0-9]/.test(normalized)
+    && !/^(?:OK|PAID|CONFIRMED|VERIFIED|NONE|N\/?A|RECEIVED|SUCCESS)(?:[ ._-].*)?$/.test(normalized);
+}
+
+/** Sending happens after the transaction commits. Email failures never undo a verified payment. */
+async function sendApprovalNotice(email: string | null, business: string, expiresAt: Date, claimId: string): Promise<'sent'|'failed'|'unavailable'> {
+  if (!email?.trim()) return 'unavailable';
+  try {
+    await sendSubscriptionAccessEmail({recipientEmail: email, businessName: business, paidThrough: expiresAt, claimId});
+    return 'sent';
+  } catch (error) {
+    // Keep payment and subscription active. Never log the email address or credentials.
+    console.warn('[billing] Activation notification could not be delivered', {claimId, reason: error instanceof Error ? error.name : 'unknown'});
+    return 'failed';
+  }
+}
 
 /** Session cookies are never accepted as proof of a platform-admin role. */
 class PlatformIdentity {
@@ -344,12 +365,13 @@ export class PlatformAdministrationController extends PlatformIdentity {
     const b=bodyObject(input);
     if(b.confirmation!=='I_VERIFIED_RECEIPT')throw new BadRequestException('Independently verify the actual money received and confirm that you did so.');
     const verifiedReference=normalizedTransactionReference(field(b.verifiedReference,'Verified provider reference',120));
-    const reviewNote=opt(b.note,'Approval note',500);
-    return this.prisma.runWithTenantContext({userId:actor.userId},async()=>{
+    const reviewNote=field(b.note,'Approval note',500);
+    if (reviewNote.length < 12) throw new BadRequestException('Describe how you checked the receiving account (at least 12 characters).');
+    const decision = await this.prisma.runWithTenantContext({userId:actor.userId},async()=>{
       try {
         return await this.prisma.$transaction(async(tx:SqlTx)=>{
-          const claims=await tx.$queryRaw<Array<{id:string;tenant_id:string;status:string;amount_ugx:number;method:string;paid_through:Date|null;subscription_status:string;activated_at:Date|null}>>`
-            SELECT c.id::text,c.tenant_id::text,c.status,c.amount_ugx,c.method,s.paid_through,s.status AS subscription_status,s.activated_at
+          const claims=await tx.$queryRaw<Array<{id:string;tenant_id:string;status:string;amount_ugx:number;method:string;paid_through:Date|null;subscription_status:string;activated_at:Date|null;owner_email:string|null;business_name:string}>>`
+            SELECT c.id::text,c.tenant_id::text,c.status,c.amount_ugx,c.method,s.paid_through,s.status AS subscription_status,s.activated_at,s.owner_email,s.business_name
             FROM platform_payment_claims c JOIN platform_subscriptions s ON s.tenant_id=c.tenant_id
             WHERE c.id=${claimId}::uuid FOR UPDATE OF c,s`;
           const claim=claims[0];
@@ -362,6 +384,7 @@ export class PlatformAdministrationController extends PlatformIdentity {
           if(claim.subscription_status==='suspended'||claim.subscription_status==='archived')throw new ConflictException('This account is suspended or archived. Review its access restrictions before approving payment.');
           if(claim.subscription_status==='legacy')throw new ConflictException('Legacy access cannot be shortened by payment approval. Explicitly transition this account before billing.');
           if(claim.amount_ugx!==SUBSCRIPTION_PRICE_UGX)throw new ConflictException('The claimed payment amount does not match the official subscription price.');
+          if(verifiedReference===normalizedTransactionReference(claim.id) || verifiedReference.startsWith('LXA-') || !isPlausibleProviderReference(verifiedReference)) throw new BadRequestException('Enter the real bank or mobile-money provider reference, not a LEXA request code or review note.');
           const now=new Date();const period=nextPaidPeriod(now,claim.paid_through);
           await tx.$executeRaw`UPDATE platform_payment_claims SET status='approved',verified_reference=${verifiedReference},reviewed_by=${actor.userId}::uuid,
             reviewed_at=${now},review_note=${reviewNote} WHERE id=${claimId}::uuid`;
@@ -372,7 +395,7 @@ export class PlatformAdministrationController extends PlatformIdentity {
           await tx.$executeRaw`INSERT INTO platform_administration_audit(id,actor_user_id,tenant_id,action,details)
             VALUES(${randomUUID()}::uuid,${actor.userId}::uuid,${claim.tenant_id}::uuid,'subscription.payment.approved',
               ${JSON.stringify({paymentClaimId:claimId,startsAt:period.startsAt,endsAt:period.endsAt})}::jsonb)`;
-          return {approved:true,period,expiresAt:period.endsAt};
+          return {approved:true,period,expiresAt:period.endsAt,emailRecipient:claim.owner_email,emailBusiness:claim.business_name};
         },{isolationLevel:'Serializable'});
       }catch(error){
         if(error instanceof ConflictException || error instanceof NotFoundException)throw error;
@@ -380,6 +403,11 @@ export class PlatformAdministrationController extends PlatformIdentity {
         throw error;
       }
     });
+    if ('approved' in decision && decision.approved === true) {
+      const {emailRecipient,emailBusiness,...publicDecision}=decision;
+      return {...publicDecision,emailNotification: await sendApprovalNotice(emailRecipient ?? null,emailBusiness,publicDecision.expiresAt,claimId)};
+    }
+    return decision;
   }
 
   @Post('payments/:claimId/reject') @UseGuards(CsrfGuard)
@@ -409,11 +437,13 @@ export class PlatformAdministrationController extends PlatformIdentity {
     let method:string;
     try{method=safePaymentMethod(b.method);}catch{throw new BadRequestException('Select the verified payment method.');}
     const verifiedReference=normalizedTransactionReference(field(b.verifiedReference,'Verified provider reference',120));
+    if(verifiedReference.startsWith('LXA-') || !isPlausibleProviderReference(verifiedReference))throw new BadRequestException('Enter the real provider reference from the receiving account.');
     const reason=field(b.reason,'Verification note',500);
+    if(reason.length<12)throw new BadRequestException('Describe how you verified the payment with the receiving account.');
     try {
-      return await this.prisma.runWithTenantContext({userId:actor.userId},()=>this.prisma.$transaction(async(tx:SqlTx)=>{
-        const rows=await tx.$queryRaw<Array<{status:string;paid_through:Date|null}>>`
-          SELECT status,paid_through FROM platform_subscriptions WHERE tenant_id=${tenantId}::uuid FOR UPDATE`;
+      const decision = await this.prisma.runWithTenantContext({userId:actor.userId},()=>this.prisma.$transaction(async(tx:SqlTx)=>{
+        const rows=await tx.$queryRaw<Array<{status:string;paid_through:Date|null;owner_email:string|null;business_name:string}>>`
+          SELECT status,paid_through,owner_email,business_name FROM platform_subscriptions WHERE tenant_id=${tenantId}::uuid FOR UPDATE`;
         if(!rows[0])throw new NotFoundException('Business not found.');
         if(rows[0].status==='legacy')throw new ConflictException('Existing protected businesses require an explicit billing transition first.');
         if(rows[0].status==='suspended'||rows[0].status==='archived')throw new ConflictException('Reactivate or restore the account before recording payment.');
@@ -439,8 +469,10 @@ export class PlatformAdministrationController extends PlatformIdentity {
           (id,actor_user_id,tenant_id,action,details)
           VALUES(${randomUUID()}::uuid,${actor.userId}::uuid,${tenantId}::uuid,'subscription.offline_payment_verified',
             ${JSON.stringify({claimId,method,endsAt:period.endsAt,reason})}::jsonb)`;
-        return {activated:true,claimId,period,expiresAt:period.endsAt};
+        return {activated:true,claimId,period,expiresAt:period.endsAt,emailRecipient:rows[0].owner_email,emailBusiness:rows[0].business_name};
       },{isolationLevel:'Serializable'}));
+      const {emailRecipient,emailBusiness,...publicDecision}=decision;
+      return {...publicDecision,emailNotification: await sendApprovalNotice(emailRecipient,emailBusiness,publicDecision.expiresAt,publicDecision.claimId)};
     }catch(error){
       if(error instanceof ConflictException||error instanceof NotFoundException)throw error;
       if(/23505|unique|P2034/.test(String(error)))throw new ConflictException('The payment reference is already used or another review is in progress.');

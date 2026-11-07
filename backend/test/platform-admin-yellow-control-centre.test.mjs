@@ -30,7 +30,7 @@ test('yellow admin design is isolated from the client workspace, with accessible
 });
 
 test('interactive dashboard uses server data, safe reporting controls and no simulated health scores', () => {
-  for (const text of ['api.overview()', 'api.payments(', 'api.revenue()', 'api.health()', 'api.incidents()', 'api.audit()', 'setRevenueDays(', 'setRevenueMode(', 'exportRevenueCsv(', 'Confirm payment & activate']) {
+  for (const text of ['api.overview()', 'api.payments(', 'api.revenue()', 'api.health()', 'api.incidents()', 'api.audit()', 'setRevenueDays(', 'setRevenueMode(', 'exportRevenueCsv(', 'Confirm payment, activate & email owner']) {
     assert.ok(consolePage.includes(text), `Missing dashboard behavior: ${text}`);
   }
   assert.doesNotMatch(consolePage, /Control-centre health score|severityScore.*100/);

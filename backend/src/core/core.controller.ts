@@ -568,7 +568,7 @@ export class CoreController {
   async forgotPassword(@Body() raw: unknown): Promise<{ accepted: true }> {
     const body = asObject(raw);
     const email = requiredString(body.email, 'Email', 254).toLowerCase();
-    const frontendUrl = process.env.FRONTEND_PUBLIC_URL ?? 'https://app.lexaaamaal.com';
+    const frontendUrl = process.env.FRONTEND_PUBLIC_URL ?? 'https://lexaaamaal.com';
     if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) throw new ServiceUnavailableException({ code: 'PASSWORD_RESET_DELIVERY_NOT_CONFIGURED', message: 'Configure RESEND_API_KEY and RESEND_FROM_EMAIL before enabling password recovery.' });
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (user && !user.closedAt) {

@@ -34,3 +34,22 @@
 .auth-page .auth-mobile-brand img,.auth-premium .auth-mobile-brand img{width:clamp(170px,44vw,244px)!important;max-height:82px!important}
 @media(max-width:480px){.auth-page .auth-mobile-brand,.auth-premium .auth-mobile-brand{margin-bottom:16px!important}.auth-page .auth-mobile-brand img,.auth-premium .auth-mobile-brand img{width:min(56vw,210px)!important}}
 @media(min-width:481px) and (max-width:1024px){.auth-page .auth-mobile-brand img,.auth-premium .auth-mobile-brand img{width:clamp(205px,25vw,254px)!important}}
+
+
+/* Clear account access: strong business context, readable controls, small-device support. */
+.auth-page .auth-brand-content h2 {letter-spacing:-.055em;line-height:1.08}
+.auth-page .auth-card .auth-intro {font-size:14px;line-height:1.65;color:#52657e}
+.auth-page .auth-card .auth-eyebrow {font-size:11px;letter-spacing:.11em;font-weight:820;color:#1c66ae}
+.auth-page .auth-field>label {font-size:12px;letter-spacing:.005em;color:#213855}
+.auth-page .auth-input-wrap {border-radius:12px;min-height:53px;background:#fff;transition:border-color .15s ease,box-shadow .15s ease}
+.auth-page .auth-input-wrap input {font-size:15px}
+.auth-page .auth-support-row {gap:13px;flex-wrap:wrap}
+.auth-page .auth-submit {font-size:14px;font-weight:790;letter-spacing:.01em}
+.auth-page .auth-subscription-confirmation {display:flex;align-items:flex-start;gap:12px;padding:15px;margin-bottom:17px;border:1px solid #a9d5bf;border-left:4px solid #218359;border-radius:13px;background:#f1fbf6;color:#24563f;font-size:12px;line-height:1.55}
+.auth-page .auth-subscription-confirmation svg {flex:none;margin-top:3px}
+.auth-page .auth-subscription-confirmation strong {display:block;color:#1a5239;font-size:14px;margin-bottom:4px}
+.auth-page .auth-subscription-confirmation span {display:block}
+.auth-page .auth-demo-link {display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0 0;color:#174a8a;font-size:12px;font-weight:740;text-decoration:none;padding:11px 13px;border:1px solid #d2e3f8;background:#f6f9ff;border-radius:11px}
+.auth-page .auth-demo-link:hover {border-color:#83b1ed;background:#edf5ff}
+.auth-page .auth-demo-link:focus-visible {outline:3px solid #60a5fa;outline-offset:2px}
+@media(max-width:760px){.auth-page .auth-main-panel {padding-top:max(17px,env(safe-area-inset-top))}.auth-page .auth-card {margin-top:14px;margin-bottom:22px}.auth-page .auth-subscription-confirmation{margin-bottom:12px}}
