@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { businessErrorMessage, httpBusinessMessage, platformAdministratorErrorMessage } from './businessMessages';
+import { businessErrorMessage, businessSignInErrorMessage, httpBusinessMessage, platformAdministratorErrorMessage } from './businessMessages';
 
 describe('business-facing messages', () => {
   it('shows sign-in verification failures instead of generic permission messages', () => {
@@ -9,6 +9,14 @@ describe('business-facing messages', () => {
     expect(httpBusinessMessage(403, '', 'ADMIN_ONLY_IDENTITY')).toMatch(/administrator sign-in/i);
     expect(platformAdministratorErrorMessage({status:403,code:'HUMAN_VERIFICATION_REQUIRED'})).toMatch(/security check/i);
     expect(platformAdministratorErrorMessage({status:403})).not.toMatch(/business administrator/i);
+  });
+
+  it('does not accuse a legacy owner of lacking permission when login security returns 403', () => {
+    expect(businessSignInErrorMessage({status:403,message:'Forbidden'})).toMatch(/sign-in security verification/i);
+    expect(businessSignInErrorMessage({status:403,code:'HUMAN_VERIFICATION_REQUIRED'})).toMatch(/Cloudflare verification/i);
+    expect(businessSignInErrorMessage({status:403,code:'CSRF_TOKEN_INVALID'})).toMatch(/Refresh the page/i);
+    expect(businessSignInErrorMessage({status:403,code:'SECURITY_ENROLLMENT_REQUIRED'})).toMatch(/browser enrollment/i);
+    expect(businessSignInErrorMessage({status:401,code:'INVALID_CREDENTIALS'})).toMatch(/password/i);
   });
 
   it('never shows server or database jargon to the customer', () => {

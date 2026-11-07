@@ -10,6 +10,7 @@ import {
   SUBSCRIPTION_PRICE_UGX, SUBSCRIPTION_DAYS, daysRemaining, hasOperationalAccess,
   nextPaidPeriod, normalizedTransactionReference, safePaymentMethod,
 } from './subscription-policy';
+import { isPlatformRecordId } from './platform-record-id';
 
 type PlatformRole = 'super_admin' | 'billing_manager' | 'support_agent' | 'operations_manager' | 'auditor';
 type Actor = { userId: string; role: PlatformRole; mfaEnabled: boolean };
@@ -19,7 +20,6 @@ type SqlTx = {
   $executeRaw(strings: TemplateStringsArray, ...values: unknown[]): Promise<number>;
 };
 type SubscriptionRow = { tenant_id: string; business_name: string; owner_email: string | null; status: 'pending'|'active'|'suspended'|'legacy'|'archived'; paid_through: Date | null; activated_at: Date | null; created_at: Date };
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
 const cookie = (request: FastifyRequest, name: string): string | undefined => {
   for (const item of (request.headers.cookie ?? '').split(';')) {
     const index = item.indexOf('=');
@@ -41,7 +41,7 @@ const bodyObject = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('A valid form is required.');
   return value as Record<string, unknown>;
 };
-const key = (value: string): string => { if (!uuid.test(value)) throw new BadRequestException('Invalid record identifier.'); return value; };
+const key = (value: string): string => { if (!isPlatformRecordId(value)) throw new BadRequestException('Invalid record identifier.'); return value; };
 const pageSize = (value: unknown): number => { const n = Number(value ?? 25); return Number.isInteger(n) ? Math.max(1, Math.min(n, 100)) : 25; };
 const pageOffset = (value: unknown): number => { const n = Number(value ?? 0); return Number.isInteger(n) ? Math.max(0, Math.min(n, 50_000)) : 0; };
 

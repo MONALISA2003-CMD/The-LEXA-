@@ -15,6 +15,10 @@ describe('LEXA API client', () => {
     expect(resolveLexaApiBase('https://www.lexaaamaal.com')).toBe('/api/v1');
     expect(resolveLexaApiBase('/api/v1')).toBe('/api/v1');
     expect(resolveLexaApiBase('https://other-api.example')).toBe('https://other-api.example/api/v1');
+    expect(resolveLexaApiBase('https://lexa-backend-api-live.onrender.com', 'lexaaamaal.com')).toBe('/api/v1');
+    expect(resolveLexaApiBase('https://lexa-backend-api-live.onrender.com', 'www.lexaaamaal.com')).toBe('/api/v1');
+    expect(resolveLexaApiBase('https://lexa-backend-api-live.onrender.com', 'lexareview.vercel.app')).toBe('/api/v1');
+    expect(resolveLexaApiBase('https://lexa-backend-api-live.onrender.com', 'example.test')).toBe('https://lexa-backend-api-live.onrender.com/api/v1');
     expect(resolveLexaApiBase('')).toBe('');
   });
 

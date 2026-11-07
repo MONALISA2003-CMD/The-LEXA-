@@ -6,7 +6,7 @@ import {
   Sparkles, Users, LockKeyhole,
 } from 'lucide-react';
 import { apiAuth } from '../../data/remote/apiAuth';
-import { businessErrorMessage } from '../../data/remote/businessMessages';
+import { businessErrorMessage, businessSignInErrorMessage } from '../../data/remote/businessMessages';
 import { apiBaseUrl, dataProviderMode } from '../../data/remote/runtimeConfig';
 import { PasswordField, PasswordLengthGuide } from './AuthFields';
 import TurnstileWidget, { publicTurnstileSiteKey } from './TurnstileWidget';
@@ -157,7 +157,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
       await apiAuth.resetPassword(token, password);
       navigate('/sign-in?password-updated=1', { replace: true });
     } catch (error) {
-      setFormError(errorMessage(error));
+      setFormError(mode === 'sign-in' ? businessSignInErrorMessage(error) : errorMessage(error));
       setSupportReference(error && typeof error === 'object' && 'requestId' in error && typeof error.requestId === 'string' ? error.requestId : '');
       if(mode==='sign-in'){setTurnstileToken(null);setTurnstileRevision(value=>value+1);}
     } finally {

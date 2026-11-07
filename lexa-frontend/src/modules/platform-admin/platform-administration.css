@@ -352,3 +352,20 @@
 .lexa-admin-login .lexa-turnstile-retry{color:#695012}.lexa-admin-login .lexa-turnstile-retry button{background:rgba(255,255,255,.84);border-color:#cda644;color:#5a430d}
 
 .lexa-admin-login-error .lexa-login-support-reference{display:block;font-size:11px;line-height:1.5;margin-top:7px;overflow-wrap:anywhere;opacity:.85;font-family:ui-monospace,SFMono-Regular,monospace}
+
+/* Account actions must remain visible and usable without horizontal swiping on phones. */
+.lexa-platform-mobile-register{display:none}
+.lexa-platform-list-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lexa-platform-list-actions button{white-space:nowrap;min-height:38px}
+.lexa-platform-details-region,.lexa-platform-user-action-region{scroll-margin-top:18px}
+@media(max-width:720px){
+  .lexa-platform-register-table{display:none}
+  .lexa-platform-mobile-register{display:grid;gap:12px;margin-bottom:14px}
+  .lexa-platform-account-card{padding:16px;border:1px solid #e7d7a7;border-radius:14px;background:#fffcf2;min-width:0}
+  .lexa-platform-account-card header{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .lexa-platform-account-card header strong{font-size:15px;color:#30250d;overflow-wrap:anywhere}
+  .lexa-platform-account-card p{overflow-wrap:anywhere;font-size:12px;margin:8px 0 3px}
+  .lexa-platform-account-card small{display:block;font-size:11px;color:#6f6040;line-height:1.5}
+  .lexa-platform-account-card .lexa-platform-list-actions{margin-top:13px}
+  .lexa-platform-account-card .lexa-platform-list-actions button{flex:1;white-space:normal}
+}

@@ -208,14 +208,19 @@ export function createApiClient(options: ApiClientOptions) {
  * cross-site cookie request, which breaks CSRF and administrator sessions on
  * mobile browsers. Prefer the first-party rewrite for the canonical domain.
  */
-export function resolveLexaApiBase(configured: string): string {
+export function resolveLexaApiBase(configured: string, currentHostname?: string): string {
   const clean = configured.trim().replace(/\/+$/, '');
   if (!clean) return '';
+  // Browser requests from the canonical LEXA Vercel domains must use the
+  // first-party rewrite, even if an older Vercel environment variable points
+  // directly at Render. Cross-site API calls can lose security/CSRF cookies on
+  // modern mobile browsers. The Vercel project already defines /api/v1 routes.
+  if (['lexaaamaal.com','www.lexaaamaal.com','lexareview.vercel.app'].includes((currentHostname??'').toLowerCase())) return '/api/v1';
   if (/^https:\/\/(?:www\.)?lexaaamaal\.com(?:\/api\/v1)?$/i.test(clean)) return '/api/v1';
   return clean.endsWith('/api/v1') ? clean : `${clean}/api/v1`;
 }
 
-const normalizedBase = resolveLexaApiBase(apiBaseUrl);
+const normalizedBase = resolveLexaApiBase(apiBaseUrl, typeof window !== 'undefined' ? window.location.hostname : undefined);
 
 export const apiClient = createApiClient({
   baseUrl: normalizedBase,

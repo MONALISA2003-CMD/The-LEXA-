@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import {
@@ -97,6 +97,9 @@ export default function PlatformAdministrationPage(){
   const [activityPage,setActivityPage]=useState(0);
   const [activityCheckedAt,setActivityCheckedAt]=useState<string|null>(null);
   const [details,setDetails]=useState<Awaited<ReturnType<typeof api.business>>|null>(null);
+  const businessDetailRef=useRef<HTMLDivElement>(null);
+  const userActionRef=useRef<HTMLDivElement>(null);
+  const detailsRequestSerial=useRef(0);
   const [paymentFilter,setPaymentFilter]=useState('submitted');
   const [payments,setPayments]=useState<PlatformPayment[]>([]);
   const [review,setReview]=useState<PlatformPayment|null>(null);
@@ -185,9 +188,33 @@ export default function PlatformAdministrationPage(){
     finally{setWorking(false);}
   }
 
-  async function openDetails(b:PlatformBusiness){
-    try{const value=await api.business(b.tenant_id);setDetails(value);}catch(err){toast.error(businessErrorMessage(err));}
+  /** Every visible account action opens a scoped, audited confirmation panel.
+   * Never perform a destructive account change directly from a listing row.
+   */
+  async function openDetails(b:PlatformBusiness, intent?:'activate'|'suspended'|'reinstate'|'enroll'|'archive'|'restore'){
+    const requestId=++detailsRequestSerial.current;
+    setAccessOperation(null);
+    setManualActivation(null);
+    try{
+      const value=await api.business(b.tenant_id);
+      if(requestId!==detailsRequestSerial.current)return;
+      setDetails(value);
+      if(intent==='activate'){
+        setManualActivation({tenantId:value.business.tenant_id,businessName:value.business.business_name});
+        setManualReceipt('');setManualNote('');setManualConfirmed(false);
+      }else if(intent){
+        setAccessOperation({tenantId:value.business.tenant_id,businessName:value.business.business_name,mode:intent});
+        setAccessReason('');setAccessConfirmed(false);setArchiveConfirmName('');
+      }
+    }catch(err){if(requestId===detailsRequestSerial.current)toast.error(businessErrorMessage(err));}
   }
+
+  useEffect(()=>{
+    if(section==='businesses'&&details)businessDetailRef.current?.scrollIntoView({behavior:'smooth',block:'start'});
+  },[section,details,accessOperation,manualActivation]);
+  useEffect(()=>{
+    if(section==='users'&&userAccessOperation)userActionRef.current?.scrollIntoView({behavior:'smooth',block:'start'});
+  },[section,userAccessOperation]);
 
   async function logoutAdmin(){
     try{await adminAuth.logout();window.location.assign('/platform-admin/login');}
@@ -195,6 +222,7 @@ export default function PlatformAdministrationPage(){
   }
 
   function switchTo(next:Section){
+    detailsRequestSerial.current++;
     setSection(next);
     setMobileOpen(false);
     setDetails(null);
@@ -375,10 +403,32 @@ export default function PlatformAdministrationPage(){
         {section==='businesses'&&<>
           <SectionCard title="Business account register" action={<span className="lexa-platform-muted">50 accounts per page</span>}>
             <div className="lexa-platform-controls"><label className="lexa-platform-search"><Search size={16}/><input aria-label="Search businesses" placeholder="Search by business or owner email" value={query} maxLength={120} onChange={e=>{setQuery(e.target.value);setBusinessPage(0);setUserPage(0);}}/></label></div>
-            <div className="lexa-platform-table-wrap"><table><thead><tr><th>Business</th><th>Account owner</th><th>Subscription</th><th>Paid through</th><th>Review</th></tr></thead><tbody>{businesses.map(b=><tr key={b.tenant_id}><td><strong>{b.business_name}</strong><small>{b.tenant_id.slice(0,8)}</small></td><td>{b.owner_email||'Not recorded'}</td><td>{state(b.status)}</td><td>{date(b.paid_through)}</td><td><button className="lexa-platform-table-action" onClick={()=>void openDetails(b)}>Details</button></td></tr>)}</tbody></table>{!businesses.length&&<div className="lexa-platform-empty">No businesses match the current search.</div>}</div>
+            <p className="lexa-platform-muted">Existing legacy businesses keep access without payment. New pending businesses require independently verified payment. Choose an account to open its management controls.</p>
+            <div className="lexa-platform-table-wrap lexa-platform-register-table"><table><thead><tr><th>Business</th><th>Account owner</th><th>Subscription</th><th>Paid through</th><th>Manage account</th></tr></thead><tbody>{businesses.map(b=><tr key={b.tenant_id}><td><strong>{b.business_name}</strong><small>{b.tenant_id.slice(0,8)}</small></td><td>{b.owner_email||'Not recorded'}</td><td>{state(b.status)}</td><td>{date(b.paid_through)}</td><td><div className="lexa-platform-list-actions">
+              <button type="button" className="lexa-platform-table-action" onClick={()=>void openDetails(b)}>Manage</button>
+              {['super_admin','billing_manager'].includes(profile.role)&&['pending','active'].includes(b.status)&&<button type="button" className="lexa-platform-table-action" onClick={()=>void openDetails(b,'activate')}>Verify payment</button>}
+              {profile.role==='super_admin'&&b.status!=='archived'&&<button type="button" className={b.status==='suspended'?'lexa-platform-table-action':'lexa-platform-danger'} onClick={()=>void openDetails(b,b.status==='suspended'?'reinstate':'suspended')}>{b.status==='suspended'?'Reinstate':'Suspend'}</button>}
+              {profile.role==='super_admin'&&b.status!=='archived'&&<button type="button" className="lexa-platform-danger" onClick={()=>void openDetails(b,'archive')}>Archive</button>}
+              {profile.role==='super_admin'&&b.status==='archived'&&<button type="button" className="lexa-platform-table-action" onClick={()=>void openDetails(b,'restore')}>Restore</button>}
+            </div></td></tr>)}</tbody></table>{!businesses.length&&<div className="lexa-platform-empty">No businesses match the current search.</div>}</div>
+            <div className="lexa-platform-mobile-register" aria-label="Business account management">
+              {businesses.map(b=><article className="lexa-platform-account-card" key={b.tenant_id}>
+                <header><strong>{b.business_name}</strong>{state(b.status)}</header>
+                <p>{b.owner_email||'Owner email not recorded'}</p>
+                <small>Paid through: {date(b.paid_through)}</small>
+                <div className="lexa-platform-list-actions">
+                  <button type="button" className="lexa-platform-table-action" onClick={()=>void openDetails(b)}>Manage account</button>
+                  {['super_admin','billing_manager'].includes(profile.role)&&['pending','active'].includes(b.status)&&<button type="button" className="lexa-platform-table-action" onClick={()=>void openDetails(b,'activate')}>Verify payment</button>}
+                  {profile.role==='super_admin'&&b.status!=='archived'&&<button type="button" className={b.status==='suspended'?'lexa-platform-table-action':'lexa-platform-danger'} onClick={()=>void openDetails(b,b.status==='suspended'?'reinstate':'suspended')}>{b.status==='suspended'?'Reinstate access':'Suspend access'}</button>}
+                  {profile.role==='super_admin'&&b.status!=='archived'&&<button type="button" className="lexa-platform-danger" onClick={()=>void openDetails(b,'archive')}>Archive account</button>}
+                  {profile.role==='super_admin'&&b.status==='archived'&&<button type="button" className="lexa-platform-table-action" onClick={()=>void openDetails(b,'restore')}>Restore account</button>}
+                </div>
+              </article>)}
+              {!businesses.length&&<div className="lexa-platform-empty">No matching business accounts.</div>}
+            </div>
             <div className="lexa-platform-controls"><button className="lexa-platform-table-action" disabled={businessPage===0} onClick={()=>setBusinessPage(n=>n-1)}>Previous page</button><span className="lexa-platform-muted">Page {businessPage+1}</span><button className="lexa-platform-table-action" disabled={businesses.length<50} onClick={()=>setBusinessPage(n=>n+1)}>Next page</button></div>
           </SectionCard>
-          {details&&<SectionCard title={`Account details — ${details.business.business_name}`} action={<button onClick={()=>setDetails(null)} className="lexa-platform-text-button">Close</button>}>
+          {details&&<div ref={businessDetailRef} className="lexa-platform-details-region" role="region" aria-label="Selected business management"><SectionCard title={`Account details — ${details.business.business_name}`} action={<button onClick={()=>setDetails(null)} className="lexa-platform-text-button">Close</button>}>
             <div className="lexa-platform-detail-banner">
               <div>
                 <span>{details.business.owner_email||'Owner email unavailable'}</span>
@@ -422,7 +472,7 @@ export default function PlatformAdministrationPage(){
                 setAccessOperation(null);setDetails(null);
               },'Account change saved and audited.')}>Confirm account change</button><button className="lexa-platform-text-button" onClick={()=>setAccessOperation(null)}>Cancel</button></div>
             </div>}
-          </SectionCard>}
+          </SectionCard></div>}
         </>}
 
         {section==='activity'&&<>
@@ -445,8 +495,16 @@ export default function PlatformAdministrationPage(){
         {section==='users'&&<SectionCard title="Account user directory">
           <p className="lexa-platform-muted">Business members are managed per business. Only super administrators can suspend or reinstate an individual member. This does not modify the business subscription, roles or private records.</p>
           <div className="lexa-platform-controls"><label className="lexa-platform-search"><Search size={16}/><input aria-label="Search users" placeholder="Search by user, email, or business" value={query} maxLength={120} onChange={e=>{setQuery(e.target.value);setBusinessPage(0);setUserPage(0);setUserAccessOperation(null);}}/></label></div>
-          <div className="lexa-platform-table-wrap"><table><thead><tr><th>User</th><th>Business</th><th>Role</th><th>Status</th><th>Joined</th>{profile.role==='super_admin'&&<th>Access controls</th>}</tr></thead><tbody>{users.map(u=><tr key={`${u.tenant_id}-${u.user_id}`}><td><strong>{u.display_name||'No display name'}</strong><small>{u.email}</small></td><td>{u.business_name}</td><td>{state(u.membership_role)}</td><td>{state(u.membership_status)}</td><td>{date(u.joined_at)}</td>{profile.role==='super_admin'&&<td>{(u.membership_status==='ACTIVE'||u.membership_status==='SUSPENDED')?<button type="button" className={u.membership_status==='ACTIVE'?'lexa-platform-danger':'lexa-platform-table-action'} disabled={working} onClick={()=>{setUserAccessOperation({user:u,status:u.membership_status==='ACTIVE'?'suspended':'reinstate'});setUserAccessReason('');setUserAccessConfirmed(false);}}>{u.membership_status==='ACTIVE'?'Suspend user':'Reinstate user'}</button>:<span className="lexa-platform-muted">Invitation not active</span>}</td>}</tr>)}</tbody></table>{!users.length&&<div className="lexa-platform-empty">No user records match the current search.</div>}</div>
-          {profile.role==='super_admin'&&userAccessOperation&&<div className="lexa-platform-review" role="group" aria-label="Confirm user account access change">
+          <div className="lexa-platform-table-wrap lexa-platform-register-table"><table><thead><tr><th>User</th><th>Business</th><th>Role</th><th>Status</th><th>Joined</th>{profile.role==='super_admin'&&<th>Access controls</th>}</tr></thead><tbody>{users.map(u=><tr key={`${u.tenant_id}-${u.user_id}`}><td><strong>{u.display_name||'No display name'}</strong><small>{u.email}</small></td><td>{u.business_name}</td><td>{state(u.membership_role)}</td><td>{state(u.membership_status)}</td><td>{date(u.joined_at)}</td>{profile.role==='super_admin'&&<td>{(u.membership_status==='ACTIVE'||u.membership_status==='SUSPENDED')?<button type="button" className={u.membership_status==='ACTIVE'?'lexa-platform-danger':'lexa-platform-table-action'} disabled={working} onClick={()=>{setUserAccessOperation({user:u,status:u.membership_status==='ACTIVE'?'suspended':'reinstate'});setUserAccessReason('');setUserAccessConfirmed(false);}}>{u.membership_status==='ACTIVE'?'Suspend user':'Reinstate user'}</button>:<span className="lexa-platform-muted">Invitation not active</span>}</td>}</tr>)}</tbody></table>{!users.length&&<div className="lexa-platform-empty">No user records match the current search.</div>}</div>
+          <div className="lexa-platform-mobile-register" aria-label="Business user access management">
+            {users.map(u=><article className="lexa-platform-account-card" key={`${u.tenant_id}-${u.user_id}`}>
+              <header><strong>{u.display_name||u.email}</strong>{state(u.membership_status)}</header>
+              <p>{u.email}</p><small>{u.business_name} · {u.membership_role} · Joined {date(u.joined_at)}</small>
+              {profile.role==='super_admin'&&(u.membership_status==='ACTIVE'||u.membership_status==='SUSPENDED')&&<div className="lexa-platform-list-actions"><button type="button" disabled={working} className={u.membership_status==='ACTIVE'?'lexa-platform-danger':'lexa-platform-table-action'} onClick={()=>{setUserAccessOperation({user:u,status:u.membership_status==='ACTIVE'?'suspended':'reinstate'});setUserAccessReason('');setUserAccessConfirmed(false);}}>{u.membership_status==='ACTIVE'?'Suspend user':'Reinstate user'}</button></div>}
+            </article>)}
+            {!users.length&&<div className="lexa-platform-empty">No matching business users.</div>}
+          </div>
+          {profile.role==='super_admin'&&userAccessOperation&&<div ref={userActionRef} className="lexa-platform-review lexa-platform-user-action-region" role="group" aria-label="Confirm user account access change">
             <h3>{userAccessOperation.status==='suspended'?'Suspend user access':'Reinstate user access'}</h3>
             <p><strong>{userAccessOperation.user.display_name||userAccessOperation.user.email}</strong> · {userAccessOperation.user.business_name}. {userAccessOperation.status==='suspended'?'This pauses the selected membership, including owner membership when selected. Business data remains intact; other businesses are not modified.':'This reactivates only the selected membership. An expired, pending, archived, or suspended business subscription remains blocked.'}</p>
             <label>Reason for the audit trail<textarea required value={userAccessReason} maxLength={400} rows={2} onChange={e=>setUserAccessReason(e.target.value)}/></label>

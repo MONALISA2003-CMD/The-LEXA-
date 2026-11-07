@@ -11,6 +11,8 @@ export function httpBusinessMessage(status: number, rawMessage: string, code?: s
   if (code === 'AUTH_VERIFICATION_NOT_CONFIGURED') return 'LEXA account verification needs administrator configuration. Contact LEXA support.';
   if (code === 'SIGNIN_EMAIL_UNAVAILABLE' || code === 'SIGNUP_EMAIL_FAILED' || code === 'EMAIL_DELIVERY_FAILED' || code === 'EMAIL_DELIVERY_NOT_CONFIGURED') return 'LEXA could not deliver the verification email. Contact LEXA support if this continues.';
   if (code === 'ADMIN_ONLY_IDENTITY') return 'This address is reserved for LEXA administration. Use the yellow administrator sign-in page.';
+  if (code === 'SECURITY_ENROLLMENT_REQUIRED') return 'This account needs secure browser enrollment. Contact your business owner to complete account recovery or authenticator setup.';
+  if (code === 'LEXA_SUBSCRIPTION_REQUIRED') return 'This business is awaiting verified subscription payment. You can still reach the billing and support pages.';
   if (code === 'OWNER_ONLY') return 'LEXA Intelligence is available to the business owner only.';
   if (code === 'AI_USAGE_LIMIT_REACHED') return 'This month’s business assistant requests have reached the plan limit. Try again when the allowance renews.';
   if (code === 'AI_USAGE_RECORD_UNAVAILABLE') return 'The assistant could not record this request. Please try again.';
@@ -61,5 +63,19 @@ export function platformAdministratorErrorMessage(error: unknown): string {
   if(candidate.status===403) return 'Administrator security verification was not accepted. Refresh the page, complete a new challenge, and retry.';
   if(candidate.status===401) return 'Administrator email or password was not accepted. Check your private credentials or request a reset.';
   if(typeof candidate.status === 'number' && candidate.status>=500) return 'The LEXA administrator sign-in service is temporarily unavailable. Please retry shortly.';
+  return businessErrorMessage(error);
+}
+
+/** Authentication has no business record to edit: never present a 403 on login as
+ * "you do not have permission to make this change". Preserve exact known codes.
+ */
+export function businessSignInErrorMessage(error: unknown): string {
+  const candidate = error && typeof error === 'object' ? error as {status?:unknown;code?:unknown} : {};
+  if (candidate.status === 403 && (!candidate.code || ![
+    'CSRF_TOKEN_INVALID','INVALID_CSRF_TOKEN','HUMAN_VERIFICATION_REQUIRED',
+    'ADMIN_ONLY_IDENTITY','SECURITY_ENROLLMENT_REQUIRED','LEXA_SUBSCRIPTION_REQUIRED',
+  ].includes(String(candidate.code)))) {
+    return 'LEXA could not complete sign-in security verification. Refresh this page, complete a new security check and try again. If it continues, share the support reference with LEXA support.';
+  }
   return businessErrorMessage(error);
 }

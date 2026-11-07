@@ -101,3 +101,29 @@ test('platform administrators can auditably suspend and reinstate individual bus
   assert.match(client, /Reinstate user/);
   assert.match(client, /userAccessConfirmed/);
 });
+
+
+test('admin console exposes visible actions for mobile businesses and users',()=>{
+  const styles=source('../../lexa-frontend/src/modules/platform-admin/platform-administration.css');
+  assert.match(client,/lexa-platform-mobile-register/);
+  assert.match(client,/Manage account/);
+  assert.match(client,/Verify payment/);
+  assert.match(client,/Reinstate access/);
+  assert.match(client,/Restore account/);
+  assert.match(client,/ref=\{businessDetailRef\}/);
+  assert.match(client,/ref=\{userActionRef\}/);
+  assert.match(styles,/@media\(max-width:720px\)/);
+  assert.match(styles,/\.lexa-platform-register-table\{display:none\}/);
+  assert.match(client,/manualConfirmed/);
+  assert.match(client,/accessConfirmed/);
+});
+
+test('canonical LEXA login uses same-origin cookies even with older external API configuration',()=>{
+  const client=source('../../lexa-frontend/src/data/remote/apiClient.ts');
+  const errors=source('../../lexa-frontend/src/data/remote/businessMessages.ts');
+  assert.match(client,/currentHostname/);
+  assert.match(client,/lexaaamaal\.com/);
+  assert.match(client,/return '\/api\/v1'/);
+  assert.match(errors,/businessSignInErrorMessage/);
+  assert.match(errors,/sign-in security verification/);
+});

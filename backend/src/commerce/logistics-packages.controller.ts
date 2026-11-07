@@ -23,7 +23,7 @@ function asText(value:unknown,label:string,max:number,optional=false):string {
 }
 function asUuid(value:unknown,label:string):string {
  const text=asText(value,label,80);
- if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(text))throw new BadRequestException(label+' is invalid.');
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text))throw new BadRequestException(label+' is invalid.');
  return text;
 }
 function nonNegative(value:unknown,label:string):number|null{
