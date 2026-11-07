@@ -1,3 +1,4 @@
+import { validateDemoEnvironment } from './demo/demo-policy';
 import './observability';
 import rawBody from 'fastify-raw-body';
 import 'reflect-metadata';
@@ -10,6 +11,7 @@ import helmet from '@fastify/helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
+  validateDemoEnvironment();
   const webhookBodyLimitBytes = 1024 * 1024;
   const apiBodyLimitBytes = 8 * 1024 * 1024;
   // Never trust arbitrary forwarded IP headers. Operators may explicitly provide

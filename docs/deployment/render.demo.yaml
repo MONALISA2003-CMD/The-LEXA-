@@ -1,0 +1,43 @@
+# DEPLOY SEPARATELY from render.yaml. Never replace the production API service.
+# Requires a new Neon project with an empty database named lexa_demo.
+services:
+  - type: web
+    name: lexa-demo-api
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    branch: main
+    autoDeployTrigger: off
+    healthCheckPath: /health/ready
+    numInstances: 1
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: LEXA_RUNTIME_MODE
+        value: demo
+      - key: NODE_ENV
+        value: production
+      - key: DEMO_DATABASE_NAME
+        value: lexa_demo
+      - key: DEMO_ORIGIN
+        value: https://demo.lexaaamaal.com
+      - key: DEMO_TURNSTILE_ENFORCE
+        value: "true"
+      - key: DEMO_IP_HASH_SECRET
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: DATABASE_RUNTIME_ROLE
+        value: lexa_app_runtime
+      - key: FRONTEND_ORIGINS
+        value: https://demo.lexaaamaal.com
+      - key: FRONTEND_PUBLIC_URL
+        value: https://demo.lexaaamaal.com
+      - key: LEXA_AI_ENABLED
+        value: "false"
+      - key: OBSERVABILITY_REQUIRED_IN_PRODUCTION
+        value: "false"

@@ -1,3 +1,5 @@
+import { isDemoDeployment } from '../../data/remote/apiDemo';
+import DemoBanner from '../../modules/demo/DemoBanner';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { Building2, ChevronDown, CircleHelp, Menu, Settings, Store, X, Moon, Sun, Pin, Search } from 'lucide-react';
@@ -300,7 +302,7 @@ export default function AppShell() {
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
   useEffect(() => { if (isApiProvider) { void apiAuth.getSession().then(s => { if(s.requiresPasswordChange) navigate('/change-password',{replace:true}); }).catch(() => {}); } }, [navigate]);
   useEffect(() => {
-    const handleAuthRequired = () => navigate('/sign-in', { replace: true, state: { returnTo: location.pathname, connectionIssue: 'session' } });
+    const handleAuthRequired = () => navigate(isDemoDeployment?'/demo':'/sign-in', { replace: true, state: { returnTo: location.pathname, connectionIssue: 'session' } });
     window.addEventListener('lexa:auth-required', handleAuthRequired);
     return () => window.removeEventListener('lexa:auth-required', handleAuthRequired);
   }, [navigate, location.pathname]);
@@ -335,7 +337,7 @@ export default function AppShell() {
   }, [workspaces, workspace, branches, branch, setActiveWorkspace, setActiveBranch, refreshWorkspaces]);
 
   if (loadError && loadErrorStatus === 401) return (
-    <Navigate to="/sign-in" replace state={{ returnTo: `${location.pathname}${location.search}${location.hash}`, connectionIssue: 'session' }} />
+    <Navigate to={isDemoDeployment ? "/demo" : "/sign-in"} replace state={{ returnTo: `${location.pathname}${location.search}${location.hash}`, connectionIssue: 'session' }} />
   );
   if (loadError) return <main className="error-screen" role="alert">
     <div className="eyebrow eyebrow-blue">BUSINESS ACCESS</div>
@@ -401,6 +403,7 @@ export default function AppShell() {
         </aside>
 
         <main className="main-panel" data-module-accent={moduleAccentForPath(location.pathname)}>
+          {isDemoDeployment && <DemoBanner />}
           <header className="topbar">
             <div className="topbar-title"><LexaLogo compact accent={moduleAccentForPath(location.pathname)} className="lexa-topbar-mark" /><button className="icon-button mobile-menu-button" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}><Menu size={20} /></button><div><div className="eyebrow">BUSINESS WORKSPACE</div><h1>{routeTitle(location.pathname)}</h1></div></div>
             <GlobalSearch />

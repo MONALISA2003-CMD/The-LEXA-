@@ -72,6 +72,7 @@ export class AiRouterService {
   }
 
   status(): { configured: boolean; providers: string[]; paidTierEnabled: boolean } {
+    if (process.env.LEXA_RUNTIME_MODE === 'demo') return {configured:true,providers:['LEXA Demo Assistant (offline sample)'],paidTierEnabled:false};
     const providers = this.providers();
     return {
       configured: providers.length > 0,
@@ -81,6 +82,12 @@ export class AiRouterService {
   }
 
   async complete(input: CompletionInput): Promise<CompletionResult> {
+    // Demonstration analysis is computed locally. Never disclose provider keys,
+    // contact a paid API or send public demo facts to external services.
+    if (process.env.LEXA_RUNTIME_MODE === 'demo') {
+      const facts = Object.entries(input.facts).filter(([k,v])=>/total|count|sales|stock|revenue|expense|profit|balance|quantity|amount/i.test(k) && (typeof v === 'number' || typeof v === 'string')).slice(0,8);
+      return {answer:['## LEXA sample business insights','This is an interactive demonstration using fictional business figures.','### Available indicators',...(facts.length?facts.map(([k,v])=>`- ${k.replace(/_/g,' ')}: ${String(v).slice(0,80)}`):['- Open dashboard and record some sample transactions to generate measurable business indicators.']),'### Suggested next steps','Explore sales and inventory, then refresh business reports to see how records connect. No actual customer data or financial services are used.'].join('\n'),provider:'LEXA Demo Assistant',model:'local-sandbox',inputTokens:0,outputTokens:0,costMicros:0};
+    }
     const candidates = this.providers();
     if (!candidates.length) throw new Error('No eligible AI providers are configured.');
 

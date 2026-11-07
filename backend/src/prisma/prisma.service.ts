@@ -7,7 +7,7 @@ import { currentCorrelationId } from '../request-correlation';
 type TenantDbContext = { tenantId?: string; userId?: string; sessionTokenHash?: string; resetTokenHash?: string; signupEmail?: string; signupTokenHash?: string; loginChallengeHash?: string };
 const tenantDbContext = new AsyncLocalStorage<TenantDbContext>();
 const MODEL_DELEGATES = new Set([
-  'platformAdminMember','platformSubscription','platformPaymentClaim','platformSubscriptionPeriod',
+  'demoSession','platformAdminMember','platformSubscription','platformPaymentClaim','platformSubscriptionPeriod',
   'platformAdministrationAudit','platformSupportCase','platformIncident','platformUserDirectory',
   'tenant','businessProfile','businessActivityRevision','businessPaymentMethod','user','membership','branch','branchMembership','ledgerAccount','accountingPeriod','ledgerJournal','ledgerJournalLine',
   'auditEvent','idempotencyRecord','session','passwordResetToken','trustedDevice','loginChallenge','authenticatorCredential','accountSecurityEvent','userPrivacyPreference','privacyConsentEvent','signupVerification','category','product','moduleRecord','stockMovement','sale','saleLine',

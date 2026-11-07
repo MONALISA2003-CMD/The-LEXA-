@@ -1,3 +1,5 @@
+**New: public LEXA landing website and isolated interactive demo (source release):** [Demo release notes](docs/quality/lexa-demo-release-notes-2026-11-07.md) and [separate-deployment runbook](docs/deployment/public-landing-demo-release.md). These are not yet deployed; the demo must use a new empty database, never the production customer database.
+
 **New: Private five-seat administrator setup (no Neon SQL, no customer account):** [Simple setup runbook](docs/operations/runbooks/private-platform-administrators-five-seat-setup.md).
 
 # LEXA
@@ -220,3 +222,17 @@ repository-import workflow preserves `.github` independently.
 The proposed `/platform-admin` console manages new account approvals, subscription periods, payment claims, business/user directory, subscription revenue, support and evidence-based service health. New verified users enter a payment-pending state; original businesses retain `legacy` operational access until separately authorized transition. The existing `/lexa` marketing page displays UGX 50,000 for 30 days. No demo account or paid infrastructure is created.
 
 **Do not deploy this source without its additive migration, security/RLS review, admin enrollment and GitHub CI.** See `docs/operations/runbooks/platform-control-centre-manual-subscriptions.md` and `docs/quality/platform-control-centre-implementation-audit-2026-11-06.md`. Real payment verification remains an explicit authorized administrative decision; screenshots or customer messages never self-approve.
+
+## Source ZIP imports — prevent Actions #149 root-layout failures
+
+Only `backend/`, `lexa-frontend/`, `docs/`, `scripts/` and the explicitly approved root files may appear in the source ZIP. Marketing source is at `lexa-frontend/marketing/`; demo service settings are at `docs/deployment/`; release notes are at `docs/quality/`. **Do not add root-level `marketing/`, `vercel.json`, `render.demo.yaml` or a free-form release-notes Markdown file.**
+
+Build the import archive outside the repository root, then verify it before uploading it as exactly one new root-level `.zip` to GitHub:
+
+```bash
+python3 scripts/check_repository_layout.py
+python3 scripts/build_source_import_zip.py /tmp/LEXA_Import.zip
+python3 scripts/preflight_import_zip.py /tmp/LEXA_Import.zip
+```
+
+Full repair details and post-import CI acceptance checks: `docs/deployment/public-landing-demo-release.md`.

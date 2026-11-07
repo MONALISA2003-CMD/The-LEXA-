@@ -47,6 +47,7 @@ model Tenant {
   createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
   memberships        Membership[]
+  demoSession        DemoSession?
   branches           Branch[]
   businessProfile    BusinessProfile?
   businessPaymentMethods BusinessPaymentMethod[]
@@ -149,6 +150,7 @@ model User {
   createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
   memberships        Membership[]
+  demoSession        DemoSession?
   auditEvents        AuditEvent[]        @relation("AuditActor")
   sessions           Session[]
   trustedDevices     TrustedDevice[]
@@ -2272,4 +2274,24 @@ model PlatformUserDirectory {
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
   @@id([tenantId, userId])
   @@map("platform_user_directory")
+}
+
+/** Temporary sandbox identities exist ONLY in the separately named lexa_demo database. */
+model DemoSession {
+  id String @id @db.Uuid
+  tenantId String @unique @map("tenant_id") @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+  tokenHash String @unique @map("token_hash")
+  visitorHash String @map("visitor_hash")
+  seedVersion Int @default(1) @map("seed_version")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  endedAt DateTime? @map("ended_at") @db.Timestamptz(3)
+  tenant Tenant @relation(fields:[tenantId],references:[id],onDelete:Restrict)
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+
+  @@index([visitorHash,createdAt])
+  @@index([expiresAt,endedAt])
+  @@map("demo_sessions")
 }

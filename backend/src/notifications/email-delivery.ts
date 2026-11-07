@@ -1,6 +1,8 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 function escapeHtml(value: string): string { return value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!); }
 export async function sendTransactionalEmail(input: { to: string; subject: string; text: string; actionUrl: string; actionLabel: string; html?: string; idempotencyKey?: string }): Promise<void> {
+  // The public demo may NEVER send real external email, even if a key is accidentally configured.
+  if (process.env.LEXA_RUNTIME_MODE === 'demo') throw new ServiceUnavailableException({ code: 'DEMO_EXTERNAL_EMAIL_DISABLED', message: 'Sending external email is disabled in the interactive demonstration.' });
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
   if (!apiKey || !from) throw new ServiceUnavailableException({ code: 'EMAIL_DELIVERY_NOT_CONFIGURED', message: 'Set RESEND_API_KEY and RESEND_FROM_EMAIL in the API environment.' });

@@ -1,0 +1,11 @@
+{
+  "$schema":"https://openapi.vercel.sh/vercel.json",
+  "cleanUrls":true,
+  "trailingSlash":false,
+  "redirects":[{"source":"/lexa.html","destination":"/","permanent":true}],
+  "rewrites":[{"source":"/features","destination":"/features.html"},{"source":"/pricing","destination":"/pricing.html"},{"source":"/security","destination":"/security.html"},{"source":"/help","destination":"/help.html"}],
+  "headers":[
+    {"source":"/(.*)","headers":[{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"},{"key":"X-Frame-Options","value":"DENY"}]},
+    {"source":"/sitemap.xml","headers":[{"key":"Content-Type","value":"application/xml; charset=utf-8"}]}
+  ]
+}

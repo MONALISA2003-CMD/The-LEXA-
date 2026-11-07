@@ -372,6 +372,12 @@
     "rationale": "Tenant-owned customer interactions and follow-up commitments; retained in encrypted business backups"
   },
   {
+    "table": "demo_sessions",
+    "disposition": "excluded",
+    "domain": "identity",
+    "rationale": "Ephemeral isolated-demo session tokens and visitor fingerprints; never restore across environments; session expiry and demo cleanup revoke them."
+  },
+  {
     "table": "equipment_copier_meter_events",
     "disposition": "authoritative",
     "domain": "support",

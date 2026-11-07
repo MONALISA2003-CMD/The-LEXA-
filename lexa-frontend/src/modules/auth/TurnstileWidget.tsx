@@ -10,7 +10,7 @@ const SCRIPT_ID = 'lexa-turnstile-script';
 // This is the public widget identifier; the Siteverify secret is never included in the frontend.
 export const publicTurnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() || (import.meta.env.PROD ? '0x4AAAAAAFzE4aPvB2YCgpLd' : '');
 
-export default function TurnstileWidget({ onToken, action='signup' }: {onToken: (value: string | null) => void; action?: 'signup'|'login'}) {
+export default function TurnstileWidget({ onToken, action='signup' }: {onToken: (value: string | null) => void; action?: 'signup'|'login'|'demo'}) {
   const holder = useRef<HTMLDivElement>(null);
   const callback = useRef(onToken);
   const [retryRevision, setRetryRevision] = useState(0);
@@ -90,7 +90,7 @@ export default function TurnstileWidget({ onToken, action='signup' }: {onToken: 
   return (
     <div className="lexa-turnstile-control">
       <div ref={holder} aria-label="Human verification" />
-      <p className="auth-security-note">{action==='login' ? 'Complete the verification to sign in.' : 'Complete the verification to create your account.'}</p>
+      <p className="auth-security-note">{action==='login' ? 'Complete the verification to sign in.' : action==='demo' ? 'Verify you are human to open the interactive demo.' : 'Complete the verification to create your account.'}</p>
       {needsRetry && (
         <div className="lexa-turnstile-retry" role="status">
           <span>Verification is taking longer than expected.</span>

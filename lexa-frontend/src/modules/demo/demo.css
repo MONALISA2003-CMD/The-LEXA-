@@ -1,0 +1,24 @@
+.lexa-demo-entry{min-height:100vh;min-height:100dvh;background:radial-gradient(circle at 5% 10%,#0753bd 0,#081b42 34%,#050e29 80%);display:flex;align-items:center;justify-content:center;padding:2rem 1rem;color:#112751}
+.lexa-demo-entry-card{width:min(100%,640px);border-radius:28px;padding:clamp(1.4rem,4vw,3rem);background:linear-gradient(130deg,#fff 0%,#eef5ff 95%);box-shadow:0 32px 85px #02092288}
+.lexa-demo-logo{width:175px;height:auto;max-width:100%;margin-bottom:20px}
+.lexa-demo-kicker{display:flex;gap:9px;align-items:center;color:#1267b8;font-size:12px;letter-spacing:1.5px;font-weight:900}
+.lexa-demo-entry h1{font-size:clamp(1.9rem,5vw,3rem);line-height:1.12;letter-spacing:-.035em;color:#092656;margin:18px 0}
+.lexa-demo-entry p{color:#435b78;line-height:1.7}
+.lexa-demo-features{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:25px 0}
+.lexa-demo-features span{display:flex;align-items:center;gap:9px;font-size:13px;color:#294462}
+.lexa-demo-primary{display:flex;justify-content:center;align-items:center;gap:13px;background:linear-gradient(110deg,#0051db,#0098ed);color:white!important;border:0;text-decoration:none;border-radius:13px;width:100%;min-height:57px;font-size:16px;font-weight:750;cursor:pointer}
+.lexa-demo-primary:disabled{opacity:.55;cursor:wait}
+.lexa-demo-error{background:#fff0f0;color:#a01c23!important;padding:12px;border-radius:10px}
+.lexa-demo-entry small{display:block;margin:17px 0;font-size:12px;line-height:1.6;color:#687c93}
+.lexa-demo-back{display:block;text-align:center;color:#145b9f;text-decoration:underline;font-weight:650}
+.lexa-demo-loading{animation:lexa-demo-spin 1s linear infinite}
+@keyframes lexa-demo-spin{to{transform:rotate(360deg)}}
+.lexa-demo-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 18px;background:#e2f5ff;color:#073764;border-bottom:1px solid #9bdaf6;position:relative;z-index:4;font:600 13px system-ui}
+.lexa-demo-banner>span,.lexa-demo-banner>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.lexa-demo-banner strong{letter-spacing:1px;color:#006dd1}
+.lexa-demo-banner small{font-size:12px;color:#466989}
+.lexa-demo-banner button,.lexa-demo-banner a{font:inherit;color:#005a9e;background:white;border:1px solid #abd7f2;border-radius:8px;padding:7px 11px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;text-decoration:none}
+.lexa-demo-banner button:disabled{opacity:.5}
+.lexa-demo-banner p{flex-basis:100%;color:#b32626;margin:0;display:flex;gap:6px;align-items:center}
+@media(max-width:500px){.lexa-demo-features{grid-template-columns:1fr}.lexa-demo-banner{align-items:flex-start}.lexa-demo-banner>div{width:100%}}
+@media print{.lexa-demo-banner{display:none!important}body::after{content:'LEXA DEMO — FICTIONAL SAMPLE RECORD';position:fixed;bottom:1rem;left:1rem;color:#a22;font-weight:bold;font-size:13px}}
