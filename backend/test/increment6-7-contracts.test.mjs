@@ -113,7 +113,12 @@ test('backend contracts retain idempotent source processing, no payment collecti
   assert.match(invoices, /postRecurringInvoiceJournal/);
   assert.doesNotMatch(invoices, /stripe|paymentIntent|chargeCustomer|collectPayment/i);
   assert.match(webhook, /verifyResendWebhookSignature/);
-  assert.match(webhook, /ON CONFLICT\(provider_event_id\) DO NOTHING/);
+  // Webhook deduplication now lives in a narrow SECURITY DEFINER gateway
+  // instead of allowing runtime direct access to cross-business event tables.
+  const migration = await readFile(new URL('../prisma/migrations/20261113100000_notification_webhook_rls_gate/migration.sql', import.meta.url), 'utf8');
+  assert.match(webhook, /lexa_notification_webhook_claim/);
+  assert.match(migration, /ON CONFLICT \(provider_event_id\) DO NOTHING/);
+  assert.doesNotMatch(migration, /FORCE ROW LEVEL SECURITY/);
 });
 
 

@@ -51,8 +51,30 @@ else: errors.append("Missing Prisma migrations directory")
 # Dependency graph must be deterministic. After the cleaner restores the
 # repository's known-good committed lockfiles, never tolerate silent drift.
 import subprocess
+import os
 lock_check = subprocess.run(['python3',str(ROOT/'scripts/verify_dependency_locks.py'),'--check'],capture_output=True,text=True)
 if lock_check.returncode: errors.append('Dependency-lock mismatch: '+lock_check.stdout+lock_check.stderr)
+# GitHub Actions #170: npm 11 accepted a lockfile missing a nested webpack
+# entry required by the Node 22 runner's npm 10. Validate with *the same npm*
+# as the active runner before any install; no package downloads or scripts run.
+# The explicit local switch lets release tooling simulate GitHub in a clean
+# checkout without turning npm into a mandatory dependency for Python-only QA.
+if os.environ.get('GITHUB_ACTIONS') == 'true' or os.environ.get('LEXA_VALIDATE_NPM_CI') == '1':
+    for app in ('backend', 'lexa-frontend'):
+        try:
+            dry_run = subprocess.run(
+                ['npm', 'ci', '--dry-run', '--offline', '--ignore-scripts', '--no-audit', '--no-fund'],
+                cwd=ROOT/app, capture_output=True, text=True, timeout=90,
+            )
+            if dry_run.returncode:
+                lines = (dry_run.stdout + '\n' + dry_run.stderr).splitlines()
+                key_lines = [line for line in lines if any(
+                    marker in line for marker in ('npm error code', 'npm error Missing:',
+                                                 'npm error Invalid:', 'npm error EUSAGE'))]
+                detail = '\n'.join(key_lines[:12] or lines[-15:])
+                errors.append(f'{app} npm ci lock graph rejected by the active runner: {detail}')
+        except (OSError, subprocess.TimeoutExpired) as error:
+            errors.append(f'{app} npm ci lock graph preflight failed: {error}')
 result = subprocess.run(['python3',str(ROOT/'scripts/sync_industry_catalogue.py'),'--check'],capture_output=True,text=True)
 if result.returncode: errors.append('Industry contract mismatch: '+result.stdout+result.stderr)
 if errors:

@@ -53,7 +53,7 @@ if(endpoint){
   otel=new NodeSDK({
     resource:resourceFromAttributes({'service.name':process.env.OTEL_SERVICE_NAME||'lexa-api','service.version':release,'deployment.environment':environment}),
     traceExporter:new OTLPTraceExporter({url:process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT||`${endpoint}/v1/traces`}),
-    metricReader:new PeriodicExportingMetricReader({exporter:new OTLPMetricExporter({url:process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT||`${endpoint}/v1/metrics`}),exportIntervalMillis:30000}),
+    metricReaders:[new PeriodicExportingMetricReader({exporter:new OTLPMetricExporter({url:process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT||`${endpoint}/v1/metrics`}),exportIntervalMillis:30000})],
     instrumentations:[getNodeAutoInstrumentations({
       '@opentelemetry/instrumentation-fs':{enabled:false},
       '@opentelemetry/instrumentation-dns':{enabled:false},

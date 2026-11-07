@@ -1,4 +1,4 @@
-import { Controller, Post, Req, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Req, UnauthorizedException, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { createHash } from 'node:crypto';
 import { normalizeRawBody, verifyResendWebhookSignature } from './resend-signature';
@@ -27,16 +27,19 @@ export class ResendWebhookController {
     const providerMessageId = suppliedMessageId && suppliedMessageId.length <= 250 ? suppliedMessageId : null;
     const eventCreatedAt = typeof payload?.created_at === 'string' && !Number.isNaN(Date.parse(payload.created_at)) ? new Date(payload.created_at) : null;
     const evidence = { eventType, providerMessageIdHash: providerMessageId ? createHash('sha256').update(providerMessageId).digest('hex') : null };
-    const inserted = await this.prisma.$queryRaw<any[]>`
-      INSERT INTO notification_email_webhook_events(id,provider_event_id,event_type,provider_created_at,safe_evidence,received_at)
-      VALUES(gen_random_uuid(),${id},${eventType},${eventCreatedAt},${JSON.stringify(evidence)}::jsonb,now())
-      ON CONFLICT(provider_event_id) DO NOTHING RETURNING id::text`;
-    if (!inserted.length) return { received: true, duplicate: true };
-    if (!providerMessageId) return { received: true, mapped: false };
-    const route = await this.prisma.$queryRaw<any[]>`
-      SELECT tenant_id::text,delivery_id::text FROM notification_email_webhook_routes WHERE provider_message_id=${providerMessageId} LIMIT 1`;
-    if (!route.length) return { received: true, mapped: false };
-    const tenantId = String(route[0].tenant_id); const deliveryId = String(route[0].delivery_id);
+    // A signed provider request is verified above; direct runtime access to these
+    // cross-tenant webhook tables is prohibited by the RLS migration.
+    const route = await this.prisma.$queryRaw<Array<{
+      event_uuid: string; mapped_tenant_id: string | null; mapped_delivery_id: string | null;
+      already_processed: boolean;
+    }>>`
+      SELECT * FROM lexa_notification_webhook_claim(
+        ${id},${eventType},${eventCreatedAt},${JSON.stringify(evidence)}::jsonb,${providerMessageId})`;
+    const claim = route[0];
+    if (!claim) throw new ServiceUnavailableException('Webhook evidence could not be recorded.');
+    if (claim.already_processed) return { received: true, duplicate: true };
+    if (!providerMessageId || !claim.mapped_tenant_id || !claim.mapped_delivery_id) return { received: true, mapped: false };
+    const tenantId = claim.mapped_tenant_id; const deliveryId = claim.mapped_delivery_id;
     this.prisma.enterTenantContext(tenantId);
     const deliveries = await this.prisma.$queryRaw<any[]>`
       SELECT id::text,recipient_user_id::text,recipient_email FROM notification_email_deliveries
@@ -57,7 +60,11 @@ export class ResendWebhookController {
     } else if (eventType === 'email.failed') {
       await this.prisma.$executeRaw`UPDATE notification_email_deliveries SET status='failed',last_error_code='PROVIDER_FAILED',last_error_summary='Resend reported a delivery failure.',updated_at=now() WHERE id=${deliveryId}::uuid AND tenant_id=${tenantId}::uuid`;
     }
-    await this.prisma.$executeRaw`UPDATE notification_email_webhook_events SET delivery_id=${deliveryId}::uuid,tenant_id=${tenantId}::uuid,processed_at=now() WHERE provider_event_id=${id}`;
+    // Confirm that the provider message still belongs to the same tenant.
+    const [finished] = await this.prisma.$queryRaw<Array<{ finished: boolean }>>`
+      SELECT lexa_notification_webhook_finish(
+        ${id},${providerMessageId},${tenantId}::uuid,${deliveryId}::uuid) AS finished`;
+    if (!finished?.finished) throw new ServiceUnavailableException('Webhook routing changed; provider may retry.');
     return { received: true, mapped: true };
   }
 }

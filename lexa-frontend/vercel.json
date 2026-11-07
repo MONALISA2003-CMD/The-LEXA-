@@ -188,5 +188,12 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/demo/demo",
+      "destination": "/demo/",
+      "permanent": true
+    }
   ]
 }

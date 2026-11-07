@@ -25,7 +25,7 @@ export default function DemoBanner() {
     return () => { active = false; window.clearInterval(timer); };
   }, []);
   const remaining = deadline === null ? null : Math.max(0, Math.ceil((deadline-now)/60_000));
-  useEffect(() => { if (isBrowserDemoBuild && deadline && now >= deadline) { void resetBrowserDemo().then(() => window.location.replace('/demo/demo')); } }, [deadline, now]);
+  useEffect(() => { if (isBrowserDemoBuild && deadline && now >= deadline) { void resetBrowserDemo().then(() => window.location.replace('/demo/')); } }, [deadline, now]);
   const reset = async () => {
     if (!window.confirm('Start a new sample business? Your changes in this demo will be lost.')) return;
     setBusy(true); setMessage('');
@@ -33,7 +33,7 @@ export default function DemoBanner() {
       if (isBrowserDemoBuild) await resetBrowserDemo();
       else await apiDemo.reset();
       try { window.sessionStorage.removeItem('lexa.demo.guide.hidden'); } catch { /* Optional browser setting. */ }
-      window.location.replace(isBrowserDemoBuild ? '/demo/demo' : '/');
+      window.location.replace(isBrowserDemoBuild ? '/demo/' : '/');
     }
     catch (error) { setMessage(error instanceof Error ? error.message : 'The sample business could not be reset.'); setBusy(false); }
   };

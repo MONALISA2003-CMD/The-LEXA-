@@ -15,6 +15,9 @@ import { localReportsRepository } from '../../data/local/reports';
 import { getBrowserDemoAnalytics } from './browserDemoAnalytics';
 import type { DashboardPeriod } from '../../data/contracts/dashboardAnalytics';
 import { LineTrendChart, BarBreakdownChart } from '../../components/charts/Charts';
+import SampleAssistant from './SampleAssistant';
+import SampleEmployment from './SampleEmployment';
+import SampleBusiness from './SampleBusiness';
 import './demo.css';
 
 function money(amount: number): string {
@@ -98,8 +101,8 @@ function SampleSettings() {
     <header className="lexa-browser-demo-heading"><span>DEMO SETTINGS</span><h1>Account & business settings</h1><p>The demo keeps the four LEXA settings groups. Sensitive account and payment controls are disabled because this is not a signed-in customer account.</p></header>
     <div className="lexa-browser-demo-settings-grid">
       <section><span>01 · BUSINESS PROFILE</span><h2>Business profile</h2><p><strong>{workspace.businessName}</strong><br/>Branch: {branch.name}<br/>Currency: {workspace.currency}</p><p>Sample business details are stored only in this browser.</p></section>
-      <section><span>02 · ACCOUNT SECURITY</span><h2>Account security</h2><p>No customer password, authenticator or real account is connected to the browser demo.</p><a href="/sign-in">Sign in to your own account →</a></section>
-      <section><span>03 · PRIVACY PREFERENCES</span><h2>Privacy preferences</h2><p>Sample records never synchronize to LEXA's production API. Reset the demo to clear the fictional data.</p><Link to="/demo">Demo controls →</Link></section>
+      <section><span>02 · ACCOUNT SECURITY</span><h2>Account security</h2><p>No customer password, authenticator or real account is connected to the browser demo.</p><a href="https://lexaaamaal.com/sign-in">Sign in to your own account →</a></section>
+      <section><span>03 · PRIVACY PREFERENCES</span><h2>Privacy preferences</h2><p>Sample records never synchronize to LEXA's production API. Reset the demo to clear the fictional data.</p><Link to="/">Sample overview →</Link></section>
       <section><span>04 · BUSINESS TOOLS</span><h2>Business tools</h2><p>Browse purchasing, stock, accounts and people registers. Data imports and external integrations are unavailable in this sample.</p><Link to="/modules/purchases">View sample purchasing →</Link></section>
     </div>
   </div>;
@@ -107,7 +110,10 @@ function SampleSettings() {
 
 export default function BrowserDemoAreaPage({ path }: { path: string }) {
   const { workspace, branch } = useWorkspace();
-  if (path === '/reports' || path === '/intelligence') return <SampleReports/>;
+  if (path === '/reports') return <SampleReports/>;
+  if (path === '/intelligence') return <SampleAssistant/>;
+  if (path === '/my-employment') return <SampleEmployment/>;
+  if (path === '/workspace') return <SampleBusiness/>;
   if (path === '/modules/finance-overview' || path === '/modules/finance-operations') return <SampleReports finance/>;
   if (path === '/settings' || path === '/business-setup') return <SampleSettings/>;
   const id = path === '/team' ? 'employees' : path.replace(/^\/modules\//, '').split('/')[0] ?? '';

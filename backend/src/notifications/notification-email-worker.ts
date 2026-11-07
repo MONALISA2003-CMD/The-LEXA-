@@ -80,9 +80,12 @@ export async function processNotificationEmail(pool: Pool, tenantId: string, del
     if (!messageId) throw new Error('Resend returned a success response without a provider message ID.');
     await client.query("UPDATE notification_email_deliveries SET status='sent',provider_message_id=$3,sent_at=now(),last_error_code=NULL,last_error_summary=NULL,updated_at=now() WHERE id=$1::uuid AND tenant_id=$2::uuid", [deliveryId, tenantId, messageId]);
     if (messageId) {
+      // ON CONFLICT DO NOTHING deliberately omits a conflict target. PostgreSQL
+      // would otherwise require SELECT privilege on the webhook route table,
+      // which RLS correctly denies to tenant workers.
       await client.query(
         `INSERT INTO notification_email_webhook_routes(provider_message_id,tenant_id,delivery_id,created_at)
-         VALUES($1,$2::uuid,$3::uuid,now()) ON CONFLICT(provider_message_id) DO NOTHING`,
+         VALUES($1,$2::uuid,$3::uuid,now()) ON CONFLICT DO NOTHING`,
         [messageId, tenantId, deliveryId],
       );
     }
