@@ -290,6 +290,42 @@ export class PlatformAdministrationController extends PlatformIdentity {
       ORDER BY d.joined_at DESC LIMIT ${pageSize(limit)} OFFSET ${pageOffset(offset)}`);
   }
 
+  /** A platform super administrator may restrict a single business membership.
+   * This never mutates roles, deletes users, or grants a paid subscription.
+   * All changes are auditable and remain subject to workspace subscription checks.
+   */
+  @Post('users/:tenantId/:userId/access') @UseGuards(CsrfGuard)
+  async userAccess(@Req() request:FastifyRequest,@Param('tenantId') tenantId:string,
+    @Param('userId') userId:string,@Body() input:unknown) {
+    const actor=await this.admin(request,['super_admin']);key(tenantId);key(userId);
+    const b=bodyObject(input);
+    if(b.confirmation!=='I_APPROVE_USER_ACCESS_CHANGE')throw new BadRequestException('Confirm the user access change.');
+    if(b.status!=='suspended'&&b.status!=='reinstate')throw new BadRequestException('Choose suspend or reinstate.');
+    const reason=field(b.reason,'Reason for user access change',400);
+    const operation=b.status;
+    return this.prisma.runWithTenantContext({tenantId,userId:actor.userId},()=>
+      this.prisma.$transaction(async(tx:SqlTx)=>{
+        const records=await tx.$queryRaw<Array<{status:string;role:string}>>`
+          SELECT status::text,role FROM memberships
+          WHERE tenant_id=${tenantId}::uuid AND user_id=${userId}::uuid FOR UPDATE`;
+        const previous=records[0];
+        if(!previous)throw new NotFoundException('User membership not found in this business.');
+        if(previous.status!==(operation==='suspended'?'ACTIVE':'SUSPENDED')) {
+          throw new ConflictException(operation==='suspended'?'Only active members can be suspended.':'Only suspended members can be reinstated.');
+        }
+        const next=operation==='suspended'?'SUSPENDED':'ACTIVE';
+        await tx.$executeRaw`UPDATE memberships SET status=${next}::"MembershipStatus",updated_at=now()
+          WHERE tenant_id=${tenantId}::uuid AND user_id=${userId}::uuid`;
+        // The directory is refreshed by the existing membership trigger.
+        // All future workspace operations independently check ACTIVE membership.
+        await tx.$executeRaw`INSERT INTO platform_administration_audit(id,actor_user_id,tenant_id,action,details)
+          VALUES(${randomUUID()}::uuid,${actor.userId}::uuid,${tenantId}::uuid,
+            ${operation==='suspended'?'platform.user.suspended':'platform.user.reinstated'},
+            ${JSON.stringify({userId,role:previous.role,previousStatus:previous.status,reason})}::jsonb)`;
+        return {tenantId,userId,status:next,role:previous.role};
+      },{isolationLevel:'Serializable'}));
+  }
+
   @Get('payments')
   async payments(@Req() request:FastifyRequest,@Query('status') status?:string) {
     const actor=await this.admin(request,['super_admin','billing_manager','auditor']);

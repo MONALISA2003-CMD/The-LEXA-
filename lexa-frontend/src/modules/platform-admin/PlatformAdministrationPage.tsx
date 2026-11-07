@@ -87,6 +87,9 @@ export default function PlatformAdministrationPage(){
   const [businessPage,setBusinessPage]=useState(0);
   const [userPage,setUserPage]=useState(0);
   const [users,setUsers]=useState<PlatformUser[]>([]);
+  const [userAccessOperation,setUserAccessOperation]=useState<{user:PlatformUser;status:'suspended'|'reinstate'}|null>(null);
+  const [userAccessReason,setUserAccessReason]=useState('');
+  const [userAccessConfirmed,setUserAccessConfirmed]=useState(false);
   const [adminTeam,setAdminTeam]=useState<PlatformAdminTeamMember[]>([]);
   const [inviteEmail,setInviteEmail]=useState('');
   const [inviteRole,setInviteRole]=useState<PlatformRole>('super_admin');
@@ -197,6 +200,7 @@ export default function PlatformAdministrationPage(){
     setDetails(null);
     setReview(null);
     setAccessOperation(null);
+    setUserAccessOperation(null);
     setManualActivation(null);
     setArchiveConfirmName('');
     setQuery('');
@@ -439,10 +443,17 @@ export default function PlatformAdministrationPage(){
           </SectionCard>
         </>}
         {section==='users'&&<SectionCard title="Account user directory">
-          <p className="lexa-platform-muted">Limited membership metadata only. Passwords, private business transactions and security secrets are not exposed. Employee roles remain controlled by each business owner.</p>
-          <div className="lexa-platform-controls"><label className="lexa-platform-search"><Search size={16}/><input aria-label="Search users" placeholder="Search by user, email, or business" value={query} maxLength={120} onChange={e=>{setQuery(e.target.value);setBusinessPage(0);setUserPage(0);}}/></label></div>
-          <div className="lexa-platform-table-wrap"><table><thead><tr><th>User</th><th>Business</th><th>Role</th><th>Status</th><th>Joined</th></tr></thead><tbody>{users.map(u=><tr key={`${u.tenant_id}-${u.user_id}`}><td><strong>{u.display_name||'No display name'}</strong><small>{u.email}</small></td><td>{u.business_name}</td><td>{state(u.membership_role)}</td><td>{state(u.membership_status)}</td><td>{date(u.joined_at)}</td></tr>)}</tbody></table>{!users.length&&<div className="lexa-platform-empty">No user records match the current search.</div>}</div>
-          <div className="lexa-platform-controls"><button className="lexa-platform-table-action" disabled={userPage===0} onClick={()=>setUserPage(n=>n-1)}>Previous page</button><span className="lexa-platform-muted">Page {userPage+1}</span><button className="lexa-platform-table-action" disabled={users.length<50} onClick={()=>setUserPage(n=>n+1)}>Next page</button></div>
+          <p className="lexa-platform-muted">Business members are managed per business. Only super administrators can suspend or reinstate an individual member. This does not modify the business subscription, roles or private records.</p>
+          <div className="lexa-platform-controls"><label className="lexa-platform-search"><Search size={16}/><input aria-label="Search users" placeholder="Search by user, email, or business" value={query} maxLength={120} onChange={e=>{setQuery(e.target.value);setBusinessPage(0);setUserPage(0);setUserAccessOperation(null);}}/></label></div>
+          <div className="lexa-platform-table-wrap"><table><thead><tr><th>User</th><th>Business</th><th>Role</th><th>Status</th><th>Joined</th>{profile.role==='super_admin'&&<th>Access controls</th>}</tr></thead><tbody>{users.map(u=><tr key={`${u.tenant_id}-${u.user_id}`}><td><strong>{u.display_name||'No display name'}</strong><small>{u.email}</small></td><td>{u.business_name}</td><td>{state(u.membership_role)}</td><td>{state(u.membership_status)}</td><td>{date(u.joined_at)}</td>{profile.role==='super_admin'&&<td>{(u.membership_status==='ACTIVE'||u.membership_status==='SUSPENDED')?<button type="button" className={u.membership_status==='ACTIVE'?'lexa-platform-danger':'lexa-platform-table-action'} disabled={working} onClick={()=>{setUserAccessOperation({user:u,status:u.membership_status==='ACTIVE'?'suspended':'reinstate'});setUserAccessReason('');setUserAccessConfirmed(false);}}>{u.membership_status==='ACTIVE'?'Suspend user':'Reinstate user'}</button>:<span className="lexa-platform-muted">Invitation not active</span>}</td>}</tr>)}</tbody></table>{!users.length&&<div className="lexa-platform-empty">No user records match the current search.</div>}</div>
+          {profile.role==='super_admin'&&userAccessOperation&&<div className="lexa-platform-review" role="group" aria-label="Confirm user account access change">
+            <h3>{userAccessOperation.status==='suspended'?'Suspend user access':'Reinstate user access'}</h3>
+            <p><strong>{userAccessOperation.user.display_name||userAccessOperation.user.email}</strong> · {userAccessOperation.user.business_name}. {userAccessOperation.status==='suspended'?'This pauses the selected membership, including owner membership when selected. Business data remains intact; other businesses are not modified.':'This reactivates only the selected membership. An expired, pending, archived, or suspended business subscription remains blocked.'}</p>
+            <label>Reason for the audit trail<textarea required value={userAccessReason} maxLength={400} rows={2} onChange={e=>setUserAccessReason(e.target.value)}/></label>
+            <label className="lexa-platform-checkbox"><input type="checkbox" checked={userAccessConfirmed} onChange={e=>setUserAccessConfirmed(e.target.checked)}/> I have verified the account and authorized this change.</label>
+            <div className="lexa-platform-controls"><button type="button" className={userAccessOperation.status==='suspended'?'lexa-platform-danger':'lexa-platform-button'} disabled={working||!userAccessConfirmed||userAccessReason.trim().length<5} onClick={()=>void takeAction(async()=>{await api.userAccess(userAccessOperation.user.tenant_id,userAccessOperation.user.user_id,userAccessOperation.status,userAccessReason);setUserAccessOperation(null);},'User membership access updated and audited.')}>Confirm {userAccessOperation.status==='suspended'?'suspension':'reinstatement'}</button><button type="button" className="lexa-platform-text-button" onClick={()=>setUserAccessOperation(null)}>Cancel</button></div>
+          </div>}
+          <div className="lexa-platform-controls"><button className="lexa-platform-table-action" disabled={userPage===0} onClick={()=>{setUserPage(n=>n-1);setUserAccessOperation(null);}}>Previous page</button><span className="lexa-platform-muted">Page {userPage+1}</span><button className="lexa-platform-table-action" disabled={users.length<50} onClick={()=>{setUserPage(n=>n+1);setUserAccessOperation(null);}}>Next page</button></div>
         </SectionCard>}
 
         {section==='payments'&&<>

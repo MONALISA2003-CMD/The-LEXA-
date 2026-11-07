@@ -43,6 +43,7 @@ export const apiPlatformAdministration = {
   businesses:(q='',offset=0) => apiClient.get<PlatformBusiness[]>(`${base}/businesses`,{q,limit:50,offset}),
   users:(q='',offset=0) => apiClient.get<PlatformUser[]>(`${base}/users`,{q,limit:50,offset}),
   activity:(limit=100,offset=0) => apiClient.get<PlatformAccountActivity[]>(`${base}/activity`,{limit,offset}),
+  userAccess:(tenantId:string,userId:string,status:'suspended'|'reinstate',reason:string)=>apiClient.post(`${base}/users/${encodeURIComponent(tenantId)}/${encodeURIComponent(userId)}/access`,{status,reason,confirmation:'I_APPROVE_USER_ACCESS_CHANGE'}),
   business:(id:string)=>apiClient.get<{business:PlatformBusiness;payments:PlatformPayment[];periods:Array<{starts_at:string;ends_at:string;amount_ugx:number;created_at:string}>}>(`${base}/businesses/${encodeURIComponent(id)}`),
   payments:(status='submitted')=>apiClient.get<PlatformPayment[]>(`${base}/payments`,{status}),
   approve:(id:string,verifiedReference:string,note:string)=>apiClient.post(`${base}/payments/${encodeURIComponent(id)}/approve`,{verifiedReference,note,confirmation:'I_VERIFIED_RECEIPT'}),

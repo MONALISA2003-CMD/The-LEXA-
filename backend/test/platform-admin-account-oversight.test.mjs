@@ -86,3 +86,18 @@ test('yellow administrator recovery uses dedicated one-time tokens without a bac
   assert.doesNotMatch(recovery,/ADMIN_PASSWORD|bootstrapSecret|localStorage|recoveryBypass/);
 });
 
+
+test('platform administrators can auditably suspend and reinstate individual business memberships',()=>{
+  const clientApi=source('../../lexa-frontend/src/data/remote/apiPlatformAdministration.ts');
+  assert.match(api, /@Post\('users\/:tenantId\/:userId\/access'\)/);
+  assert.match(api, /userAccess[\s\S]{0,500}this\.admin\(request,\['super_admin'\]\)/);
+  assert.match(api, /b\.confirmation!=='I_APPROVE_USER_ACCESS_CHANGE'/);
+  assert.match(api, /previous\.status!==\(operation==='suspended'\?'ACTIVE':'SUSPENDED'\)/);
+  assert.match(api, /UPDATE memberships SET status=/);
+  assert.match(api, /'platform\.user\.suspended':'platform\.user\.reinstated'/);
+  assert.match(api, /isolationLevel:'Serializable'/);
+  assert.match(clientApi, /userAccess:/);
+  assert.match(client, /Suspend user/);
+  assert.match(client, /Reinstate user/);
+  assert.match(client, /userAccessConfirmed/);
+});
