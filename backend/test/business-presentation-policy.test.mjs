@@ -38,7 +38,8 @@ test('navigation preserves role restrictions without hiding permitted modules',(
  assert.match(appShell,/const visibleNavSections = navSections/);
  assert.match(appShell,/isEmployeeNavigationAllowed/);
  assert.match(appShell,/filteredNav\.map\(\(section\)/);
- assert.match(appShell,/Find a module/);
+ assert.match(appShell,/Find a page/);
+ assert.match(appShell,/BUSINESS AREAS/);
  assert.doesNotMatch(appShell,/Browse \$\{hiddenModuleCount\} additional modules|hiddenModuleCount|showMoreModules/);
 });
 

@@ -46,7 +46,8 @@ test('authentication, onboarding and public pages do not reference the retired l
 });
 
 test('sidebar, loading and receipt marks use the official image silhouette',()=>{
-  assert.match(content('src/app/layouts/AppShell.tsx'),/<LexaLogo accent=\{moduleAccentForPath\(location\.pathname\)\} onDark/);
+  assert.match(content('src/app/layouts/AppShell.tsx'),/<LexaLogo accent="navy" onDark/);
+  assert.match(content('src/app/layouts/AppShell.tsx'),/data-module-accent=\{moduleAccentForPath\(location\.pathname\)\}/);
   assert.match(content('src/app/layouts/AppShell.tsx'),/<LexaLogo compact variant="master"/);
   assert.doesNotMatch(content('src/app/layouts/AppShell.tsx'),/<div className="brand-mark">L<\/div>/);
   assert.match(content('src/modules/sales/SaleDetailPage.tsx'),/\/lexa-lx-symbol\.png/);

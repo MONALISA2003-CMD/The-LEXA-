@@ -18,19 +18,23 @@ SHELL = 'src/app/layouts/AppShell.tsx'
 
 
 class NavigationGeneratorTests(unittest.TestCase):
-    def test_approved_sidebar_is_active_and_accented(self) -> None:
+    def test_approved_sidebar_is_brand_only_with_coloured_pages(self) -> None:
         source = (FRONTEND / SHELL).read_text(encoding='utf-8')
         for anchor in (
             'const visibleNavSections = navSections.map(section',
             'const filteredNav =',
             '{filteredNav.map((section) => (',
             'className="lexa-nav-module-link"',
-            'data-module-accent={moduleAccentForPath(item.to)}',
+            'className={`sidebar lexa-unified-sidebar',
+            'data-module-accent={moduleAccentForPath(location.pathname)}',
             'isEmployeeNavigationAllowed(',
             'className="lexa-nav-pin',
         ):
             with self.subTest(anchor=anchor):
                 self.assertIn(anchor, source)
+        menu = source.split('<nav className="nav-groups"', 1)[1].split('</nav>', 1)[0]
+        self.assertNotIn('data-module-accent', menu,
+            'One consistent sidebar must not inherit business-area colors')
 
     def test_unknown_sidebar_fails_without_overwriting_it(self) -> None:
         with TemporaryDirectory(prefix='lexa-navigation-invalid-') as tmp:

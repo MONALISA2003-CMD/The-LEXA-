@@ -67,7 +67,7 @@ test('all module destinations remain available through the categorized sidebar, 
   assert.equal(new Set(ids).size,ids.length,'Duplicate catalog IDs');
   for(const id of ids){if(id==='team') assert.match(shell,/to: '\/team'/);else assert.ok(shell.includes(`to: '/modules/${id}'`),`Module ${id} missing in sidebar`);}
   assert.doesNotMatch(shell,/All modules|Business & branches|uiMode|const visibleNavSections = uiMode/);
-  assert.match(shell,/Team & permissions/);
+  assert.match(shell,/Team access/);
   assert.match(shell,/nav-section-title lexa-nav-group-toggle/);
   assert.match(router,/path: 'modules', element: <Navigate to="\/" replace \/>/);
   assert.match(buildScript,/CEO-navigation release/);

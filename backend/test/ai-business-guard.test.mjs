@@ -50,7 +50,8 @@ test('approved LX symbol, adaptive module identity and AMAAL GROUP footer',async
   const shell=await file('../../lexa-frontend/src/app/layouts/AppShell.tsx');
   const logo=await file('../../lexa-frontend/src/components/LexaLogo.tsx');
   const auth=await file('../../lexa-frontend/src/modules/auth/AuthPage.tsx');
-  assert.match(shell,/LexaLogo accent={moduleAccentForPath\(location.pathname\)}/);
+  assert.match(shell,/LexaLogo accent="navy" onDark/);
+  assert.match(shell,/data-module-accent=\{moduleAccentForPath\(location\.pathname\)\}/);
   assert.match(logo,/lexa-identity/);
   assert.match(auth,/LEXA is a subsidiary of AMAAL GROUP/);
 });

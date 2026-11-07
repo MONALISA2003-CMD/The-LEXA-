@@ -77,9 +77,16 @@ test('public pages contain no invented review scores',()=>{
   }
 });
 
-test('sidebar allows pinned routes and visual group accents',()=>{
+test('sidebar keeps one brand color while pages retain distinct group accents',()=>{
   const s=source('lexa-frontend/src/app/layouts/AppShell.tsx');
   assert.match(s,/pinnedPaths/);
   assert.match(s,/moduleSearch/);
-  assert.match(s,/moduleAccentForGroup/);
+  assert.match(s,/lexa-unified-sidebar/);
+  assert.match(s,/const BUSINESS_AREA_NAMES/);
+  assert.match(s,/data-module-accent=\{moduleAccentForPath\(location\.pathname\)\}/);
+  const menu=s.split('<nav className="nav-groups"')[1].split('</nav>')[0];
+  assert.doesNotMatch(menu,/data-module-accent/);
+  const navCss=source('lexa-frontend/src/styles/lexa-sidebar-unified.css');
+  assert.match(navCss,/background: #0b1f3a !important/);
+  assert.match(navCss,/background: #1d4ed8 !important/);
 });

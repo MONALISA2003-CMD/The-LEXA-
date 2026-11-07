@@ -1,6 +1,6 @@
 import { apiDemo, isDemoDeployment } from '../../data/remote/apiDemo';
 import DemoBanner from '../../modules/demo/DemoBanner';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { Building2, ChevronDown, CircleHelp, Menu, Settings, Store, X, Moon, Sun, Pin, Search } from '../../components/LexaIcon';
 import { toast } from 'sonner';
@@ -10,7 +10,7 @@ import { workspaces as workspaceRepository } from '../../data/repositories';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { WorkspaceContext } from '../WorkspaceContext';
 import type { Branch, Workspace } from '../../domain/shared/types';
-import { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';
+import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import GlobalSearch from '../../components/GlobalSearch';
 import LexaLogo from '../../components/LexaLogo';
 import { navigationIcons } from '../../components/icons/EnterpriseNavIcons';
@@ -33,10 +33,10 @@ function errorStatus(error: unknown): number | null { return error && typeof err
 const navSections = [
   { title: 'WORKSPACE', items: [
     { to: '/', label: 'Overview', icon: navigationIcons.LayoutDashboard, end: true },
-    { to: '/workspace', label: 'My Business', icon: navigationIcons.Building2 },
-    { to: '/team', label: 'Team & permissions', icon: navigationIcons.Users },
+    { to: '/workspace', label: 'My business', icon: navigationIcons.Building2 },
+    { to: '/team', label: 'Team access', icon: navigationIcons.Users },
     { to: '/my-employment', label: 'My employment', icon: navigationIcons.Users },
-    { to: '/business-setup', label: 'Business profile setup', icon: navigationIcons.Sparkles },
+    { to: '/business-setup', label: 'Business setup', icon: navigationIcons.Sparkles },
   ] },
   { title: 'BUSINESS REPORTS & ADVICE', items: [
     { to: '/reports', label: 'Business reports', icon: navigationIcons.BarChart3 },
@@ -44,9 +44,9 @@ const navSections = [
   ] },
   { title: 'CUSTOMERS & GROWTH', items: [
     { to: '/modules/customers', label: 'Customers', icon: navigationIcons.Users },
-    { to: '/modules/leads', label: 'Leads & prospects', icon: navigationIcons.Users },
+    { to: '/modules/leads', label: 'Sales leads', icon: navigationIcons.Users },
     { to: '/modules/opportunities', label: 'Opportunities', icon: navigationIcons.Target },
-    { to: '/modules/contacts', label: 'Contacts & addresses', icon: navigationIcons.Users },
+    { to: '/modules/contacts', label: 'Contacts', icon: navigationIcons.Users },
     { to: '/modules/campaigns', label: 'Campaigns', icon: navigationIcons.Activity },
     { to: '/modules/sales-teams', label: 'Sales team & territories', icon: navigationIcons.Users },
   ] },
@@ -57,18 +57,18 @@ const navSections = [
     { to: '/modules/sales-returns', label: 'Sales returns', icon: navigationIcons.ReceiptText },
     { to: '/modules/sales-invoices', label: 'Sales invoices', icon: navigationIcons.ReceiptText },
     { to: '/modules/quotations', label: 'Quotations', icon: navigationIcons.FileText },
-    { to: '/modules/price-lists', label: 'Price lists & pricing', icon: navigationIcons.Tag },
+    { to: '/modules/price-lists', label: 'Price lists', icon: navigationIcons.Tag },
       ] },
   { title: 'INVENTORY', items: [
     { to: '/products', label: 'Products', icon: navigationIcons.Package },
-    { to: '/inventory', label: 'Stock & movements', icon: navigationIcons.ArrowDownUp },
+    { to: '/inventory', label: 'Stock activity', icon: navigationIcons.ArrowDownUp },
     { to: '/modules/receiving', label: 'Goods receiving', icon: navigationIcons.PackageCheck },
     { to: '/modules/stock-counts', label: 'Stock counts', icon: navigationIcons.ClipboardList },
     { to: '/modules/batches', label: 'Batch & lot tracking', icon: navigationIcons.Package },
-    { to: '/modules/replenishment', label: 'Replenishment', icon: navigationIcons.PackageCheck },
+    { to: '/modules/replenishment', label: 'Restock planning', icon: navigationIcons.PackageCheck },
     { to: '/modules/stock-transfers', label: 'Stock transfers', icon: navigationIcons.Truck },
     { to: '/modules/warehouses', label: 'Warehouses & locations', icon: navigationIcons.Building2 },
-    { to: '/modules/picklists', label: 'Picklists & picking', icon: navigationIcons.ClipboardList },
+    { to: '/modules/picklists', label: 'Picking lists', icon: navigationIcons.ClipboardList },
     { to: '/modules/item-bundles', label: 'Item bundles', icon: navigationIcons.Boxes },
   ] },
   { title: 'LOGISTICS', items: [
@@ -77,7 +77,7 @@ const navSections = [
   ] },
   { title: 'PURCHASING', items: [
     { to: '/modules/purchase-requests', label: 'Purchase requests', icon: navigationIcons.ClipboardList },
-    { to: '/modules/rfqs', label: 'Requests for quotation', icon: navigationIcons.FileText },
+    { to: '/modules/rfqs', label: 'Request quotations', icon: navigationIcons.FileText },
     { to: '/modules/supplier-quotes', label: 'Supplier quotations', icon: navigationIcons.FileText },
     { to: '/modules/suppliers', label: 'Suppliers', icon: navigationIcons.Truck },
     { to: '/modules/purchases', label: 'Purchase orders', icon: navigationIcons.ClipboardList },
@@ -88,9 +88,9 @@ const navSections = [
     { to: '/modules/finance-overview', label: 'Financial overview', icon: navigationIcons.Landmark },
     { to: '/modules/expenses', label: 'Expenses', icon: navigationIcons.ReceiptText },
     { to: '/modules/cash-sessions', label: 'Cash sessions', icon: navigationIcons.Wallet },
-    { to: '/modules/money-accounts', label: 'Cash & money accounts', icon: navigationIcons.Wallet },
+    { to: '/modules/money-accounts', label: 'Bank & cash accounts', icon: navigationIcons.Wallet },
     { to: '/modules/payments', label: 'Receipts & payments', icon: navigationIcons.CreditCard },
-    { to: '/modules/accounting', label: 'Accounting journals', icon: navigationIcons.BookOpen },
+    { to: '/modules/accounting', label: 'Journal entries', icon: navigationIcons.BookOpen },
     { to: '/modules/chart-of-accounts', label: 'Chart of accounts', icon: navigationIcons.BookOpen },
     { to: '/modules/tax-codes', label: 'Tax codes & rules', icon: navigationIcons.ReceiptText },
     { to: '/modules/bank-reconciliation', label: 'Bank reconciliation', icon: navigationIcons.Banknote },
@@ -98,7 +98,7 @@ const navSections = [
     { to: '/modules/cost-centers', label: 'Cost centres', icon: navigationIcons.BookOpen },
     { to: '/modules/budgets', label: 'Budgets & forecasts', icon: navigationIcons.Wallet },
     { to: '/modules/recurring-invoices', label: 'Recurring billing', icon: navigationIcons.ReceiptText },
-    { to: '/modules/tax-documents', label: 'Tax documents / EFRIS', icon: navigationIcons.BookOpen },
+    { to: '/modules/tax-documents', label: 'Tax documents (EFRIS)', icon: navigationIcons.BookOpen },
   ] },
   { title: 'TEAM & PAYROLL', items: [
     { to: '/modules/employees', label: 'Employees & HR', icon: navigationIcons.Users },
@@ -119,6 +119,21 @@ const navSections = [
     { to: '/modules/support', label: 'Customer support', icon: navigationIcons.Users },
   ] },
 ];
+
+/** Screen labels only. Stable department IDs continue to drive permissions and page colors. */
+const BUSINESS_AREA_NAMES: Readonly<Record<string, string>> = {
+  'WORKSPACE': 'Your business',
+  'BUSINESS REPORTS & ADVICE': 'Reports & insights',
+  'CUSTOMERS & GROWTH': 'Customers & growth',
+  'SELLING': 'Sales',
+  'INVENTORY': 'Inventory',
+  'LOGISTICS': 'Deliveries',
+  'PURCHASING': 'Purchasing',
+  'FINANCE': 'Finance',
+  'TEAM & PAYROLL': 'Team & payroll',
+  'PRODUCTION & QUALITY': 'Production & quality',
+  'PROJECTS & SERVICE': 'Projects & service',
+};
 
 function routeTitle(pathname: string): string {
   if (pathname === '/') return 'Overview';
@@ -149,6 +164,52 @@ export default function AppShell() {
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [resolvedBranchWorkspaceId, setResolvedBranchWorkspaceId] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const sidebarCloseRef = useRef<HTMLButtonElement>(null);
+  const sidebarOpenRef = useRef<HTMLButtonElement>(null);
+  const pageHeadingRef = useRef<HTMLHeadingElement>(null);
+  const lastPageRef = useRef(location.pathname);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const closeMobileNavigation = useCallback(() => {
+    setMobileNavOpen(false);
+    // Restore focus to the trigger, not the page behind a closing drawer.
+    requestAnimationFrame(() => returnFocusRef.current?.focus());
+  }, []);
+  const openMobileNavigation = useCallback(() => {
+    returnFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement : sidebarOpenRef.current;
+    setMobileNavOpen(true);
+  }, []);
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const previous = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    sidebarCloseRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); closeMobileNavigation(); return; }
+      if (event.key !== 'Tab' || !sidebarRef.current) return;
+      const focusable = Array.from(sidebarRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter(element => element.getClientRects().length > 0);
+      if (focusable.length === 0) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && (document.activeElement === first || !sidebarRef.current.contains(document.activeElement))) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !sidebarRef.current.contains(document.activeElement))) {
+        event.preventDefault(); first.focus();
+      }
+    };
+    const onResize = () => { if (window.innerWidth > 860) setMobileNavOpen(false); };
+    document.addEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', onResize);
+    return () => {
+      document.documentElement.style.overflow = previous;
+      document.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [mobileNavOpen, closeMobileNavigation]);
   const [expandedSections, setExpandedSections] = useState<string[]>(['WORKSPACE']);
   const [moduleSearch, setModuleSearch] = useState('');
   const [pinnedPaths, setPinnedPaths] = useState<string[]>([]);
@@ -158,6 +219,15 @@ export default function AppShell() {
     const active = navSections.find(section => section.items.some(item => location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to + '/'))));
     if (active) setExpandedSections([active.title]);
     setMobileNavOpen(false);
+  }, [location.pathname]);
+
+  // After a route transition, announce the new business page to keyboard users.
+  // Do not steal focus during the initial shell load.
+  useEffect(() => {
+    if (lastPageRef.current === location.pathname) return;
+    lastPageRef.current = location.pathname;
+    const frame = requestAnimationFrame(() => pageHeadingRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
   }, [location.pathname]);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -235,11 +305,15 @@ export default function AppShell() {
   // Search narrows the visible groups but never replaces a real module with a placeholder.
   const filteredNav = moduleSearch.trim()
     ? visibleNavSections.map(section => ({...section,items:section.items.filter(item =>
-        `${section.title} ${item.label}`.toLowerCase().includes(moduleSearch.trim().toLowerCase()))}))
+        `${BUSINESS_AREA_NAMES[section.title] ?? section.title} ${section.title} ${item.label}`.toLowerCase().includes(moduleSearch.trim().toLowerCase()))}))
         .filter(section => section.items.length > 0)
     : visibleNavSections;
   const favorites = visibleNavSections.flatMap(section => section.items).filter(item => pinnedPaths.includes(item.to));
-  const recentModules = recentPaths.map(path => visibleNavSections.flatMap(section => section.items).find(item => item.to === path)).filter((item): item is (typeof visibleNavSections)[number]['items'][number] => Boolean(item)).filter(item => !pinnedPaths.includes(item.to)).slice(0, 4);
+  const quickPages = ['/', '/checkout', '/products'].flatMap(path => {
+    const found = visibleNavSections.flatMap(section => section.items).find(item => item.to === path);
+    return found ? [found] : [];
+  });
+  const recentPages = recentPaths.map(path => visibleNavSections.flatMap(section => section.items).find(item => item.to === path)).filter((item): item is (typeof visibleNavSections)[number]['items'][number] => Boolean(item)).filter(item => !pinnedPaths.includes(item.to)).slice(0, 4);
   async function signOut() {
     if (signingOut) return;
     setSigningOut(true);
@@ -330,7 +404,6 @@ export default function AppShell() {
     return () => { cancelled = true; };
   }, [workspace, requestedBusinessId, requestedBranchId]);
 
-  useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
   useEffect(() => { if (isApiProvider) { void apiAuth.getSession().then(s => { if(s.requiresPasswordChange) navigate('/change-password',{replace:true}); }).catch(() => {}); } }, [navigate]);
   useEffect(() => {
     const handleAuthRequired = () => navigate(isDemoDeployment?'/demo':'/sign-in', { replace: true, state: { returnTo: location.pathname, connectionIssue: 'session' } });
@@ -399,45 +472,54 @@ export default function AppShell() {
   return (
     <WorkspaceContext.Provider value={contextValue}>
       <div className="app-frame">
-        <div className={`mobile-scrim ${mobileNavOpen ? 'is-visible' : ''}`} onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
-        <aside className={`sidebar ${mobileNavOpen ? 'sidebar-open' : ''}`} aria-label="Main navigation">
+        <div className={`mobile-scrim ${mobileNavOpen ? 'is-visible' : ''}`} onClick={closeMobileNavigation} aria-hidden="true" />
+        <aside ref={sidebarRef} className={`sidebar lexa-unified-sidebar ${mobileNavOpen ? 'sidebar-open' : ''}`} aria-label="Main navigation" role={mobileNavOpen ? 'dialog' : 'complementary'} aria-modal={mobileNavOpen ? true : undefined}>
           <div className="brand-lockup">
-            <div className="lexa-brand-logo-frame"><LexaLogo accent={moduleAccentForPath(location.pathname)} onDark /></div>
-            <button className="icon-button sidebar-close" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)}><X size={18} /></button>
+            <div className="lexa-brand-logo-frame"><LexaLogo accent="navy" onDark /></div>
+            <button ref={sidebarCloseRef} type="button" className="icon-button sidebar-close" aria-label="Close navigation" onClick={closeMobileNavigation}><X size={18} /></button>
           </div>
           <div className="sidebar-workspace">
             <div className="workspace-avatar"><Store size={18} /></div>
             <div className="workspace-mini-copy"><strong>{workspace.businessName}</strong><span>{isOwner ? 'CEO / Business owner' : accessQuery.data?.role?.replaceAll('_', ' ') || 'Team member'}</span></div>
           </div>
-          <nav className="nav-groups">
-            <label className="lexa-sidebar-filter"><Search size={15} aria-hidden="true"/><span className="sr-only">Find a module</span><input value={moduleSearch} onChange={event => setModuleSearch(event.target.value)} placeholder="Find a module" aria-label="Find a module" autoComplete="off"/></label>
-            {favorites.length > 0 && !moduleSearch && <div className="lexa-nav-pinned" aria-label="Pinned modules"><div className="lexa-nav-pinned-heading"><Pin size={14}/> Pinned</div>{favorites.map(item => { const Icon = item.icon;return <NavLink key={item.to} to={item.to} data-module-accent={moduleAccentForPath(item.to)} onClick={() => setMobileNavOpen(false)} className={({isActive})=>`nav-link ${isActive?'nav-link-active':''}`}><Icon size={17}/><span>{item.label}</span></NavLink>; })}</div>}
-            {recentModules.length > 0 && !moduleSearch && <div className="lexa-nav-pinned lexa-nav-recent" aria-label="Recently opened modules"><div className="lexa-nav-pinned-heading">Recently opened</div>{recentModules.map(item => { const Icon = item.icon; return <NavLink key={item.to} to={item.to} data-module-accent={moduleAccentForPath(item.to)} onClick={() => setMobileNavOpen(false)} className={({isActive})=>`nav-link ${isActive?'nav-link-active':''}`}><Icon size={17}/><span>{item.label}</span></NavLink>; })}</div>}
-            <p className="lexa-nav-hint">Browse by department</p>
+          <nav className="nav-groups" aria-label="Business pages">
+            <label className="lexa-sidebar-filter"><Search size={17} aria-hidden="true"/><span className="sr-only">Find a page</span><input value={moduleSearch} onChange={event => setModuleSearch(event.target.value)} placeholder="Find a page" aria-label="Find a page" autoComplete="off"/></label>
+            {!moduleSearch && <>
+              <p className="lexa-nav-hint">QUICK ACCESS</p>
+              <div className="lexa-nav-quick-links" aria-label="Quick access">
+                {quickPages.map(item => { const Icon = item.icon; return <NavLink key={item.to} to={item.to} end={item.to === '/'} onClick={() => setMobileNavOpen(false)} className={({isActive}) => `nav-link ${isActive ? 'nav-link-active' : ''}`}><Icon size={18} aria-hidden="true"/><span>{item.label}</span></NavLink>; })}
+              </div>
+              {(favorites.length > 0 || recentPages.length > 0) && <div className="lexa-nav-shortcuts">
+                <button type="button" className="lexa-nav-shortcuts-toggle" aria-expanded={shortcutsOpen} aria-controls="lexa-shortcuts-list" onClick={() => setShortcutsOpen(current => !current)}><span>Favourites & recent pages</span><ChevronDown size={15} className={shortcutsOpen ? 'lexa-nav-arrow-open' : ''}/></button>
+                <div id="lexa-shortcuts-list" className="lexa-nav-shortcuts-content" hidden={!shortcutsOpen}>
+                  {favorites.length > 0 && <div className="lexa-nav-pinned" aria-label="Favourites"><div className="lexa-nav-pinned-heading"><Pin size={14} aria-hidden="true"/> Favourites</div>{favorites.map(item => {const Icon=item.icon; return <NavLink key={item.to} to={item.to} onClick={() => setMobileNavOpen(false)} className={({isActive})=>`nav-link ${isActive?'nav-link-active':''}`}><Icon size={17} aria-hidden="true"/><span>{item.label}</span></NavLink>;})}</div>}
+                  {recentPages.length > 0 && <div className="lexa-nav-pinned lexa-nav-recent" aria-label="Recent pages"><div className="lexa-nav-pinned-heading">Recent pages</div>{recentPages.map(item=>{const Icon=item.icon;return <NavLink key={item.to} to={item.to} onClick={() => setMobileNavOpen(false)} className={({isActive})=>`nav-link ${isActive?'nav-link-active':''}`}><Icon size={17} aria-hidden="true"/><span>{item.label}</span></NavLink>;})}</div>}
+                </div>
+              </div>}
+            </>}
+            <p className="lexa-nav-hint">{moduleSearch ? 'MATCHING PAGES' : 'BUSINESS AREAS'}</p>
+            {filteredNav.length === 0 && <p className="lexa-nav-no-results" role="status">No pages match “{moduleSearch}”. Try a business task such as stock or payroll.</p>}
             {filteredNav.map((section) => (
-              <div className="nav-section" key={section.title} data-module-accent={moduleAccentForGroup(section.title)}>
-                <button type="button" className="nav-section-title lexa-nav-group-toggle" aria-expanded={Boolean(moduleSearch) || expandedSections.includes(section.title)} onClick={() => toggleNavSection(section.title)}><span>{section.title}</span><ChevronDown size={14} className={moduleSearch || expandedSections.includes(section.title) ? 'lexa-nav-arrow-open' : ''} /></button>
-                {(moduleSearch || expandedSections.includes(section.title)) && section.items.map((item) => {
+              <div className="nav-section" key={section.title}>
+                <button type="button" className="nav-section-title lexa-nav-group-toggle" aria-expanded={Boolean(moduleSearch) || expandedSections.includes(section.title)} onClick={() => toggleNavSection(section.title)}><span>{BUSINESS_AREA_NAMES[section.title] ?? section.title}</span><ChevronDown size={16} aria-hidden="true" className={moduleSearch || expandedSections.includes(section.title) ? 'lexa-nav-arrow-open' : ''} /></button>
+                {(moduleSearch || expandedSections.includes(section.title)) && section.items.filter(item => moduleSearch || !quickPages.some(quick => quick.to === item.to)).map((item) => {
                   const Icon = item.icon;
-                  return <div className="lexa-nav-module-row" key={item.to}><div className="lexa-nav-module-link"><NavLink to={item.to} end={'end' in item ? item.end : false} data-module-accent={moduleAccentForPath(item.to)} onClick={() => setMobileNavOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
-                    <Icon size={18} strokeWidth={1.8} /><span>{item.label}</span>
-                  </NavLink><button type="button" className={`lexa-nav-pin ${pinnedPaths.includes(item.to)?'is-pinned':''}`} onClick={() => togglePin(item.to)} aria-label={`${pinnedPaths.includes(item.to)?'Unpin':'Pin'} ${item.label}`} title={`${pinnedPaths.includes(item.to)?'Unpin':'Pin'} ${item.label}`}><Pin size={14} fill={pinnedPaths.includes(item.to)?'currentColor':'none'}/></button></div></div>;
+                  return <div className="lexa-nav-module-row" key={item.to}><div className="lexa-nav-module-link"><NavLink to={item.to} end={'end' in item ? item.end : false} onClick={() => setMobileNavOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}><Icon size={18} strokeWidth={1.8} aria-hidden="true"/><span>{item.label}</span></NavLink><button type="button" className={`lexa-nav-pin ${pinnedPaths.includes(item.to)?'is-pinned':''}`} onClick={() => togglePin(item.to)} aria-label={`${pinnedPaths.includes(item.to)?'Remove from favourites':'Add to favourites:'} ${item.label}`} title={`${pinnedPaths.includes(item.to)?'Remove from favourites':'Add to favourites:'} ${item.label}`}><Pin size={15} fill={pinnedPaths.includes(item.to)?'currentColor':'none'} aria-hidden="true"/></button></div></div>;
                 })}
               </div>
             ))}
           </nav>
           <div className="sidebar-bottom">
-            <div className="local-note"><span className="status-dot" /><div><strong>Workspace storage</strong><span>{isApiProvider ? 'Secure business account' : 'Records stored on this device'}</span></div></div>
-            <button className="help-link" onClick={() => toast.info('LEXA workspace guidance', { description: 'Select a module group to access business records. Account protection, privacy controls and operational tools are available in Account & business settings.' })}><CircleHelp size={16} /><span>Help & guidance</span></button>
-            <NavLink to="/settings" data-module-accent={moduleAccentForPath('/settings')} className={({ isActive }) => `nav-link settings-link ${isActive ? 'nav-link-active' : ''}`}><Settings size={18} /><span>Account & business settings</span></NavLink>
+            <a className="help-link" href="https://lexaaamaal.com/help" target="_blank" rel="noopener noreferrer"><CircleHelp size={18} aria-hidden="true"/><span>Help centre</span></a>
+            <NavLink to="/settings" onClick={() => setMobileNavOpen(false)} className={({ isActive }) => `nav-link settings-link ${isActive ? 'nav-link-active' : ''}`}><Settings size={18} aria-hidden="true"/><span>Account & business settings</span></NavLink>
             <button type="button" className="nav-link lexa-sidebar-signout" disabled={signingOut} onClick={() => void signOut()}>{signingOut ? 'Signing out…' : 'Sign out'}</button>
           </div>
         </aside>
 
-        <main className="main-panel" data-module-accent={moduleAccentForPath(location.pathname)}>
+        <main className="main-panel" inert={mobileNavOpen} data-module-accent={moduleAccentForPath(location.pathname)}>
           {isDemoDeployment && <DemoBanner />}
           <header className="topbar">
-            <div className="topbar-title"><LexaLogo compact accent={moduleAccentForPath(location.pathname)} className="lexa-topbar-mark" /><button className="icon-button mobile-menu-button" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}><Menu size={20} /></button><div><div className="eyebrow">BUSINESS WORKSPACE</div><h1>{routeTitle(location.pathname)}</h1></div></div>
+            <div className="topbar-title"><LexaLogo compact accent={moduleAccentForPath(location.pathname)} className="lexa-topbar-mark" /><button ref={sidebarOpenRef} type="button" className="icon-button mobile-menu-button" aria-label="Open navigation" aria-expanded={mobileNavOpen} onClick={openMobileNavigation}><Menu size={20} /></button><div><div className="eyebrow">BUSINESS WORKSPACE</div><h1 ref={pageHeadingRef} tabIndex={-1}>{routeTitle(location.pathname)}</h1></div></div>
             <GlobalSearch />
             <div className="topbar-actions">
               {isOwner && <Link className="lexa-owner-assistant-shortcut" to={`/intelligence?scope=${location.pathname.includes('/finance')||location.pathname.includes('/accounting')||location.pathname.includes('/budgets')?'finance':location.pathname.includes('/inventory')||location.pathname.includes('/products')||location.pathname.includes('/stock')?'inventory':location.pathname.includes('/sales')||location.pathname.includes('/checkout')?'sales':'overview'}`} title="Open LEXA Intelligence for this area" aria-label="Open LEXA Intelligence for this area">LEXA</Link>}

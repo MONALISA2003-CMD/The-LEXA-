@@ -134,7 +134,7 @@ test('retired operations centre is not exposed while protected alert controls re
   // Retired operations centre and the old All modules entry are absent; all destinations remain independently routable.
   assert.doesNotMatch(appShell, /Operations centre|Activity and audit logs|Integration status|Inbox and collaboration/i);
   assert.doesNotMatch(appShell, /All modules/);
-  assert.match(appShell, /Team & permissions/);
+  assert.match(appShell, /Team access/);
   assert.match(router, /path: 'modules', element: <Navigate to=\"\/\" replace \/>/);
   assert.match(api, /updateRule/);
   assert.match(evaluator, /redis\.unavailable/);

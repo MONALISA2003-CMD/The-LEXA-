@@ -64,7 +64,8 @@ test('navigation preserves the module groups, offers pins, recent paths and keyb
   for (const department of ['WORKSPACE','BUSINESS REPORTS & ADVICE','CUSTOMERS & GROWTH','SELLING','INVENTORY','LOGISTICS','PURCHASING','FINANCE','TEAM & PAYROLL','PRODUCTION & QUALITY','PROJECTS & SERVICE']) assert.ok(app.includes(`title: '${department}'`));
   assert.match(app,/lexa\.ui\.pins\./);
   assert.match(app,/lexa\.ui\.recent\./);
-  assert.match(app,/aria-label="Find a module"/);
+  assert.match(app,/aria-label="Find a page"/);
+  assert.match(app,/BUSINESS AREAS/);
   assert.match(app,/lexa-account-menu/);
   assert.match(app,/lexa-sidebar-signout/);
   assert.match(app,/aria-expanded=\{Boolean\(moduleSearch\)/);

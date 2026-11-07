@@ -1,3 +1,5 @@
+**Navigation and wording release (7 Nov 2026):** The sidebar uses one midnight-blue identity in light and dark themes while business-area pages retain their assigned colors. The mobile drawer is keyboard-accessible and responsive from 320px upward. See [release verification and rollout](docs/release/LEXA_MIDNIGHT_NAVIGATION_RELEASE_2026-11-07.md).
+
 **Production migration recovery (7 Nov 2026):** See [`docs/release/LEXA_RENDER_P3009_AND_PIPELINE_RECOVERY_2026-11-07.md`](docs/release/LEXA_RENDER_P3009_AND_PIPELINE_RECOVERY_2026-11-07.md) for the verified Prisma P3009 incident, guarded retry, and Render CI deploy filters.
 
 **New: public LEXA landing website and isolated interactive demo (source release):** [Demo release notes](docs/quality/lexa-demo-release-notes-2026-11-07.md) and [separate-deployment runbook](docs/deployment/public-landing-demo-release.md). These are not yet deployed; the demo must use a new empty database, never the production customer database.
@@ -86,7 +88,7 @@ npm run build
 - Operations: `docs/operations/runbooks/`
 ## Clean CI dependency installation
 
-The production release ZIP includes the two matching npm lockfiles and excludes only generated/dependency artifacts. The GitHub repository-import workflow runs `python3 scripts/clean_repository.py` before repository validation and before either `npm ci` command. That preparation step creates a missing `package-lock.json` in each application using `npm install --package-lock-only --ignore-scripts --no-audit --no-fund`, then verifies lockfile format and that the lockfile root exactly matches the corresponding `package.json`. It does not install `node_modules` or execute package lifecycle scripts. If generation fails or a lockfile is stale, the workflow stops before running `npm ci`.
+The repository source-import ZIP deliberately omits the npm lockfiles; its GitHub importer restores the previously verified committed lockfiles and normalizes safe dependency removals before installing. A full repository checkout must contain both matching lockfiles. The GitHub repository-import workflow runs `python3 scripts/clean_repository.py` before repository validation and before either `npm ci` command. That preparation step creates a missing `package-lock.json` in each application using `npm install --package-lock-only --ignore-scripts --no-audit --no-fund`, then verifies lockfile format and that the lockfile root exactly matches the corresponding `package.json`. It does not install `node_modules` or execute package lifecycle scripts. If generation fails or a lockfile is stale, the workflow stops before running `npm ci`.
 
 For local clean installs, run `python3 scripts/clean_repository.py` from the repository root before `npm ci` in `backend/` or `lexa-frontend/`.
 

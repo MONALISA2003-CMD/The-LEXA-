@@ -50,13 +50,13 @@ export default function DemoEntryPage() {
   return <main className="lexa-demo-entry">
     <div className="lexa-demo-topbar">
       <a href={PUBLIC_SITE} aria-label="LEXA website"><img src="/lexa-master-lockup-light.png" alt="LEXA"/></a>
-      <a href={PUBLIC_SITE + '/features'}>See all modules <span aria-hidden="true">↗</span></a>
+      <a href={PUBLIC_SITE + '/features'}>See the business areas <span aria-hidden="true">↗</span></a>
     </div>
     <div className="lexa-demo-layout">
       <section className="lexa-demo-copy" aria-labelledby="demo-heading">
         <p className="lexa-demo-kicker">LEXA DEMO TRADERS · SAMPLE BUSINESS</p>
         <h1 id="demo-heading">Make a sale. Check the stock. See what changed.</h1>
-        <p className="lexa-demo-lead">There are already 48 products, 42 sample receipts and business records to explore. Use the same LEXA modules available to a business owner.</p>
+        <p className="lexa-demo-lead">There are already 48 products, 42 sample receipts and business records to explore. Use the same business areas available to a business owner.</p>
         <div className="lexa-demo-facts"><div><b>48</b><span>Products</span></div><div><b>42</b><span>Receipts</span></div><div><b>2 hrs</b><span>Maximum visit</span></div></div>
         <p className="lexa-demo-disclaimer">Every record is fictional. Your changes belong only to this visit. No real payment, email or bank transfer is made.</p>
       </section>

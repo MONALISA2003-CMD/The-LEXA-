@@ -307,7 +307,7 @@ export default function CommerceWorkflowPanel({ moduleId }: { moduleId: string }
       {(customerModule || supplierModule) && <>
         <div className="commerce-section-title"><h4>{customerModule?'Customer sales orders':'Supplier purchase orders'}</h4><span>{(customerModule?salesOrders:purchaseOrders).length} orders</span></div>
         {(customerModule?salesOrders:purchaseOrders).filter((order)=>customerModule?Boolean(order.customerName):Boolean(order.supplierName)).slice(0,15).map((order)=><article className="commerce-order-card" key={order.id}><div className="commerce-order-main"><div><strong>{order.orderNumber}</strong><small>{order.lines.length} product lines</small></div><span className={'commerce-status '+order.status}>{labelStatus(order.status)}</span><b>{money(order.totalMinor,workspace.currency)}</b></div></article>)}
-        <p className="commerce-form-note">Select a record in the register to see its cross-module links in the record detail panel. This section shows branch-level transaction history.</p>
+        <p className="commerce-form-note">Select a record in the register to see its related business records in the record detail panel. This section shows branch-level transaction history.</p>
       </>}
     </section>
     </>

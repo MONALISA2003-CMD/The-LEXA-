@@ -40,8 +40,8 @@ test('mobile navigation can find and open manufacturing modules', async ({ page 
   await page.setViewportSize({ width: 390, height: 844 });
   await openLocalBusiness(page, 'LEXA Mobile Navigation Business');
   await page.getByRole('button', { name: 'Open navigation' }).click();
-  const sidebar = page.getByRole('complementary', { name: 'Main navigation' });
-  await sidebar.getByRole('textbox', { name: 'Find a module' }).fill('materials');
+  const sidebar = page.getByRole('dialog', { name: 'Main navigation' });
+  await sidebar.getByRole('textbox', { name: 'Find a page' }).fill('materials');
   await sidebar.getByRole('link', { name: 'Bills of materials' }).click();
   await expect(page).toHaveURL(/\/modules\/boms$/);
   await expect(page.getByRole('heading', { name: 'Bills of materials' }).first()).toBeVisible();

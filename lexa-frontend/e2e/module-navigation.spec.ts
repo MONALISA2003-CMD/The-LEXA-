@@ -10,12 +10,12 @@ test('every registered business module renders without uncaught browser errors',
   await openLocalBusiness(page, 'LEXA Navigation Smoke Business');
 
   // The retired /modules directory has been replaced by the permission-aware sidebar.
-  const sidebar = page.getByRole('complementary', { name: 'Main navigation' });
-  await sidebar.getByRole('textbox', { name: 'Find a module' }).fill('Products');
+  const sidebar = page.getByRole('dialog', { name: 'Main navigation' });
+  await sidebar.getByRole('textbox', { name: 'Find a page' }).fill('Products');
   await expect(sidebar.getByRole('link', { name: 'Products', exact: true })).toHaveCount(1);
-  await sidebar.getByRole('textbox', { name: 'Find a module' }).fill('Checkout');
+  await sidebar.getByRole('textbox', { name: 'Find a page' }).fill('Checkout');
   await expect(sidebar.getByRole('link', { name: 'Checkout / POS' })).toHaveCount(1);
-  await sidebar.getByRole('textbox', { name: 'Find a module' }).fill('');
+  await sidebar.getByRole('textbox', { name: 'Find a page' }).fill('');
 
   // Exercise every lazy module chunk, workspace context and route error boundary.
   for (const { to, title } of [...EXISTING_MODULE_LINKS, ...PHASE_TWO_LINKS]) {

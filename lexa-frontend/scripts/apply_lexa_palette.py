@@ -260,30 +260,51 @@ def merge_stylesheets() -> None:
 
 def wire_accent_metadata() -> None:
     shell = read(SHELL)
-    shell = replace_idempotent(shell,
-        "import type { Branch, Workspace } from '../../domain/shared/types';",
-        "import type { Branch, Workspace } from '../../domain/shared/types';\nimport { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';",
-        'AppShell metadata import')
-    shell = replace_idempotent(shell, '<div className="nav-section" key={section.title}>', '<div className="nav-section" key={section.title} data-module-accent={moduleAccentForGroup(section.title)}>', 'sidebar group accent')
-    old_link = "return <NavLink key={item.to} to={item.to} end={'end' in item ? item.end : false} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>"
-    new_link = "return <NavLink key={item.to} to={item.to} end={'end' in item ? item.end : false} data-module-accent={moduleAccentForPath(item.to)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>"
-    # The redesigned sidebar wraps each module link in a pin-friendly row and
-    # displays a permission-filtered `filteredNav`.  Its links already carry
-    # the accent attribute, but no longer match the legacy `return <NavLink...`
-    # anchor.  Preserve the new JSX instead of breaking the prebuild generator.
-    if old_link in shell or new_link in shell:
-        shell = replace_idempotent(shell, old_link, new_link, 'sidebar item accents')
-    elif not (
-        'className="lexa-nav-module-link"' in shell
-        and '<NavLink to={item.to}' in shell
-        and 'data-module-accent={moduleAccentForPath(item.to)}' in shell
-        and '{filteredNav.map((section) => (' in shell
-    ):
-        fail('sidebar item accents: no supported accented navigation link found')
-    old_settings = '<NavLink to="/settings" className={({ isActive }) => `nav-link settings-link ${isActive ? \'nav-link-active\' : \'\'}`}>'
-    new_settings = '<NavLink to="/settings" data-module-accent={moduleAccentForPath(\'/settings\')} className={({ isActive }) => `nav-link settings-link ${isActive ? \'nav-link-active\' : \'\'}`}>'
-    if old_settings in shell or 'data-module-accent={moduleAccentForPath(\'/settings\')}' in shell:
-        shell = replace_idempotent(shell, old_settings, new_settings, 'settings link accent')
+    unified_sidebar = 'className={`sidebar lexa-unified-sidebar' in shell
+    if unified_sidebar:
+        # Sidebar color is a brand decision; department colors belong on the
+        # current page and on individual business-area tiles, not on nav links.
+        # This branch is intentionally read-only: no new JSX imports or props.
+        menu = shell.split('<nav className="nav-groups"', 1)[-1].split('</nav>', 1)[0]
+        if not all(anchor in shell for anchor in (
+            "import { moduleAccentForPath } from '../../domain/shared/moduleAccents';",
+            '{filteredNav.map((section) => (',
+            'className="lexa-nav-module-link"',
+            'isEmployeeNavigationAllowed(',
+            'className="sidebar-bottom"',
+            'data-module-accent={moduleAccentForPath(location.pathname)}',
+        )):
+            fail('unified sidebar: missing protected navigation, permission or page accent contract')
+        if 'data-module-accent' in menu:
+            fail('unified sidebar: route colors have leaked back into navigation')
+        main = read(MAIN)
+        if "import './styles/lexa-sidebar-unified.css';" not in main:
+            fail('unified sidebar: the final navigation CSS must be imported')
+    else:
+        shell = replace_idempotent(shell,
+            "import type { Branch, Workspace } from '../../domain/shared/types';",
+            "import type { Branch, Workspace } from '../../domain/shared/types';\nimport { moduleAccentForGroup, moduleAccentForPath } from '../../domain/shared/moduleAccents';",
+            'AppShell metadata import')
+        shell = replace_idempotent(shell, '<div className="nav-section" key={section.title}>', '<div className="nav-section" key={section.title} data-module-accent={moduleAccentForGroup(section.title)}>', 'sidebar group accent')
+        old_link = "return <NavLink key={item.to} to={item.to} end={'end' in item ? item.end : false} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>"
+        new_link = "return <NavLink key={item.to} to={item.to} end={'end' in item ? item.end : false} data-module-accent={moduleAccentForPath(item.to)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>"
+        # The redesigned sidebar wraps each module link in a pin-friendly row and
+        # displays a permission-filtered `filteredNav`.  Its links already carry
+        # the accent attribute, but no longer match the legacy `return <NavLink...`
+        # anchor.  Preserve the new JSX instead of breaking the prebuild generator.
+        if old_link in shell or new_link in shell:
+            shell = replace_idempotent(shell, old_link, new_link, 'sidebar item accents')
+        elif not (
+            'className="lexa-nav-module-link"' in shell
+            and '<NavLink to={item.to}' in shell
+            and 'data-module-accent={moduleAccentForPath(item.to)}' in shell
+            and '{filteredNav.map((section) => (' in shell
+        ):
+            fail('sidebar item accents: no supported accented navigation link found')
+        old_settings = '<NavLink to="/settings" className={({ isActive }) => `nav-link settings-link ${isActive ? \'nav-link-active\' : \'\'}`}>'
+        new_settings = '<NavLink to="/settings" data-module-accent={moduleAccentForPath(\'/settings\')} className={({ isActive }) => `nav-link settings-link ${isActive ? \'nav-link-active\' : \'\'}`}>'
+        if old_settings in shell or 'data-module-accent={moduleAccentForPath(\'/settings\')}' in shell:
+            shell = replace_idempotent(shell, old_settings, new_settings, 'settings link accent')
     write(SHELL, shell)
 
     ops = read(OPS)
@@ -352,7 +373,7 @@ def wire_accent_metadata() -> None:
 def validate_manifest() -> None:
     # Fail the build if metadata gets out of sync with the generated catalogue or sidebar.
     shell = read(SHELL)
-    if '<main className="main-panel" data-module-accent={moduleAccentForPath(location.pathname)}>' not in shell:
+    if not re.search(r'<main\s+[^>]*className="main-panel"[^>]*data-module-accent=\{moduleAccentForPath\(location\.pathname\)\}', shell):
         fail('active-route module accent is missing from the main application shell')
     css = read(BRAND)
     if '/* LEXA-MODULE-VISUAL-INTEGRATION-V3 */' not in css:
