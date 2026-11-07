@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
-import { Activity, ArrowUpRight, Check, ClipboardList, FolderKanban, Headset, Plus, RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import { Activity, ArrowUpRight, Check, ClipboardList, FolderKanban, Headset, Plus, RefreshCw, Search, ShieldCheck } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiWorkstream6 } from '../../data/remote/apiWorkstream6';
 import { formatMinorAmount, parseMajorAmount } from '../../domain/money/money';

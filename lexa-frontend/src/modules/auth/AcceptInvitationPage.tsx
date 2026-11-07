@@ -1,7 +1,7 @@
 import { validNewPassword, NEW_PASSWORD_RULE } from '../../domain/shared/newPasswordPolicy';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ArrowLeft, ArrowRight, Building2, CheckCircle2, LoaderCircle, Mail, ShieldCheck, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, CheckCircle2, LoaderCircle, Mail, ShieldCheck, UserRound } from '../../components/LexaIcon';
 import { apiAuth, type InvitationPreview } from '../../data/remote/apiAuth';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import { PasswordField, PasswordLengthGuide } from './AuthFields';

@@ -2,7 +2,7 @@
 import type{ReactNode} from 'react';
 import {Link,useLocation} from 'react-router';
 import {Boxes,Package,PackageCheck,ClipboardCheck,CalendarClock,ChartNoAxesCombined,
- ArrowLeftRight,Warehouse,ScanBarcode,Layers3,ShieldCheck,RefreshCw} from 'lucide-react';
+ ArrowLeftRight,Warehouse,ScanBarcode,Layers3,ShieldCheck,RefreshCw} from '../../components/LexaIcon';
 import './solar-volt.css';
 const links=[
  {to:'/products',label:'Products',icon:Package},

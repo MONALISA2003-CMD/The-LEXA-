@@ -96,7 +96,7 @@ async function bootstrap(): Promise<void> {
       : webhookBodyLimitBytes;
   });
   await app.register(helmet);
-  const allowedOrigins = (process.env.FRONTEND_ORIGINS ?? 'http://localhost:5173,https://lexaaamaal.com,https://www.lexaaamaal.com,https://lexareview.vercel.app')
+  const allowedOrigins = (process.env.FRONTEND_ORIGINS ?? 'http://localhost:5173,https://lexaaamaal.com,https://www.lexaaamaal.com,https://app.lexaaamaal.com,https://lexareview.vercel.app')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);

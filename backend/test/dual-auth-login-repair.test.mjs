@@ -6,8 +6,8 @@ import {lexaTurnstileHostnames,verifyTurnstileChallenge} from '../src/auth/turns
 const source=(path)=>readFileSync(new URL(path,import.meta.url),'utf8');
 
 test('production turnstile host remains accepted when optional configuration is unset',()=>{
-  assert.deepEqual(lexaTurnstileHostnames(undefined),['lexaaamaal.com','www.lexaaamaal.com']);
-  assert.deepEqual(lexaTurnstileHostnames(''),['lexaaamaal.com','www.lexaaamaal.com']);
+  assert.deepEqual(lexaTurnstileHostnames(undefined),['lexaaamaal.com','www.lexaaamaal.com','app.lexaaamaal.com']);
+  assert.deepEqual(lexaTurnstileHostnames(''),['lexaaamaal.com','www.lexaaamaal.com','app.lexaaamaal.com']);
   assert.ok(lexaTurnstileHostnames('lexareview.vercel.app, lexaaamaal.com').includes('lexareview.vercel.app'));
   assert.ok(!lexaTurnstileHostnames('https://attacker.example').includes('https://attacker.example'));
 });

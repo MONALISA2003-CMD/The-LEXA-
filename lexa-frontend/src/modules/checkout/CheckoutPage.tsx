@@ -4,7 +4,7 @@ import { moduleAccentForPath } from '../../domain/shared/moduleAccents';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Barcode, CheckCircle2, Minus, Plus, Search, ShoppingBag, Trash2, Wallet } from 'lucide-react';
+import { Barcode, CheckCircle2, Minus, Plus, Search, ShoppingBag, Trash2, Wallet } from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { inventory, products } from '../../data/repositories';

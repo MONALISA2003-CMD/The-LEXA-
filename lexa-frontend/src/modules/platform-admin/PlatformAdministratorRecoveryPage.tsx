@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { ArrowLeft, KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, KeyRound, LockKeyhole, ShieldCheck } from '../../components/LexaIcon';
 import { apiPlatformAdministratorAuth as auth } from '../../data/remote/apiPlatformAdministration';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import './platform-administration.css';

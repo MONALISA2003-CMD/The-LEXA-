@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   ArrowRight, Building2, CheckCircle2, CreditCard, FileCheck2, LockKeyhole,
   Mail, MapPin, Settings2, ShieldCheck, Users, Wallet,
-} from 'lucide-react';
+} from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { businessSetupApi } from '../../data/remote/businessSetup';
 import { apiTeamAccess } from '../../data/remote/apiTeamAccess';

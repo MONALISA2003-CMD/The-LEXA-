@@ -2,7 +2,7 @@ import {useMemo,useState,type FormEvent} from 'react';
 import {useNavigate} from 'react-router';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
-import {FileText,Plus,Trash2,CheckCircle2,ArrowRight,Printer} from 'lucide-react';
+import {FileText,Plus,Trash2,CheckCircle2,ArrowRight,Printer} from '../../components/LexaIcon';
 import {useWorkspace} from '../../app/WorkspaceContext';
 import {useModuleRecordService} from '../../data/providers/ModuleRecordServiceProvider';
 import {products} from '../../data/repositories';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, LockKeyhole } from 'lucide-react';
+import { Eye, EyeOff, LockKeyhole } from '../../components/LexaIcon';
 import { NEW_PASSWORD_RULE, validNewPassword } from '../../domain/shared/newPasswordPolicy';
 
 type PasswordFieldProps = {

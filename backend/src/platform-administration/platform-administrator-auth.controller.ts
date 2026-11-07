@@ -56,7 +56,7 @@ async function matches(value:string,encoded:string){
 }
 function newToken(){const token=randomBytes(32).toString('base64url');return {token,hash:sha(token)};}
 function publicOrigin(){
-  const url=(process.env.FRONTEND_PUBLIC_URL||'https://lexaaamaal.com').replace(/\/+$/,'');
+  const url=(process.env.FRONTEND_PUBLIC_URL||'https://app.lexaaamaal.com').replace(/\/+$/,'');
   if(!/^https:\/\/[^/]+$/.test(url))throw new ForbiddenException('The public LEXA URL must be a trusted HTTPS origin.');
   return url;
 }

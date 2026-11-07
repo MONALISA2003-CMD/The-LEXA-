@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BriefcaseBusiness, LockKeyhole, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { BriefcaseBusiness, LockKeyhole, ShieldCheck, SlidersHorizontal } from '../../components/LexaIcon';
 import { useSearchParams } from 'react-router';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiTeamAccess } from '../../data/remote/apiTeamAccess';

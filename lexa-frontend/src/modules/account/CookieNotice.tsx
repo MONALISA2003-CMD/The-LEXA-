@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Cookie } from 'lucide-react';
+import { Cookie } from '../../components/LexaIcon';
 import './account-security.css';
 const VERSION = '2026-11-05';
 const KEY = `lexa:public-cookie-choice:${VERSION}`;

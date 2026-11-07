@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { refreshBusinessProjections } from '../../data/remote/businessRefresh';
 import { toast } from 'sonner';
-import { BadgeCheck, CalendarDays, CheckCircle2, FilePlus2, ReceiptText, Wallet } from 'lucide-react';
+import { BadgeCheck, CalendarDays, CheckCircle2, FilePlus2, ReceiptText, Wallet } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiPayables, type PayablesInvoice } from '../../data/remote/apiPayables';
 import './accounts-payable.css';

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, Printer, ReceiptText, RotateCcw, ShieldCheck, X } from 'lucide-react';
+import { ArrowLeft, Check, Printer, ReceiptText, RotateCcw, ShieldCheck, X } from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import SaleReceiptDocument from './SaleReceiptDocument';
 import { useWorkspace } from '../../app/WorkspaceContext';

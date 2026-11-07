@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from '../../components/LexaIcon';
 import type { FormValues } from './previewRules';
 import {
   assemblyUnitCost, journalTotals, readAssemblyComponents, readJournalLines,

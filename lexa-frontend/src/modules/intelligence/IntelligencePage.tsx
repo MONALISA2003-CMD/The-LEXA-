@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router';
-import { Copy, RefreshCw, Send, ArrowRight } from 'lucide-react';
+import { Copy, RefreshCw, Send, ArrowRight } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiIntelligence, type IntelligenceScope } from '../../data/remote/apiIntelligence';
 import { businessErrorMessage } from '../../data/remote/businessMessages';

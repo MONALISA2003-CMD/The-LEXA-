@@ -98,7 +98,7 @@ def repair_unused_typescript(app_shell: str, dashboard: str, operations: str) ->
         dashboard = dashboard.replace(activity_line, "  ArrowDownRight", 1)
         fixes.append("Dashboard: removed unused Activity icon import")
     elif activity_count == 1:
-        dashboard = remove_named_import(dashboard, "lucide-react", "Activity")
+        dashboard = remove_named_import(dashboard, "../../components/LexaIcon", "Activity")
         fixes.append("Dashboard: removed unused Activity icon import")
 
     # MODULE_CATALOG was imported but never used in OperationsWorkspacePage itself.
@@ -127,7 +127,7 @@ def repair_unused_typescript(app_shell: str, dashboard: str, operations: str) ->
     # Assertions intentionally match the exact diagnostics from the supplied Vercel run.
     if "const navigate = useNavigate();" in app_shell and len(re.findall(r"\bnavigate\b", app_shell)) == 1:
         fail("AppShell.tsx: unused navigate declaration remains")
-    dash_import = re.search(r"import\s*\{([^}]*)\}\s*from\s*['\"]lucide-react['\"]", dashboard, re.S)
+    dash_import = re.search(r"import\s*\{([^}]*)\}\s*from\s*['\"]\.\./\.\./components/LexaIcon['\"]", dashboard, re.S)
     if dash_import and re.search(r"\bActivity\b", dash_import.group(1)) and len(re.findall(r"\bActivity\b", dashboard)) == 1:
         fail("DashboardPage.tsx: unused Activity import remains")
     if (re.search(r"EXISTING_MODULE_LINKS,\s*MODULE_CATALOG,\s*PHASE_TWO_LINKS", operations)

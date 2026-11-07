@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://lexaaamaal.com/lexa.html</loc><lastmod>2026-11-04</lastmod></url>
-  <url><loc>https://lexaaamaal.com/features.html</loc><lastmod>2026-11-04</lastmod></url>
-  <url><loc>https://lexaaamaal.com/security.html</loc><lastmod>2026-11-04</lastmod></url>
-  <url><loc>https://lexaaamaal.com/help.html</loc><lastmod>2026-11-04</lastmod></url>
+  <url><loc>https://lexaaamaal.com/</loc></url>
+  <url><loc>https://lexaaamaal.com/features</loc></url>
+  <url><loc>https://lexaaamaal.com/industries</loc></url>
+  <url><loc>https://lexaaamaal.com/pricing</loc></url>
+  <url><loc>https://lexaaamaal.com/security</loc></url>
+  <url><loc>https://lexaaamaal.com/help</loc></url>
 </urlset>

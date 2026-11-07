@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { CheckCircle2, KeyRound, Laptop2, LockKeyhole, ShieldCheck, ShieldX, Smartphone, Trash2 } from 'lucide-react';
+import { CheckCircle2, KeyRound, Laptop2, LockKeyhole, ShieldCheck, ShieldX, Smartphone, Trash2 } from '../../components/LexaIcon';
 import { apiAuth, type AccountSecurity } from '../../data/remote/apiAuth';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import './account-security.css';

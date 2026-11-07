@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import {
   Activity, ArrowRight, BadgeCheck, BarChart3, Boxes, CalendarDays, Check, ChevronDown, CircleAlert,
   CircleDollarSign, Download, Filter, Plus, RefreshCw, Search, ShieldAlert, X, Eye, Edit3, ArrowUpRight,
-} from 'lucide-react';
+} from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import {

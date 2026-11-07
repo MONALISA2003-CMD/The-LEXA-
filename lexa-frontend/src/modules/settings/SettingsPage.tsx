@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Database, ShieldCheck } from 'lucide-react';
+import { Check, Database, ShieldCheck } from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { sales, products, workspaces } from '../../data/repositories';

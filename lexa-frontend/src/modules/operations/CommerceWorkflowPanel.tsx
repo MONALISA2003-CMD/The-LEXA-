@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowDownToLine, ArrowUpRight, CheckCircle2, PackageCheck, Plus, Truck, UserRoundCheck, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpRight, CheckCircle2, PackageCheck, Plus, Truck, UserRoundCheck, X } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { refreshBusinessProjections } from '../../data/remote/businessRefresh';
 import { useModuleRecordService } from '../../data/providers/ModuleRecordServiceProvider';

@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from '../../components/LexaIcon';
 import type { DocumentLine, DocumentLineConfig } from './documentLines';
 import { documentLineQuantity, documentLineSubtotal } from './documentLines';
 

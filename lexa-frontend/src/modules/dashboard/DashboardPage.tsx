@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import {ShieldCheck, Activity, AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, Box, CalendarDays, CheckCircle2, CircleDollarSign, Clock3, Sparkles, Package, RefreshCw, ShoppingBag, ShoppingCart, Users, Wallet, } from 'lucide-react';
+import {ShieldCheck, Activity, AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, Box, CalendarDays, CheckCircle2, CircleDollarSign, Clock3, Sparkles, Package, RefreshCw, ShoppingBag, ShoppingCart, Users, Wallet, } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { useBusinessAssortment } from '../../components/business/BusinessAssortmentSelector';
 import StaffDashboard from './StaffDashboard';

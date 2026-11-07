@@ -9,7 +9,7 @@ import {apiCatalogInventory} from '../../data/remote/apiWorkstream03';
 import {packagesToBase} from '../../domain/catalog/packageQuantity';
 import {apiInventoryOperations,type RawInventoryRow} from '../../data/remote/apiInventoryOperations';
 import {InventoryFrame,InventoryPanel,InventoryNotice,InventoryStats,InventoryBarChart,InventoryTable,field,number,day,readable} from './InventoryFrame';
-import {CheckCircle2,ClipboardCheck,Plus,ShoppingBasket} from 'lucide-react';
+import {CheckCircle2,ClipboardCheck,Plus,ShoppingBasket} from '../../components/LexaIcon';
 
 const recordLines=(r:RawInventoryRow|null|undefined):RawInventoryRow[]=>Array.isArray(r?.lines)?r.lines as RawInventoryRow[]:[];
 function useInventoryBasics(){

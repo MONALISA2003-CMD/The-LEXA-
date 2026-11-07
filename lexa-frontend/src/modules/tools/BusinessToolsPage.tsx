@@ -7,7 +7,7 @@ import {
   Activity, AlertTriangle, ArrowRight, Barcode, Building2, Camera, Check,
   DatabaseBackup, Download, FileSpreadsheet, FileText, History, Printer, RefreshCw,
   Search, ShieldCheck, Smartphone, Upload, Wallet, X,
-} from 'lucide-react';
+} from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { isApiProvider } from '../../data/remote/runtimeConfig';

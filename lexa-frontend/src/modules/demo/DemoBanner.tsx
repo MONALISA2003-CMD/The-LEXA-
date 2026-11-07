@@ -1,37 +1,49 @@
-import {useEffect,useState} from 'react';
-import {AlertCircle,RefreshCcw,ShieldCheck,X} from 'lucide-react';
-import {apiDemo} from '../../data/remote/apiDemo';
+import { useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router';
+import { apiDemo } from '../../data/remote/apiDemo';
 import './demo.css';
 
-export default function DemoBanner(){
-  const [deadline,setDeadline]=useState<number|null>(null);
-  const [now,setNow]=useState(Date.now());
-  const [busy,setBusy]=useState(false);
-  const [message,setMessage]=useState('');
-  useEffect(()=>{
-    let mounted=true;
-    void apiDemo.status().then(s=>{if(mounted)setDeadline(new Date(s.expiresAt).getTime());}).catch(()=>{});
-    const interval=window.setInterval(()=>setNow(Date.now()),30_000);
-    return ()=>{mounted=false;window.clearInterval(interval);};
-  },[]);
-  const minutes=deadline?Math.max(0,Math.ceil((deadline-now)/60_000)):null;
-  const reset=async()=>{
-    if(!window.confirm('Reset this demo? Your sample changes will be lost and a new workspace will open.'))return;
-    setBusy(true);setMessage('');
-    try{await apiDemo.reset();window.location.replace('/');}catch(e){setMessage(e instanceof Error?e.message:'Could not reset demo.');setBusy(false);}
+const SITE_URL = 'https://lexaaamaal.com/';
+const SIGNUP_URL = 'https://app.lexaaamaal.com/create-account';
+
+export default function DemoBanner() {
+  const location = useLocation();
+  const [showGuide, setShowGuide] = useState(() => { try { return window.sessionStorage.getItem('lexa.demo.guide.hidden') !== 'yes'; } catch { return true; } });
+  const [deadline, setDeadline] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    let active = true;
+    void apiDemo.status().then(data => { if (active) setDeadline(new Date(data.expiresAt).getTime()); }).catch(() => {});
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+  const remaining = deadline === null ? null : Math.max(0, Math.ceil((deadline-now)/60_000));
+  const reset = async () => {
+    if (!window.confirm('Start a new sample business? Your changes in this demo will be lost.')) return;
+    setBusy(true); setMessage('');
+    try { await apiDemo.reset(); try { window.sessionStorage.removeItem('lexa.demo.guide.hidden'); } catch { /* Optional browser setting. */ } window.location.replace('/'); }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'The sample business could not be reset.'); setBusy(false); }
   };
-  const exit=async()=>{
+  const exit = async () => {
     setBusy(true);
-    try{await apiDemo.end();}catch{/* Expired sessions are already unusable. */}
-    window.location.replace('https://lexaaamaal.com/');
+    try { await apiDemo.end(); } catch { /* Session may have expired. */ }
+    window.location.replace(SITE_URL);
   };
-  return <aside className="lexa-demo-banner" aria-label="LEXA demonstration workspace">
-    <span><ShieldCheck size={17}/><strong>LIVE DEMO</strong> Fictional sample data only {minutes!==null&&<small>· {minutes} min remaining</small>}</span>
-    <div>
-      <button disabled={busy} type="button" onClick={()=>void reset()}><RefreshCcw size={15}/> Reset</button>
-      <a href="https://app.lexaaamaal.com/create-account">Create real account</a>
-      <button disabled={busy} type="button" onClick={()=>void exit()}><X size={15}/> Exit</button>
+  return <div className="lexa-demo-chrome"><aside className="lexa-demo-banner" aria-label="Sample business controls">
+    <div className="lexa-demo-banner-label"><span className="lexa-demo-live-marker">SAMPLE</span><strong>LEXA Demo Traders</strong><span>Fictional records only</span>{remaining !== null && <small>{remaining} min left</small>}</div>
+    <div className="lexa-demo-banner-actions">
+      <button type="button" disabled={busy} onClick={() => void reset()}>Start again</button>
+      <a href={SIGNUP_URL}>Open a real account <span aria-hidden="true">↗</span></a>
+      <button type="button" disabled={busy} onClick={() => void exit()}>Leave demo</button>
     </div>
-    {message&&<p role="alert"><AlertCircle size={14}/>{message}</p>}
-  </aside>;
+    {message && <p role="alert" className="lexa-demo-banner-error">{message}</p>}
+  </aside>
+    {location.pathname === '/' && showGuide && <section className="lexa-demo-guide" aria-label="Things to try in this sample business">
+      <div><span>YOUR FIRST FIVE MINUTES</span><strong>Record a sale, then check what moved.</strong></div>
+      <nav aria-label="Sample business starting points"><Link to="/checkout">1. Checkout</Link><Link to="/products">2. Products</Link><Link to="/inventory">3. Stock</Link><Link to="/modules/purchases">4. Supplier orders</Link><Link to="/reports">5. Reports</Link></nav>
+      <button type="button" onClick={() => { setShowGuide(false); try { window.sessionStorage.setItem('lexa.demo.guide.hidden','yes'); } catch { /* Optional preference. */ } }}>Hide guide</button>
+    </section>}
+  </div>;
 }

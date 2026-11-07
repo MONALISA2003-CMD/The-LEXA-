@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, FileCheck2, ShieldCheck } from 'lucide-react';
+import { BookOpen, FileCheck2, ShieldCheck } from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiTax } from '../../data/remote/apiTax';

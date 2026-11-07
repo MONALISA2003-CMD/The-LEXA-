@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Building2, Check, ChevronLeft, ChevronRight, CircleCheck, CreditCard, MapPin, PackageCheck, ShieldCheck, Store, Wallet } from 'lucide-react';
+import { Building2, Check, ChevronLeft, ChevronRight, CircleCheck, CreditCard, MapPin, PackageCheck, ShieldCheck, Store, Wallet } from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { businessSetupApi, type BusinessSetupRecord, type SetupSave } from '../../data/remote/businessSetup';

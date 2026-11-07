@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { CheckCircle2, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
+import { CheckCircle2, LockKeyhole, ShieldCheck, Sparkles } from '../../components/LexaIcon';
 import { apiPlatformAdministratorAuth as auth } from '../../data/remote/apiPlatformAdministration';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import './platform-administration.css';

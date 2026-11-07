@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router';
-import { CheckCircle2, Clock, CreditCard, HelpCircle, MessageCircle, RefreshCw, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Clock, CreditCard, HelpCircle, MessageCircle, RefreshCw, ShieldCheck } from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { apiClient } from '../../data/remote/apiClient';

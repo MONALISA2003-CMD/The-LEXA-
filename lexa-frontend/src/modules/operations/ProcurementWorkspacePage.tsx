@@ -3,7 +3,7 @@ import { BusinessAssortmentSelector, useBusinessAssortment } from '../../compone
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, BadgeCheck, Check, ClipboardList, FileCheck2, FileText, PackageCheck, Plus, RefreshCw, RotateCcw, Search, ShieldCheck, ShoppingCart, Store, Wallet } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Check, ClipboardList, FileCheck2, FileText, PackageCheck, Plus, RefreshCw, RotateCcw, Search, ShieldCheck, ShoppingCart, Store, Wallet } from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { products } from '../../data/repositories';

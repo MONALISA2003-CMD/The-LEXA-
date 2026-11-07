@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Banknote, Building2, CircleAlert, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Banknote, Building2, CircleAlert, RefreshCw, ShieldCheck } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiFinanceOperations } from '../../data/remote/apiWorkstream03';
 import BankReconciliationPanel from './BankReconciliationPanel';

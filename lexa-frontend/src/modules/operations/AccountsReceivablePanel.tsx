@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowDownLeft, CheckCircle2, FilePlus2, FileText, RefreshCw, Wallet, Printer } from 'lucide-react';
+import { AlertCircle, ArrowDownLeft, CheckCircle2, FilePlus2, FileText, RefreshCw, Wallet, Printer } from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiReceivables, type EligibleSale, type ReceivablesInvoice } from '../../data/remote/apiReceivables';

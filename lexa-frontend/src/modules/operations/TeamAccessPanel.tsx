@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { CircleAlert, LockKeyhole, RefreshCw, Save, ShieldCheck, UserRoundPlus, UserX, UserCheck } from 'lucide-react';
+import { CircleAlert, LockKeyhole, RefreshCw, Save, ShieldCheck, UserRoundPlus, UserX, UserCheck } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiTeamAccess, type TeamMember } from '../../data/remote/apiTeamAccess';
 import AddEmployeePanel from './AddEmployeePanel';

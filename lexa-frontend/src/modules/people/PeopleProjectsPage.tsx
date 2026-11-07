@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, CalendarClock, Clock3, FileCheck2, FolderKanban, Headset, Plus, RefreshCw, ShieldCheck, Users, Wallet } from 'lucide-react';
+import { Activity, CalendarClock, Clock3, FileCheck2, FolderKanban, Headset, Plus, RefreshCw, ShieldCheck, Users, Wallet } from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { formatMinorAmount, parseMajorAmount } from '../../domain/money/money';

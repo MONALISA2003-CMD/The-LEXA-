@@ -38,18 +38,26 @@ test('Business Tools does not render disallowed notices and uses private attachm
   assert.match(p,/f\.record_type==='business_document'/);
 });
 
-test('private application is noindex while public pages have sitemap and canonical metadata',()=>{
+test('private app remains noindex while public marketing pages use clean canonical URLs',()=>{
   assert.match(source('lexa-frontend/index.html'),/noindex,nofollow/);
-  const robots=source('lexa-frontend/public/robots.txt');
+  const appConfig=JSON.parse(source('lexa-frontend/vercel.json'));
+  const appHeaders=appConfig.headers.find(item=>item.source==='/(.*)').headers;
+  assert.ok(appHeaders.some(h=>h.key==='X-Robots-Tag'&&h.value.includes('noindex')));
+  const publicConfig=JSON.parse(source('lexa-frontend/marketing/vercel.json'));
+  assert.equal(publicConfig.cleanUrls,true);
+  const robots=source('lexa-frontend/marketing/robots.txt');
   assert.match(robots,/Sitemap: https:\/\/lexaaamaal\.com\/sitemap\.xml/);
-  assert.match(robots,/Disallow: \/api\//);
-  for(const page of ['lexa','features','security','help']) {
-    const html=source(`lexa-frontend/public/${page}.html`);
+  const sitemap=source('lexa-frontend/marketing/sitemap.xml');
+  for(const [page,route] of [['index','/'],['features','/features'],['industries','/industries'],['pricing','/pricing'],['security','/security'],['help','/help']]){
+    const html=source(`lexa-frontend/marketing/${page}.html`);
     assert.match(html,/<title>/);
-    assert.match(html, /rel="canonical"/);
     assert.match(html,/name="description"/);
-    assert.match(source('lexa-frontend/public/sitemap.xml'),new RegExp(`${page}\\.html`));
+    assert.ok(html.includes(`rel="canonical" href="https://lexaaamaal.com${route}"`), page);
+    assert.ok(sitemap.includes(`<loc>https://lexaaamaal.com${route}</loc>`), route);
   }
+  const legacy=source('lexa-frontend/public/lexa.html');
+  assert.match(legacy,/rel="canonical" href="https:\/\/lexaaamaal\.com\/"/);
+  assert.match(legacy,/LEXA is a subsidiary of AMAAL GROUP/);
 });
 
 test('public sign-up challenges require server-side Siteverify if enabled', async()=>{

@@ -1,6 +1,6 @@
 import { INDUSTRY_OPTIONS } from '../../domain/catalog/industryCatalog';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ArrowRight, Check, LogIn, ShieldCheck, Sparkles, Building2, RefreshCw } from 'lucide-react';
+import { ArrowRight, Check, LogIn, ShieldCheck, Sparkles, Building2, RefreshCw } from '../../components/LexaIcon';
 import { Link, useNavigate } from 'react-router';
 import { workspaces } from '../../data/repositories';
 import { apiAuth } from '../../data/remote/apiAuth';

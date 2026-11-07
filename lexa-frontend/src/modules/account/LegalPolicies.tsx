@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { Cookie, ShieldCheck } from 'lucide-react';
+import { Cookie, ShieldCheck } from '../../components/LexaIcon';
 import './account-security.css';
 const revised = '6 November 2026';
 export function CookiePolicyPage() {

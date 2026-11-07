@@ -4,7 +4,7 @@ import DivisionSalesSummary from './DivisionSalesSummary';
 import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, BadgeCheck, BookOpen, Landmark, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
+import { ArrowRight, BadgeCheck, BookOpen, Landmark, RefreshCw, ShieldCheck, TrendingUp, Wallet } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiFinanceIntelligence } from '../../data/remote/apiFinanceIntelligence';
 import { apiPayables } from '../../data/remote/apiPayables';

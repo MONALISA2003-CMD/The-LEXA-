@@ -14,7 +14,7 @@ export interface TurnstileVerifyResponse {
  * variable is absent. Tokens still require successful Cloudflare Siteverify.
  */
 export function lexaTurnstileHostnames(configured: string | undefined): string[] {
-  const allow = new Set(['lexaaamaal.com', 'www.lexaaamaal.com']);
+  const allow = new Set(['lexaaamaal.com', 'www.lexaaamaal.com', 'app.lexaaamaal.com']);
   for (const value of (configured ?? '').split(',')) {
     const host = value.trim().toLowerCase();
     if (/^[a-z0-9][a-z0-9.-]{0,252}$/.test(host) && !host.includes('..')) allow.add(host);

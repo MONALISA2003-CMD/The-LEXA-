@@ -2,7 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowRight, Banknote, BookOpen, CalendarClock, CircleAlert, Landmark, Plus, RefreshCw, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Banknote, BookOpen, CalendarClock, CircleAlert, Landmark, Plus, RefreshCw, ShieldCheck } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiFinanceOperations } from '../../data/remote/apiWorkstream03';
 import { apiGeneralLedger } from '../../data/remote/apiGeneralLedger';

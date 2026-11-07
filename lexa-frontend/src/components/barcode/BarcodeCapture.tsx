@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Barcode, Camera, Check, Search, Square, ImageUp } from 'lucide-react';
+import { Barcode, Camera, Check, Search, Square, ImageUp } from '../LexaIcon';
 import type { IScannerControls } from '@zxing/browser';
 
 export function BarcodeCapture({ onCode, label = 'Scan a barcode', compact = false, autoResolve = false }: {

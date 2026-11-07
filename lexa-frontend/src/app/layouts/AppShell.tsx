@@ -2,7 +2,7 @@ import { isDemoDeployment } from '../../data/remote/apiDemo';
 import DemoBanner from '../../modules/demo/DemoBanner';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
-import { Building2, ChevronDown, CircleHelp, Menu, Settings, Store, X, Moon, Sun, Pin, Search } from 'lucide-react';
+import { Building2, ChevronDown, CircleHelp, Menu, Settings, Store, X, Moon, Sun, Pin, Search } from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { apiTeamAccess } from '../../data/remote/apiTeamAccess';

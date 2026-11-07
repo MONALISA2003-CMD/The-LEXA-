@@ -9,7 +9,7 @@ import {BarcodeCapture} from '../../components/barcode/BarcodeCapture';
 import {apiInventoryOperations,type RawInventoryRow} from '../../data/remote/apiInventoryOperations';
 import {apiCommerce} from '../../data/remote/apiCommerce';
 import {InventoryFrame,InventoryPanel,InventoryNotice,InventoryStats,InventoryBarChart,InventoryTable,field,number,readable} from './InventoryFrame';
-import {PackageCheck,ScanBarcode} from 'lucide-react';
+import {PackageCheck,ScanBarcode} from '../../components/LexaIcon';
 const rowLines=(r:RawInventoryRow)=>Array.isArray(r.lines)?r.lines as RawInventoryRow[]:[];
 export default function InventoryPicklistsPage(){
  const {workspace,branch}=useWorkspace(),scope={workspaceId:workspace.id,branchId:branch.id},cache=useQueryClient();

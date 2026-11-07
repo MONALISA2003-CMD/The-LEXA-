@@ -1,6 +1,6 @@
 
 import {Link,useLocation} from 'react-router';
-import {ArrowUpRight,Boxes,ClipboardCheck,PackageCheck,Truck} from 'lucide-react';
+import {ArrowUpRight,Boxes,ClipboardCheck,PackageCheck,Truck} from '../../components/LexaIcon';
 import './logistics-violet.css';
 export default function LogisticsHeader({active}:{active:'deliveries'|'packages'}){
  const location=useLocation();

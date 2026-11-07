@@ -1,11 +1,196 @@
 {
-  "$schema":"https://openapi.vercel.sh/vercel.json",
-  "cleanUrls":true,
-  "trailingSlash":false,
-  "redirects":[{"source":"/lexa.html","destination":"/","permanent":true}],
-  "rewrites":[{"source":"/features","destination":"/features.html"},{"source":"/pricing","destination":"/pricing.html"},{"source":"/security","destination":"/security.html"},{"source":"/help","destination":"/help.html"}],
-  "headers":[
-    {"source":"/(.*)","headers":[{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"},{"key":"X-Frame-Options","value":"DENY"}]},
-    {"source":"/sitemap.xml","headers":[{"key":"Content-Type","value":"application/xml; charset=utf-8"}]}
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/lexa.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/demo",
+      "destination": "https://demo.lexaaamaal.com/demo",
+      "permanent": false
+    },
+    {
+      "source": "/sign-in",
+      "destination": "https://app.lexaaamaal.com/sign-in",
+      "permanent": false
+    },
+    {
+      "source": "/create-account",
+      "destination": "https://app.lexaaamaal.com/create-account",
+      "permanent": false
+    },
+    {
+      "source": "/verify-email",
+      "destination": "https://app.lexaaamaal.com/verify-email",
+      "permanent": false
+    },
+    {
+      "source": "/accept-invitation",
+      "destination": "https://app.lexaaamaal.com/accept-invitation",
+      "permanent": false
+    },
+    {
+      "source": "/forgot-password",
+      "destination": "https://app.lexaaamaal.com/forgot-password",
+      "permanent": false
+    },
+    {
+      "source": "/reset-password",
+      "destination": "https://app.lexaaamaal.com/reset-password",
+      "permanent": false
+    },
+    {
+      "source": "/change-password",
+      "destination": "https://app.lexaaamaal.com/change-password",
+      "permanent": false
+    },
+    {
+      "source": "/first-admin-setup",
+      "destination": "https://app.lexaaamaal.com/first-admin-setup",
+      "permanent": false
+    },
+    {
+      "source": "/subscription",
+      "destination": "https://app.lexaaamaal.com/subscription",
+      "permanent": false
+    },
+    {
+      "source": "/account/security",
+      "destination": "https://app.lexaaamaal.com/account/security",
+      "permanent": false
+    },
+    {
+      "source": "/onboarding",
+      "destination": "https://app.lexaaamaal.com/onboarding",
+      "permanent": false
+    },
+    {
+      "source": "/platform-admin",
+      "destination": "https://app.lexaaamaal.com/platform-admin",
+      "permanent": false
+    },
+    {
+      "source": "/settings",
+      "destination": "https://app.lexaaamaal.com/settings",
+      "permanent": false
+    },
+    {
+      "source": "/settings/security",
+      "destination": "https://app.lexaaamaal.com/settings/security",
+      "permanent": false
+    },
+    {
+      "source": "/settings/privacy",
+      "destination": "https://app.lexaaamaal.com/settings/privacy",
+      "permanent": false
+    },
+    {
+      "source": "/workspace",
+      "destination": "https://app.lexaaamaal.com/workspace",
+      "permanent": false
+    },
+    {
+      "source": "/products",
+      "destination": "https://app.lexaaamaal.com/products",
+      "permanent": false
+    },
+    {
+      "source": "/inventory",
+      "destination": "https://app.lexaaamaal.com/inventory",
+      "permanent": false
+    },
+    {
+      "source": "/checkout",
+      "destination": "https://app.lexaaamaal.com/checkout",
+      "permanent": false
+    },
+    {
+      "source": "/sales",
+      "destination": "https://app.lexaaamaal.com/sales",
+      "permanent": false
+    },
+    {
+      "source": "/team",
+      "destination": "https://app.lexaaamaal.com/team",
+      "permanent": false
+    },
+    {
+      "source": "/my-employment",
+      "destination": "https://app.lexaaamaal.com/my-employment",
+      "permanent": false
+    },
+    {
+      "source": "/reports",
+      "destination": "https://app.lexaaamaal.com/reports",
+      "permanent": false
+    },
+    {
+      "source": "/intelligence",
+      "destination": "https://app.lexaaamaal.com/intelligence",
+      "permanent": false
+    },
+    {
+      "source": "/business-setup",
+      "destination": "https://app.lexaaamaal.com/business-setup",
+      "permanent": false
+    },
+    {
+      "source": "/data-operations",
+      "destination": "https://app.lexaaamaal.com/data-operations",
+      "permanent": false
+    },
+    {
+      "source": "/platform-admin/:path*",
+      "destination": "https://app.lexaaamaal.com/platform-admin/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/settings/:path*",
+      "destination": "https://app.lexaaamaal.com/settings/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/modules/:path*",
+      "destination": "https://app.lexaaamaal.com/modules/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/sales/:path*",
+      "destination": "https://app.lexaaamaal.com/sales/:path*",
+      "permanent": false
+    }
+  ],
+  "rewrites": [],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
+      ]
+    },
+    {
+      "source": "/sitemap.xml",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/xml; charset=utf-8"
+        }
+      ]
+    }
   ]
 }

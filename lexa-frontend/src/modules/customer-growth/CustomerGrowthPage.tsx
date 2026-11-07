@@ -3,7 +3,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowRight, BarChart3, CalendarClock, CheckCircle2, ChevronDown, ContactRound, HeartHandshake, Megaphone, MessageCircle, Pencil, Plus, RefreshCcw, Search, ShieldCheck, Target, TrendingUp, Users, X } from 'lucide-react';
+import { ArrowRight, BarChart3, CalendarClock, CheckCircle2, ChevronDown, ContactRound, HeartHandshake, Megaphone, MessageCircle, Pencil, Plus, RefreshCcw, Search, ShieldCheck, Target, TrendingUp, Users, X } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { useModuleRecordService } from '../../data/providers/ModuleRecordServiceProvider';
 import { getModuleDefinition, type ModuleField, type PreviewRecord } from '../operations/moduleCatalog';

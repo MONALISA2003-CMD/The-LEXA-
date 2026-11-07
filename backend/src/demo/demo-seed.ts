@@ -21,6 +21,16 @@ const productNames = [
   'Mouse Pad','Display Adapter','Label Rolls','Headset','Cable Organizer',
   'Whiteboard','Marker Set','Power Adapter'
 ];
+// Whole-shilling sample amounts by catalogue position (UGX has no fractional minor unit).
+const retailPricesUGX = [
+  40_000, 75_000, 65_000, 60_000, 55_000, 120_000, 65_000, 7_000,
+  5_000, 450_000, 90_000, 25_000, 100_000, 23_000, 750_000, 28_000,
+  125_000, 40_000, 30_000, 25_000, 60_000, 18_000, 15_000, 220_000,
+  180_000, 10_000, 8_000, 17_000, 250_000, 14_000, 650_000, 40_000,
+  20_000, 15_000, 4_000, 50_000, 210_000, 45_000, 35_000, 18_000,
+  12_000, 40_000, 16_000, 75_000, 12_000, 185_000, 15_000, 45_000,
+] as const;
+
 const customerNames = ['Acacia Café','Kampala Books','Pearl Office Solutions','Cedar Logistics', 'Nile Design Studio', 'Tamarind Schools','Lakeview Hardware','Maple Repairs'];
 const supplierNames = ['Demo Eastern Supplies','Sample Lakeside Distribution','Fictional Electronics Hub','Mock Central Wholesalers'];
 export const DEMO_MODULES = [
@@ -31,6 +41,53 @@ export const DEMO_MODULES = [
   'work-orders','boms','job-cards','quality','projects','tasks','support','deliveries','packages',
   'stock-counts','batches','replenishment','stock-transfers','warehouses','picklists','item-bundles'
 ] as const;
+
+// Realistic fictional work items used by the same module-record screens as customer accounts.
+const demoRecordLabels: Readonly<Record<string,readonly string[]>> = {
+  'customers': ["Acacia Café", "Kampala Books", "Pearl Office Solutions"],
+  'leads': ["Acacia office supplies inquiry", "Bookshelf order inquiry", "Café receipt printer inquiry"],
+  'opportunities': ["School supply order", "Office desk replacement", "Barcode equipment supply"],
+  'contacts': ["Shop manager", "Accounts contact", "Receiving officer"],
+  'campaigns': ["Back-to-school offers", "Office supplies week", "Printer consumables outreach"],
+  'sales-teams': ["Shop counter team", "Wholesale accounts", "Regional customer visits"],
+  'sales-orders': ["School paper and stationery", "Office chairs for delivery", "Router and cabling order"],
+  'quotations': ["Acacia shelving estimate", "Pearl laptop accessories", "Kampala Books supply quote"],
+  'price-lists': ["Retail counter prices", "Registered wholesale prices", "School accounts prices"],
+  'suppliers': ["Demo Eastern Supplies", "Sample Lakeside Distribution", "Fictional Electronics Hub"],
+  'purchase-requests': ["Restock A4 paper", "Replace stockroom scanner", "Order laptop chargers"],
+  'rfqs': ["Office chairs pricing", "Networking equipment quote", "Printer cartridges quote"],
+  'supplier-quotes': ["A4 paper supply offer", "Wireless mouse batch offer", "Delivery cartons offer"],
+  'purchases': ["Stationery restock order", "Electronics parts order", "Packing supplies order"],
+  'purchase-returns': ["Damaged adapter return", "Incorrect charger shipment", "Damaged cartons return"],
+  'expenses': ["Shop rent - sample", "Delivery fuel - sample", "Internet subscription - sample"],
+  'cash-sessions': ["Morning checkout shift", "Afternoon checkout shift", "Weekend cash-up"],
+  'money-accounts': ["Cash at counter", "Petty cash float", "Sample bank account"],
+  'payments': ["Paper order settlement", "Sample POS card collection", "Supplier invoice allocation"],
+  'cost-centers': ["Main shop operations", "Wholesale sales", "Delivery costs"],
+  'budgets': ["Shop operating budget", "Inventory purchase budget", "Quarterly delivery budget"],
+  'assets': ["Office counter computer", "Warehouse shelving", "Delivery motorcycle"],
+  'employees': ["Counter cashier", "Inventory coordinator", "Office administrator"],
+  'attendance': ["Counter shift - Monday", "Store opening shift", "Stockroom shift"],
+  'leave': ["Annual leave request", "Family leave request", "Medical leave request"],
+  'timesheets': ["Shop counter hours", "Stock count hours", "Delivery coordination hours"],
+  'payroll': ["Counter team payroll", "Store team payroll", "Office team payroll"],
+  'work-orders': ["Label shelf units", "Assemble office desks", "Test returned power adapters"],
+  'boms': ["Desk assembly materials", "Packing kit components", "Display shelf components"],
+  'job-cards': ["Repair a receipt printer", "Service stockroom scanner", "Inspect returned monitor"],
+  'quality': ["Check received adapters", "Monitor packaging inspection", "Stockroom safety review"],
+  'projects': ["Refit shopfront display", "Set up branch stockroom", "Replace POS equipment"],
+  'tasks': ["Review stock discrepancies", "Prepare supplier payment file", "Check late customer invoices"],
+  'support': ["Receipt reprint request", "Supplier delivery query", "Warranty check inquiry"],
+  'deliveries': ["Kampala Books delivery", "Pearl office desk delivery", "Acacia stationery delivery"],
+  'packages': ["Stationery carton 001", "Accessories parcel 002", "Office supplies box 003"],
+  'stock-counts': ["Monthly accessories count", "Office supplies shelf count", "Printer supplies count"],
+  'batches': ["A4 paper incoming lot", "Printer consumables lot", "Packing materials lot"],
+  'replenishment': ["Low-stock adapters", "Paper re-order list", "Packing tape request"],
+  'stock-transfers': ["Front counter restock", "Warehouse shelf transfer", "Demo storeroom transfer"],
+  'warehouses': ["Main stockroom", "Shop display shelves", "Receiving area"],
+  'picklists': ["School delivery picklist", "Office chair picklist", "Accessories delivery picklist"],
+  'item-bundles': ["Office starter set", "Desk cable kit", "Packing supplies bundle"],
+};
 
 export type DemoSeedScope = { tenantId: string; userId: string; branchId: string };
 
@@ -51,7 +108,8 @@ export async function seedDemoBusiness(tx: any, scope: DemoSeedScope): Promise<v
   await tx.category.createMany({data:categories.map((name,i)=>({id:ids[i],tenantId,name}))});
   const productRows = productNames.map((name,i) => ({
     id:randomUUID(),tenantId,name,sku:`DEMO-${String(i+1).padStart(4,'0')}`,
-    categoryId:ids[i%ids.length],costPriceMinor:1200+900*(i%7),sellingPriceMinor:2700+1300*(i%7),
+    categoryId:ids[i%ids.length],costPriceMinor:Math.round(retailPricesUGX[i] * 0.72 / 100) * 100,
+    sellingPriceMinor:retailPricesUGX[i],
     lowStockThreshold:5,trackStock:true,active:true,
   }));
   await tx.product.createMany({data:productRows});
@@ -88,8 +146,8 @@ export async function seedDemoBusiness(tx: any, scope: DemoSeedScope): Promise<v
       const supplier=supplierNames[(i+j)%supplierNames.length];
       const data={
         id,status:'Active',updatedAt:date.toISOString(),createdAt:date.toISOString(),
-        name:moduleId==='customers'?contact:moduleId==='suppliers'?supplier:`Sample ${moduleId.replace(/-/g,' ')} ${j+1}`,
-        customer:contact,supplier,description:'Demonstration record — not a real transaction',
+        name:demoRecordLabels[moduleId]?.[j] ?? `Demo entry ${j+1}`,
+        customer:contact,supplier,description:'Fictional record in LEXA Demo Traders. No outside party is involved.',
         reference:id,customerCode:`C-${i+1}${j}`,supplierCode:`S-${i+1}${j}`,
         invoiceNumber:id,orderNumber:id,poNumber:id,quoteNumber:id,projectName:`Project ${j+1}`,
         phone:'+256700000000',email:`sample${i}${j}@demo.invalid`,total:(j+1)*125000,

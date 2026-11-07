@@ -8,7 +8,7 @@ import {products} from '../../data/repositories';
 import {apiInventoryOperations,type RawInventoryRow} from '../../data/remote/apiInventoryOperations';
 import {formatMinorAmount} from '../../domain/money/money';
 import {InventoryFrame,InventoryPanel,InventoryNotice,InventoryStats,InventoryTable,field,number,readable} from './InventoryFrame';
-import {Boxes,Plus} from 'lucide-react';
+import {Boxes,Plus} from '../../components/LexaIcon';
 const getLines=(x:RawInventoryRow)=>Array.isArray(x.lines)?x.lines as RawInventoryRow[]:[];
 export default function InventoryBundlesPage(){
  const {workspace,branch}=useWorkspace(),scope={workspaceId:workspace.id,branchId:branch.id};

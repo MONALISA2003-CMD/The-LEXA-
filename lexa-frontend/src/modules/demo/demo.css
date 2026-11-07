@@ -1,24 +1,27 @@
-.lexa-demo-entry{min-height:100vh;min-height:100dvh;background:radial-gradient(circle at 5% 10%,#0753bd 0,#081b42 34%,#050e29 80%);display:flex;align-items:center;justify-content:center;padding:2rem 1rem;color:#112751}
-.lexa-demo-entry-card{width:min(100%,640px);border-radius:28px;padding:clamp(1.4rem,4vw,3rem);background:linear-gradient(130deg,#fff 0%,#eef5ff 95%);box-shadow:0 32px 85px #02092288}
-.lexa-demo-logo{width:175px;height:auto;max-width:100%;margin-bottom:20px}
-.lexa-demo-kicker{display:flex;gap:9px;align-items:center;color:#1267b8;font-size:12px;letter-spacing:1.5px;font-weight:900}
-.lexa-demo-entry h1{font-size:clamp(1.9rem,5vw,3rem);line-height:1.12;letter-spacing:-.035em;color:#092656;margin:18px 0}
-.lexa-demo-entry p{color:#435b78;line-height:1.7}
-.lexa-demo-features{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:25px 0}
-.lexa-demo-features span{display:flex;align-items:center;gap:9px;font-size:13px;color:#294462}
-.lexa-demo-primary{display:flex;justify-content:center;align-items:center;gap:13px;background:linear-gradient(110deg,#0051db,#0098ed);color:white!important;border:0;text-decoration:none;border-radius:13px;width:100%;min-height:57px;font-size:16px;font-weight:750;cursor:pointer}
-.lexa-demo-primary:disabled{opacity:.55;cursor:wait}
-.lexa-demo-error{background:#fff0f0;color:#a01c23!important;padding:12px;border-radius:10px}
-.lexa-demo-entry small{display:block;margin:17px 0;font-size:12px;line-height:1.6;color:#687c93}
-.lexa-demo-back{display:block;text-align:center;color:#145b9f;text-decoration:underline;font-weight:650}
-.lexa-demo-loading{animation:lexa-demo-spin 1s linear infinite}
-@keyframes lexa-demo-spin{to{transform:rotate(360deg)}}
-.lexa-demo-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 18px;background:#e2f5ff;color:#073764;border-bottom:1px solid #9bdaf6;position:relative;z-index:4;font:600 13px system-ui}
-.lexa-demo-banner>span,.lexa-demo-banner>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.lexa-demo-banner strong{letter-spacing:1px;color:#006dd1}
-.lexa-demo-banner small{font-size:12px;color:#466989}
-.lexa-demo-banner button,.lexa-demo-banner a{font:inherit;color:#005a9e;background:white;border:1px solid #abd7f2;border-radius:8px;padding:7px 11px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;text-decoration:none}
-.lexa-demo-banner button:disabled{opacity:.5}
-.lexa-demo-banner p{flex-basis:100%;color:#b32626;margin:0;display:flex;gap:6px;align-items:center}
-@media(max-width:500px){.lexa-demo-features{grid-template-columns:1fr}.lexa-demo-banner{align-items:flex-start}.lexa-demo-banner>div{width:100%}}
-@media print{.lexa-demo-banner{display:none!important}body::after{content:'LEXA DEMO — FICTIONAL SAMPLE RECORD';position:fixed;bottom:1rem;left:1rem;color:#a22;font-weight:bold;font-size:13px}}
+/* Demo pages use typography and LEXA branding, not third-party icon components. */
+.lexa-demo-entry{min-height:100vh;min-height:100dvh;background:#091b34;color:#e8f3fc;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+.lexa-demo-entry *{box-sizing:border-box}.lexa-demo-entry a{color:inherit}
+.lexa-demo-topbar{width:min(1160px,calc(100% - 44px));margin:0 auto;padding:30px 0;display:flex;align-items:center;justify-content:space-between;gap:25px;border-bottom:1px solid #3d5872}
+.lexa-demo-topbar img{display:block;width:160px;height:auto;max-height:50px;object-fit:contain}.lexa-demo-topbar>a:last-child{font-size:13px;font-weight:750;text-decoration:none;color:#9df1d4}
+.lexa-demo-layout{width:min(1160px,calc(100% - 44px));margin:auto;display:grid;grid-template-columns:minmax(0,.96fr) minmax(390px,1.04fr);align-items:center;gap:clamp(30px,5vw,100px);padding:56px 0}
+.lexa-demo-kicker{font-size:11px!important;font-weight:800;letter-spacing:.14em;color:#9df1d4!important}
+.lexa-demo-copy h1{font-size:clamp(43px,4.9vw,69px);line-height:1.12;letter-spacing:-.055em;color:white;max-width:610px;margin:18px 0 25px}
+.lexa-demo-lead{font-size:clamp(17px,1.65vw,20px);line-height:1.65;color:#cadceb;max-width:520px;margin:0 0 30px}
+.lexa-demo-facts{display:flex;gap:28px;flex-wrap:wrap;padding:23px 0;border-top:1px solid #3c5b77;border-bottom:1px solid #3c5b77;max-width:520px}
+.lexa-demo-facts div{display:flex;flex-direction:column;gap:3px}.lexa-demo-facts b{font-size:29px;letter-spacing:-.04em;color:#9df1d4}.lexa-demo-facts span{font-size:12px;color:#bdd3e6}
+.lexa-demo-disclaimer{font-size:13px;color:#a5bfd1;line-height:1.7;max-width:540px;margin-top:22px}
+.lexa-demo-entry-card{background:#f7faf9;color:#183149;padding:clamp(26px,3.5vw,48px);border-radius:13px;box-shadow:0 28px 90px #0005}
+.lexa-demo-step-label{font-size:11px;color:#137b7c;letter-spacing:.14em;font-weight:850;margin-bottom:17px}
+.lexa-demo-task-list{padding:0;margin:0 0 28px;list-style:none}.lexa-demo-task-list li{display:flex;gap:18px;padding:15px 0;border-bottom:1px solid #dbe7e7}.lexa-demo-task-list li:first-child{padding-top:2px}.lexa-demo-task-list li:last-child{border-bottom:0}.lexa-demo-number{font-size:12px;font-weight:900;color:#127e7f;flex:none;padding-top:3px}.lexa-demo-task-list strong{font-size:17px;color:#15314e}.lexa-demo-task-list p{font-size:13px;color:#59707d;margin:4px 0 0;line-height:1.6}
+.lexa-demo-primary{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:18px 21px;background:#103756;border:1px solid #103756;border-radius:8px;color:white!important;text-decoration:none;font:750 15px ui-sans-serif,system-ui;cursor:pointer;min-height:58px}.lexa-demo-primary:hover{background:#195174}.lexa-demo-primary:disabled{opacity:.6;cursor:wait}
+.lexa-demo-small{font-size:11px;color:#667e8b;line-height:1.6;margin:14px 0 0}.lexa-demo-checking{color:#4d6779;font-size:14px}.lexa-demo-error{background:#f9e4e2;color:#a02823;padding:12px;border-left:3px solid #a02823;font-size:13px}
+.lexa-demo-bottom{width:min(1160px,calc(100% - 44px));margin:0 auto;display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap;padding:22px 0;border-top:1px solid #3d5872;font-size:12px;color:#aac5d6}.lexa-demo-bottom a{color:#cfe8f0!important}
+.lexa-demo-banner{display:flex;align-items:center;justify-content:space-between;gap:12px 25px;flex-wrap:wrap;position:relative;z-index:4;padding:11px 20px;background:#dbf1e8;color:#123b3f;border-bottom:1px solid #a9d7c9;font:650 12px ui-sans-serif,system-ui}
+.lexa-demo-banner-label,.lexa-demo-banner-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.lexa-demo-live-marker{font-weight:900;letter-spacing:.14em;font-size:10px;background:#0b554c;color:#fff;padding:6px 10px;border-radius:4px}.lexa-demo-banner strong{font-size:13px}.lexa-demo-banner-label>span:not(.lexa-demo-live-marker){color:#416669}.lexa-demo-banner small{font-size:11px;color:#486c66}
+.lexa-demo-banner button,.lexa-demo-banner a{display:inline-flex;align-items:center;gap:6px;border:1px solid #aaccc0;background:#f8fffc;padding:8px 12px;color:#164c48;font:700 12px ui-sans-serif,system-ui;border-radius:6px;text-decoration:none;cursor:pointer}.lexa-demo-banner button:disabled{opacity:.5;cursor:wait}.lexa-demo-banner-error{flex-basis:100%;margin:0;color:#a12824}
+@media(max-width:850px){.lexa-demo-layout{grid-template-columns:1fr;gap:30px;padding:42px 0}.lexa-demo-copy h1{font-size:clamp(40px,8vw,60px)}.lexa-demo-entry-card{max-width:720px}}
+@media(max-width:500px){.lexa-demo-topbar{padding:20px 0}.lexa-demo-topbar img{width:126px}.lexa-demo-topbar>a:last-child{font-size:11px}.lexa-demo-layout{padding:30px 0}.lexa-demo-copy h1{font-size:40px}.lexa-demo-banner{align-items:flex-start}.lexa-demo-banner-actions{width:100%}.lexa-demo-banner-label{gap:8px}}
+@media(prefers-reduced-motion:reduce){.lexa-demo-entry *{transition:none!important;animation:none!important}}
+@media print{.lexa-demo-banner{display:none!important}body::after{content:'LEXA DEMO – FICTIONAL RECORD';position:fixed;bottom:1rem;left:1rem;color:#ab2020;font-weight:800;font-size:12px}}
+
+.lexa-demo-chrome{width:100%}.lexa-demo-guide{display:flex;align-items:center;justify-content:space-between;gap:12px 25px;flex-wrap:wrap;padding:17px 22px;background:#f2f8f6;border-bottom:1px solid #c9dfd6;color:#17394b;font:600 12px ui-sans-serif,system-ui}.lexa-demo-guide>div{display:flex;flex-direction:column;gap:3px}.lexa-demo-guide>div span{font-size:10px;letter-spacing:.12em;font-weight:800;color:#127d7c}.lexa-demo-guide strong{font-size:14px}.lexa-demo-guide nav{display:flex;flex-wrap:wrap;gap:7px}.lexa-demo-guide nav a{color:#174d56;text-decoration:none;border:1px solid #bbd4cf;background:#fff;padding:7px 10px;border-radius:5px}.lexa-demo-guide nav a:hover{text-decoration:underline}.lexa-demo-guide button{background:none;border:0;color:#336674;text-decoration:underline;cursor:pointer;font:inherit;padding:6px}@media print{.lexa-demo-guide{display:none!important}}

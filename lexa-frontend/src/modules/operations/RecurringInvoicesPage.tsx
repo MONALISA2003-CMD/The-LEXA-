@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, ChevronDown, Eye, Pause, Pencil, Play, Plus, RefreshCw, X } from 'lucide-react';
+import { CalendarClock, ChevronDown, Eye, Pause, Pencil, Play, Plus, RefreshCw, X } from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { isApiProvider } from '../../data/remote/runtimeConfig';

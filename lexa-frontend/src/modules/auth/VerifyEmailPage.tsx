@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ArrowRight, CheckCircle2, LoaderCircle, MailCheck, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle2, LoaderCircle, MailCheck, ShieldCheck } from '../../components/LexaIcon';
 import { apiAuth } from '../../data/remote/apiAuth';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 

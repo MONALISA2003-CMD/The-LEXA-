@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
-import { BarChart3, CalendarDays, Download, RefreshCw, Printer, ShieldCheck, AlertTriangle, ArrowRight, LockKeyhole } from 'lucide-react';
+import { BarChart3, CalendarDays, Download, RefreshCw, Printer, ShieldCheck, AlertTriangle, ArrowRight, LockKeyhole } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { apiReports } from '../../data/remote/apiReports';

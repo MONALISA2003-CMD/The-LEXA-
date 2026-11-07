@@ -57,9 +57,11 @@ def restore_committed_lock(app: str, cwd: Path = ROOT) -> bytes:
 def verify_lock(app: str, package: dict, lock: dict) -> tuple[dict, bool]:
     """Verify package graph; allow ONLY an exact pin to an already locked version.
 
-    This permits replacing an unsafe range with the same already-committed package
-    version, without touching the resolved URL, integrity hash or transitive graph.
-    Any material dependency change requires a newly generated committed lockfile.
+    Allows exact pins to previously locked versions and the removal of unused
+    direct dependencies without fetching packages. An orphaned, unreferenced leaf
+    (e.g. lucide-react) can be removed from the resolved graph; surviving package
+    URLs, integrity hashes and transitive dependencies are never changed. New
+    dependencies and version upgrades still require a reviewed committed lock.
     """
     packages = lock.get("packages")
     if lock.get("lockfileVersion") != 3 or not isinstance(packages, dict):
@@ -68,15 +70,28 @@ def verify_lock(app: str, package: dict, lock: dict) -> tuple[dict, bool]:
     if not isinstance(root, dict) or len(packages) < 10:
         raise LockfileError(f"{app}/package-lock.json is incomplete")
     patched = False
+    removed_direct: set[str] = set()
     for field in ROOT_FIELDS:
         expected, actual = package.get(field), root.get(field)
         if expected == actual:
             continue
-        if field not in ("dependencies", "devDependencies") or not isinstance(expected, dict) or not isinstance(actual, dict) or set(expected) != set(actual):
+        if field not in ("dependencies", "devDependencies") or not isinstance(expected, dict) or not isinstance(actual, dict):
             raise LockfileError(
                 f"{app}/package-lock.json root {field} differs from package.json. "
                 "Generate a complete matching lockfile in a trusted environment."
             )
+        # Only an existing direct dependency can be removed. An addition cannot
+        # be synthesized even if the old graph contains a dormant package entry.
+        missing_in_committed = set(expected) - set(actual)
+        if missing_in_committed:
+            raise LockfileError(
+                f"{app}/package-lock.json root {field} lacks requested dependencies "
+                f"{sorted(missing_in_committed)}. Provide a newly generated lockfile."
+            )
+        for removed in set(actual) - set(expected):
+            del actual[removed]
+            removed_direct.add(removed)
+            patched = True
         for dependency, target in expected.items():
             if target == actual.get(dependency):
                 continue
@@ -88,6 +103,24 @@ def verify_lock(app: str, package: dict, lock: dict) -> tuple[dict, bool]:
                 )
             # Only the requested range was tightened, never the artifact itself.
             actual[dependency] = target
+            patched = True
+    # A removed direct dependency is pruned from the install graph only if it
+    # is an unreferenced leaf with no children. This keeps all remaining
+    # resolved versions, tarball URLs, integrity hashes and peer contracts.
+    for removed in removed_direct:
+        key = f"node_modules/{removed}"
+        entry = packages.get(key)
+        if not isinstance(entry, dict) or entry.get("dependencies") or entry.get("optionalDependencies"):
+            continue
+        mentioned_elsewhere = any(
+            removed in other[field]
+            for other_key, other in packages.items()
+            if other_key != key and isinstance(other, dict)
+            for field in ("dependencies", "devDependencies", "optionalDependencies", "peerDependencies")
+            if isinstance(other.get(field), dict)
+        )
+        if not mentioned_elsewhere:
+            del packages[key]
             patched = True
     for field in ("dependencies", "devDependencies"):
         for name in package.get(field, {}):

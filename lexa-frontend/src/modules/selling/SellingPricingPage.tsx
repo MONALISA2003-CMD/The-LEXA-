@@ -1,7 +1,7 @@
 import {useMemo,useState,type FormEvent} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
-import {CheckCircle2,Plus,Tag,ShieldCheck,AlertTriangle} from 'lucide-react';
+import {CheckCircle2,Plus,Tag,ShieldCheck,AlertTriangle} from '../../components/LexaIcon';
 import {useWorkspace} from '../../app/WorkspaceContext';
 import {products} from '../../data/repositories';
 import {apiSellingPrices} from '../../data/remote/apiSellingPrices';

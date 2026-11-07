@@ -1,7 +1,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { BriefcaseBusiness, ShieldCheck, Users } from 'lucide-react';
+import { BriefcaseBusiness, ShieldCheck, Users } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiTeamAccess } from '../../data/remote/apiTeamAccess';
 export default function MyEmploymentPage(){

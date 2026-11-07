@@ -6,7 +6,7 @@ import {
   CheckCircle2, CircleDollarSign, CreditCard, FileClock, HeartPulse, HelpCircle,
   LayoutDashboard, LockKeyhole, Menu, Search, Shield, ShieldCheck, Sparkles, Wifi, Trash2, RotateCcw,
   TrendingUp, Users, UserPlus, LogOut, X,
-} from 'lucide-react';
+} from '../../components/LexaIcon';
 import {
   apiPlatformAdministration as api,
   apiPlatformAdministratorAuth as adminAuth,

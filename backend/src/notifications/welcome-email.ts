@@ -52,7 +52,7 @@ export async function sendLexaWelcomeEmail(input: {
   subscriptionPending?: boolean;
   workspaceId?: string;
 }): Promise<void> {
-  const baseUrl = process.env.FRONTEND_PUBLIC_URL || 'https://lexaaamaal.com';
+  const baseUrl = process.env.FRONTEND_PUBLIC_URL || 'https://app.lexaaamaal.com';
   const content = buildLexaWelcomeEmail({ ...input, baseUrl });
   await sendTransactionalEmail({
     to: input.recipientEmail,

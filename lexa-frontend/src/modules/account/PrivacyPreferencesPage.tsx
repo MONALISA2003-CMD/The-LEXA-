@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Cookie, ShieldCheck } from 'lucide-react';
+import { Cookie, ShieldCheck } from '../../components/LexaIcon';
 import { apiAuth } from '../../data/remote/apiAuth';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import './account-security.css';

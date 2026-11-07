@@ -29,6 +29,9 @@ def fixture(base: Path):
         pkg = json.loads((ROOT / app / 'package.json').read_text())
         if app == 'lexa-frontend':
             pkg['dependencies']['@tanstack/react-query'] = '^5.90.2'
+            # GitHub Actions #156: this existed in the last committed lock,
+            # but the new app deliberately uses its own icons.
+            pkg['dependencies']['lucide-react'] = '^0.468.0'
         (folder / 'package.json').write_text(json.dumps(pkg))
         entries = {'': {k: pkg[k] for k in ('name', 'version', 'dependencies', 'devDependencies', 'engines') if k in pkg}}
         for field in ('dependencies', 'devDependencies'):
@@ -59,9 +62,22 @@ def main():
             (folder/app/'package-lock.json').unlink()
         prepare(folder)
         normalized = json.loads((folder/'lexa-frontend/package-lock.json').read_text())
+        original = json.loads(subprocess.check_output(['git','show','HEAD:lexa-frontend/package-lock.json'], cwd=folder, text=True))
+        assert {k:v for k,v in normalized['packages'].items() if k} == {k:v for k,v in original['packages'].items() if k and k!='node_modules/lucide-react'}, 'only the orphan Lucide leaf may be pruned; every surviving resolved tarball and integrity hash must remain unchanged'
         assert normalized['packages']['']['dependencies']['@tanstack/react-query'] == '5.106.0'
         assert normalized['packages']['node_modules/@tanstack/react-query']['version'] == '5.106.0'
         assert normalized['packages']['node_modules/@tanstack/query-core']['version'] == '5.106.0'
+        assert 'lucide-react' not in normalized['packages']['']['dependencies'], 'removed direct dependency was not dropped'
+        assert 'node_modules/lucide-react' not in normalized['packages'], 'unused Lucide must not be installed by npm ci'
+        assert 'lucide-react' not in manifest['dependencies'], 'frontend must use only its own icons'
+        # Unknown additions remain forbidden, including packages that happen to
+        # have orphaned entries in the lockfile.
+        unexpected = json.loads(json.dumps(manifest))
+        unexpected['dependencies']['brand-new-frontend-package'] = '^1.0.0'
+        assert_raises(lambda: verify_lock('lexa-frontend', unexpected, normalized), 'lacks requested dependencies')
+        readded = json.loads(json.dumps(manifest))
+        readded['dependencies']['lucide-react'] = '^0.468.0'
+        assert_raises(lambda: verify_lock('lexa-frontend', readded, normalized), 'lacks requested dependencies')
         # Repeated validation must be idempotent and not update lock files.
         before=(folder/'lexa-frontend/package-lock.json').read_bytes()
         prepare(folder)

@@ -2,7 +2,7 @@ import { validNewPassword, NEW_PASSWORD_RULE } from '../../domain/shared/newPass
 
 import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router';
-import { KeyRound, ShieldCheck } from 'lucide-react';
+import { KeyRound, ShieldCheck } from '../../components/LexaIcon';
 import { apiAuth } from '../../data/remote/apiAuth';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 export default function ChangeInitialPasswordPage(){

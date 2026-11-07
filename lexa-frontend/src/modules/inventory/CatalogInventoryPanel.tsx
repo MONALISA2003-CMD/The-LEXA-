@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Boxes, Plus, RefreshCw } from 'lucide-react';
+import { Boxes, Plus, RefreshCw } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiCatalogInventory } from '../../data/remote/apiWorkstream03';
 import {ElectronicsSerializedReceiving,ElectronicsBundleManager} from '../products/ElectronicsStockOperations';

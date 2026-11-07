@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, ClipboardCheck, RefreshCw } from 'lucide-react';
+import { ArrowRight, ClipboardCheck, RefreshCw } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { isApiProvider } from '../../data/remote/runtimeConfig';
 import { apiOperationalAdvice, type OperationalArea } from '../../data/remote/apiOperationalAdvice';

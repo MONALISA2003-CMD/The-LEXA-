@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { BookOpenCheck, CalendarClock, Check, CircleAlert, Plus, RefreshCw, RotateCcw, ShieldCheck, X } from 'lucide-react';
+import { BookOpenCheck, CalendarClock, Check, CircleAlert, Plus, RefreshCw, RotateCcw, ShieldCheck, X } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiGeneralLedger, type LedgerAccount, type LedgerJournalInput } from '../../data/remote/apiGeneralLedger';
 import { refreshBusinessProjections } from '../../data/remote/businessRefresh';

@@ -1,5 +1,5 @@
 import {Link, useLocation} from 'react-router';
-import {BarChart3, ClipboardCheck, FileText, HandCoins, HeartHandshake, ReceiptText, RotateCcw, ShoppingCart, Tag} from 'lucide-react';
+import {BarChart3, ClipboardCheck, FileText, HandCoins, HeartHandshake, ReceiptText, RotateCcw, ShoppingCart, Tag} from '../../components/LexaIcon';
 import {useQuery} from '@tanstack/react-query';
 import {useWorkspace} from '../../app/WorkspaceContext';
 import {formatMinorAmount} from '../../domain/money/money';

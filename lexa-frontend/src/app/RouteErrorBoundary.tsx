@@ -1,5 +1,5 @@
 import { isRouteErrorResponse, Link, useRouteError } from 'react-router';
-import { AlertTriangle, ArrowLeft } from 'lucide-react';
+import { AlertTriangle, ArrowLeft } from '../components/LexaIcon';
 import { businessErrorMessage, httpBusinessMessage } from '../data/remote/businessMessages';
 
 export default function RouteErrorBoundary() {

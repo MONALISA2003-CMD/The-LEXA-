@@ -95,3 +95,25 @@ python3 scripts/preflight_import_zip.py /path/outside/repository/LEXA_Import.zip
 `build_source_import_zip.py` uses ZIP deflate level 9 for broad compatibility, and verifies the created archive using the **same structural rules** as the live GitHub workflow. `preflight_import_zip.py` lists **all** invalid entries, rather than stopping at the first one. Python ZIP-LZMA is optional but is not recommended unless it produces a meaningful size improvement. Image assets are preserved; any brand-asset PNG recompression must be lossless and pixel-verified.
 
 **Important:** This import-specific fix does not certify production deployment. After uploading the root-level ZIP, confirm the entire `Refresh LEXA from a clean repository ZIP` workflow is green, including npm install, Prisma validation, backend test/build, and frontend build. Resolve any later failure from its logs; avoid switching live Render/Vercel traffic before those gates pass.
+
+## November 7 public-site and sample-workspace refinement
+
+This source release updates the **actual** module-based frontend; it does not replace it with a static imitation.
+
+- Marketing project `lexa-frontend/marketing` has six self-canonical HTML pages: `/`, `/features`, `/industries`, `/pricing`, `/security` and `/help`. Its `vercel.json` enables clean URLs, redirects old `/lexa.html` to `/`, and routes `/demo`, `/sign-in` and `/create-account` to their correct separate hosts. Sitemap and `robots.txt` belong to the public marketing project.
+- Customer Vercel project `lexa_review` **still serves the app at `/`**. Its `lexa-frontend/vercel.json` preserves all internal dashboard and business-module routes and its production API rewrite. The added `X-Robots-Tag: noindex` header keeps the customer app out of search listings. Do **not** redirect its `/` path to marketing: that would break existing dashboard sessions.
+- The demo frontend is separately built using `scripts/build_demo_vercel_bundle.py`, with the `lexa-demo-api.onrender.com` proxy. The demo entry states concrete actions, product counts and expiry; the dashboard banner includes a short route-linked starter guide. Do not point its API at production.
+- All existing React `lucide-react` imports are replaced by local `src/components/LexaIcon.tsx` marks. The package no longer depends on `lucide-react`, and the app retains meaningful text labels on navigation and buttons.
+- Demo seed prices are fictional but reflect plausible different product categories rather than one repetitive price formula; its module records have module-specific sample names, not generic numbered labels. Real sale/stock/payment tables remain linked.
+
+**Required release order:** (1) verify and deploy the app on `app.lexaaamaal.com`, preserving user sessions; (2) provision the new empty `lexa_demo` database and isolated Render API; (3) deploy and verify `demo.lexaaamaal.com`; (4) attach `lexaaamaal.com` to the *marketing* Vercel project only after the other hosts work. Update DNS/aliases and verify redirects, canonical links, robots headers and sample-business creation in real browsers. Never attach the public marketing domain to the customer app and expect `/` to become both a homepage and a dashboard.
+
+**No production data is part of this release archive.** No CI result or frontend bundle should be called production-ready without its own dependency-installed build and end-to-end test run.
+
+## Account links and domain handoff (important)
+
+After `app.lexaaamaal.com` is serving the **production application** and its same-origin API proxy, configure Render `FRONTEND_PUBLIC_URL=https://app.lexaaamaal.com` and verify that login, invitation and recovery emails point to that hostname. The production `render.yaml` fallback now does so; dashboard-configured Render values can override it. The application's CORS and Turnstile hostname defaults also include `app.lexaaamaal.com`, but Cloudflare Turnstile domain permissions must be changed in the Cloudflare dashboard. Continue allowing the old apex and preview host as necessary during the transition.
+
+The public marketing Vercel config now redirects old `/sign-in`, `/create-account`, `/verify-email`, `/reset-password`, `/forgot-password`, `/accept-invitation`, `/platform-admin/*`, `/modules/*`, and legacy business URLs to `https://app.lexaaamaal.com`, **preserving query strings** such as a single-use verification token. Test this via actual HTTPS and ensure tokens are never logged by analytics or the marketing page. Do not change the apex DNS until production application routes and customer sessions work on the app subdomain.
+
+The public homepage and sitemap remain `https://lexaaamaal.com/`. The demo entrance remains `https://demo.lexaaamaal.com/demo` and must use an isolated demo API.

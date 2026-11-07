@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import {
   ArrowLeft, ArrowRight, CheckCircle2, KeyRound, Mail, ShieldCheck,
   Sparkles, Users, LockKeyhole,
-} from 'lucide-react';
+} from '../../components/LexaIcon';
 import { apiAuth } from '../../data/remote/apiAuth';
 import { businessErrorMessage, businessSignInErrorMessage } from '../../data/remote/businessMessages';
 import { apiBaseUrl, dataProviderMode } from '../../data/remote/runtimeConfig';

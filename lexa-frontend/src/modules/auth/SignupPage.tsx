@@ -1,7 +1,7 @@
 import { validNewPassword, NEW_PASSWORD_RULE } from '../../domain/shared/newPasswordPolicy';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { ArrowLeft, ArrowRight, Building2, CheckCircle2, LockKeyhole, Mail, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, CheckCircle2, LockKeyhole, Mail, ShieldCheck, Sparkles, UserRound } from '../../components/LexaIcon';
 import { apiAuth } from '../../data/remote/apiAuth';
 import { businessErrorMessage } from '../../data/remote/businessMessages';
 import { PasswordField, PasswordLengthGuide } from './AuthFields';

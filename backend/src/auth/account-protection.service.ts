@@ -148,7 +148,7 @@ export class AccountProtectionService {
       try {
         await sendTransactionalEmail({to:user.email,subject:'Verify your LEXA sign-in',
           text:`Your one-time LEXA sign-in code is ${code}. It expires in 10 minutes. Never share this code. If you did not sign in, change your password.`,
-          actionUrl:`${(process.env.FRONTEND_PUBLIC_URL||'https://lexaaamaal.com').replace(/\/$/,'')}/sign-in`,
+          actionUrl:`${(process.env.FRONTEND_PUBLIC_URL||'https://app.lexaaamaal.com').replace(/\/$/,'')}/sign-in`,
           actionLabel:'Return to sign in',idempotencyKey:`login-code-${row.id}`,
         });
       }catch{
@@ -225,7 +225,7 @@ export class AccountProtectionService {
     if(outcome.newDevice&&emailEligible(user.email)&&process.env.RESEND_API_KEY&&process.env.RESEND_FROM_EMAIL){
       try { await sendTransactionalEmail({to:user.email,subject:'New browser signed in to LEXA',
         text:'A new browser completed verification and signed in to your LEXA account. If this was not you, reset your password and review active sessions immediately.',
-        actionUrl:`${(process.env.FRONTEND_PUBLIC_URL||'https://lexaaamaal.com').replace(/\/$/,'')}/settings/security`,actionLabel:'Review account security'});
+        actionUrl:`${(process.env.FRONTEND_PUBLIC_URL||'https://app.lexaaamaal.com').replace(/\/$/,'')}/settings/security`,actionLabel:'Review account security'});
       } catch { /* Sign-in is already committed; audit remains authoritative. */ }
     }
     return {user:{id:user.id,email:user.email,displayName:user.displayName??undefined},roles:[...new Set(memberships.map(m=>m.role))],requiresPasswordChange:user.mustChangePassword};

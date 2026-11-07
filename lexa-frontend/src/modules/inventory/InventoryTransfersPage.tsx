@@ -7,7 +7,7 @@ import {products} from '../../data/repositories';
 import {apiCatalogInventory} from '../../data/remote/apiWorkstream03';
 import {apiInventoryOperations,type RawInventoryRow} from '../../data/remote/apiInventoryOperations';
 import {InventoryFrame,InventoryPanel,InventoryNotice,InventoryStats,InventoryBarChart,InventoryTable,field,number,readable} from './InventoryFrame';
-import {ArrowLeftRight} from 'lucide-react';
+import {ArrowLeftRight} from '../../components/LexaIcon';
 const lines=(r:RawInventoryRow)=>Array.isArray(r.lines)?r.lines as RawInventoryRow[]:[];
 export default function InventoryTransfersPage(){
  const {workspace,branch}=useWorkspace(),scope={workspaceId:workspace.id,branchId:branch.id},cache=useQueryClient();

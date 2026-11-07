@@ -8,7 +8,7 @@ import {ElectronicsProductIdentityAndPackages} from './ElectronicsStockOperation
 import { initialProductPreset, validateProductDraft, presetFor, CATALOGUE_VERSION } from '../../domain/catalog/industryCatalog';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Edit3, Package, Plus, Power, Search, X } from 'lucide-react';
+import { Check, Edit3, Package, Plus, Power, Search, X } from '../../components/LexaIcon';
 import { toast } from 'sonner';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { inventory, products } from '../../data/repositories';

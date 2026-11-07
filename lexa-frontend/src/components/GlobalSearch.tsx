@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight, Search, X } from 'lucide-react';
+import { ArrowUpRight, Search, X } from './LexaIcon';
 import { useWorkspace } from '../app/WorkspaceContext';
 import { isApiProvider } from '../data/remote/runtimeConfig';
 import { apiGlobalSearch } from '../data/remote/apiGlobalSearch';

@@ -3,7 +3,7 @@ import { validNewPassword, NEW_PASSWORD_RULE } from '../../domain/shared/newPass
 import { useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { LockKeyhole, ShieldCheck, UserRoundPlus, Users, KeyRound, Pencil } from 'lucide-react';
+import { LockKeyhole, ShieldCheck, UserRoundPlus, Users, KeyRound, Pencil } from '../../components/LexaIcon';
 import { apiTeamAccess, type StaffDraft, type StaffProfile } from '../../data/remote/apiTeamAccess';
 
 const ROLES = [

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldCheck, Sparkles } from '../../components/LexaIcon';
 import { apiPlatformAdministratorAuth as auth } from '../../data/remote/apiPlatformAdministration';
 import { platformAdministratorErrorMessage } from '../../data/remote/businessMessages';
 import { isApiProvider } from '../../data/remote/runtimeConfig';

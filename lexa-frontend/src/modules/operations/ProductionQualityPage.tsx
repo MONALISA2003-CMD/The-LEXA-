@@ -3,7 +3,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
-import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, ClipboardList, Factory, PackageCheck, Plus, RefreshCw, Search, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, ClipboardCheck, ClipboardList, Factory, PackageCheck, Plus, RefreshCw, Search, ShieldCheck, TrendingUp } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiProductRepository } from '../../data/remote/apiRepositories';
 import { apiInventoryOperations } from '../../data/remote/apiInventoryOperations';

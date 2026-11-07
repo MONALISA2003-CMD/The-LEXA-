@@ -135,8 +135,8 @@
       "lexa-frontend/package-lock.json"
     ],
     "lockfiles_in_source_import_zip": false,
-    "reason": "The import workflow retains Git history. The cleaner restores both complete npm v3 lockfiles from HEAD, validates every direct resolved dependency, and permits only an exact version pin to an already-locked package. It never runs npm install to regenerate locks.",
-    "ci_requirement": "scripts/clean_repository.py must restore/verify known-good committed locks before npm ci. Missing history, incomplete locks and material dependency changes fail closed. Update lockfiles intentionally on a trusted registry-connected machine and include them in the next source ZIP when needed.",
+    "reason": "The import workflow retains Git history. The cleaner restores both complete npm v3 lockfiles from HEAD, validates every direct resolved dependency, and permits only an exact version pin or removal of an unused direct dependency. A removed, unreferenced leaf may be pruned without affecting other resolved versions. It never runs npm install to regenerate locks.",
+    "ci_requirement": "scripts/clean_repository.py must restore/verify known-good committed locks before npm ci. Missing history, incomplete locks and material dependency changes fail closed. For new packages or version upgrades, update the committed lockfile through a separately reviewed GitHub change before using the ZIP importer; source import ZIPs must not contain lockfiles.",
     "pinned_react_query_version": "5.106.0",
     "pinned_query_core_transitive": "5.106.0"
   },

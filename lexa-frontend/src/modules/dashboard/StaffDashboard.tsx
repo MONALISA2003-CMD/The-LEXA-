@@ -1,7 +1,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { Activity, ArrowRight, BriefcaseBusiness, ClipboardList, Package, ShieldCheck, ShoppingCart, Users, Wallet } from 'lucide-react';
+import { Activity, ArrowRight, BriefcaseBusiness, ClipboardList, Package, ShieldCheck, ShoppingCart, Users, Wallet } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { isEmployeeNavigationAllowed } from '../../domain/shared/staffNavigation';
 import EmployeeWorkPanel from './EmployeeWorkPanel';

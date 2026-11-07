@@ -3,7 +3,7 @@ import SellingNav,{SellingPerformance} from '../selling/SellingNav';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight, ReceiptText, Search } from 'lucide-react';
+import { ArrowUpRight, ReceiptText, Search } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiSalesWorkflow } from '../../data/remote/apiSalesWorkflow';
 import { sales } from '../../data/repositories';

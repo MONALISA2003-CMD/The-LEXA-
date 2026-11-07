@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, DatabaseBackup, FileSpreadsheet, RefreshCw, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, DatabaseBackup, FileSpreadsheet, RefreshCw, ShieldCheck } from '../../components/LexaIcon';
 import { useWorkspace } from '../../app/WorkspaceContext';
 import { apiClient } from '../../data/remote/apiClient';
 

@@ -6,7 +6,7 @@ import {useWorkspace} from '../../app/WorkspaceContext';
 import {apiCatalogInventory} from '../../data/remote/apiWorkstream03';
 import {apiInventoryOperations} from '../../data/remote/apiInventoryOperations';
 import {InventoryFrame,InventoryPanel,InventoryNotice,InventoryStats,InventoryTable} from './InventoryFrame';
-import {Plus} from 'lucide-react';
+import {Plus} from '../../components/LexaIcon';
 export default function InventoryWarehousesPage(){
  const {workspace,branch}=useWorkspace(),scope={workspaceId:workspace.id,branchId:branch.id};
  const wh=useQuery({queryKey:['supply-warehouses',workspace.id,branch.id],queryFn:()=>apiInventoryOperations.warehouses(scope)});

@@ -1,8 +1,8 @@
-import type { LucideIcon } from 'lucide-react';
+import type { LexaIcon } from '../../components/LexaIcon';
 import {
   Activity, ArrowLeftRight, Banknote, BookOpen, Building2, ClipboardList,
   FileText, HandCoins, PackageCheck, ReceiptText, Truck, Users, Wallet, ShoppingCart, Tag, UserRound, Clock3, RotateCcw, Boxes, Target,
-} from 'lucide-react';
+} from '../../components/LexaIcon';
 
 export type FieldKind = 'text' | 'email' | 'tel' | 'number' | 'date' | 'select' | 'textarea';
 export type ColumnKind = 'text' | 'money' | 'date' | 'status' | 'number';
@@ -26,7 +26,7 @@ export interface ModuleDefinition {
   group: string;
   description: string;
   workflow: string;
-  icon: LucideIcon;
+  icon: LexaIcon;
   fields: ModuleField[];
   /** Display-only field metadata for read-only records; never used to render editable inputs. */
   detailFields?: ModuleField[];

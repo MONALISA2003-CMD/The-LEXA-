@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useRef,useState,type FormEvent} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {toast} from 'sonner';
-import {Box,Boxes,CheckCircle2,Package,PackageCheck,Printer,ScanBarcode,ShieldCheck,XCircle} from 'lucide-react';
+import {Box,Boxes,CheckCircle2,Package,PackageCheck,Printer,ScanBarcode,ShieldCheck,XCircle} from '../../components/LexaIcon';
 import JsBarcode from 'jsbarcode';
 import {useWorkspace} from '../../app/WorkspaceContext';
 import {apiCommerce} from '../../data/remote/apiCommerce';
